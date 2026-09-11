@@ -6,7 +6,9 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "ingest:uprn": "tsx scripts/ingest-uprn.ts",
+    "ingest:nccz": "tsx scripts/ingest-nccz.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -23,7 +25,9 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.25",
+    "proj4": "^2.22.0",
     "tailwindcss": "^4",
+    "tsx": "^4.23.13",
     "typescript": "^5"
   }
 }

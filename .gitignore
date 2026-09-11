@@ -43,5 +43,6 @@ yarn-error.log*
 next-env.d.ts
 
 # large source datasets — never commit
-/data
+/data/*
+!/data/README.md
 nakolabs-data/data/
