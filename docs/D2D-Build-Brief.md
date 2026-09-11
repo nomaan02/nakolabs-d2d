@@ -35,6 +35,8 @@ Read this section first. It governs everything below.
 
 ---
 
+
+
 ## 1. What this is
 
 A canvassing management platform for a Bristol home-improvements company.
@@ -53,25 +55,29 @@ Everything in this build serves that sentence. If a feature does not help answer
 
 ---
 
+
+
 ## 2. Glossary
 
 All terms below are resolved. There is nothing left to infer.
 
-| Term | Meaning |
-|---|---|
-| **prop** | One polygon drawn around an area. One prop = one polygon = one team for one day. |
-| **team** | One or two canvassers. Props are allocated to teams of 1s or 2s at the start of the day. |
-| **duo** | A team of two. |
-| **knockable door** | A UPRN inside the prop polygon, excluding No Cold Calling Zone properties. |
-| **lead** | A knock outcome where the householder agreed to a sales appointment. |
-| **immediate** | An appointment booked for the same day. |
-| **confirmed** | A lead the office has verified by phone. |
-| **sale** | Sales rep attended the lead and closed on the day. |
-| **PM** | *Pitch & Miss.* Rep attended but did not close. |
-| **blowout** | Not sat, no pitch — usually a cancellation of some kind. The rep never got in front of the customer. |
-| **re-app** | Rescheduled appointment. **Non-terminal** — the lead returns to the pipeline with a new date. |
-| **UTC** | *Unable To Contact.* Office could not reach the lead. |
-| **BTC** | *Back To Canvasser.* Lead returned to the canvasser. |
+
+| Term               | Meaning                                                                                              |
+| ------------------ | ---------------------------------------------------------------------------------------------------- |
+| **prop**           | One polygon drawn around an area. One prop = one polygon = one team for one day.                     |
+| **team**           | One or two canvassers. Props are allocated to teams of 1s or 2s at the start of the day.             |
+| **duo**            | A team of two.                                                                                       |
+| **knockable door** | A UPRN inside the prop polygon, excluding No Cold Calling Zone properties.                           |
+| **lead**           | A knock outcome where the householder agreed to a sales appointment.                                 |
+| **immediate**      | An appointment booked for the same day.                                                              |
+| **confirmed**      | A lead the office has verified by phone.                                                             |
+| **sale**           | Sales rep attended the lead and closed on the day.                                                   |
+| **PM**             | *Pitch & Miss.* Rep attended but did not close.                                                      |
+| **blowout**        | Not sat, no pitch — usually a cancellation of some kind. The rep never got in front of the customer. |
+| **re-app**         | Rescheduled appointment. **Non-terminal** — the lead returns to the pipeline with a new date.        |
+| **UTC**            | *Unable To Contact.* Office could not reach the lead.                                                |
+| **BTC**            | *Back To Canvasser.* Lead returned to the canvasser.                                                 |
+
 
 **Consequence for the data model:** because one prop is one polygon for one team for one day, the allocation *is* the shift. There is no separate shift entity. `assignments` carries the date, the team, the rotation state and the frozen snapshot.
 
@@ -88,25 +94,23 @@ The six outcomes diagnose different problems and must not be collapsed into "con
 
 ---
 
+
+
 ## 3. Architectural invariants
 
 Seven rules. Every one of them exists because breaking it costs more later.
 
 1. **Coverage is derived, never stored.** This is a rule about *where the truth lives*, not about whether coverage is a feature — it is the headline feature. Coverage is computed on read from `knock_events` against the assignment snapshot. There is no `coverage` table holding a second copy. A second copy has to be kept in sync from every write path (live knock, delayed offline sync, corrected outcome, deleted event), one path eventually gets missed, and the two disagree with no way to tell which is right. A view cannot drift.
-
 2. **No scoring in the field view.** Canvassers who can see which doors score well will cherry-pick them, and the coverage data stops meaning anything. Admins see intelligence. Canvassers see the sequence.
-
 3. **Canvasser observations outrank all public data.** Highest confidence tier.
-
 4. **Offline-first and idempotent.** Every write carries a `client_event_id`. Re-syncing the same event twice must be a no-op.
-
 5. **A door's identity is its UPRN dot on the map.** There is no address text, no house number, no autocomplete. Tapping the dot is the interaction.
-
 6. **Routes are deterministic, not optimal.** The route a prop gets is generated by a fixed rule and is reproducible from the visit number. It is not solved for shortest or best — that needs calibration data that does not exist, and it would destroy the property that makes routes useful, which is comparability across visits. See Stages 1b and 5b.
-
 7. **Position is a scalar, never a coordinate.** Location may be used to place a canvasser on their route. The raw fix is snapped to the route line on the device and discarded there; only the distance along the route is transmitted. No coordinate history is ever stored, and no view renders a movement trail. See Stage 16 and Section 8.
 
 ---
+
+
 
 ## 4. Prerequisites
 
@@ -118,7 +122,7 @@ Complete all of these before Stage 0.
 - MapTiler account — free tier, 100k loads, no card
 - Vercel account, linked to the GitHub repo
 
-**`.env.local` in the repo root:**
+`.env.local` **in the repo root:**
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=
@@ -135,6 +139,8 @@ The service role key is server-side only. It must never appear in a `NEXT_PUBLIC
 
 ---
 
+
+
 ## 5. `AGENTS.md` — create this before Stage 0
 
 Cursor's own Next.js evaluations show a large gap for its in-house models between running with and without an `AGENTS.md` present. This file is the highest-leverage thirty minutes in the whole build. Put it in the repo root.
@@ -148,32 +154,38 @@ Terra Draw, Dexie, Vercel.
 
 ## Hard rules
 
-- Coverage is DERIVED from knock events. Never create a coverage table.
+- Coverage is DERIVED from `knock_events`. Never create a coverage table.
 - No scoring, ranking or colour-coding in any `/field` route. Admin only.
-- All offline writes go through `lib/sync/queue.ts`. Never write a second sync path.
+- All field writes go through `lib/sync/queue.ts`. Never a second sync path.
 - Every table has RLS enabled with default-deny policies.
 - PostGIS columns are `geometry(Point,4326)` / `geometry(Polygon,4326)`.
   Cast `::geography` for distances only.
 - Every client-originated write carries a `client_event_id` (uuid v4, generated
   on device). Re-sync must be idempotent.
+- Routes are deterministic, never solved for optimal. Same prop + visit_number
+  must always produce the identical route.
+- Duos bunny-hop: same side, same route, leapfrogging door to door. No side
+  split, no per-canvasser door allocation. Do not redesign this.
+- Raw GPS coordinates never leave the device. Only a distance-along-route
+  scalar is ever transmitted or stored.
 - Service role key is server-only. Never in a `NEXT_PUBLIC_` var.
 - British English in user-facing strings.
 
 ## Structure
 
 app/(admin)   — prop drawing, allocation, coverage, dashboard
-app/(office)  — appointment slots, lead outcome settlement
+app/(office)  — appointment slots, CRM sync review, manual lead settlement fallback
 app/(field)   — canvasser view; offline-capable
 lib/supabase  — client + server factories, generated types
 lib/sync      — Dexie queue, the only write path from the field
-lib/geo       — PostGIS RPC wrappers, rotation maths
+lib/geo       — PostGIS RPC wrappers, rotation and route maths
 supabase/migrations — append-only, numbered
 
 ## Vocabulary
 
-prop = one polygon = one team for one day (table: `territories`)
-team = 1 or 2 canvassers (tables: `assignments` + `assignment_members`)
-lead outcomes: sale | pm (pitch & miss) | utc (unable to contact) | btc (back to canvasser)
+prop = one polygon = one team for one day (table: `territories` + `assignments`)
+team = 1 or 2 canvassers, bunny-hopping the same route (tables: `assignments` + `assignment_members`)
+lead outcomes: sale | pm (pitch & miss) | blowout | utc (unable to contact) | btc (back to canvasser) | re_app (rescheduled — non-terminal)
 
 ## Conventions
 
@@ -185,11 +197,15 @@ lead outcomes: sale | pm (pitch & miss) | utc (unable to contact) | btc (back to
 
 ---
 
+
+
 ## 6. The stages
 
 Each stage is one Cursor session. The **prompt** block is paste-ready.
 
 ---
+
+
 
 ### Stage 0 — Scaffold, env verification, deploy skeleton
 
@@ -198,6 +214,7 @@ Each stage is one Cursor session. The **prompt** block is paste-ready.
 **Build:** `create-next-app` with TypeScript, Tailwind, App Router. Supabase client and server factories. A `/health` route that confirms all four env vars resolve and the Supabase connection succeeds. Push to GitHub, connect Vercel, deploy.
 
 **Acceptance:**
+
 - [ ] `/health` returns green for all four env vars on the deployed Vercel URL.
 - [ ] `SUPABASE_SERVICE_ROLE_KEY` does not appear anywhere in the client bundle (grep the build output).
 - [ ] Keepalive GitHub Action committed and its first run succeeded.
@@ -205,6 +222,8 @@ Each stage is one Cursor session. The **prompt** block is paste-ready.
 > **Prompt:** Implement Stage 0 of D2D-Build-Brief.md. Scaffold the Next.js 15 app, Supabase factories, `/health` check, and the Supabase keepalive Action. Do not create any schema. Run the acceptance checklist and report each item.
 
 ---
+
+
 
 ### Stage 1 — Data ingest
 
@@ -244,6 +263,7 @@ create index nccz_zones_geom_idx on nccz_zones using gist (geom);
 **Do not let it block Stage 1.** Build the ingest path, load `nccz_zones` with two or three hand-drawn polygons, carry on. The real boundaries drop in later as a data load with no code change. Say plainly in the demo that the zones are placeholders — the automatic exclusion mechanism is the point, and that demos fine.
 
 **Acceptance:**
+
 - [ ] Bristol UPRN count is within a plausible range and spot-checked against a known postcode.
 - [ ] All geometries are stored in 4326 regardless of source projection.
 - [ ] Re-running the script changes no row counts.
@@ -251,6 +271,8 @@ create index nccz_zones_geom_idx on nccz_zones using gist (geom);
 - [ ] Every geometry is valid (`ST_IsValid`) and in SRID 4326.
 
 ---
+
+
 
 ### Stage 1b — Road network ingest
 
@@ -291,12 +313,15 @@ create index road_segments_nodes_idx on road_segments (from_node, to_node);
 A useful side effect: `road_segments.name` gives street-name resolution for free, which was the original reason OS Open Roads and the DEL application existed. Both stay cancelled.
 
 **Acceptance:**
+
 - [ ] Junction nodes are shared between segments — a T junction resolves to one node referenced by three segments, not three coincident nodes.
 - [ ] Re-running the ingest is idempotent.
 - [ ] Every segment has a valid geometry and a non-zero length.
 - [ ] OSM attribution visible wherever the route is drawn.
 
 ---
+
+
 
 ### Stage 2 — Full schema and RLS
 
@@ -409,6 +434,7 @@ create table property_observations (
 - `property_observations` — canvasser inserts; admin reads all.
 
 **Acceptance:**
+
 - [ ] Every table reports `rowsecurity = true`.
 - [ ] A canvasser JWT cannot read another canvasser's knock events — tested, not assumed.
 - [ ] A canvasser JWT cannot update `leads.status`.
@@ -418,16 +444,21 @@ create table property_observations (
 
 ---
 
+
+
 ### Stage 3 — Auth and role routing
 
 **Build:** Supabase Auth, email/password. Trigger creating a `profiles` row on signup, defaulting to `canvasser`. Three route groups with middleware enforcement. Login redirects by role: admin → `/admin`, office → `/office`, canvasser → `/field`.
 
 **Acceptance:**
+
 - [ ] Each role lands on its own route group and cannot reach the other two.
 - [ ] Enforcement is server-side; removing the client guard does not grant access.
 - [ ] Signed-out access to any protected route redirects to login.
 
 ---
+
+
 
 ### Stage 4 — Prop drawing and door count
 
@@ -449,6 +480,7 @@ Counting happens in Postgres. Never fetch points to the client to count them.
 **Turf size warning.** Canvassing practice across the political field-organising world converges on walk lists of roughly 40–150 doors, sized to a one-to-two-hour shift, and on not letting a turf straddle a main road. Show a soft warning above 150 knockable doors and when the polygon crosses an A-road. A warning, not a block — the admin knows things the polygon does not.
 
 **Acceptance:**
+
 - [ ] Drawing a polygon around a known street returns a count matching a manual check.
 - [ ] A 300-door polygon triggers the size warning without preventing save.
 - [ ] NCCZ properties appear in `excluded`, never in `knockable`.
@@ -456,6 +488,8 @@ Counting happens in Postgres. Never fetch points to the client to count them.
 - [ ] A prop covering ~2,000 doors counts in under a second.
 
 ---
+
+
 
 ### Stage 5 — Allocation and rotation
 
@@ -475,6 +509,7 @@ slot               = ['early','mid','late'][n % 3]
 The snapshot is frozen at allocation. If the prop polygon is edited later, the already-allocated day is unaffected.
 
 **Acceptance:**
+
 - [ ] Allocating the same prop three times yields three different entry vertices and alternating directions.
 - [ ] Rotation is reproducible: the same `visit_number` always gives the same entry vertex.
 - [ ] `uprn_snapshot` excludes NCCZ and is ordered, not arbitrary.
@@ -482,6 +517,8 @@ The snapshot is frozen at allocation. If the prop polygon is edited later, the a
 - [ ] Editing the prop polygon does not alter an existing snapshot.
 
 ---
+
+
 
 ### Stage 5b — Route generation
 
@@ -546,6 +583,7 @@ create table route_steps (
 `instruction` is plain text, generated at build time, British English: *"Elm Road — continue to the end"*, *"Left into Ashley Grove"*, *"Spur — Priory Close, return the way you came"*, *"Cross to the far side and work back"*.
 
 **Acceptance:**
+
 - [ ] The same prop and the same `visit_number` always generate an identical route. Run it three times and diff the geometry.
 - [ ] A different `visit_number` produces a materially different traversal, not the same route reversed.
 - [ ] Every knockable UPRN in the snapshot lies within 40m of the route line.
@@ -557,6 +595,8 @@ create table route_steps (
 
 ---
 
+
+
 ### Stage 6 — Field prop view and offline cache
 
 **Build:** canvasser opens `/field`, sees today's prop. Dots on the map in walking order, plus a list view. On open, the full snapshot is written to Dexie. The app must be fully usable in airplane mode from that point.
@@ -564,11 +604,14 @@ create table route_steps (
 Header line: *"Visit 3 · starting Elm Road end · anticlockwise · 214 doors"*.
 
 **Acceptance:**
+
 - [ ] Load the prop, enable airplane mode, force-quit, reopen — the prop renders from Dexie.
 - [ ] Dot order matches `uprn_snapshot` order.
 - [ ] **Tap accuracy test on a real phone, on a real terraced street, at zoom 19.** Bristol terraces put dots a few metres apart. If tapping the right door is unreliable, stop and redesign the target size before building Stage 8 on top of it.
 
 ---
+
+
 
 ### Stage 7 — Sync queue
 
@@ -584,6 +627,7 @@ Header line: *"Visit 3 · starting Elm Road end · anticlockwise · 214 doors"*.
 - Queue depth and last-sync time exposed to the UI
 
 **Acceptance:**
+
 - [ ] 50 queued events flush without loss.
 - [ ] Killing the app mid-flush and reopening produces no duplicates and no losses.
 - [ ] Deliberately replaying the same `client_event_id` twice results in one row.
@@ -591,6 +635,8 @@ Header line: *"Visit 3 · starting Elm Road end · anticlockwise · 214 doors"*.
 - [ ] Queue survives a browser restart.
 
 ---
+
+
 
 ### Stage 8 — Knock logger
 
@@ -601,12 +647,15 @@ Outcome buttons are large, bottom-anchored, one-handed. This is used standing on
 `sequence_position` is set from the dot's index in the snapshot.
 
 **Acceptance:**
+
 - [ ] Logging a knock offline then reconnecting produces exactly one row.
 - [ ] A logged door visibly changes state immediately, before sync.
 - [ ] `lead` creates one `knock_events` row and one `leads` row, atomically.
 - [ ] Every write goes through `lib/sync/queue.ts` — no direct Supabase calls in field components.
 
 ---
+
+
 
 ### Stage 9 — Prop completion
 
@@ -630,11 +679,14 @@ group by a.id;
 **Report three numbers, never one percentage.** "62% complete" hides the difference between a prop that was half-walked and one where half the doors did not answer — and those two call for opposite decisions next time. Show *worked*, *answered*, *doors remaining*.
 
 **Acceptance:**
+
 - [ ] Numbers reconcile against a hand-counted test prop.
 - [ ] A duplicate re-sync does not inflate `worked`.
 - [ ] Canvasser sees only their own current prop; admin sees all.
 
 ---
+
+
 
 ### Stage 10 — Next door and partner position
 
@@ -653,6 +705,7 @@ That last case is the one that matters at the drop-off. Before either of you has
 **Offline:** next-door is computed from the local Dexie snapshot and works with no signal — it simply loses partner claims and may occasionally suggest a door the partner has just taken. Show partner data greyed with its age. Never render a stale claim as live.
 
 **Acceptance:**
+
 - [ ] Two sessions on the same assignment never show the same next door while both are connected.
 - [ ] A claim left open for over three minutes expires and the door returns to the pool.
 - [ ] Next door is correct offline, computed from Dexie alone.
@@ -662,6 +715,8 @@ That last case is the one that matters at the drop-off. Before either of you has
 **Deferred:** the lock-screen widget needs a native shell. Bundle it with any future Capacitor work.
 
 ---
+
+
 
 ### Stage 11 — Amenity cache (toilet locator)
 
@@ -701,12 +756,15 @@ create index amenities_geom_idx on amenities using gist (geom);
 Amenities within the prop bbox + 300m are cached into Dexie alongside the snapshot. Distances are computed from the last logged knock, **not** from live GPS.
 
 **Acceptance:**
+
 - [ ] Ingest is idempotent on re-run (`osm_id` conflict → update).
 - [ ] List renders in airplane mode.
 - [ ] No `navigator.geolocation` call anywhere in this feature.
 - [ ] OSM attribution visible.
 
 ---
+
+
 
 ### Stage 12 — CRM outcome sync and visit history
 
@@ -742,17 +800,20 @@ create table crm_status_map (
 1. **Server-only key.** `CRM_API_KEY` is never a `NEXT_PUBLIC_` variable and never reaches the client bundle.
 2. **Mapping is data, not code.** CRM status strings live in `crm_status_map`. They will change, and a redeploy should not be needed when they do.
 3. **Unmatched is reported, never guessed.** A CRM row that matches no lead, or a status string absent from the map, increments `rows_unmatched` and is surfaced. Never coerce it to the nearest-looking status.
-4. **`re_app` is not an ending.** It updates `booked_for` and leaves the lead non-terminal.
+4. `re_app` **is not an ending.** It updates `booked_for` and leaves the lead non-terminal.
 5. **Idempotent.** Running the sync twice on the same export changes nothing the second time.
 6. **Manual fallback stays.** `/office` keeps a settlement screen for leads with no `crm_ref` and for days the sync fails. Do not delete it once the sync works.
 
 **Acceptance:**
+
 - [ ] Running the sync twice produces zero changes on the second run.
 - [ ] Inspecting a synced `leads` row shows no CRM field beyond the ref and the status — no name, number, address or note.
 - [ ] An unknown CRM status string increments `rows_unmatched` and appears in the run log.
 - [ ] `re_app` updates `booked_for` and the lead stays in the pending pipeline.
 - [ ] `CRM_API_KEY` is absent from the client bundle (grep the build output).
 - [ ] A failed run writes an `error` and does not partially apply.
+
+
 
 #### 12b — Visit snapshot
 
@@ -785,12 +846,15 @@ Coverage counts are written at close. Lead outcome counts fill in as the sync se
 Historic aggregates must never be recomputed from live data. Outcomes get amended, and the recommender needs a stable series.
 
 **Acceptance:**
+
 - [ ] Closing an assignment writes exactly one `territory_visits` row and increments `territories.visit_count` once, including after an offline period.
 - [ ] Editing a knock outcome afterwards does not alter the stored coverage counts.
 - [ ] A lead sitting at `re_app` prevents `outcomes_settled_at` from being set.
 - [ ] Settling the last non-terminal lead sets it.
 
 ---
+
+
 
 ### Stage 13 — Immediates board
 
@@ -814,6 +878,7 @@ create table appointment_slots (
 Office creates and closes slots. Canvassers read, and can place a ten-minute auto-expiring hold while closing at the door. Supabase Realtime on the table — a stale board is worse than no board.
 
 **Acceptance:**
+
 - [ ] Two canvassers cannot hold the same slot; the second attempt fails cleanly with a clear message.
 - [ ] Expired holds return to `free` automatically.
 - [ ] An office change reaches a field device within two seconds.
@@ -822,6 +887,8 @@ Office creates and closes slots. Canvassers read, and can place a ten-minute aut
 **Process dependency:** this only works if the office maintains it. Confirm they will before building, or it ships dead.
 
 ---
+
+
 
 ### Stage 14 — Coverage map, dashboard, seed and polish
 
@@ -832,11 +899,14 @@ Office creates and closes slots. Canvassers read, and can place a ten-minute aut
 **Seed:** a script generating a realistic demo dataset — three props, two weeks of history, plausible outcome distribution. Run the demo from seeded data, never from an empty database.
 
 **Acceptance:**
+
 - [ ] Full demo run end to end, timed, twice. The second run is the one that finds the break.
 - [ ] Coverage map renders 2,000 dots without stutter on a mid-range phone.
 - [ ] Seed script is repeatable from empty.
 
 ---
+
+
 
 ### Stage 15 — Prop recommender (gated)
 
@@ -860,6 +930,7 @@ Office creates and closes slots. Canvassers read, and can place a ten-minute aut
 **Visibility:** admin only. Never the field view — invariant 2.
 
 **Acceptance:**
+
 - [ ] Gate enforced; synthetic data below threshold produces the insufficient-history state.
 - [ ] Changing a weight in config changes the ranking with no redeploy.
 - [ ] Score is reproducible from a fixed dataset.
@@ -868,6 +939,8 @@ Office creates and closes slots. Canvassers read, and can place a ten-minute aut
 **Note on why this stage matters commercially:** coverage tracking is table stakes — Badger Maps and SPOTIO both do it. Saturation-aware re-canvass scheduling scored on lead quality is what neither does. If this platform is ever licensed, Stages 5 and 15 are what is being licensed. Everything else is the price of entry.
 
 ---
+
+
 
 ### Stage 16 — Route position
 
@@ -902,6 +975,7 @@ This is the least intrusive means of getting the outcome, which is the standard 
 7. **Off the route means off.** A fix more than 100m from the route line is discarded rather than snapped — someone on a break is not on the route.
 
 **Acceptance:**
+
 - [ ] Inspect every network payload from the field app: no latitude or longitude appears in any of them.
 - [ ] No table grows a row when position updates. Row count is constant.
 - [ ] With the toggle off, Stage 10 works from knock data with no error state.
@@ -909,6 +983,8 @@ This is the least intrusive means of getting the outcome, which is the standard 
 - [ ] A simulated fix 300m from the route is rejected, not snapped to the nearest point.
 
 ---
+
+
 
 ## 7. Build order
 
@@ -921,6 +997,8 @@ This is the least intrusive means of getting the outcome, which is the standard 
 **Track B (after):** the route layer first — `1b, 5b, 16` — since it is the thing that removes friction on an actual shift. Then `9, 10, 11, 12, 13`, then hardening `3` and `7` to their full specifications, then the Stage 15 gate.
 
 ---
+
+
 
 ## 8. The location question
 
@@ -943,6 +1021,8 @@ None of this is legal advice. It is the reasoning behind the constraint, and it 
 **The line that must not move:** raw coordinates do not leave the device. Everything else in Stage 16 is a parameter. That one is the design.
 
 ## 9. Parked — and what unblocks each
+
+
 
 ### CRM API linkage — no longer parked
 
@@ -970,35 +1050,39 @@ Moved to Stages 1b and 5b. The earlier objection was aimed at route *optimisatio
 
 ---
 
+
+
 ## 10. Model routing
 
 Cursor runs two usage pools. The **Cursor Models pool** (Grok 4.6, Grok 4.5, Composer 2.5) is included generously with the plan. The **Other Models pool** (Anthropic, OpenAI, Google) bills at published API rates and is the one that empties.
 
 Two facts that should drive every choice here:
 
-**The `AGENTS.md` file is worth more than the model upgrade.** Cursor's published Next.js evaluations show a large gap for its in-house models between running with and without one. Section 5 exists for this reason. Write it before Stage 0.
+**The** `AGENTS.md` **file is worth more than the model upgrade.** Cursor's published Next.js evaluations show a large gap for its in-house models between running with and without one. Section 5 exists for this reason. Write it before Stage 0.
 
 **Plan expensive, execute cheap.** Planning output is small; implementation output is large. Running a frontier model in Ask or Plan mode to produce the plan, then executing it with an in-pool model, costs a fraction of running the frontier model through the whole session and loses very little.
 
-| Stage | Model | Why |
-|---|---|---|
-| 0 Scaffold | Composer 2.5 | Mechanical, well-specified |
-| 1 Data ingest | Grok 4.6 | Messy CSV edge cases |
-| **2 Schema and RLS** | **Frontier** | A mistake here propagates into every later stage |
-| 3 Auth | Grok 4.6 | Standard, but security-adjacent |
-| 4 Prop drawing | Grok 4.6 | PostGIS plus map interaction |
-| 5 Allocation | Grok 4.6 | Rotation maths is fiddly but specified |
-| 6 Field view | Grok 4.6 | Map plus offline cache |
-| **7 Sync queue** | **Frontier** | Hardest correctness problem in the build |
-| 8 Knock logger | Grok 4.6 | Sits on the Stage 7 module |
-| 9 Completion | Composer 2.5 | SQL view, fully specified above |
-| 10 Partner progress | Grok 4.6 | Realtime plumbing |
-| 11 Amenities | Composer 2.5 | Script plus list UI |
-| 12a CRM sync | Grok 4.6 | Scheduled job, mapping table, idempotency |
-| 12b Visit history | Grok 4.6 | Lifecycle logic, ordering matters |
-| 13 Immediates board | Grok 4.6 | Concurrency on slot holds |
-| 14 Map, dashboard, seed | Composer 2.5 → Grok 4.6 | Seed cheap, coverage map with the better model |
-| 15 Recommender | Frontier for design, Grok 4.6 to build | Scoring design benefits from the stronger reasoner |
+
+| Stage                   | Model                                  | Why                                                |
+| ----------------------- | -------------------------------------- | -------------------------------------------------- |
+| 0 Scaffold              | Composer 2.5                           | Mechanical, well-specified                         |
+| 1 Data ingest           | Grok 4.6                               | Messy CSV edge cases                               |
+| **2 Schema and RLS**    | **Frontier**                           | A mistake here propagates into every later stage   |
+| 3 Auth                  | Grok 4.6                               | Standard, but security-adjacent                    |
+| 4 Prop drawing          | Grok 4.6                               | PostGIS plus map interaction                       |
+| 5 Allocation            | Grok 4.6                               | Rotation maths is fiddly but specified             |
+| 6 Field view            | Grok 4.6                               | Map plus offline cache                             |
+| **7 Sync queue**        | **Frontier**                           | Hardest correctness problem in the build           |
+| 8 Knock logger          | Grok 4.6                               | Sits on the Stage 7 module                         |
+| 9 Completion            | Composer 2.5                           | SQL view, fully specified above                    |
+| 10 Partner progress     | Grok 4.6                               | Realtime plumbing                                  |
+| 11 Amenities            | Composer 2.5                           | Script plus list UI                                |
+| 12a CRM sync            | Grok 4.6                               | Scheduled job, mapping table, idempotency          |
+| 12b Visit history       | Grok 4.6                               | Lifecycle logic, ordering matters                  |
+| 13 Immediates board     | Grok 4.6                               | Concurrency on slot holds                          |
+| 14 Map, dashboard, seed | Composer 2.5 → Grok 4.6                | Seed cheap, coverage map with the better model     |
+| 15 Recommender          | Frontier for design, Grok 4.6 to build | Scoring design benefits from the stronger reasoner |
+
 
 **Also reach for a frontier model when:**
 
@@ -1017,6 +1101,8 @@ That is roughly three or four sessions of the seventeen on the metered pool. Eve
 
 ---
 
+
+
 ## 11. How to run a session
 
 **Per stage:**
@@ -1034,6 +1120,8 @@ That is roughly three or four sessions of the seventeen on the metered pool. Eve
 
 ---
 
+
+
 ## 12. Track A — the demo week
 
 Full build is ~28 hours. You have days, not weeks, and shifts in between. So this is the cut.
@@ -1044,14 +1132,18 @@ Full build is ~28 hours. You have days, not weeks, and shifts in between. So thi
 
 ### Day plan
 
-| Day | Stages | Hours |
-|---|---|---|
-| 0 | Send the NCCZ email (Section 13). Two minutes, longest lead time in the project. | — |
-| 1 | 0 Scaffold + deploy · 1 Data ingest | ~4 |
-| 2 | 2 Schema and RLS · 3-lite Auth | ~4 |
-| 3 | 4 Prop drawing · 5 Allocation and rotation | ~4 |
-| 4 | 6 Field view · 7-lite Sync · 8 Knock logger | ~5 |
-| 5 | 14 Coverage map, dashboard, seed · two timed dry runs | ~3 |
+
+| Day | Stages                                                                           | Hours |
+| --- | -------------------------------------------------------------------------------- | ----- |
+| 0   | Send the NCCZ email (Section 13). Two minutes, longest lead time in the project. | —     |
+| 1   | 0 Scaffold + deploy · 1 Data ingest                                              | ~4    |
+| 2   | 2 Schema and RLS · 3-lite Auth                                                   | ~4    |
+| 3   | 4 Prop drawing · 5 Allocation and rotation                                       | ~4    |
+| 4   | 6 Field view · 7-lite Sync · 8 Knock logger                                      | ~5    |
+| 5   | 14 Coverage map, dashboard, seed · two timed dry runs                            | ~3    |
+
+
+
 
 ### The two "-lite" stages, scoped precisely
 
@@ -1101,6 +1193,8 @@ Everything else runs on Grok 4.6 in-pool, with Composer 2.5 for Stage 0 and the 
 
 ---
 
+
+
 ## 13. Data sources — exact downloads and where they go
 
 Three datasets. One of them has a lead time of days. Start with that one.
@@ -1126,21 +1220,23 @@ nakolabs-d2d/
 └── docs/D2D-Build-Brief.md
 ```
 
-**Add `/data` to `.gitignore` before you download anything.** The OS Open UPRN file covers all of Great Britain and committing it will make the repo unusable. Keep `data/README.md` tracked so future-you knows what was downloaded and when.
+**Add** `/data` **to** `.gitignore` **before you download anything.** The OS Open UPRN file covers all of Great Britain and committing it will make the repo unusable. Keep `data/README.md` tracked so future-you knows what was downloaded and when.
 
 ---
 
+
+
 ### 1. Bristol No Cold Calling Zones — do this first
 
-**Dataset page:** https://www.data.gov.uk/dataset/c77760b7-da51-4f34-832e-349ed2148d58/no-cold-calling-zones2
+**Dataset page:** [https://www.data.gov.uk/dataset/c77760b7-da51-4f34-832e-349ed2148d58/no-cold-calling-zones2](https://www.data.gov.uk/dataset/c77760b7-da51-4f34-832e-349ed2148d58/no-cold-calling-zones2)
 
 **There is no download link.** The page's data links section says so explicitly. Publisher is Bristol City Council, originating data from Avon and Somerset Police, and the only route to the file is asking.
 
 **Do this today:**
 
-Email **gis_supportteam@bristol.gov.uk** — the enquiries contact on the dataset page. Ask for the No Cold Calling Zones dataset as GeoJSON or Shapefile, and mention the Harvest GUID `30dc06c6-da98-48c6-8f4a-cf5deabb903b` so they know exactly which one you mean. Say what it is for.
+Email **[gis_supportteam@bristol.gov.uk](mailto:gis_supportteam@bristol.gov.uk)** — the enquiries contact on the dataset page. Ask for the No Cold Calling Zones dataset as GeoJSON or Shapefile, and mention the Harvest GUID `30dc06c6-da98-48c6-8f4a-cf5deabb903b` so they know exactly which one you mean. Say what it is for.
 
-**If nothing comes back within a week:** FOI request via https://www.whatdotheyknow.com/body/bristol_city_council. Slower but it has a statutory clock on it.
+**If nothing comes back within a week:** FOI request via [https://www.whatdotheyknow.com/body/bristol_city_council](https://www.whatdotheyknow.com/body/bristol_city_council). Slower but it has a statutory clock on it.
 
 **Meanwhile:** Avon and Somerset Constabulary is credited as the source of the attribute information, so their site may carry a published list of zone streets. A hand-drawn polygon per named zone is a perfectly good stopgap and loads through the same ingest path.
 
@@ -1152,11 +1248,13 @@ Email **gis_supportteam@bristol.gov.uk** — the enquiries contact on the datase
 
 ---
 
+
+
 ### 2. OS Open UPRN — the address backbone
 
-**Download page:** https://osdatahub.os.uk/downloads/open/OpenUPRN
+**Download page:** [https://osdatahub.os.uk/downloads/open/OpenUPRN](https://osdatahub.os.uk/downloads/open/OpenUPRN)
 
-**Account:** free OS Data Hub account needed. Sign up at https://osdatahub.os.uk/plans and choose the **OS OpenData Plan** — free to anyone, commercial use included.
+**Account:** free OS Data Hub account needed. Sign up at [https://osdatahub.os.uk/plans](https://osdatahub.os.uk/plans) and choose the **OS OpenData Plan** — free to anyone, commercial use included.
 
 **Format:** take **CSV**. The file gives `UPRN`, eastings/northings in EPSG:27700, and `LATITUDE` / `LONGITUDE` in EPSG:4326. Use the lat/long columns; you do not need to reproject.
 
@@ -1179,6 +1277,8 @@ Sanity check after ingest: Bristol should come out in the low-to-mid hundreds of
 
 ---
 
+
+
 ### 3. OSM road network — needed for Stages 1b and 5b only
 
 Not needed for Track A. Skip this section until you build the route layer.
@@ -1195,7 +1295,7 @@ curl -s -X POST https://overpass-api.de/api/interpreter \
 
 Run it **once**, from a script, and commit nothing but the query. Overpass is a shared volunteer resource — never call it from the application, and do not loop it.
 
-**Fallback — Geofabrik**, if Overpass times out or you want the whole county offline. Browse https://download.geofabrik.de/ → Europe → United Kingdom → England, and take the Bristol extract from the index page. The path pattern is `europe/united-kingdom/england/<county>-latest.osm.pbf`, but pick the link off the index rather than guessing the filename. A `.pbf` needs `osmium` or `osm2pgsql` to read, which is why Overpass is the recommendation.
+**Fallback — Geofabrik**, if Overpass times out or you want the whole county offline. Browse [https://download.geofabrik.de/](https://download.geofabrik.de/) → Europe → United Kingdom → England, and take the Bristol extract from the index page. The path pattern is `europe/united-kingdom/england/<county>-latest.osm.pbf`, but pick the link off the index rather than guessing the filename. A `.pbf` needs `osmium` or `osm2pgsql` to read, which is why Overpass is the recommendation.
 
 **Licence:** ODbL. "Map data © OpenStreetMap contributors" must appear wherever the route or the amenity list is rendered.
 
@@ -1203,8 +1303,11 @@ Run it **once**, from a script, and commit nothing but the query. Overpass is a 
 
 ---
 
+
+
 ### Attribution block
 
 All three licences require credit. Put one line in the app footer and in any exported view, and do not let a later stage quietly drop it:
 
 > Contains OS data © Crown copyright and database right 2026. Contains public sector information licensed under the Open Government Licence v3.0. Map data © OpenStreetMap contributors.
+
