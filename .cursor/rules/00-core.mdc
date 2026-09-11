@@ -1,0 +1,16 @@
+---
+description: Non-negotiable invariants for the D2D platform
+alwaysApply: true
+---
+
+- Coverage is DERIVED from knock_events. Never create a coverage table.
+- No scoring, ranking or colour-coding in any `/field` route. Admin only.
+- All field writes go through `lib/sync/queue.ts`. Never a second sync path.
+- Every client-originated write carries a `client_event_id`. Re-sync is idempotent.
+- PostGIS columns are `geometry(Point,4326)` / `geometry(Polygon,4326)`. Cast `::geography` for distance only.
+- RLS enabled with default-deny on every table.
+- Raw GPS coordinates never leave the device. Only a distance-along-route scalar.
+- Duos bunny-hop: one route, one order, no side split, no per-person door allocation.
+- Service role key is server-only, never in a `NEXT_PUBLIC_` var.
+- British English in user-facing strings.
+- One stage per session. Never start the next stage.

@@ -1,0 +1,23 @@
+---
+description: Schema, migration and RLS conventions
+globs: ["supabase/migrations/**", "lib/supabase/**", "**/*.sql"]
+---
+
+# Database conventions
+
+## Migrations
+- Append-only. One numbered file per stage: `NNN_description.sql`.
+- NEVER edit a migration that has already been applied. Write a new one.
+- After any migration, regenerate `lib/supabase/types.ts` and confirm it compiles.
+
+## RLS
+- Every new table gets `alter table X enable row level security;` in the same migration.
+- Default deny. Write explicit policies per role: admin, office, canvasser.
+- A canvasser reads only rows tied to an assignment they belong to.
+- Test policies with an actual JWT, not by reading the policy and assuming.
+
+## PostGIS
+- `geometry(Point,4326)` and `geometry(Polygon,4326)` only. Never `geography` as a column type.
+- Cast `::geography` inline for distance calculations.
+- GiST index on every geometry column.
+- Spatial work happens in Postgres. Never fetch rows to the client to count or filter them.

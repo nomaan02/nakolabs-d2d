@@ -1,0 +1,16 @@
+---
+description: Data ingest and geospatial processing rules
+globs: ["scripts/ingest-*", "lib/geo/**"]
+---
+
+# Ingest and geo
+
+- Source files live in `data/raw/` and are gitignored. Never commit them.
+- Every ingest script is idempotent. Re-running changes no row counts.
+- Stream large CSVs. The UPRN file is GB-wide — never read it into memory.
+- Reproject everything to EPSG:4326 at ingest. Never store 27700 and convert at query time.
+- External APIs (Overpass) are called by scripts and scheduled jobs ONLY. Never from the app.
+- Route generation is deterministic. No randomness, no solver, no optimisation.
+  The same prop and visit_number must always produce an identical route.
+- Attribution is required by licence: OS (OGL v3.0) and OpenStreetMap (ODbL).
+  Do not remove the attribution line.

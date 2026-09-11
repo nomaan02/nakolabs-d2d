@@ -1,0 +1,18 @@
+---
+description: Offline sync queue rules
+globs: ["lib/sync/**", "app/(field)/**"]
+---
+
+# Offline sync
+
+`lib/sync/queue.ts` is the only write path from the field app.
+
+- Every queued write carries a `client_event_id` (uuid v4, generated on device).
+- Server-side idempotency comes from a unique constraint on `client_event_id`.
+  A duplicate insert is caught and treated as SUCCESS, not an error.
+- Flush on reconnect, on app focus, and on a timer.
+- Ordering is preserved per assignment.
+- A 4xx does not retry forever. Surface it.
+- The queue must survive a browser restart and a mid-flush kill.
+
+If a task seems to need a second sync implementation, stop and re-read the codebase. It does not.
