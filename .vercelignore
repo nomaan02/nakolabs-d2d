@@ -1,0 +1,12 @@
+# Local datasets must never be uploaded to Vercel.
+/data
+nakolabs-data
+keys.md
+*.zip
+.cursor
+.git
+.next
+node_modules
+.env
+.env.local
+.env*.local
