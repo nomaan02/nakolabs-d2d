@@ -36,7 +36,7 @@ supabase/migrations — append-only, numbered
 ## Vocabulary
 
 prop = one polygon = one team for one day (table: `territories` + `assignments`)
-team = 1 or 2 canvassers, bunny-hopping the same route (tables: `assignments` + `assignment_members`)
+team = 1 to 3 canvassers, bunny-hopping the same route (tables: `assignments` + `assignment_members`)
 lead outcomes: sale | pm (pitch & miss) | blowout | utc (unable to contact) | btc (back to canvasser) | re_app (rescheduled — non-terminal)
 
 ## Conventions

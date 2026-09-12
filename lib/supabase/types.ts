@@ -14,6 +14,243 @@ export type Database = {
   }
   public: {
     Tables: {
+      assignment_members: {
+        Row: {
+          assignment_id: string
+          canvasser_id: string
+          route_position_at: string | null
+          route_position_m: number | null
+        }
+        Insert: {
+          assignment_id: string
+          canvasser_id: string
+          route_position_at?: string | null
+          route_position_m?: number | null
+        }
+        Update: {
+          assignment_id?: string
+          canvasser_id?: string
+          route_position_at?: string | null
+          route_position_m?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignment_members_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignment_members_canvasser_id_fkey"
+            columns: ["canvasser_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assignments: {
+        Row: {
+          closed_at: string | null
+          created_at: string
+          created_by: string | null
+          entry_vertex_index: number
+          id: string
+          route_geom: unknown
+          route_length_m: number | null
+          slot: string
+          started_at: string | null
+          sweep_direction: string
+          territory_id: string
+          uprn_snapshot: number[]
+          visit_number: number
+          work_date: string
+        }
+        Insert: {
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          entry_vertex_index: number
+          id?: string
+          route_geom?: unknown
+          route_length_m?: number | null
+          slot: string
+          started_at?: string | null
+          sweep_direction: string
+          territory_id: string
+          uprn_snapshot: number[]
+          visit_number: number
+          work_date: string
+        }
+        Update: {
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          entry_vertex_index?: number
+          id?: string
+          route_geom?: unknown
+          route_length_m?: number | null
+          slot?: string
+          started_at?: string | null
+          sweep_direction?: string
+          territory_id?: string
+          uprn_snapshot?: number[]
+          visit_number?: number
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignments_territory_id_fkey"
+            columns: ["territory_id"]
+            isOneToOne: false
+            referencedRelation: "territories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knock_events: {
+        Row: {
+          assignment_id: string
+          canvasser_id: string
+          client_event_id: string
+          id: string
+          occurred_at: string
+          outcome: string
+          sequence_position: number | null
+          synced_at: string
+          uprn: number
+        }
+        Insert: {
+          assignment_id: string
+          canvasser_id: string
+          client_event_id: string
+          id?: string
+          occurred_at: string
+          outcome: string
+          sequence_position?: number | null
+          synced_at?: string
+          uprn: number
+        }
+        Update: {
+          assignment_id?: string
+          canvasser_id?: string
+          client_event_id?: string
+          id?: string
+          occurred_at?: string
+          outcome?: string
+          sequence_position?: number | null
+          synced_at?: string
+          uprn?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knock_events_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knock_events_canvasser_id_fkey"
+            columns: ["canvasser_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knock_events_uprn_fkey"
+            columns: ["uprn"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["uprn"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          booked_for: string | null
+          canvasser_id: string
+          client_event_id: string
+          crm_last_synced_at: string | null
+          crm_ref: string | null
+          id: string
+          is_immediate: boolean
+          knock_event_id: string
+          notes: string | null
+          status: string
+          status_set_at: string | null
+          status_set_by: string | null
+          uprn: number
+        }
+        Insert: {
+          booked_for?: string | null
+          canvasser_id: string
+          client_event_id: string
+          crm_last_synced_at?: string | null
+          crm_ref?: string | null
+          id?: string
+          is_immediate?: boolean
+          knock_event_id: string
+          notes?: string | null
+          status?: string
+          status_set_at?: string | null
+          status_set_by?: string | null
+          uprn: number
+        }
+        Update: {
+          booked_for?: string | null
+          canvasser_id?: string
+          client_event_id?: string
+          crm_last_synced_at?: string | null
+          crm_ref?: string | null
+          id?: string
+          is_immediate?: boolean
+          knock_event_id?: string
+          notes?: string | null
+          status?: string
+          status_set_at?: string | null
+          status_set_by?: string | null
+          uprn?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_canvasser_id_fkey"
+            columns: ["canvasser_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_knock_event_id_fkey"
+            columns: ["knock_event_id"]
+            isOneToOne: true
+            referencedRelation: "knock_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_status_set_by_fkey"
+            columns: ["status_set_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_uprn_fkey"
+            columns: ["uprn"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["uprn"]
+          },
+        ]
+      }
       nccz_zones: {
         Row: {
           created_at: string
@@ -35,6 +272,30 @@ export type Database = {
           id?: string
           name?: string | null
           source?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          active: boolean
+          created_at: string
+          full_name: string | null
+          id: string
+          role: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          full_name?: string | null
+          id: string
+          role: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          role?: string
         }
         Relationships: []
       }
@@ -62,6 +323,48 @@ export type Database = {
         }
         Relationships: []
       }
+      property_observations: {
+        Row: {
+          canvasser_id: string
+          client_event_id: string
+          id: string
+          observed_at: string
+          tenure: string | null
+          uprn: number
+        }
+        Insert: {
+          canvasser_id: string
+          client_event_id: string
+          id?: string
+          observed_at: string
+          tenure?: string | null
+          uprn: number
+        }
+        Update: {
+          canvasser_id?: string
+          client_event_id?: string
+          id?: string
+          observed_at?: string
+          tenure?: string | null
+          uprn?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_observations_canvasser_id_fkey"
+            columns: ["canvasser_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_observations_uprn_fkey"
+            columns: ["uprn"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["uprn"]
+          },
+        ]
+      }
       spatial_ref_sys: {
         Row: {
           auth_name: string | null
@@ -85,6 +388,47 @@ export type Database = {
           srtext?: string | null
         }
         Relationships: []
+      }
+      territories: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          created_by: string | null
+          geom: unknown
+          id: string
+          last_visited_at: string | null
+          name: string
+          visit_count: number
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          geom: unknown
+          id?: string
+          last_visited_at?: string | null
+          name: string
+          visit_count?: number
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          geom?: unknown
+          id?: string
+          last_visited_at?: string | null
+          name?: string
+          visit_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "territories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -259,6 +603,7 @@ export type Database = {
             }
             Returns: string
           }
+      app_role: { Args: never; Returns: string }
       apply_nccz_flags: { Args: never; Returns: number }
       disablelongtransactions: { Args: never; Returns: string }
       dropgeometrycolumn:
@@ -396,6 +741,7 @@ export type Database = {
         Args: { p_geojson: Json; p_name: string; p_source: string }
         Returns: string
       }
+      is_assignment_member: { Args: { a: string }; Returns: boolean }
       longtransactionsenabled: { Args: never; Returns: boolean }
       populate_geometry_columns:
         | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }

@@ -10,7 +10,7 @@ alwaysApply: true
 - PostGIS columns are `geometry(Point,4326)` / `geometry(Polygon,4326)`. Cast `::geography` for distance only.
 - RLS enabled with default-deny on every table.
 - Raw GPS coordinates never leave the device. Only a distance-along-route scalar.
-- Duos bunny-hop: one route, one order, no side split, no per-person door allocation.
+- Teams bunny-hop (1 to 3 people): same side, same route, leapfrogging door to door. No side split, no per-canvasser door allocation. Do not redesign this.
 - Service role key is server-only, never in a `NEXT_PUBLIC_` var.
 - British English in user-facing strings.
 - One stage per session. Never start the next stage.

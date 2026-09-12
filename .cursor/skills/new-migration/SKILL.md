@@ -26,3 +26,23 @@ description: Create a database migration with correct numbering, RLS policies an
 ## Verification
 
 Do not report a migration as done until you have confirmed, with an actual query using a canvasser-role JWT, that the policies deny what they are supposed to deny. Reading the policy text back is not verification.
+
+## Testing RLS without real auth
+
+Auth may not exist yet. Simulate a role in a transaction instead of assuming:
+
+```sql
+begin;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"<test-uuid>","role":"authenticated"}';
+-- run the query that SHOULD be denied
+rollback;
+```
+
+A policy read back in prose is not a test. Run the query and show the result.
+
+## Column-level restrictions
+
+RLS is row-level only. To stop a role updating specific columns, use
+`grant update (col_a, col_b) on <table> to <role>` — or a trigger.
+A row policy cannot do this. Never claim it does.
