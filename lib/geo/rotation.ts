@@ -29,7 +29,7 @@ export function rotationForVisit(visitNumber: number, vertexCount: number): Rota
 }
 
 export function formatSweep(direction: SweepDirection): string {
-  return direction === "cw" ? "clockwise" : "counter-clockwise";
+  return direction === "cw" ? "clockwise" : "anticlockwise";
 }
 
 export function formatSlot(slot: Slot): string {

@@ -218,3 +218,32 @@ One entry per stage, appended by the agent at the end of each session.
   - Stage 12b must increment `visit_count` exactly once on close, or successive allocations of the same prop will keep starting at the same vertex.
   - Stage 5b replaces the labelled placeholder `-- interim geometric ordering, replaced by Stage 5b's route traversal`. Existing `uprn_snapshot` rows stay frozen.
   - `allocate_prop` has no `service_role` EXECUTE. Grant it if a server-side caller ever needs to allocate.
+
+---
+
+### Stage 06 — Field prop view and offline cache
+- **Date:** 2026-09-14
+- **Model:** Cursor Grok 4.6
+- **Built:** Migration `010_todays_assignment.sql` — `todays_assignment()` SECURITY INVOKER, returns one jsonb document (header + `uprn_snapshot` joined to `properties.geom` in snapshot order as a FeatureCollection) or JSON null. `/field` map + list, Dexie cache of that full document keyed to assignment and canvasser. Types regenerated. Harness `npm run verify:stage6`.
+- **Policies:** no new table, so no new RLS. Function ACL: `revoke all from public, anon, authenticated, service_role` then `grant execute to authenticated` only. Final ACL `postgres=X/postgres | authenticated=X/postgres`. No `app_role()` gate in the body.
+- **Acceptance:**
+  - Load the prop, enable airplane mode, force-quit, reopen — the prop renders from Dexie: **PASS** — canvasser JWT loaded `/field` (`Visit 1 · starting from the east · anticlockwise · mid · 69 doors`, first UPRN 48895, last 48873). Dexie `nakolabs-d2d-field` then held `{assignment_id: 05e544c1-…, work_date: 2026-09-14, door_count: 69, features: 69, compass: east}`. Blocked `*.supabase.co`, full document reload of `/field`: same header, same 69 doors, status “Showing the copy saved on this phone.” Dexie after reopen: same assignment_id, 69 features, first 48895, last 48873. **Caveat:** blocking `*supabase*` also blocked the Next.js chunk whose filename contains `supabase`, so the test blocks the API host only. A true airplane-mode reopen of the whole origin still needs an app shell (no service worker in this stage).
+  - Dot order matches `uprn_snapshot` order: **PASS** — canvasser JWT HTTP 200, `feature order matches snapshot: true`, sequences `0..n-1: true`, 69 features / 69 snapshot. First UPRN 48895, last 48873. List view Door 1 = 48895 … Door 69 = 48873.
+  - Tap accuracy test on a real phone, on a real terraced street, at zoom 19: **NOT VERIFIED** — needs a real phone on a real terrace. Circle radius at z19 is 16px (~32px diameter); 44px CSS on list rows is not that test.
+  - Honest empty when the caller is not a member today: **PASS** — other / idle / office / admin JWT `HTTP 200 body=null` (office is null, not 42501). Idle canvasser in the browser: “No prop allocated for today.” plus “Nothing is assigned to you for today. If you should be out, speak to the person who allocates the props.”
+  - Compass reuses Stage 5 centroid→entry-vertex `ST_Azimuth`: **PASS** — live assignment `entry_az=1.83139871854165` rad (`104.93°`) from `st_azimuth(st_centroid(geom), st_pointn(ring, entry+1))`; RPC `entry_compass=east`; independent octant from that azimuth `east`; match true.
+  - EXECUTE authenticated, no `app_role()` gate: **PASS** — `acl={postgres=X/postgres,authenticated=X/postgres}`, `body_mentions_app_role=false`. Anon HTTP 401 `42501 permission denied for function todays_assignment`. Canvasser JWT sees only own assignment (`includes other's yesterday: false`).
+  - Full RPC response cached, not the raw UPRN array: **PASS** — Dexie payload includes `doors.features[].geometry` and `properties.{uprn,sequence}` plus header fields. No `is_nccz` on features.
+  - Nothing coloured, scored, or visually differentiated: **PASS** — one circle layer, `circle-color` is `--color-ink` for every door. Screenshot of Bishopston test prop: all dots the same.
+- **Deviations from brief:**
+  - Added `dexie` ^4.4.6. Reason: the brief's offline cache. Alternative rejected: `localStorage` (too small, no index by assignment).
+  - Header uses compass (“starting from the east”), not a street name. UPRN dots have no address text (Section 3, rule 5). British “anticlockwise”, not the admin UI's “counter-clockwise”.
+  - Dexie schema version 2 adds `canvasser_id` so a shared phone cannot show another canvasser's cached prop. Version 1 upgrade clears old rows.
+  - RPC/network timeout (8s) and a native IndexedDB fallback if Dexie open is slow, so a blocked API cannot leave the screen on “Loading”.
+  - MapTiler style fetch falls back to a plain worksheet background if tiles are unreachable; OS attribution stays on the control.
+- **Not done / deferred:** Stage 5b routing. Stage 7 sync queue. Any field writes. Service worker / full-origin airplane shell. Tap-accuracy on a real terrace. 001–009 untouched. No coverage table. No scoring in `/field`.
+- **Follow-ups:**
+  - Tap accuracy at zoom 19 on a real terraced street is on you — do not treat CSS `min-h-11` as that test.
+  - If demo-day airplane mode must survive a killed tab with no localhost either, add a service worker later; Dexie already holds the assignment document.
+  - Map-layer skill: 69 points (the Bishopston street-ring fixture), measured on Windows 11 desktop Chrome via the Cursor browser. Not a mid-range phone.
+

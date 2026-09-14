@@ -13,11 +13,13 @@
     "ingest:uprn": "tsx scripts/ingest-uprn.ts",
     "ingest:nccz": "tsx scripts/ingest-nccz.ts",
     "verify:stage4": "tsx scripts/verify-stage-4.ts",
-    "verify:stage5": "tsx scripts/verify-stage-5.ts"
+    "verify:stage5": "tsx scripts/verify-stage-5.ts",
+    "verify:stage6": "tsx scripts/verify-stage-6.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.116.0",
+    "dexie": "^4.4.6",
     "maplibre-gl": "^6.9.0",
     "next": "15.5.25",
     "react": "19.1.0",
