@@ -32,15 +32,12 @@ export async function GET() {
 async function pingSupabase(): Promise<CheckStatus> {
   try {
     const supabase = await createClient();
-    const { error } = await supabase
-      .from("__connection_probe")
-      .select("*")
-      .limit(1);
+    const { error } = await supabase.from("profiles").select("id").limit(1);
 
-    // Stage 0 has no schema. A PostgREST "table not in schema cache"
-    // response still proves the project is reachable and the anon key works.
+    // Reachability, not data. Anon has no grant on profiles (42501). A
+    // missing-table cache miss (PGRST205) is the Stage 0 signal.
     if (!error) return "green";
-    if (error.code === "PGRST205") return "green";
+    if (error.code === "PGRST205" || error.code === "42501") return "green";
     return "red";
   } catch {
     return "red";

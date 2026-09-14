@@ -603,8 +603,32 @@ export type Database = {
             }
             Returns: string
           }
+      allocate_prop: {
+        Args: {
+          canvasser_ids: string[]
+          territory_id: string
+          work_date: string
+        }
+        Returns: {
+          entry_vertex_index: number
+          id: string
+          knockable_doors: number
+          slot: string
+          sweep_direction: string
+          visit_number: number
+        }[]
+      }
       app_role: { Args: never; Returns: string }
       apply_nccz_flags: { Args: never; Returns: number }
+      assert_prop_polygon: { Args: { poly: unknown }; Returns: undefined }
+      count_knockable: {
+        Args: { poly: unknown }
+        Returns: {
+          excluded: number
+          knockable: number
+          total: number
+        }[]
+      }
       disablelongtransactions: { Args: never; Returns: string }
       dropgeometrycolumn:
         | {
@@ -783,6 +807,10 @@ export type Database = {
       }
       postgis_version: { Args: never; Returns: string }
       postgis_wagyu_version: { Args: never; Returns: string }
+      properties_in_polygon: {
+        Args: { cap?: number; poly: unknown }
+        Returns: Json
+      }
       st_3dclosestpoint: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: unknown

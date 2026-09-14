@@ -42,6 +42,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# copied from node_modules by scripts/copy-maplibre-worker.ts on dev and build
+/public/maplibre/
+
 # large source datasets — never commit
 /data/*
 !/data/README.md

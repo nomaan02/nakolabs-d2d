@@ -1,1 +1,59 @@
 @import "tailwindcss";
+
+@theme {
+  /* Ink and paper. A near-black with a green cast, on a cool grey-green
+     worksheet — the admin surface reads as a working drawing, not a dashboard. */
+  --color-ink: #1c2226;
+  --color-ink-soft: #4a5259;
+  --color-worksheet: #e4e6de;
+  --color-worksheet-deep: #d2d6c9;
+  --color-paper: #fbfaf8;
+
+  /* Bristol blue glass: props, the primary action, and the gauge fill. */
+  --color-prop: #1b4aa6;
+  --color-prop-soft: #cfd8ea;
+
+  /* Over the shift window. Also the gauge's overshoot. */
+  --color-ochre: #9c6212;
+
+  /* No Cold Calling Zones, and the excluded count. */
+  --color-oxide: #7a2b33;
+
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
+  --font-data: var(--font-martian), ui-monospace, monospace;
+}
+
+/* MapLibre's own furniture, brought into the palette. The attribution stays
+   visible — OS, OGL and OpenStreetMap credit is a licence condition, not
+   decoration. */
+.maplibregl-ctrl-attrib.maplibregl-compact {
+  background: var(--color-paper);
+  border-radius: 0;
+  box-shadow: none;
+  font-family: var(--font-data);
+  font-size: 9px;
+}
+
+.maplibregl-ctrl-group {
+  border-radius: 0;
+  box-shadow: none;
+  border: 1px solid color-mix(in srgb, var(--color-ink) 20%, transparent);
+  background: var(--color-paper);
+}
+
+.maplibregl-ctrl-group button + button {
+  border-top-color: color-mix(in srgb, var(--color-ink) 20%, transparent);
+}
+
+/* The scale bar reads, it does not click. Letting it swallow a corner of the
+   drawing surface would lose a click on a prop boundary. */
+.maplibregl-ctrl.maplibregl-ctrl-scale {
+  border-radius: 0;
+  border-color: color-mix(in srgb, var(--color-ink) 25%, transparent);
+  background: color-mix(in srgb, var(--color-paper) 85%, transparent);
+  color: var(--color-ink-soft);
+  font-family: var(--font-data), monospace;
+  font-size: 9px;
+  pointer-events: none;
+}
