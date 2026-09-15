@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Instrument_Sans, Martian_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -24,6 +24,20 @@ const data = Martian_Mono({
 export const metadata: Metadata = {
   title: "nakolabs-d2d",
   description: "Canvassing management platform",
+  // The manifest <link> comes from app/manifest.ts. iOS ignores the manifest
+  // for install behaviour and reads these instead.
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "nakolabs-d2d",
+  },
+  icons: {
+    apple: "/icons/apple-touch-icon.png",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#fbfaf8",
 };
 
 export default function RootLayout({
