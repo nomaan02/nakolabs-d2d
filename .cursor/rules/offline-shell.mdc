@@ -1,0 +1,9 @@
+---
+description: Service worker / app-shell caching rules
+globs: ["public/sw.js", "next.config.*", "app/manifest*"]
+alwaysApply: false
+---
+- Cache-first for the app shell only. Dexie already owns the data cache —
+  this worker never touches API responses.
+- New dependency (e.g. next-pwa) needs the reason + rejected hand-rolled
+  alternative stated — Section 0's rule applies here too.

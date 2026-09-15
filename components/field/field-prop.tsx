@@ -4,7 +4,13 @@ import { useEffect, useState } from "react";
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { FieldMap } from "@/components/field/field-map";
-import { cacheAssignment, clearCachedToday, getCachedToday } from "@/lib/field/cache";
+import { SyncStatus } from "@/components/field/sync-status";
+import {
+  cacheAssignment,
+  clearCachedToday,
+  getCachedToday,
+  rememberCanvasser,
+} from "@/lib/field/cache";
 import {
   fetchTodaysAssignment,
   formatAssignmentHeader,
@@ -37,7 +43,9 @@ export function FieldProp({ signedInAs }: { signedInAs: string }) {
       const uid = session?.user.id;
       if (cancelled) return;
 
-      const cached = uid ? await getCachedToday(uid).catch(() => undefined) : undefined;
+      // No session (expired token, offline) falls back to the last canvasser
+      // who loaded a prop on this device — see getCachedToday.
+      const cached = await getCachedToday(uid ?? null).catch(() => undefined);
       if (cancelled) return;
       if (cached) {
         setPhase({ kind: "ready", assignment: cached.payload, fromCache: true });
@@ -57,6 +65,9 @@ export function FieldProp({ signedInAs }: { signedInAs: string }) {
         }),
       ]);
       if (cancelled) return;
+
+      // Every successful online load records who this device belongs to.
+      if (result.ok && uid) await rememberCanvasser(uid).catch(() => undefined);
 
       if (result.ok && result.assignment) {
         if (uid) await cacheAssignment(result.assignment, uid).catch(() => undefined);
@@ -111,6 +122,7 @@ export function FieldProp({ signedInAs }: { signedInAs: string }) {
           <SignOutButton className="min-h-11 shrink-0 rounded-md border border-ink/20 bg-paper px-3 text-sm font-medium text-ink hover:bg-worksheet" />
         </div>
         <p className="mt-2 truncate text-xs text-ink-soft">Signed in as {signedInAs}</p>
+        <SyncStatus />
         {phase.kind === "ready" && phase.fromCache ? (
           <p className="mt-2 text-xs text-ink-soft" role="status">
             Showing the copy saved on this phone.

@@ -14,7 +14,8 @@
     "ingest:nccz": "tsx scripts/ingest-nccz.ts",
     "verify:stage4": "tsx scripts/verify-stage-4.ts",
     "verify:stage5": "tsx scripts/verify-stage-5.ts",
-    "verify:stage6": "tsx scripts/verify-stage-6.ts"
+    "verify:stage6": "tsx scripts/verify-stage-6.ts",
+    "verify:stage7": "tsx scripts/verify-stage-7.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

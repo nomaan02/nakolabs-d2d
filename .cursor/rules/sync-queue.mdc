@@ -1,0 +1,11 @@
+---
+description: Sync queue write-path rules
+globs: ["lib/sync/**", "app/(field)/**"]
+alwaysApply: false
+---
+- All field writes route through lib/sync/queue.ts. No second write path.
+- client_event_id: uuid v4, one per door-visit action, shared between a
+  knock_events row and its paired leads row — never independently generated.
+- Idempotency relies on the existing unique constraint (Stage 2) — a
+  duplicate insert is success, not an error.
+- Ordering preserved per assignment_id.
