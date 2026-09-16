@@ -22,6 +22,11 @@ Terra Draw, Dexie, Vercel.
   scalar is ever transmitted or stored.
 - Service role key is server-only. Never in a `NEXT_PUBLIC_` var.
 - British English in user-facing strings.
+- Address text is display-only. UPRN is the only door identity.
+- `property_addresses` is a separate table. Never denormalise
+  `house_number`, `street_name`, `building_name` or `sub_building` into
+  `properties`, `knock_events`, `leads` or `uprn_snapshot`.
+- Later ingest passes never overwrite a higher-confidence earlier pass.
 
 ## Structure
 
@@ -32,12 +37,15 @@ lib/supabase  — client + server factories, generated types
 lib/sync      — Dexie queue, the only write path from the field
 lib/geo       — PostGIS RPC wrappers, rotation and route maths
 supabase/migrations — append-only, numbered
+scripts/ingest-addresses.ts — address-label ingest (Stage 1c; `--pass=epc` first)
 
 ## Vocabulary
 
 prop = one polygon = one team for one day (table: `territories` + `assignments`)
 team = 1 to 3 canvassers, bunny-hopping the same route (tables: `assignments` + `assignment_members`)
 lead outcomes: sale | pm (pitch & miss) | blowout | utc (unable to contact) | btc (back to canvasser) | re_app (rescheduled — non-terminal)
+address label = house number + street displayed beside a dot; may be absent
+match_confidence = exact | inferred | spatial_approx | street_only
 
 ## Conventions
 

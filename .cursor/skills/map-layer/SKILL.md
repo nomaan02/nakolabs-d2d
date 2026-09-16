@@ -16,6 +16,7 @@ description: Add or modify a MapLibre GL layer, source or interaction. Use for a
 - A prop can hold 2,000+ points. Test any new layer at that size on a mid-range phone before calling it done.
 - Cached offline data comes from Dexie, not from a refetch. A map screen must render with no network.
 - Attribution for OS and OpenStreetMap must remain visible. Do not remove it to tidy the UI.
+- Address labels render in a SEPARATE MapLibre symbol layer above the circle layer, with minzoom 18. Never add text to the circle layer and never render labels at all zooms: symbol collision detection at 2,000 points will break the Stage 14 performance acceptance. Circles render at every zoom; text only appears close in. If the Dexie addresses store is empty or absent, the symbol layer renders nothing and the circle layer is unaffected — fail open.
 
 ## Before finishing
 State the point count you tested at and the device you tested on.

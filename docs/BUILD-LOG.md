@@ -247,6 +247,8 @@ One entry per stage, appended by the agent at the end of each session.
   - If demo-day airplane mode must survive a killed tab with no localhost either, add a service worker later; Dexie already holds the assignment document.
   - Map-layer skill: 69 points (the Bishopston street-ring fixture), measured on Windows 11 desktop Chrome via the Cursor browser. Not a mid-range phone.
 
+> **Amended 2026-09-16.** Invariant 5 was narrowed on this date to permit read-only address labels. The original entry correctly records what shipped at the time (UPRN dots with no address text). Labels are added in Stage 1c plus the Stage 8 session, via a separate Dexie store — the snapshot shape recorded above is not altered.
+
 ---
 
 ### Stage 07 — Sync queue (session 1 of 2: queue module; service worker is the separate pass)

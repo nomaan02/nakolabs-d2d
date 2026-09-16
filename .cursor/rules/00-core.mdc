@@ -14,3 +14,7 @@ alwaysApply: true
 - Service role key is server-only, never in a `NEXT_PUBLIC_` var.
 - British English in user-facing strings.
 - One stage per session. Never start the next stage.
+- Address text is a display label only. UPRN is the only door identity. No address search, autocomplete or typed input anywhere in `app/(field)`.
+- `property_addresses` is a separate table. Never denormalise `house_number`, `street_name`, `building_name` or `sub_building` into `properties`, `knock_events`, `leads` or `uprn_snapshot`.
+- Later address ingest passes never overwrite a higher-confidence earlier pass.
+- Stages 0–7 are built; migrations are applied. Read `supabase/migrations/` for the next free number. Never edit an applied migration. Never assume a number.

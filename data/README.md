@@ -13,3 +13,14 @@ Contains OS data © Crown copyright and database right 2026. Contains public sec
 OS Open UPRN is the whole of Great Britain. `scripts/ingest-uprn.ts` streams the CSV and keeps only points inside the Bristol bounding box (lon -2.72 to -2.45, lat 51.38 to 51.54), storing EPSG:4326 from the `LATITUDE` / `LONGITUDE` columns.
 
 NCCZ polygons are expected in EPSG:27700. `scripts/ingest-nccz.ts` reprojects to EPSG:4326 at ingest. Until the council extract arrives, `nccz_zones` stays empty and every property's `is_nccz` is false.
+
+## data/raw/epc-bristol/certificates.csv
+Source:   https://get-energy-performance-data.communities.gov.uk/
+Area:     Bristol, City of (E06000023), domestic EPCs
+Original: 67be5466-3480-4d2f-9e66-950252b35171.csv
+Rows:     ~184,000
+Downloaded: 2026-09-16
+Licence:  see LICENCE.txt in this folder. ADDRESS fields carry Royal Mail
+          PAF-derived restrictions SEPARATE from the OGL covering the energy
+          attributes. Do not redistribute address data in a licensed
+          deployment without checking that licence.
