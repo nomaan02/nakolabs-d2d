@@ -323,6 +323,56 @@ export type Database = {
         }
         Relationships: []
       }
+      property_addresses: {
+        Row: {
+          building_name: string | null
+          house_number: string | null
+          match_confidence: string
+          postcode: string | null
+          property_type: string | null
+          source: string
+          street_name: string | null
+          sub_building: string | null
+          updated_at: string
+          uprn: number
+          uprn_source: string | null
+        }
+        Insert: {
+          building_name?: string | null
+          house_number?: string | null
+          match_confidence: string
+          postcode?: string | null
+          property_type?: string | null
+          source: string
+          street_name?: string | null
+          sub_building?: string | null
+          updated_at?: string
+          uprn: number
+          uprn_source?: string | null
+        }
+        Update: {
+          building_name?: string | null
+          house_number?: string | null
+          match_confidence?: string
+          postcode?: string | null
+          property_type?: string | null
+          source?: string
+          street_name?: string | null
+          sub_building?: string | null
+          updated_at?: string
+          uprn?: number
+          uprn_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_addresses_uprn_fkey"
+            columns: ["uprn"]
+            isOneToOne: true
+            referencedRelation: "properties"
+            referencedColumns: ["uprn"]
+          },
+        ]
+      }
       property_observations: {
         Row: {
           canvasser_id: string
@@ -766,6 +816,10 @@ export type Database = {
         Returns: string
       }
       is_assignment_member: { Args: { a: string }; Returns: boolean }
+      list_property_uprns: {
+        Args: { p_after?: number; p_limit?: number }
+        Returns: Json
+      }
       longtransactionsenabled: { Args: never; Returns: boolean }
       populate_geometry_columns:
         | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
@@ -1405,6 +1459,7 @@ export type Database = {
         Returns: string
       }
       upsert_properties: { Args: { p_rows: Json }; Returns: number }
+      upsert_property_addresses: { Args: { p_rows: Json }; Returns: number }
     }
     Enums: {
       [_ in never]: never

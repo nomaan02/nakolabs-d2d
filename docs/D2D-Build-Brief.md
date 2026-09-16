@@ -390,6 +390,10 @@ Later ingest passes never overwrite a higher-confidence earlier pass. Confidence
 - [ ] Coverage reported as a percentage of Bristol UPRNs in `properties`.
 - [ ] No address column exists on `properties`, `knock_events`, `leads` or in `uprn_snapshot`.
 
+> **Amended 2026-09-16 (parser fix).** The EPC pass resolves `street_name` per row: scan address3, then address2, then address1; the street is the last field containing a street-type suffix. House number is the leading number of that same field, or of the preceding field when that field is only a number. Rows where both fields start with a digit are `street_only` (do not guess). A postcode-majority vote is not used. Postcode agreement is a flag (`spatial_approx`) and never rewrites `street_name`. Migration `013_property_addresses_epc_attrs.sql` adds `property_type` and `uprn_source`. `'inferred'` remains reserved for Track B.
+
+> **Amended 2026-09-16 (suffix tiers).** Street suffixes are STRONG or WEAK. If the last suffix-bearing field is WEAK-only and an earlier STRONG field has a house number (on it, or the preceding field is only a number), that earlier field is the street. A strong field with no number is treated as a building. No named-locality stop-list.
+
 ---
 
 ### Stage 2 — Full schema and RLS

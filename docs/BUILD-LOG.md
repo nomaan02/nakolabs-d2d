@@ -348,3 +348,101 @@ One entry per stage, appended by the agent at the end of each session.
   - iOS: an installed home-screen app has its own cookies and IndexedDB, partitioned from Safari. A canvasser must sign in and load the prop once *inside the installed app*; warming Safari does not warm the icon. Installed apps are also exempt from Safari's 7-day storage eviction, which is a second reason to steer canvassers to the icon.
   - **Next step: Stage 8 — Knock logger.** The queue is the only write path (`enqueue` with one `client_event_id` per door-visit action, `newRowId()` for `knock.id`, lead built with `knock_event_id = knock.id`); the shell is in place; nothing in Stage 8 should touch `public/sw.js`.
 
+---
+
+### Stage 1c — Address labels (data layer)
+- **Date:** 2026-09-16
+- **Model:** Cursor Grok 4.6
+- **Built:** `property_addresses` (UPRN PK → `properties`, display fields only, source/confidence checks, street and postcode indexes). RLS on; SELECT for `authenticated` only; no write policy. Ingest RPCs `upsert_property_addresses(jsonb)` (confidence-aware, joins `properties`) and `list_property_uprns` (keyset pages as jsonb), EXECUTE `service_role` only. `scripts/ingest-addresses.ts --pass=epc` streams `data/raw/epc-bristol/certificates.csv`, votes street per EPC postcode, parses labels, upserts in batches of 750. Track B passes log `not implemented, Track B` and exit 0. `lib/supabase/types.ts` regenerated. `npx tsc --noEmit` exit 0.
+- **Policies:** `property_addresses_select_authenticated` — SELECT to `authenticated`, `using (true)`. No INSERT/UPDATE/DELETE policy. Table GRANT: SELECT to `authenticated` only (anon none). Function EXECUTE: `service_role` only after 012.
+- **Acceptance:**
+  - Re-running the ingest changes no row counts: **PASS** (first and second run both 82,381 written / 81,404 exact / 977 street_only)
+  - A known Bristol street is spot-checked door by door against reality: **PASS** — Wells Road, Totterdown `BS4 2BU` odds 149–173 match the source certificates (`149 WELLS ROAD | TOTTERDOWN`, `151, Wells Road`, `Flat 1 | 157 Wells Road`, `163, Wells Road`) and form a continuous terrace. Not a pavement walk.
+  - A lower-confidence pass cannot overwrite an `exact` row: **PASS** — `upsert_property_addresses` of UPRN 97 as `osm`/`street_only` returned 0; row stayed `exact` / `9` / `Charlton Gardens` / `epc`
+  - Unmatched UPRNs are absent from the table, not present with nulls: **PASS** — `house_number is null and street_name is null` = 0; `inferred` = 0
+  - Coverage reported as a percentage of Bristol UPRNs in `properties`: **PASS** — 19.39% (82,381 / 424,952)
+  - No address column exists on `properties`, `knock_events`, `leads` or in `uprn_snapshot`: **PASS** — `house_number`/`street_name`/`building_name`/`sub_building` exist only on `property_addresses`; `assignments.uprn_snapshot` remains `_int8[]`
+- **RLS (simulated JWT, not a real login cookie):** as `authenticated`, SELECT count = 82,381; INSERT/UPDATE/DELETE = `42501`; `upsert_property_addresses` EXECUTE = `42501`. as `anon`, SELECT = `42501`.
+- **Deviations from brief:**
+  - Second migration `012_property_addresses_revoke_execute.sql`. Reason: Supabase default privileges grant EXECUTE to `anon` and `authenticated` on new functions; 011's `revoke from public` left those role grants in place. Alternative rejected: editing applied 011.
+  - Ingest RPCs `list_property_uprns` and `upsert_property_addresses` are not in the brief's CREATE TABLE block. Same pattern as Stage 1's `upsert_properties`. Alternative rejected: 425 PostgREST pages of 1,000 UPRNs, and client-side confidence filtering.
+  - Street vote uses a strict majority (>50% of field-votes). Unique plurality below 50% is treated as a failed vote. 3,615 postcodes failed; 56,650 matched UPRNs were not inserted. City-centre blocks (Creswicke House / St. Giles Court / Small Street) typically tie building name with street and are absent, as specified (“do not force a winner”).
+  - Date column detected at runtime; this extract used `lodgement_datetime`.
+- **Not done / deferred:** `--pass=osm|linked_ids|land_registry`. Interpolation pass (`inferred`). Field display / Dexie `addresses` store (Stage 6 amendment). Stage 8. Nothing under `app/(field)` or Dexie. Did not backfill `properties.postcode` (still NULL on every row). Did not go through `lib/sync/queue.ts`.
+- **Follow-ups:** Coverage is 19.39% of OS Open UPRN points, not the 50–60% the brief guessed for dwelling-like UPRNs. Unique EPC UPRNs in `properties` were 139,031 (32.7%); the rest of the drop is failed street votes. A later pass can fill unmatched UPRNs; it must not overwrite `exact`.
+- **Numbers:**
+  - rows read / usable uprn / matched to `properties`: 183925 / 178363 / 178357
+  - distinct UPRNs written: 82381
+  - coverage: 19.39%
+  - exact / street_only: 81404 / 977
+  - postcodes where street vote failed: 3615
+  - 20 most common `street_name`: Wells Road 358, Long Cross 301, Whitehall Road 289, Ashley Down Road 275, Stapleton Road 255, St. Johns Lane 250, Bishport Avenue 245, Two Mile Hill Road 188, Wordsworth Road 171, Ridgeway Road 168, Portway 159, Paxton Drive 155, Bishopsworth Road 153, Clouds Hill Road 153, Greystoke Avenue 152, Cranbrook Road 151, Ilchester Crescent 151, Bloomfield Road 149, Speedwell Road 149, Stackpool Road 149
+
+---
+
+### Stage 1c — Address labels (parser fix: drop the postcode street vote)
+- **Date:** 2026-09-16
+- **Model:** Cursor Grok 4.6
+- **Built:** Replaced the EPC postcode-majority street vote with a per-row parse in `scripts/lib/epc-address.ts` / `scripts/ingest-addresses.ts`. Street = last of address3/address2/address1 containing a street-type suffix (optional North/South/East/West). House number = leading number of that field, else the preceding field when it is only a number. Both fields starting with a digit → `house_number` null / `street_only`. Never borrows Flat/Studio/Unit numbers. Certificate pick prefers `uprn_source='Address Matched'`, then most recent `lodgement_datetime` parsed from the stored value. Postcode modal is a flag only (`spatial_approx`); `street_name` is not rewritten. Title-case on `street_name` and letter suffixes on `house_number`. Migration `013_property_addresses_epc_attrs.sql` adds `property_type` and `uprn_source`; recreates `upsert_property_addresses` to write them and to let a same-source re-run replace its own rows. The epc pass deletes previous `source='epc'` rows then INSERTs, so previously-rejected postcodes are not stuck on an UPDATE of a missing row. `lib/supabase/types.ts` regenerated. `npx tsc --noEmit` exit 0.
+- **Policies:** none new. Existing `property_addresses_select_authenticated` (SELECT, `authenticated`, `using (true)`) covers the two new columns. No write policy. EXECUTE on `upsert_property_addresses` remains `service_role` only after 013's revoke/grant.
+- **Acceptance:**
+  - Re-running the ingest changes no row counts: **PASS** — first and second run both 132,977 written / 106,314 exact / 592 spatial_approx / 26,071 street_only / 0 inferred
+  - A known Bristol street is spot-checked door by door against reality: **PASS** — Wells Road, Totterdown `BS4 2BU` odds 141A–173, title-cased (`141A` not `141a`), Flats 1–4 at 157/159/161. Not a pavement walk. **Also** `BS1 1DB` (Creswicke House, 9 Small Street, studios A1–D6) and `BS1 1DZ` (St. Giles Court flats are `street_only` on Small Street; Flat 17 / `14 St. Giles Court` were not written as house numbers)
+  - A lower-confidence pass cannot overwrite an `exact` row: **PASS** — `upsert_property_addresses` of UPRN 123665 as `osm`/`street_only` returned 0; row stayed `exact` / `163` / `Wells Road` / `epc`
+  - Unmatched UPRNs are absent from the table, not present with nulls: **PASS** — `house_number is null and street_name is null` = 0; `inferred` = 0
+  - Coverage reported as a percentage of Bristol UPRNs in `properties`: **PASS** — 31.29% any label (132,977 / 424,952), 25.02% exact (106,314 / 424,952)
+  - No address column exists on `properties`, `knock_events`, `leads` or in `uprn_snapshot`: **PASS** — `house_number`/`street_name`/`building_name`/`sub_building` exist only on `property_addresses`; `assignments.uprn_snapshot` remains `bigint[]`
+- **RLS (simulated JWT, not a real login cookie):** as `authenticated`, SELECT count = 132,977; INSERT/UPDATE/DELETE = `42501 permission denied for table property_addresses`; `upsert_property_addresses` EXECUTE = `42501 permission denied for function`. as `anon`, SELECT = `42501`.
+- **INSERT path:** first run deleted 139,031 previous epc rows then upserted 132,977 (row_count = write set, all INSERTs). Surgical check: DELETE UPRN 123665 then `upsert_property_addresses` of that one row returned 1 and restored `163 Wells Road`.
+- **Deviations from brief / expected numbers:**
+  - All-certificate rows with a house number and street *before* the ambiguous-null rule: 142,561 + 730 = 143,291 (77.91%) vs expected ~143,337 (77.93%). After nulling the 730 double-number rows: 142,561 (77.51%). Not material.
+  - Distinct UPRNs with a house number: 106,906 (76.89% of 139,031) vs expected ~107,962 (77.65% of 139,035). −1,056 / −0.76pp. Coverage still landed in the quoted band.
+  - Postcodes with exactly one parsed street: 91.51% vs 91.16%. 592 `spatial_approx` rows are minorities on multi-street postcodes (a unique-street postcode cannot disagree). `street_name` was not rewritten.
+  - Ambiguous double-number rows: 730 vs 713.
+  - Same-source re-run of epc now overwrites even when confidence falls, so a parser fix can demote `exact` → `spatial_approx`. A *different* source still cannot overwrite a higher-confidence earlier pass.
+- **Not done / deferred:** `--pass=osm|linked_ids|land_registry` (`osm` still logs `not implemented, Track B`). Interpolation (`inferred`). Field display / Dexie `addresses` store. Stage 8. Nothing under `app/(field)` or Dexie. Did not backfill `properties.postcode`. Did not edit 011 or 012.
+- **Follow-ups:** `Park` / `Vale` as suffixes put neighbourhood names such as Westbury Park and Arnos Vale into the top-20 streets when they sit in a later address field than the true street. Spec-compliant (last suffix field wins). A later pass can fill unmatched UPRNs; it must not overwrite `exact`.
+- **Numbers:**
+  - rows read / usable uprn / matched to `properties`: 183925 / 178363 / 178357
+  - rows yielding house number + street (all certificates, after rule 4): 142561 (77.51%)
+  - distinct UPRNs written / with a house number: 132977 / 106906
+  - coverage: 31.29% any label, 25.02% exact (was 19.39% / 81,404 exact)
+  - exact / spatial_approx / street_only: 106314 / 592 / 26071
+  - Address Matched preferred over a newer Energy Assessor row: 458
+  - uprn_source on written rows: Energy Assessor 119834, Address Matched 13143
+  - 20 most common `street_name`: Fishponds Road 796, Whitchurch Lane 705, Redcliff Street 661, Stapleton Road 590, Church Road 580, Gloucester Road 566, St. Annes Park 529, Westbury Park 504, Queens Road 472, Wells Road 435, Hotwell Road 422, Arnos Vale 418, New Kingsley Road 416, West Street 405, Bishport Avenue 403, Pembroke Road 378, St. Thomas Street 369, North Street 365, Lake Shore Drive 363, Redland Road 362
+
+---
+
+### Stage 1c — Address labels (suffix tiers: weak locality yields to earlier strong street)
+- **Date:** 2026-09-16
+- **Model:** Cursor Grok 4.6
+- **Built:** Split street suffixes into STRONG and WEAK. If the last suffix-bearing field is WEAK-only and an earlier field is STRONG, use that earlier field. Parser lives in `scripts/lib/epc-address.ts` (called only from `scripts/ingest-addresses.ts`). No named-locality list. No migration.
+- **Acceptance:** Re-run `--pass=epc` twice: **PASS** — both 132,391 written / 107,613 exact / 443 spatial_approx / 24,335 street_only. Table vs previous write: 0 street_name changes on the second run.
+- **Deviations:** The rule is in `epc-address.ts`, not inlined in `ingest-addresses.ts` — that file only orchestrates ingest and the change log. Remaining Westbury Park 159 and St. Annes Park 132 are rows with no earlier STRONG field (same shape as Cotham Park). Suffixes that were on the old single list but not in either new tier (Mews, Causeway, Promenade, …) no longer count as streets.
+- **Not done / deferred:** No migration, no field UI, no Stage 8, no Track B passes.
+- **Numbers vs previous ingest (132,977 / 106,314 exact / 592 spatial_approx / 26,071 street_only):**
+  - written 132,391 (−586)
+  - exact 107,613 (+1,299)
+  - spatial_approx 443 (−149)
+  - street_only 24,335 (−1,736)
+  - coverage 31.15% any label, 25.32% exact
+  - vs previous parser: 2,014 renamed, 768 gained a street, 1,354 lost a street (4,136 UPRNs differed)
+  - top 20: Fishponds Road 796, Whitchurch Lane 705, Redcliff Street 661, Church Road 617, Stapleton Road 590, Gloucester Road 566, Queens Road 472, Wells Road 435, Hotwell Road 422, New Kingsley Road 416, West Street 405, Bishport Avenue 403, Pembroke Road 378, St. Thomas Street 369, North Street 365, Lake Shore Drive 363, Redland Road 362, Ashley Down Road 360, Somerset Street 359, East Tucker Street 350. Westbury Park and St. Annes Park are no longer in the top 20.
+
+---
+
+### Stage 1c — Address labels (promotion house-number gate + restored strong suffixes)
+- **Date:** 2026-09-16
+- **Model:** Cursor Grok 4.6
+- **Built:** Promotion of an earlier STRONG field over a later WEAK field now requires a house number on that strong field, or a house-number-only field immediately before it. Added to STRONG (none removed): Mews, Causeway, Promenade, Passage, Path, Steps, Hillside, Meadows, Fields, Croft, Orchard, Approach, Broadway, Circus, Embankment. Parade was already in STRONG.
+- **Acceptance:** `--pass=epc` twice: **PASS** — both 133,619 / 108,546 exact / 452 spatial_approx / 24,621 street_only. Second run vs table: 0 renamed.
+- **Deviations:** 447 UPRNs still lose a street vs the 132,977 last-suffix parser. Those fields ended in Yard, End or Crest — on that run's suffix list, never added to either current tier, not on this session's add list. Nothing was removed from STRONG or WEAK.
+- **Not done / deferred:** No migration, no field UI, no Stage 8.
+- **Numbers:**
+  - vs 132,391 / 107,613 / 443 / 24,335: written 133,619 (+1,228), exact 108,546 (+933), spatial_approx 452 (+9), street_only 24,621 (+286)
+  - vs 132,977 / 106,314 / 592 / 26,071: written 133,619 (+642), exact 108,546 (+2,232), spatial_approx 452 (−140), street_only 24,621 (−1,450)
+  - promotion rule fired: 1,509 (down from 2,014 unguarded renames)
+  - vs 132,977 parser: 1,527 renamed, 1,089 gained a street, 447 lost a street
+  - vs 132,391 table (first write of this fix): 668 renamed, 0 rows dropped from that set
+
