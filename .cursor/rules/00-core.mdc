@@ -4,7 +4,7 @@ alwaysApply: true
 ---
 
 - Coverage is DERIVED from knock_events. Never create a coverage table.
-- No scoring, ranking or colour-coding in any `/field` route. Admin only.
+- No scoring, ranking or quality signals in any `/field` route. Admin only. Eligibility facts (NCCZ, do_not_call, no_opportunity) may persist in `/field`. Quality signals may not. Current-assignment outcome colour is permitted; previous-visit outcome colour is not.
 - All field writes go through `lib/sync/queue.ts`. Never a second sync path.
 - Every client-originated write carries a `client_event_id`. Re-sync is idempotent.
 - PostGIS columns are `geometry(Point,4326)` / `geometry(Polygon,4326)`. Cast `::geography` for distance only.
@@ -14,7 +14,11 @@ alwaysApply: true
 - Service role key is server-only, never in a `NEXT_PUBLIC_` var.
 - British English in user-facing strings.
 - One stage per session. Never start the next stage.
-- Address text is a display label only. UPRN is the only door identity. No address search, autocomplete or typed input anywhere in `app/(field)`.
+- Address text is a display label only. UPRN is the only door identity. A house number may be typed against an ALREADY-SELECTED UPRN and stored in `address_observations`. Address search, autocomplete, street/postcode entry and address-as-identifier remain banned.
 - `property_addresses` is a separate table. Never denormalise `house_number`, `street_name`, `building_name` or `sub_building` into `properties`, `knock_events`, `leads` or `uprn_snapshot`.
 - Later address ingest passes never overwrite a higher-confidence earlier pass.
-- Stages 0–7 are built; migrations are applied. Read `supabase/migrations/` for the next free number. Never edit an applied migration. Never assume a number.
+- Stages 0–7 and 1c built; 8a in progress. Read `supabase/migrations/` for the next free number. Never edit an applied migration. Never assume a number.
+- `knock_events.outcome` has nine values including `no_opportunity`.
+- `address_observations` is the highest address-confidence tier; resolve labels through `v_door_label`, never by reading `property_addresses` directly in a field component.
+- No `navigator.geolocation` before Stage 16.
+- Every view over an RLS table needs `(security_invoker = true)`.

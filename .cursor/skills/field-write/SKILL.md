@@ -20,14 +20,26 @@ Every write from the field app is offline-first. There are no exceptions and no 
 3. Add the offline test: perform the action in airplane mode, reconnect, confirm exactly one row.
 4. Add the duplicate test: replay the same `client_event_id`, confirm exactly one row.
 
+## Ops
+
+New ops go in `lib/sync/ops.ts` and are registered in `validateOp`. Never a parallel op system, never a second transport.
+
+## Undo window
+
+A newly logged op is written with status `held_undo` and an `eligible_at` field, promoted to `pending` after 60s. `flush()` selects only `pending`, so no change to the flush query is needed.
+
+Undo = deleting a `held_undo` row. Nothing reaches Postgres.
+
+A sweep on app start promotes any `held_undo` row whose `eligible_at` has passed.
+
 ## Address labels
 
-Address text is a display label only. It is never written from the field. Do not enqueue it, do not put it on `knock_events` or `leads`, and do not add it to the assignment snapshot. `property_addresses` is read-only reference data (SELECT for authenticated, no write policy). Logging remains by UPRN.
+Address text is a display label only. UPRN is the only door identity. A house number may be typed against an ALREADY-SELECTED UPRN and stored in `address_observations` via the queue as its own op type. Do not put address fields on `knock_events`, `leads`, or `uprn_snapshot`. `property_addresses` is ingest-owned (SELECT for authenticated, no write policy). Logging remains by UPRN.
 
 ## Red flags
 
 - `supabase.from(...).insert(...)` inside anything under `app/(field)/` — wrong, use the queue.
 - A new table for something that only needs to be true for the next 90 seconds — wrong, use broadcast.
 - Any payload containing latitude or longitude leaving the device — wrong, see rule 00-core.
-- Writing `house_number`, `street_name`, `building_name`, `sub_building` or any other address field from the field app — wrong. Labels are read-only.
-- Address search, autocomplete, or a typed address input — wrong. Tapping the UPRN dot is the interaction.
+- Writing `house_number`, `street_name`, `building_name` or `sub_building` onto `knock_events`, `leads`, `properties` or `uprn_snapshot` — wrong.
+- Address search, autocomplete, street/postcode entry, or typed text used to *locate* a property — wrong. Typing a house number against an already-selected UPRN is allowed.

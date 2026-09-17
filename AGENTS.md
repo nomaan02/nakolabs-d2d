@@ -7,7 +7,10 @@ Terra Draw, Dexie, Vercel.
 ## Hard rules
 
 - Coverage is DERIVED from `knock_events`. Never create a coverage table.
-- No scoring, ranking or colour-coding in any `/field` route. Admin only.
+- No scoring, ranking or quality signals in any `/field` route. Admin only.
+  Eligibility facts (NCCZ, `do_not_call`, `no_opportunity`) may persist in
+  `/field`. Quality signals may not. Current-assignment outcome colour is
+  permitted; previous-visit outcome colour is not.
 - All field writes go through `lib/sync/queue.ts`. Never a second sync path.
 - Every table has RLS enabled with default-deny policies.
 - PostGIS columns are `geometry(Point,4326)` / `geometry(Polygon,4326)`.
@@ -22,17 +25,24 @@ Terra Draw, Dexie, Vercel.
   scalar is ever transmitted or stored.
 - Service role key is server-only. Never in a `NEXT_PUBLIC_` var.
 - British English in user-facing strings.
-- Address text is display-only. UPRN is the only door identity.
+- UPRN is the only door identity. A house number may be typed against an
+  ALREADY-SELECTED UPRN and stored in `address_observations`. Address search,
+  autocomplete, street/postcode entry and address-as-identifier remain banned.
 - `property_addresses` is a separate table. Never denormalise
   `house_number`, `street_name`, `building_name` or `sub_building` into
   `properties`, `knock_events`, `leads` or `uprn_snapshot`.
 - Later ingest passes never overwrite a higher-confidence earlier pass.
+- `knock_events.outcome` has nine values. The ninth is `no_opportunity`.
+- Latest-outcome-wins: corrections are new rows, resolved by `v_latest_knock`.
+  Canvassers have no UPDATE or DELETE on `knock_events` or `leads`.
+- No `navigator.geolocation` anywhere before Stage 16.
+- Every view over an RLS table is created with `(security_invoker = true)`.
 
 ## Structure
 
 app/(admin)   — prop drawing, allocation, coverage, dashboard
 app/(office)  — appointment slots, CRM sync review, manual lead settlement fallback
-app/(field)   — canvasser view; offline-capable
+app/(field)   — canvasser view; offline-capable; four tabs: Map, Logger, Leads, Profile
 lib/supabase  — client + server factories, generated types
 lib/sync      — Dexie queue, the only write path from the field
 lib/geo       — PostGIS RPC wrappers, rotation and route maths
@@ -46,6 +56,8 @@ team = 1 to 3 canvassers, bunny-hopping the same route (tables: `assignments` + 
 lead outcomes: sale | pm (pitch & miss) | blowout | utc (unable to contact) | btc (back to canvasser) | re_app (rescheduled — non-terminal)
 address label = house number + street displayed beside a dot; may be absent
 match_confidence = exact | inferred | spatial_approx | street_only
+no_opportunity = rented, council or HMO — "we cannot do the job here".
+  Written to `knock_events.outcome` AND `property_observations.tenure`.
 
 ## Conventions
 

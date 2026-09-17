@@ -446,3 +446,18 @@ One entry per stage, appended by the agent at the end of each session.
   - vs 132,977 parser: 1,527 renamed, 1,089 gained a street, 447 lost a street
   - vs 132,391 table (first write of this fix): 668 renamed, 0 rows dropped from that set
 
+---
+
+### Stage 8 — Knock logger (redesign, documentation only)
+- **Date:** 2026-09-17
+- **Model:** Cursor Grok 4.6
+- **Built:** Documentation and configuration for the Stage 8 redesign. Applied `BRIEF-AMENDMENTS-STAGE-8.md` blocks A–N to `docs/D2D-Build-Brief.md`. Synced `AGENTS.md`, `.cursor/rules/00-core.mdc`, and `.cursor/skills/field-write/SKILL.md`. Created `docs/STAGE-8-SEAMS.md` and `.cursor/skills/outcome-mapping/SKILL.md`. No application code, no SQL, no migrations.
+- **Acceptance:** documentation session — not Stage 8a/8b implementation.
+  - Brief amendments A–N applied exactly as written: **PASS** (A, B, C, D, E, F, H, I, K appended as dated notes; G replaced Stage 8 body; J, L, M, N in-place)
+  - Invariant 2 amended: eligibility facts (NCCZ, `do_not_call`, `no_opportunity`) may persist in `/field`; quality signals may not; current-assignment outcome colour permitted, previous-visit outcome colour banned: **PASS** (brief note + `AGENTS.md` + `00-core.mdc`)
+  - Invariant 5 amended (second narrowing): house number may be typed against an already-selected UPRN into `address_observations`; search/autocomplete/street-postcode/address-as-identifier remain banned: **PASS** (brief note + `AGENTS.md` + `00-core.mdc`)
+  - Stage 7 full-spec verification recorded: **PASS** as a dated note under Stage 7 (queue shipped to the full Section 6 specification, not Track A "-lite"; Track B "harden 7 to full" closed). This session did **not** re-run Stage 7 acceptance tests.
+- **Deviations from brief:** none in application code — none was written. `AGENTS.md` Structure line for `app/(field)` now names the four tabs. `00-core.mdc` and the field-write skill were updated to match the two invariant amendments so they do not contradict the brief.
+- **Not done / deferred:** Stage 8a schema. Stage 8b UI. No files under `app/`, `components/`, `lib/`, or `supabase/migrations/`. Did not write or run SQL. Did not create migrations. Did not begin Stage 8a.
+- **Follow-ups:** Stage 8a is next (Frontier, highest reasoning). Pre-flight: `knock_events` and `property_observations` must both still be empty before CHECK changes.
+
