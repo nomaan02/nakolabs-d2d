@@ -51,7 +51,7 @@ export type SendOutcome = "ok" | SendClass;
 
 export type SendResult = {
   outcome: SendOutcome;
-  step: "knock" | "lead" | "observation";
+  step: "knock" | "lead" | "observation" | "address";
   error: OutboxError | null;
 };
 
@@ -59,6 +59,14 @@ type Client = SupabaseClient<Database>;
 
 export const LOCK_NAME = "d2d-outbox-flush";
 export const REQUEST_TIMEOUT_MS = 10_000;
+
+/**
+ * How long a logged op sits as `held_undo` before it becomes eligible to
+ * send. Undo inside this window deletes the row and nothing ever reaches
+ * Postgres, which is why the undo is honest rather than a compensating
+ * delete a canvasser has no grant for.
+ */
+export const UNDO_WINDOW_MS = 60_000;
 
 const EXTERNAL_TRIGGERS: ReadonlySet<FlushReason> = new Set<FlushReason>([
   "mount",
@@ -116,13 +124,24 @@ function isConstraintError(error: unknown): boolean {
   );
 }
 
+export type EnqueueOptions = {
+  /**
+   * Queue as `held_undo` with this much grace before it becomes sendable.
+   * Omit, or pass 0, to queue as `pending` and send at the next flush.
+   */
+  undoWindowMs?: number;
+};
+
 /**
  * Store one op. Idempotent on client_event_id: the unique index makes a
  * second enqueue of the same id a no-op rather than a second row.
  */
-export async function enqueue(op: SyncOp): Promise<EnqueueResult> {
+export async function enqueue(op: SyncOp, options: EnqueueOptions = {}): Promise<EnqueueResult> {
   const problem = validateOp(op);
   if (problem) throw new Error(`Refusing to queue ${op.kind}: ${problem}`);
+
+  const undoWindowMs = options.undoWindowMs ?? 0;
+  const held = undoWindowMs > 0;
 
   const row: OutboxRow = {
     client_event_id: op.client_event_id,
@@ -130,7 +149,8 @@ export async function enqueue(op: SyncOp): Promise<EnqueueResult> {
     assignment_id: op.assignment_id,
     canvasser_id: op.canvasser_id,
     payload: op.payload,
-    status: "pending",
+    status: held ? "held_undo" : "pending",
+    eligible_at: held ? new Date(Date.now() + undoWindowMs).toISOString() : null,
     attempts: 0,
     created_at: new Date().toISOString(),
     synced_at: null,
@@ -155,7 +175,9 @@ export async function enqueue(op: SyncOp): Promise<EnqueueResult> {
   }
 
   if (outcome.queued) {
-    if (typeof navigator === "undefined" || navigator.onLine !== false) {
+    if (held) {
+      schedulePromotion(undoWindowMs);
+    } else if (typeof navigator === "undefined" || navigator.onLine !== false) {
       void flush("enqueue");
     } else {
       setRuntime({ state: "offline" });
@@ -164,9 +186,84 @@ export async function enqueue(op: SyncOp): Promise<EnqueueResult> {
   return outcome;
 }
 
+/** Unsynced work, held rows included — they are logged knocks, just not yet sendable. */
 export async function hasPending(): Promise<boolean> {
-  const count = await fieldDb().outbox.where("status").equals("pending").count();
-  return count > 0;
+  const db = fieldDb();
+  const [pending, heldUndo] = await Promise.all([
+    db.outbox.where("status").equals("pending").count(),
+    db.outbox.where("status").equals("held_undo").count(),
+  ]);
+  return pending + heldUndo > 0;
+}
+
+// ---------------------------------------------------------------------------
+// The undo window
+// ---------------------------------------------------------------------------
+
+let promotionTimer: ReturnType<typeof setTimeout> | null = null;
+
+function schedulePromotion(ms: number) {
+  if (typeof window === "undefined") return;
+  if (promotionTimer !== null) clearTimeout(promotionTimer);
+  // +50 ms so the sweep's `eligible_at <= now` comparison cannot lose a race
+  // with a timer that fires a fraction early.
+  promotionTimer = setTimeout(() => {
+    promotionTimer = null;
+    void promoteDue().then((promoted) => {
+      if (promoted > 0) void flush("enqueue");
+    });
+  }, ms + 50);
+}
+
+/**
+ * Move every `held_undo` row whose grace has expired to `pending`. Called by
+ * the per-op timer and, crucially, once on app start: a force-quit inside the
+ * undo window must not strand a knock.
+ *
+ * A row with no `eligible_at` (queued by an older build, or by a code path
+ * that forgot) is promoted rather than held forever — fail towards sending.
+ */
+export async function promoteDue(now: number = Date.now()): Promise<number> {
+  const db = fieldDb();
+  const held = await db.outbox.where("status").equals("held_undo").toArray();
+  const due = held.filter((row) => {
+    if (!row.eligible_at) return true;
+    const at = Date.parse(row.eligible_at);
+    return Number.isNaN(at) || at <= now;
+  });
+  if (due.length === 0) {
+    // Something is still holding. Re-arm for the nearest deadline so a tab
+    // that was backgrounded through its own timer still promotes.
+    const next = held
+      .map((row) => (row.eligible_at ? Date.parse(row.eligible_at) : NaN))
+      .filter((at) => !Number.isNaN(at))
+      .sort((a, b) => a - b)[0];
+    if (next !== undefined) schedulePromotion(Math.max(0, next - now));
+    return 0;
+  }
+  await db.outbox
+    .where("seq")
+    .anyOf(due.map((row) => row.seq as number))
+    .modify({ status: "pending" });
+  if (due.length < held.length) schedulePromotion(0);
+  return due.length;
+}
+
+/**
+ * Undo. Deletes a row that has not yet become eligible, so nothing was ever
+ * sent and nothing needs deleting server-side — which matters, because a
+ * canvasser has no DELETE grant on `knock_events`.
+ *
+ * Returns false if the window has already closed.
+ */
+export async function cancelHeld(clientEventId: string): Promise<boolean> {
+  const db = fieldDb();
+  return db.transaction("rw", db.outbox, async () => {
+    const row = await db.outbox.where("client_event_id").equals(clientEventId).first();
+    if (!row || row.status !== "held_undo") return false;
+    await db.outbox.delete(row.seq as number);
+    return true;
+  });
 }
 
 /** Put a parked row back in the queue and try again now. */
@@ -418,10 +515,10 @@ async function insertWithTimeout<T>(
  * Send one row. Exported so the Stage 7 harness can drive the real wire path
  * from Node with a real JWT, without Dexie.
  *
- * knock_event: insert the knock, then (if present) the lead. If the lead step
- * fails retryably the row stays pending and the next attempt re-runs step 1,
- * which comes back 23505 → duplicate → carry on to step 2. Identical bytes
- * both times.
+ * knock_event: insert the knock, then (if present) the lead, then (if
+ * present) the tenure observation. If a later step fails retryably the row
+ * stays pending and the next attempt re-runs the earlier steps, which come
+ * back 23505 → duplicate → carry on. Identical bytes every time.
  */
 export async function sendOp(
   supabase: Client,
@@ -431,43 +528,54 @@ export async function sendOp(
   if (row.kind === "knock_event") {
     const payload = row.payload as Extract<SyncOp, { kind: "knock_event" }>["payload"];
 
-    const knock = await insertWithTimeout(
-      (signal) => supabase.from("knock_events").insert(payload.knock).abortSignal(signal),
-      timeoutMs,
+    const knock = await step("knock", timeoutMs, (signal) =>
+      supabase.from("knock_events").insert(payload.knock).abortSignal(signal),
     );
-    if (knock.error) {
-      const failure = toFailure(knock.error, knock.status);
-      const cls = classify({ ...failure, name: knock.error.name });
-      if (cls !== "duplicate") return { outcome: cls, step: "knock", error: failure };
-      if (!payload.lead) return { outcome: "duplicate", step: "knock", error: null };
-    } else if (!payload.lead) {
-      return { outcome: "ok", step: "knock", error: null };
+    if (knock.outcome !== "ok" && knock.outcome !== "duplicate") return knock;
+
+    let last = knock;
+
+    if (payload.lead) {
+      last = await step("lead", timeoutMs, (signal) =>
+        supabase.from("leads").insert(payload.lead!).abortSignal(signal),
+      );
+      if (last.outcome !== "ok" && last.outcome !== "duplicate") return last;
     }
 
-    const lead = await insertWithTimeout(
-      (signal) => supabase.from("leads").insert(payload.lead!).abortSignal(signal),
-      timeoutMs,
-    );
-    if (lead.error) {
-      const failure = toFailure(lead.error, lead.status);
-      const cls = classify({ ...failure, name: lead.error.name });
-      if (cls === "duplicate") return { outcome: "duplicate", step: "lead", error: null };
-      return { outcome: cls, step: "lead", error: failure };
+    if (payload.observation) {
+      last = await step("observation", timeoutMs, (signal) =>
+        supabase.from("property_observations").insert(payload.observation!).abortSignal(signal),
+      );
+      if (last.outcome !== "ok" && last.outcome !== "duplicate") return last;
     }
-    return { outcome: "ok", step: "lead", error: null };
+
+    return last;
+  }
+
+  if (row.kind === "address_observation") {
+    const payload = row.payload as Extract<SyncOp, { kind: "address_observation" }>["payload"];
+    return step("address", timeoutMs, (signal) =>
+      supabase.from("address_observations").insert(payload.address).abortSignal(signal),
+    );
   }
 
   const payload = row.payload as Extract<SyncOp, { kind: "property_observation" }>["payload"];
-  const observation = await insertWithTimeout(
-    (signal) =>
-      supabase.from("property_observations").insert(payload.observation).abortSignal(signal),
-    timeoutMs,
+  return step("observation", timeoutMs, (signal) =>
+    supabase.from("property_observations").insert(payload.observation).abortSignal(signal),
   );
-  if (observation.error) {
-    const failure = toFailure(observation.error, observation.status);
-    const cls = classify({ ...failure, name: observation.error.name });
-    if (cls === "duplicate") return { outcome: "duplicate", step: "observation", error: null };
-    return { outcome: cls, step: "observation", error: failure };
-  }
-  return { outcome: "ok", step: "observation", error: null };
+}
+
+async function step(
+  name: SendResult["step"],
+  timeoutMs: number,
+  run: (
+    signal: AbortSignal,
+  ) => PromiseLike<{ error: { message: string; code?: string; name?: string } | null; status: number }>,
+): Promise<SendResult> {
+  const { error, status } = await insertWithTimeout(run, timeoutMs);
+  if (!error) return { outcome: "ok", step: name, error: null };
+  const failure = toFailure(error, status);
+  const cls = classify({ ...failure, name: error.name });
+  if (cls === "duplicate") return { outcome: "duplicate", step: name, error: null };
+  return { outcome: cls, step: name, error: failure };
 }

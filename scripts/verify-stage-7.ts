@@ -138,7 +138,10 @@ function knockOp(
     outcome: withLead ? "lead" : "no_answer",
     sequence_position: fields.sequence,
     occurred_at: new Date().toISOString(),
+    notes: null,
   };
+  // No is_immediate: Stage 8a's leads_is_immediate_biu trigger owns it and
+  // CanvasserLeadInsert no longer carries the column.
   const lead: CanvasserLeadInsert | undefined = withLead
     ? {
         client_event_id: clientEventId,
@@ -146,7 +149,6 @@ function knockOp(
         uprn: fields.uprn,
         canvasser_id: fields.canvasserId,
         booked_for: new Date(Date.now() + 3 * 3600_000).toISOString(),
-        is_immediate: true,
         notes: "stage 7 harness",
       }
     : undefined;

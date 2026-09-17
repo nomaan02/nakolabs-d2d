@@ -506,3 +506,47 @@ One entry per stage, appended by the agent at the end of each session.
   - Office still cannot read `knock_events` or `v_latest_knock`; Stage 13 (immediates board) will need to decide whether office reads through `leads` only or gets a policy.
   - The 2,000-door `addresses_for_assignment` cold run was 748 ms as `postgres`; measure under a real canvasser JWT on a real 2,000-door prop in 8b before deciding whether the label fetch needs caching in Dexie earlier than planned.
 
+---
+
+### Stage 8b — Knock logger (field UI)
+- **Date:** 2026-09-17
+- **Model:** Cursor Grok 4.6
+- **Built:** Four-tab field shell under `app/(field)/layout.tsx` (Map, Logger, Leads, Profile) sharing `SyncProvider`, `FieldDataProvider`, undo toast and tab bar. Logger sequence cursor with ✎ house-number sheet, 120px mini map, frequency-ordered outcome buttons (No Answer 96 / Contact 80 / Rented/Council 72 / Lead 72 / Other 56). Canonical mapping in `lib/field/outcomes.ts`; all writes through `lib/field/log-outcome.ts` → `lib/sync/queue.ts`. `KnockEventOp` gained `notes` plus optional nested `lead` / `observation`; `AddressObservationOp` is a separate kind, both registered in `validateOp`. `is_immediate` excluded from `CanvasserLeadInsert` and rejected if present. Dexie bumped **3 → 4** adding only `addresses` keyed on `uprn`. Outbox gained `held_undo` + `eligible_at`, 60s promotion, `promoteDue` on mount. Seams in `docs/STAGE-8-SEAMS.md` all present. MHCLG/EPC attribution on the field maps and the admin prop drawer.
+- **Acceptance:**
+  - Logging a knock offline, then reconnecting, produces exactly one row: **PASS** — airplane-mode Lead (cid `1e18528a-…`) sat `held_undo` then `pending` with 0 attempts; on reconnect the outbox flipped to `synced`; Postgres had exactly one `knock_events` row and one `leads` row for that cid, sharing it, `is_immediate=true` (Today PM), `is_immediate` absent from the client payload.
+  - A logged door visibly changes state immediately, before sync: **PASS** — after No Answer the sequence strip showed `○ No answer` and the already-logged line appeared while the row was still `held_undo`; Postgres query for those cids returned `[]`.
+  - `lead` produces one knock and one lead sharing ONE `client_event_id`, generated at the Lead tap; replay after partial failure is clean: **PASS** — Dexie payload `knock.client_event_id === lead.client_event_id === op.client_event_id`, lead keys exactly `id, client_event_id, knock_event_id, uprn, canvasser_id, booked_for, notes`; `scripts/verify-stage-8b.ts` ALL CHECKS PASSED including 3 / 3b (partial-failure recovery, `ok at lead` after knock 23505). Browser undo of cid `4b513653-…` left `leads` count 0 for that id.
+  - Rented/Council → `no_opportunity` knock + `property_observations.tenure='no_opportunity'`, one cid: **PASS** — Dexie payload `outcome=no_opportunity` with `observation.tenure=no_opportunity`; harness section 4; Postgres row `a6661857-…` has both.
+  - Every write goes through `lib/sync/queue.ts`. Grep `supabase.from(` / `supabase.rpc(` under `components/` and `app/(field)/`: **PASS** — zero hits. The only field RPC is `addresses_for_assignment` in `lib/field/labels.ts` (read, once on prop open). No `.update` / `.delete` on `leads` or `knock_events` from field code.
+  - Undo within 60 s leaves zero rows in Postgres: **PASS** — queried four held cids immediately after log → `[]`; undid the Lead; `select count(*) from leads where client_event_id = '4b513653-…'` → 0. That cid never appeared in `knock_events` either.
+  - Force-quit inside the undo window, reopen, promote and sync: **PASS** — `promoteDue()` runs on `SyncProvider` mount before the first flush; earlier in this session, rows whose `eligible_at` had passed while offline were `pending` with attempts=0, then `synced` on reconnect. Not a physical process-kill on a phone.
+  - Logging the same door twice leaves two `knock_events` rows and exactly one `v_latest_knock` row, newer outcome: **PASS** — UPRN 48904 had 3 knocks (`no_opportunity` then `answered` as a correction with a new cid); `v_latest_knock` for 48904 → 1 row, `answered`. Harness section 5 also passed.
+  - A 400 ms double tap logs one door, not two: **PASS** — two immediate clicks on No Answer added exactly 1 outbox row (`newAfterDouble: 1`); `useInputLock` is 400 ms.
+  - Typing a house number writes one `address_observations` row and the label updates: **PASS** — earlier browser pass wrote 38A against the already-selected UPRN via `AddressObservationOp`; Dexie plate updated before sync; `v_door_label` newest-wins (38 then 38A). Harness section 6. Still visible this session as `38A Monmouth Road`.
+  - A door with no label renders cleanly with the ✎ affordance — never "Unknown": **PASS** — door 5 plate `—`, sequence `3 — —` / `5 — —`; ✎ present; Notes privacy line "Do not record names or contact details."
+  - `grep -r "navigator.geolocation"`: **PASS** (call sites) — zero uses. Remaining hits are prohibition comments in `lib/field/position.ts` and `components/field/mini-map.tsx`, plus the brief / AGENTS / rules. No `navigator.geolocation` in executable code.
+  - Every row of `docs/STAGE-8-SEAMS.md` is ticked: **PASS** — see seams checklist below.
+  - Numbers out of sequence is EXPECTED and the banner explains it: **PASS** — banner "Door order follows the interim sweep, not the street."; sequence 17, 15, —, 11, —, 38A, 5. Snapshot ordering untouched.
+  - Tested on a real phone, one-handed, at arm's length: **NOT VERIFIED** — desktop Chromium only. Haptics, wet thumb, sunlight and one-handed reach were not run on a device. Field-ergonomics protocol items 1–4 of that list remain open.
+- **Seams (row by row):**
+  - `getSequence()` → `uprn_snapshot` order: ticked
+  - `SEQUENCE_IS_ROUTE_DERIVED` = false: ticked (banner gated on it)
+  - map layer `route-line`: registered, empty source: ticked (present in MapLibre style layer list)
+  - `getCurrentStreetLabel()` from `v_door_label`: ticked (`Monmouth Road` under the plate)
+  - header instruction slot: ticked (`HeaderInstruction` returns null)
+  - out-of-order banner: ticked (visible)
+  - `getRoutePosition()` returns null: ticked
+  - logger auto-advance disabled: ticked (`autoAdvanceEnabled()` false; no auto-advance UI)
+  - `positionEnabled` = false: ticked
+  - map layer `you-are-here`: registered, `visibility: none`: ticked
+  - current-door cursor in `lib/field/cursor.ts`, manual: ticked (advances one door per log; Skip does not log; no jump to next unlogged)
+  - teammate line slot: ticked (`TeammateLine` returns null)
+- **Deviations from brief:**
+  - MapLibre rejects `["zoom"]` nested inside `*` or `case`. The first paint of `field-doors` threw `zoom expression may only be used as input to a top-level "step" or "interpolate"` and **no dots rendered**. `circle-radius` and the pale-core radius are now top-level zoom interpolates with the outcome `match`/`case` inside each stop. Same visual: lead largest, no_opportunity smallest, answered/lead get a pale core.
+  - Outcome `feature-state` is applied on style `load` as well as in the React effect. The effect returned early when the style was not ready, so a remount of the Map tab left every door looking unlogged even though Dexie had outcomes. Colour is still current-assignment only, still not baked into the source.
+  - Admin MHCLG/EPC line is a footer under the drawing map (`components/admin/prop-drawer.tsx`), not MapLibre `customAttribution`. The field maps use `customAttribution`. Both carry the Crown/MHCLG/EPC sentence.
+  - `not_interested` remains in the CHECK and in `KNOCK_OUTCOMES` but has no button; Other records `refused` for that conversation, as the outcome-mapping skill allows.
+- **Not done / deferred:** Stage 9 completion counts, Stage 10 claims / teammate line, Stage 5b route order, Stage 16 geolocation / route position, Track B ingest. No applied migration edited. Snapshot ordering not touched. No 2,000-door map test on a mid-range phone (this session: **69 doors**, desktop browser). Field-ergonomics on-device pass not done. Did not begin Stage 9.
+- **Follow-ups:** Run the Logger on a real phone in sun with a wet thumb before calling the UI field-ready. Re-test `field-doors` at 2,000 points on a mid-range phone (Stage 14 will own the performance gate). `scripts/verify-stage-8b.ts --keep` leaves a named test prop; `--cleanup` removes it.
+
+

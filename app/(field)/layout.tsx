@@ -1,20 +1,46 @@
 import type { ReactNode } from "react";
 
+import { FieldDataProvider } from "@/components/field/field-data-provider";
 import { SyncProvider } from "@/components/field/sync-provider";
+import { TabBar } from "@/components/field/tab-bar";
+import { UndoToast } from "@/components/field/undo-toast";
 import { RegisterServiceWorker } from "@/components/pwa/register-sw";
+import { getOwnProfile } from "@/lib/auth/profile";
+import { createClient } from "@/lib/supabase/server";
 
 /**
- * Field route group. The sync provider mounts once here so the flush
- * triggers survive navigation within /field. The app-shell service worker is
- * registered here too — and only here, so admin and office never get one.
- * The two are independent: the worker caches the shell, the provider owns
- * the outbox, and neither waits on the other.
+ * The field shell. Four real routes — Map, Logger, Leads, Profile — share
+ * this one layout, so the assignment, the labels and the outbox are read
+ * once per prop rather than once per tab.
+ *
+ * The sync provider mounts here so the flush triggers and the undo-promotion
+ * sweep survive navigation between tabs. The app-shell service worker is
+ * registered here too, and only here, so admin and office never get one. The
+ * two are independent: the worker caches the shell, the provider owns the
+ * outbox, and neither waits on the other.
  */
-export default function FieldLayout({ children }: { children: ReactNode }) {
+export default async function FieldLayout({ children }: { children: ReactNode }) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const profile = user ? await getOwnProfile(supabase, user.id) : null;
+
   return (
     <SyncProvider>
       <RegisterServiceWorker />
-      {children}
+      <FieldDataProvider
+        signedInAs={profile?.full_name ?? user?.email ?? ""}
+        role={profile?.role ?? "canvasser"}
+      >
+        <main className="relative flex h-dvh flex-col overflow-hidden bg-worksheet text-ink">
+          <div className="relative min-h-0 flex-1">
+            {children}
+            <UndoToast />
+          </div>
+          <TabBar />
+        </main>
+      </FieldDataProvider>
     </SyncProvider>
   );
 }

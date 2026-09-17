@@ -6,7 +6,14 @@ import { getCachedToday } from "@/lib/field/cache";
 import { fieldDb, type OutboxRow } from "@/lib/field/db";
 import { createClient } from "@/lib/supabase/client";
 import { newClientEventId, newRowId, type KnockEventOp } from "@/lib/sync/ops";
-import { enqueue, flush, getStatus, hasPending, type QueueRuntime } from "@/lib/sync/queue";
+import {
+  enqueue,
+  flush,
+  getStatus,
+  hasPending,
+  promoteDue,
+  type QueueRuntime,
+} from "@/lib/sync/queue";
 
 const TIMER_MS = 30_000;
 
@@ -19,7 +26,12 @@ const TIMER_MS = 30_000;
  */
 export function SyncProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
-    void flush("mount");
+    // Before the first flush: promote any held_undo row whose 60 s window
+    // expired while the app was closed. A force-quit inside the undo window
+    // must not strand a knock on the device.
+    void promoteDue()
+      .catch(() => 0)
+      .finally(() => void flush("mount"));
 
     const onOnline = () => void flush("online");
     const onFocus = () => void flush("focus");
@@ -37,7 +49,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
-      hasPending()
+      // promoteDue first: a backgrounded tab can have its promotion timer
+      // throttled, and hasPending() counts held rows as unsynced work.
+      promoteDue()
+        .catch(() => 0)
+        .then(() => hasPending())
         .then((pending) => {
           if (pending) void flush("timer");
         })
@@ -129,6 +145,7 @@ function installDebugHooks(): () => void {
               outcome: "no_answer",
               sequence_position: door.properties.sequence,
               occurred_at: new Date().toISOString(),
+              notes: null,
             },
           },
         };

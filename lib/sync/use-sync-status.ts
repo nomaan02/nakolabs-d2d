@@ -85,13 +85,16 @@ function restartLive(why: string, error?: unknown) {
 function startLive() {
   const db = fieldDb();
   const observable = liveQuery(async (): Promise<Counts> => {
-    const [pending, failedRows, lastSync] = await Promise.all([
+    const [sendable, heldUndo, failedRows, lastSync] = await Promise.all([
       db.outbox.where("status").equals("pending").count(),
+      // Held rows are logged knocks inside their undo window. They are
+      // unsynced work, so the header counts them — same rule as hasPending().
+      db.outbox.where("status").equals("held_undo").count(),
       db.outbox.where("status").equals("failed").sortBy("seq"),
       db.sync_meta.get("last_sync_at"),
     ]);
     return {
-      pending,
+      pending: sendable + heldUndo,
       failed: failedRows.length,
       failedRows,
       lastSyncAt: lastSync?.value ?? null,

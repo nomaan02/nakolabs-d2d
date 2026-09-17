@@ -6,6 +6,13 @@ const STATIC_PREFIX = "/_next/static/";
 const WARM_DEBOUNCE_MS = 1_500;
 
 /**
+ * All four tab routes. Navigation between them is client-side, so the worker
+ * would otherwise never see three of the four documents and a cold open on,
+ * say, /field/logger in airplane mode would hit the offline page.
+ */
+const FIELD_ROUTES = ["/field", "/field/logger", "/field/leads", "/field/profile"];
+
+/**
  * Registers the app-shell worker at /sw.js and keeps it warm.
  *
  * Production only: Turbopack's HMR and a service worker do not mix, and the
@@ -95,9 +102,11 @@ export function RegisterServiceWorker() {
       if (disposed) return;
 
       const initial = collectLoaded().filter(isStatic);
-      // The document itself, so one online visit is enough to cold-open offline.
+      // The documents themselves, so one online visit is enough to cold-open
+      // any tab offline. `warm()` refuses anything that redirects, so a
+      // signed-out user caches nothing.
       if (!wasControlled) initial.push(location.pathname);
-      queue(initial);
+      queue(initial.concat(FIELD_ROUTES));
 
       if (typeof PerformanceObserver !== "undefined") {
         observer = new PerformanceObserver((list) => {

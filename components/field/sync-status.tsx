@@ -47,6 +47,10 @@ function rowLabel(row: OutboxRow): string {
         : `UPRN ${payload.knock.uprn}`;
     return `Knock at ${door}`;
   }
+  if (row.kind === "address_observation") {
+    const payload = row.payload as { address: { uprn: number; house_number: string } };
+    return `House number ${payload.address.house_number} at UPRN ${payload.address.uprn}`;
+  }
   const payload = row.payload as { observation: { uprn: number } };
   return `Observation at UPRN ${payload.observation.uprn}`;
 }

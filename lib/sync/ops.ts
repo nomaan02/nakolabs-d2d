@@ -14,8 +14,9 @@ type Tables = Database["public"]["Tables"];
 type KnockEventsInsert = Tables["knock_events"]["Insert"];
 type LeadsInsert = Tables["leads"]["Insert"];
 type PropertyObservationsInsert = Tables["property_observations"]["Insert"];
+type AddressObservationsInsert = Tables["address_observations"]["Insert"];
 
-/** `knock_events.outcome` check constraint, 003_core.sql. */
+/** `knock_events.outcome` check constraint, 014_stage_8a_knock_logger_schema.sql. */
 export const KNOCK_OUTCOMES = [
   "answered",
   "no_answer",
@@ -25,17 +26,35 @@ export const KNOCK_OUTCOMES = [
   "callback",
   "do_not_call",
   "inaccessible",
+  "no_opportunity",
 ] as const;
 export type KnockOutcome = (typeof KNOCK_OUTCOMES)[number];
 
-/** `property_observations.tenure` check constraint, 003_core.sql. */
-export const TENURES = ["rented", "council", "student", "owner", "unknown"] as const;
+/** `property_observations.tenure` check constraint, 014_stage_8a_knock_logger_schema.sql. */
+export const TENURES = [
+  "rented",
+  "council",
+  "student",
+  "owner",
+  "unknown",
+  "no_opportunity",
+] as const;
 export type Tenure = (typeof TENURES)[number];
+
+/** `address_observations.house_number` length check, 014. */
+export const HOUSE_NUMBER_MAX = 12;
+
+/** `knock_events.notes` length check, 014. */
+export const NOTES_MAX = 280;
 
 /**
  * One knock. `id` is REQUIRED and device-generated (not the server default)
  * because an offline lead must reference it through `leads.knock_event_id`
  * before the knock row exists. `synced_at` is never sent — server default.
+ *
+ * `notes` is required in the type but nullable on the wire: an omitted field
+ * and an explicit null reach Postgres identically, and requiring it stops a
+ * caller silently dropping a note the canvasser typed.
  */
 export type KnockEventWrite = Required<
   Pick<
@@ -45,23 +64,22 @@ export type KnockEventWrite = Required<
 > & {
   outcome: KnockOutcome;
   sequence_position: number | null;
+  notes: string | null;
 };
 
 /**
- * Exactly the eight columns `authenticated` may insert on `leads`. Anything
- * else (`status`, `crm_ref`, …) is a 42501 at runtime; keeping them out of the
- * type closes that trap here rather than in Stage 8.
+ * Exactly the seven columns a canvasser may insert on `leads`. Anything else
+ * (`status`, `crm_ref`, …) is a 42501 at runtime; keeping them out of the type
+ * closes that trap here rather than at the doorstep.
+ *
+ * `is_immediate` is deliberately EXCLUDED. It is owned by the
+ * `leads_is_immediate_biu` trigger, which compares `booked_for` to the knock's
+ * `occurred_at` in Europe/London. A client value is overwritten, so sending
+ * one can only ever mislead whoever reads the payload back.
  */
 export type CanvasserLeadInsert = Pick<
   LeadsInsert,
-  | "id"
-  | "client_event_id"
-  | "knock_event_id"
-  | "uprn"
-  | "canvasser_id"
-  | "booked_for"
-  | "is_immediate"
-  | "notes"
+  "id" | "client_event_id" | "knock_event_id" | "uprn" | "canvasser_id" | "booked_for" | "notes"
 >;
 
 export type PropertyObservationWrite = Required<
@@ -70,6 +88,18 @@ export type PropertyObservationWrite = Required<
   id?: string;
   tenure: Tenure | null;
 };
+
+/**
+ * A house number read off a real door, against a UPRN the canvasser has
+ * ALREADY selected. Invariant 5, second narrowing: it describes the door, it
+ * never selects it. `id` is the server default — nothing references this row.
+ */
+export type AddressObservationWrite = Required<
+  Pick<
+    AddressObservationsInsert,
+    "client_event_id" | "uprn" | "canvasser_id" | "house_number" | "observed_at"
+  >
+>;
 
 type OpBase = {
   /** uuid v4, generated once per door-visit action by the caller. */
@@ -86,6 +116,13 @@ export type KnockEventOp = OpBase & {
     knock: KnockEventWrite;
     /** Present when the outcome is `lead`. Shares the knock's client_event_id. */
     lead?: CanvasserLeadInsert;
+    /**
+     * Present when the outcome is `no_opportunity` (Rented/Council). One tap
+     * is one door-visit, so the tenure observation shares the knock's
+     * client_event_id rather than being a second op — the outbox has a unique
+     * index on that id and could not hold both.
+     */
+    observation?: PropertyObservationWrite;
   };
 };
 
@@ -96,7 +133,19 @@ export type PropertyObservationOp = OpBase & {
   };
 };
 
-export type SyncOp = KnockEventOp | PropertyObservationOp;
+/**
+ * A number correction is independent of an outcome log — a canvasser may fix
+ * a label on a door they have not knocked, or knock a door without touching
+ * its label — so this is its own op with its own client_event_id.
+ */
+export type AddressObservationOp = OpBase & {
+  kind: "address_observation";
+  payload: {
+    address: AddressObservationWrite;
+  };
+};
+
+export type SyncOp = KnockEventOp | PropertyObservationOp | AddressObservationOp;
 export type SyncOpKind = SyncOp["kind"];
 
 /**
@@ -111,7 +160,7 @@ export function validateOp(op: SyncOp): string | null {
   if (!op.canvasser_id) return "canvasser_id is empty";
 
   if (op.kind === "knock_event") {
-    const { knock, lead } = op.payload;
+    const { knock, lead, observation } = op.payload;
     if (!knock.id) return "knock.id is empty (must be generated on device)";
     if (knock.client_event_id !== op.client_event_id) {
       return "knock.client_event_id differs from the op's client_event_id";
@@ -123,6 +172,9 @@ export function validateOp(op: SyncOp): string | null {
       return "knock.canvasser_id differs from the op's canvasser_id";
     }
     if (!KNOCK_OUTCOMES.includes(knock.outcome)) return `unknown outcome ${String(knock.outcome)}`;
+    if (knock.notes !== null && knock.notes.length > NOTES_MAX) {
+      return `knock.notes is longer than ${NOTES_MAX} characters`;
+    }
     if (lead) {
       if (lead.client_event_id !== op.client_event_id) {
         return "lead.client_event_id differs from the knock's client_event_id";
@@ -133,11 +185,45 @@ export function validateOp(op: SyncOp): string | null {
       }
       if (lead.uprn !== knock.uprn) return "lead.uprn differs from knock.uprn";
       if ("status" in lead) return "lead payload must not carry status";
+      // The trigger owns it. A client value is overwritten, so a payload
+      // carrying one is a misreading of the schema, not a harmless extra.
+      if ("is_immediate" in lead) return "lead payload must not carry is_immediate";
+      if (knock.outcome !== "lead") return "a lead payload requires outcome 'lead'";
+    }
+    if (observation) {
+      const problem = checkObservation(op, observation);
+      if (problem) return problem;
+      if (observation.uprn !== knock.uprn) return "observation.uprn differs from knock.uprn";
+      if (knock.outcome !== "no_opportunity") {
+        return "a tenure observation requires outcome 'no_opportunity'";
+      }
     }
     return null;
   }
 
-  const { observation } = op.payload;
+  if (op.kind === "property_observation") {
+    return checkObservation(op, op.payload.observation);
+  }
+
+  const { address } = op.payload;
+  if (address.client_event_id !== op.client_event_id) {
+    return "address.client_event_id differs from the op's client_event_id";
+  }
+  if (address.canvasser_id !== op.canvasser_id) {
+    return "address.canvasser_id differs from the op's canvasser_id";
+  }
+  if (!Number.isFinite(address.uprn)) return "address.uprn is not a UPRN";
+  const houseNumber = address.house_number.trim();
+  if (houseNumber.length < 1 || houseNumber.length > HOUSE_NUMBER_MAX) {
+    return `address.house_number must be 1 to ${HOUSE_NUMBER_MAX} characters`;
+  }
+  return null;
+}
+
+function checkObservation(
+  op: Pick<OpBase, "client_event_id" | "canvasser_id">,
+  observation: PropertyObservationWrite,
+): string | null {
   if (observation.client_event_id !== op.client_event_id) {
     return "observation.client_event_id differs from the op's client_event_id";
   }

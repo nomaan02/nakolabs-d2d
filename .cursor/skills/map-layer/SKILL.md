@@ -20,3 +20,19 @@ description: Add or modify a MapLibre GL layer, source or interaction. Use for a
 
 ## Before finishing
 State the point count you tested at and the device you tested on.
+
+
+## MapLibre gotchas found in this repo
+
+**`["zoom"]` cannot nest inside `*`, `case` or `match`.**
+MapLibre throws: "zoom expression may only be used as input to a top-level
+step or interpolate". The layer fails to paint entirely — no error in the UI,
+just no dots. Put the zoom interpolate at the TOP level and the outcome
+match/case inside each stop, not the other way round. Found in Stage 8b:
+field-doors rendered nothing.
+
+**Feature-state must be applied on `style.load`, not only in a React effect.**
+An effect that returns early when the style isn't ready leaves every feature
+looking default after a tab remount, even when the data is correct in Dexie.
+Apply state in BOTH places. Found in Stage 8b: outcome colour vanished on
+Map-tab remount. Stage 14's coverage map uses the same mechanism.

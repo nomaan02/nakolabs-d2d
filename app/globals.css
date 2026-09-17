@@ -19,6 +19,10 @@
   /* No Cold Calling Zones, and the excluded count. */
   --color-oxide: #7a2b33;
 
+  /* A lead. Dark enough to hold 7:1 against white text in direct sunlight —
+     a mid-green would pass an indoor contrast check and vanish on a doorstep. */
+  --color-lead: #1e6b3a;
+
   --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
   --font-body: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
   --font-data: var(--font-martian), ui-monospace, monospace;

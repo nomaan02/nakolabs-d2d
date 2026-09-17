@@ -12,6 +12,11 @@ import type { SyncOp, SyncOpKind } from "@/lib/sync/ops";
  *
  * Version 3 (Stage 7) adds `outbox` and `sync_meta`. `assignments` is
  * unchanged and is NOT cleared on this upgrade.
+ *
+ * Version 4 (Stage 8b) adds `addresses` and nothing else. The snapshot
+ * store's record shape is untouched — field devices have populated caches —
+ * and no store is cleared. An absent or empty `addresses` store means labels
+ * do not render and everything else works unchanged: fail open.
  */
 export type CachedAssignment = {
   assignment_id: string;
@@ -21,7 +26,27 @@ export type CachedAssignment = {
   payload: TodaysAssignment;
 };
 
-export type OutboxStatus = "pending" | "synced" | "failed";
+/**
+ * One door's display label, as resolved by `v_door_label` and delivered by
+ * `addresses_for_assignment`. Keyed on uprn: labels are a property of the
+ * door, not of the assignment that happened to fetch them.
+ *
+ * No `sub_building` — admin-only, never reaches the field.
+ */
+export type CachedAddress = {
+  uprn: number;
+  house_number: string | null;
+  building_name: string | null;
+  street_name: string | null;
+};
+
+/**
+ * `held_undo` is a fourth status, not a fourth sync path. `flush()` selects
+ * only `pending`, so a held row is invisible to the wire until its
+ * `eligible_at` passes and the promotion timer (or the start-up sweep) moves
+ * it to `pending`. Undo deletes the row; nothing reaches Postgres.
+ */
+export type OutboxStatus = "held_undo" | "pending" | "synced" | "failed";
 
 export type OutboxError = {
   status?: number;
@@ -44,13 +69,24 @@ export type OutboxRow = {
   canvasser_id: string;
   payload: SyncOp["payload"];
   status: OutboxStatus;
+  /**
+   * When a `held_undo` row becomes eligible for sending. Absent on rows
+   * queued before Stage 8b and on rows queued without an undo window. Not
+   * indexed — the sweep reads the handful of held rows and compares in JS.
+   */
+  eligible_at?: string | null;
   attempts: number;
   created_at: string;
   synced_at: string | null;
   last_error: OutboxError | null;
 };
 
-export type SyncMetaKey = "last_sync_at" | "last_canvasser_id";
+/**
+ * `addresses_for:<assignment_id>` records that the one-shot label fetch has
+ * already run for that assignment, so reopening the app does not re-run a
+ * query that measured 748 ms cold on a 2,000-door prop.
+ */
+export type SyncMetaKey = "last_sync_at" | "last_canvasser_id" | `addresses_for:${string}`;
 
 export type SyncMetaRow = {
   key: SyncMetaKey;
@@ -61,6 +97,7 @@ export type FieldDatabase = Dexie & {
   assignments: EntityTable<CachedAssignment, "assignment_id">;
   outbox: EntityTable<OutboxRow, "seq">;
   sync_meta: EntityTable<SyncMetaRow, "key">;
+  addresses: EntityTable<CachedAddress, "uprn">;
 };
 
 let instance: FieldDatabase | null = null;
@@ -89,6 +126,16 @@ export function fieldDb(): FieldDatabase {
       outbox:
         "++seq, &client_event_id, assignment_id, canvasser_id, status, [assignment_id+seq], [status+assignment_id]",
       sync_meta: "key",
+    });
+    // Stage 8b. Only `addresses` is new; every other store is repeated
+    // verbatim because Dexie treats an omitted store in a later version as a
+    // drop. No `.upgrade()` — nothing is cleared, nothing is reshaped.
+    instance.version(4).stores({
+      assignments: "assignment_id, work_date, canvasser_id",
+      outbox:
+        "++seq, &client_event_id, assignment_id, canvasser_id, status, [assignment_id+seq], [status+assignment_id]",
+      sync_meta: "key",
+      addresses: "uprn",
     });
   }
   return instance;

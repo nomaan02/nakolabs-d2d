@@ -507,8 +507,9 @@ export function PropDrawer({
         </div>
         <p className="mt-2 font-data text-[9px] leading-relaxed text-worksheet/70">
           Contains OS data © Crown copyright and database right 2026. Contains public sector
-          information licensed under the Open Government Licence v3.0. Map data ©
-          OpenStreetMap contributors.
+          information licensed under the Open Government Licence v3.0. Contains Energy
+          Performance Certificate data © Crown copyright, Ministry of Housing, Communities and
+          Local Government. Map data © OpenStreetMap contributors.
         </p>
       </div>
     </div>
