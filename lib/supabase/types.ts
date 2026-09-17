@@ -14,6 +14,55 @@ export type Database = {
   }
   public: {
     Tables: {
+      address_observations: {
+        Row: {
+          canvasser_id: string
+          client_event_id: string
+          house_number: string
+          id: string
+          observed_at: string
+          uprn: number
+        }
+        Insert: {
+          canvasser_id: string
+          client_event_id: string
+          house_number: string
+          id?: string
+          observed_at: string
+          uprn: number
+        }
+        Update: {
+          canvasser_id?: string
+          client_event_id?: string
+          house_number?: string
+          id?: string
+          observed_at?: string
+          uprn?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "address_observations_canvasser_id_fkey"
+            columns: ["canvasser_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "address_observations_uprn_fkey"
+            columns: ["uprn"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["uprn"]
+          },
+          {
+            foreignKeyName: "address_observations_uprn_fkey"
+            columns: ["uprn"]
+            isOneToOne: false
+            referencedRelation: "v_door_label"
+            referencedColumns: ["uprn"]
+          },
+        ]
+      }
       assignment_members: {
         Row: {
           assignment_id: string
@@ -122,6 +171,7 @@ export type Database = {
           canvasser_id: string
           client_event_id: string
           id: string
+          notes: string | null
           occurred_at: string
           outcome: string
           sequence_position: number | null
@@ -133,6 +183,7 @@ export type Database = {
           canvasser_id: string
           client_event_id: string
           id?: string
+          notes?: string | null
           occurred_at: string
           outcome: string
           sequence_position?: number | null
@@ -144,6 +195,7 @@ export type Database = {
           canvasser_id?: string
           client_event_id?: string
           id?: string
+          notes?: string | null
           occurred_at?: string
           outcome?: string
           sequence_position?: number | null
@@ -170,6 +222,13 @@ export type Database = {
             columns: ["uprn"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["uprn"]
+          },
+          {
+            foreignKeyName: "knock_events_uprn_fkey"
+            columns: ["uprn"]
+            isOneToOne: false
+            referencedRelation: "v_door_label"
             referencedColumns: ["uprn"]
           },
         ]
@@ -247,6 +306,13 @@ export type Database = {
             columns: ["uprn"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["uprn"]
+          },
+          {
+            foreignKeyName: "leads_uprn_fkey"
+            columns: ["uprn"]
+            isOneToOne: false
+            referencedRelation: "v_door_label"
             referencedColumns: ["uprn"]
           },
         ]
@@ -371,6 +437,13 @@ export type Database = {
             referencedRelation: "properties"
             referencedColumns: ["uprn"]
           },
+          {
+            foreignKeyName: "property_addresses_uprn_fkey"
+            columns: ["uprn"]
+            isOneToOne: true
+            referencedRelation: "v_door_label"
+            referencedColumns: ["uprn"]
+          },
         ]
       }
       property_observations: {
@@ -411,6 +484,13 @@ export type Database = {
             columns: ["uprn"]
             isOneToOne: false
             referencedRelation: "properties"
+            referencedColumns: ["uprn"]
+          },
+          {
+            foreignKeyName: "property_observations_uprn_fkey"
+            columns: ["uprn"]
+            isOneToOne: false
+            referencedRelation: "v_door_label"
             referencedColumns: ["uprn"]
           },
         ]
@@ -523,6 +603,56 @@ export type Database = {
           type?: string | null
         }
         Relationships: []
+      }
+      v_door_label: {
+        Row: {
+          building_name: string | null
+          canvasser_supplied: boolean | null
+          house_number: string | null
+          street_name: string | null
+          uprn: number | null
+        }
+        Relationships: []
+      }
+      v_latest_knock: {
+        Row: {
+          assignment_id: string | null
+          canvasser_id: string | null
+          notes: string | null
+          occurred_at: string | null
+          outcome: string | null
+          uprn: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knock_events_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knock_events_canvasser_id_fkey"
+            columns: ["canvasser_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knock_events_uprn_fkey"
+            columns: ["uprn"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["uprn"]
+          },
+          {
+            foreignKeyName: "knock_events_uprn_fkey"
+            columns: ["uprn"]
+            isOneToOne: false
+            referencedRelation: "v_door_label"
+            referencedColumns: ["uprn"]
+          },
+        ]
       }
     }
     Functions: {
@@ -653,6 +783,15 @@ export type Database = {
             }
             Returns: string
           }
+      addresses_for_assignment: {
+        Args: { p_assignment_id: string }
+        Returns: {
+          building_name: string
+          house_number: string
+          street_name: string
+          uprn: number
+        }[]
+      }
       allocate_prop: {
         Args: {
           canvasser_ids: string[]
