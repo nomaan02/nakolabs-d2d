@@ -67,6 +67,16 @@ type FieldData = {
   setLeadDraft: (uprn: number, draft: LeadDraft | null) => void;
   noteDrafts: Map<number, string>;
   setNoteDraft: (uprn: number, note: string) => void;
+  /**
+   * Door highlighted on the Map tab. Lives here so a Logger → Map → Logger
+   * round trip neither remounts the cursor nor loses the highlight request.
+   * Closing the map panel clears it; it does not move the Logger cursor.
+   */
+  mapSelectedUprn: number | null;
+  /** Bumped by `showDoorOnMap` so the camera re-runs even for the same UPRN. */
+  mapCameraNonce: number;
+  selectDoorOnMap: (uprn: number | null) => void;
+  showDoorOnMap: (uprn: number) => void;
 };
 
 const FieldDataContext = createContext<FieldData | null>(null);
@@ -94,6 +104,8 @@ export function FieldDataProvider({
   const [labelEpoch, setLabelEpoch] = useState(0);
   const [leadDrafts, setLeadDrafts] = useState<Map<number, LeadDraft>>(() => new Map());
   const [noteDrafts, setNoteDrafts] = useState<Map<number, string>>(() => new Map());
+  const [mapSelectedUprn, setMapSelectedUprn] = useState<number | null>(null);
+  const [mapCameraNonce, setMapCameraNonce] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -210,6 +222,15 @@ export function FieldDataProvider({
     });
   }, []);
 
+  const selectDoorOnMap = useCallback((uprn: number | null) => {
+    setMapSelectedUprn(uprn);
+  }, []);
+
+  const showDoorOnMap = useCallback((uprn: number) => {
+    setMapSelectedUprn(uprn);
+    setMapCameraNonce((n) => n + 1);
+  }, []);
+
   const value = useMemo<FieldData>(
     () => ({
       phase,
@@ -226,6 +247,10 @@ export function FieldDataProvider({
       setLeadDraft,
       noteDrafts,
       setNoteDraft,
+      mapSelectedUprn,
+      mapCameraNonce,
+      selectDoorOnMap,
+      showDoorOnMap,
     }),
     [
       phase,
@@ -242,6 +267,10 @@ export function FieldDataProvider({
       setLeadDraft,
       noteDrafts,
       setNoteDraft,
+      mapSelectedUprn,
+      mapCameraNonce,
+      selectDoorOnMap,
+      showDoorOnMap,
     ],
   );
 

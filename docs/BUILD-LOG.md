@@ -549,4 +549,25 @@ One entry per stage, appended by the agent at the end of each session.
 - **Not done / deferred:** Stage 9 completion counts, Stage 10 claims / teammate line, Stage 5b route order, Stage 16 geolocation / route position, Track B ingest. No applied migration edited. Snapshot ordering not touched. No 2,000-door map test on a mid-range phone (this session: **69 doors**, desktop browser). Field-ergonomics on-device pass not done. Did not begin Stage 9.
 - **Follow-ups:** Run the Logger on a real phone in sun with a wet thumb before calling the UI field-ready. Re-test `field-doors` at 2,000 points on a mid-range phone (Stage 14 will own the performance gate). `scripts/verify-stage-8b.ts --keep` leaves a named test prop; `--cleanup` removes it.
 
+---
+
+### Stage 8b — Knock logger (on-device fix pass)
+- **Date:** 2026-09-18
+- **Model:** Cursor Grok 4.6
+- **Built:** Five field-test fixes. Logger mini map (`components/field/mini-map.tsx`) deleted; replaced with **Show on map**, which switches to the Map tab, centres/zooms the current door at zoom 19, and highlights it with a dark halo plus ink stroke. Cursor lives in `FieldDataProvider` and is not moved by the round trip. Map attribution is `AttributionControl({ compact: true })`; the four licence lines are permanent on Profile. Leads tab shows a read-only **Immediate** badge derived from `booked_for` vs `occurred_at` in Europe/London (trigger rule, never sent). Back/Notes/Skip moved into the Logger header so they are no longer clipped as three empty boxes above Other. `no_opportunity` display string is **Rented/Council** everywhere. Brief dated note + outcome-mapping answered/contacted rule. No migration.
+- **Acceptance:**
+  - FIX 1 Show on map / one MapLibre instance: **PASS** — `MiniMap` deleted. Logger has **Show on map**. Tapping it opened the Map tab on door 1 (17 Monmouth Road) and later on unlabelled door 3, both zoomed in with a dark halo distinct from neighbouring dots. Returning to Logger left the cursor on door 3. One `.maplibregl-map` on the Map tab; zero on Logger. Desktop Chromium, 69 doors.
+  - FIX 2 compact attribution + Profile licences: **PASS** — field map `compact: true`; after load the control is a 24px ⓘ (`details.open === false`). Expanding still contains OS/Crown, OGL, MHCLG EPC, MapTiler and OSM. Profile lists the four required lines permanently. Admin prop drawer footer untouched (`compact: false`).
+  - FIX 3 Immediate badge: **PASS** — Today-PM lead showed a green **Immediate** badge next to `Appointment Fri 18 Sept, 18:00`. Outbox lead keys were `id, client_event_id, knock_event_id, uprn, canvasser_id, booked_for, notes` — no `is_immediate`.
+  - FIX 4 ghost boxes above Other: **PASS** — mini map markup gone. Phone-width (390px) Logger screenshot: Back/Notes/Skip labelled at the top; sequence row then Other; no three empty clipped boxes.
+  - FIX 5 Rented/Council wording: **PASS** — button, sequence (`⌂ Rented/Council` on door 4), map legend all match. Harness check added and passed.
+  - Every write through `lib/sync/queue.ts`: **PASS** — no `supabase.from(` / `supabase.rpc(` under `components/` or `app/(field)/`.
+  - `grep navigator.geolocation`: **PASS** — zero call sites. Remaining hit is a prohibition comment in `lib/field/position.ts`.
+  - Seams after mini-map removal: **PASS** — `route-line` and `you-are-here` still registered in `field-map.tsx` load (empty source / `visibility: none`). `getSequence` / `SEQUENCE_IS_ROUTE_DERIVED` untouched; out-of-order banner still shown. Header instruction and teammate slots still return null. Cursor still in `lib/field/cursor.ts`.
+  - Snapshot ordering untouched: **PASS**.
+  - 8b original logging/undo/offline items: not re-run this pass; previous session PASSed them. Harness `verify-stage-8b.ts --keep` ALL CHECKS PASSED this session, then `--cleanup`. Did not start Stage 9 or 14.
+- **Deviations from brief:** Logger ASCII still shows the mini map; the 2026-09-18 note records the replacement rather than rewriting the diagram. Immediate on the Leads tab is derived with `isSameLondonDay` for display because the outbox payload must not carry `is_immediate`. Attribution control is closed on `load` so it starts as ⓘ even on a wide desktop viewport.
+- **Not done / deferred:** Stage 9, Stage 14, Track B service-worker tile cache (the known basemap limitation). No schema change. No 2,000-door test. Not re-tested on the physical phone that found the defects — desktop Chromium plus a 390×844 emulation only.
+- **Follow-ups:** Re-test Show on map on the same real phone. Proper offline tiles remain Track B. Harness fixtures from this pass were cleaned up.
+
 

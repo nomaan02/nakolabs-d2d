@@ -19,6 +19,17 @@ Use this whenever the field app logs a door, creates a lead, records tenure, wri
 
 `do_not_call` is a real enum value under Other and is NEVER free text. It is the one outcome with a compliance consequence and must stay queryable.
 
+## Answered is not `outcome = 'answered'`
+
+"Answered" is not the same as `outcome='answered'`. Contact, Lead and Rented/Council all mean somebody came to the door. The canonical rule for any answer-rate or answered count is:
+
+```
+answered  := outcome NOT IN ('no_answer','inaccessible')
+contacted := outcome = 'answered'   (the Contact button specifically)
+```
+
+Use the same expression in every view and dashboard. Never redefine it locally.
+
 ## Latest-outcome-wins
 
 A correction is a NEW `knock_events` row with a NEW `client_event_id`. Never an UPDATE, never a DELETE. `v_latest_knock` resolves which row is current.

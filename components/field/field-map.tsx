@@ -13,13 +13,16 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { DoorLabels } from "@/lib/field/labels";
 import { mapLabel } from "@/lib/field/labels";
 import type { LocalOutcomes } from "@/lib/field/local-outcomes";
-import { ATTRIBUTION, fieldMapStyle } from "@/lib/field/map-style";
+import { ATTRIBUTION_LINES, fieldMapStyle } from "@/lib/field/map-style";
 import type { DoorCollection } from "@/lib/geo/todays-assignment";
 
 const BRISTOL: [number, number] = [-2.5879, 51.4545];
 const DOORS_SOURCE = "field-doors";
 const DOORS_LAYER = "field-doors";
+const FOCUS_LAYER = "field-doors-focus";
 const LABELS_LAYER = "field-door-labels";
+/** Logger "Show on map" and a map tap both land here. Terrace dots need 19. */
+const FOCUS_ZOOM = 19;
 
 /** SEAM (Stage 5b). Registered now, fed by `route_geom` then. Renders nothing. */
 const ROUTE_SOURCE = "field-route";
@@ -140,6 +143,25 @@ const CORE_RADIUS: ExpressionSpecification = [
   coreAt(8),
 ];
 
+/** Dark halo around the focused door. Size, not hue, is the distinct mark. */
+function focusHaloAt(size: number): ExpressionSpecification {
+  return ["case", ["boolean", ["feature-state", "selected"], false], size, 0];
+}
+
+const FOCUS_HALO_RADIUS: ExpressionSpecification = [
+  "interpolate",
+  ["linear"],
+  ["zoom"],
+  14,
+  focusHaloAt(10),
+  17,
+  focusHaloAt(18),
+  19,
+  focusHaloAt(26),
+  20,
+  focusHaloAt(32),
+];
+
 function fitDoors(map: MapLibreMap, doors: DoorCollection) {
   if (doors.features.length === 0) return;
   const lngs = doors.features.map((f) => f.geometry.coordinates[0]);
@@ -151,6 +173,24 @@ function fitDoors(map: MapLibreMap, doors: DoorCollection) {
     ],
     { padding: 48, maxZoom: 19, duration: 0 },
   );
+}
+
+function flyToDoor(
+  map: MapLibreMap,
+  doors: DoorCollection,
+  uprn: number | null,
+  mode: "jump" | "ease",
+): boolean {
+  if (uprn === null) return false;
+  const feature = doors.features.find((f) => f.properties.uprn === uprn);
+  if (!feature) return false;
+  const center = feature.geometry.coordinates as [number, number];
+  if (mode === "jump") {
+    map.jumpTo({ center, zoom: FOCUS_ZOOM });
+  } else {
+    map.easeTo({ center, zoom: FOCUS_ZOOM, duration: 400 });
+  }
+  return true;
 }
 
 /**
@@ -193,6 +233,7 @@ export function FieldMap({
   labels,
   outcomes,
   selectedUprn,
+  cameraNonce,
   onSelectUprn,
   active,
 }: {
@@ -200,6 +241,7 @@ export function FieldMap({
   labels: DoorLabels;
   outcomes: LocalOutcomes;
   selectedUprn: number | null;
+  cameraNonce: number;
   onSelectUprn: (uprn: number) => void;
   active: boolean;
 }) {
@@ -229,7 +271,7 @@ export function FieldMap({
         style,
         center: BRISTOL,
         zoom: 12.4,
-        attributionControl: { compact: false, customAttribution: ATTRIBUTION },
+        attributionControl: { compact: true, customAttribution: [...ATTRIBUTION_LINES] },
       });
       map.current = instance;
 
@@ -237,6 +279,10 @@ export function FieldMap({
       instance.addControl(new ScaleControl({ unit: "metric" }), "bottom-left");
 
       instance.on("load", () => {
+        const attrib = instance.getContainer().querySelector(".maplibregl-ctrl-attrib");
+        if (attrib instanceof HTMLDetailsElement) attrib.open = false;
+        attrib?.classList.remove("maplibregl-compact-show");
+
         const current = withLabels(doorsRef.current, labelsRef.current);
 
         // promoteId makes the UPRN the feature id, which is what
@@ -259,6 +305,19 @@ export function FieldMap({
           paint: { "line-color": "#1c2226", "line-width": 3, "line-opacity": 0.55 },
         });
 
+        // Focus halo sits under the dots so a selected door reads as a ring,
+        // not a colour change. Unselected radius is 0 — cheap at 2,000 points.
+        instance.addLayer({
+          id: FOCUS_LAYER,
+          type: "circle",
+          source: DOORS_SOURCE,
+          paint: {
+            "circle-radius": FOCUS_HALO_RADIUS,
+            "circle-color": "#1c2226",
+            "circle-opacity": 0.9,
+          },
+        });
+
         instance.addLayer({
           id: DOORS_LAYER,
           type: "circle",
@@ -272,7 +331,12 @@ export function FieldMap({
               4,
               1.5,
             ],
-            "circle-stroke-color": "#fbfaf8",
+            "circle-stroke-color": [
+              "case",
+              ["boolean", ["feature-state", "selected"], false],
+              "#1c2226",
+              "#fbfaf8",
+            ],
           },
         });
 
@@ -331,10 +395,14 @@ export function FieldMap({
           },
         });
 
-        fitDoors(instance, current);
-        // Outcomes often arrive before the style is ready. The effect below
-        // bails in that case; paint them here so a remount still colours.
+        // Outcomes and the focused door often arrive before the style is
+        // ready. The effect below bails in that case; paint them here so a
+        // remount still colours, and jump to a focused door instead of
+        // fitting the whole prop — "Show on map" asked for this door.
         applyOutcomeState(instance, outcomesRef.current, selectedRef.current);
+        if (!flyToDoor(instance, current, selectedRef.current, "jump")) {
+          fitDoors(instance, current);
+        }
 
         instance.on("click", DOORS_LAYER, (event) => {
           const feature = event.features?.[0];
@@ -364,7 +432,8 @@ export function FieldMap({
     const source = instance.getSource(DOORS_SOURCE) as GeoJSONSource | undefined;
     if (!source) return;
     source.setData(withLabels(doors, labels));
-  }, [doors, labels]);
+    applyOutcomeState(instance, outcomes, selectedUprn);
+  }, [doors, labels, outcomes, selectedUprn]);
 
   // Outcome colour, current assignment only, applied as feature state.
   useEffect(() => {
@@ -379,15 +448,9 @@ export function FieldMap({
 
   useEffect(() => {
     const instance = map.current;
-    if (!instance || selectedUprn === null) return;
-    const feature = doors.features.find((f) => f.properties.uprn === selectedUprn);
-    if (!feature) return;
-    instance.easeTo({
-      center: feature.geometry.coordinates as [number, number],
-      zoom: Math.max(instance.getZoom(), 18),
-      duration: 300,
-    });
-  }, [selectedUprn, doors]);
+    if (!instance?.isStyleLoaded() || selectedUprn === null) return;
+    flyToDoor(instance, doors, selectedUprn, "ease");
+  }, [selectedUprn, doors, cameraNonce]);
 
   return <div ref={container} className="h-full w-full" data-testid="field-map" />;
 }

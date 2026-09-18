@@ -31,7 +31,7 @@ export type OutcomeSpec = {
   label: string;
   /** Paired with every colour use. Colour is never the only carrier. */
   glyph: string;
-  /** Past-tense form for the undo toast and the already-logged line. */
+  /** Sequence list, undo toast and already-logged line. Same words as `label` unless a shorter form is clearer. */
   logged: string;
 };
 
@@ -57,7 +57,7 @@ export const PRIMARY_OUTCOMES: (OutcomeSpec & {
     outcome: "no_opportunity",
     label: "Rented/Council",
     glyph: "⌂",
-    logged: "Rented or council",
+    logged: "Rented/Council",
     heightPx: 72,
   },
   { key: "lead", outcome: "lead", label: "Lead", glyph: "★", logged: "Lead", heightPx: 72 },

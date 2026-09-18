@@ -28,15 +28,16 @@
   --font-data: var(--font-martian), ui-monospace, monospace;
 }
 
-/* MapLibre's own furniture, brought into the palette. The attribution stays
-   visible — OS, OGL and OpenStreetMap credit is a licence condition, not
-   decoration. */
+/* MapLibre's own furniture, brought into the palette. Compact ⓘ on the field
+   Map tab; the full OS / OGL / MHCLG / OSM lines live permanently on Profile.
+   Do not hide this control. */
 .maplibregl-ctrl-attrib.maplibregl-compact {
   background: var(--color-paper);
   border-radius: 0;
   box-shadow: none;
   font-family: var(--font-data);
   font-size: 9px;
+  max-width: min(100%, 22rem);
 }
 
 .maplibregl-ctrl-group {

@@ -1,0 +1,95 @@
+
+> nakolabs-d2d@0.1.0 predev
+> npm run maplibre:worker
+
+
+> nakolabs-d2d@0.1.0 maplibre:worker
+> tsx scripts/copy-maplibre-worker.ts
+
+maplibre worker ÔåÆ public/maplibre (maplibre-gl-worker.mjs, maplibre-gl-shared.mjs)
+
+> nakolabs-d2d@0.1.0 dev
+> next dev --turbopack
+
+   Ôû▓ Next.js 15.5.25 (Turbopack)
+   - Local:        http://localhost:3000
+   - Network:      http://169.254.83.107:3000
+   - Environments: .env.local
+
+ Ô£ô Starting...
+ Ô£ô Compiled middleware in 300ms
+ Ô£ô Ready in 3.4s
+ Ôùï Compiling / ...
+ Ô£ô Compiled / in 5.4s
+ GET / 200 in 313ms
+ GET /json/version 404 in 309ms
+ GET / 200 in 547ms
+ Ôùï Compiling /login ...
+ Ô£ô Compiled /login in 837ms
+ GET /login 200 in 1025ms
+ Ôùï Compiling /field ...
+ Ô£ô Compiled /field in 3s
+ GET /field 200 in 3527ms
+ POST /login 303 in 4713ms
+ Ôùï Compiling /field/logger ...
+ Ô£ô Compiled /field/logger in 682ms
+ GET /field/logger 200 in 1313ms
+ Ô£ô Compiled /field/leads in 423ms
+ GET /field/leads 200 in 999ms
+ GET /field/logger 200 in 432ms
+ Ô£ô Compiled in 137ms
+ Ô£ô Compiled in 191ms
+ GET /field/logger 200 in 803ms
+ GET /login 200 in 314ms
+ GET /login 200 in 257ms
+ HEAD /login 200 in 134ms
+ GET /login 200 in 354ms
+ GET /login 200 in 217ms
+ POST /login 200 in 532ms
+ GET /login 200 in 698ms
+ GET /field 200 in 819ms
+ POST /login 303 in 2135ms
+ GET /field/logger 200 in 155ms
+ GET /field/logger 200 in 344ms
+ GET /field/leads 200 in 305ms
+ Ô£ô Compiled /field/profile in 478ms
+ GET /field/profile 200 in 897ms
+ GET /field 200 in 279ms
+ GET /field/profile 200 in 365ms
+ GET /field 200 in 276ms
+ Ô£ô Compiled in 144ms
+ Ô£ô Compiled in 119ms
+ GET /field 200 in 700ms
+ Ô£ô Compiled in 117ms
+ Ô£ô Compiled in 129ms
+ Ô£ô Compiled in 189ms
+ Ô£ô Compiled in 147ms
+ GET /field 200 in 590ms
+ GET /login 200 in 113ms
+ GET /field 200 in 214ms
+ POST /login 303 in 968ms
+ GET /field/logger 200 in 114ms
+ GET /field/leads 200 in 117ms
+ GET /field/profile 200 in 118ms
+ GET /field 200 in 102ms
+ GET /field/logger 200 in 145ms
+ GET /field/leads 200 in 108ms
+ GET /field/logger 200 in 117ms
+ GET /field 200 in 98ms
+ GET /field/profile 200 in 129ms
+ GET /login 200 in 126ms
+ POST /field/profile 303 in 305ms
+ Ôùï Compiling /admin ...
+ Ô£ô Compiled /admin in 544ms
+ GET /admin 200 in 818ms
+ POST /login 303 in 1363ms
+ Ô£ô Compiled /admin/allocate in 266ms
+ GET /admin/allocate 200 in 590ms
+ POST /admin/allocate 200 in 541ms
+ GET /admin/allocate 200 in 261ms
+ GET /admin 200 in 250ms
+ POST /admin 200 in 453ms
+ GET /admin 200 in 286ms
+ GET /admin/allocate 200 in 269ms
+ POST /admin/allocate 200 in 354ms
+ GET /admin/allocate 200 in 242ms

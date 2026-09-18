@@ -3,6 +3,7 @@
 import { useFieldData } from "@/components/field/field-data-provider";
 import { doorPlate, mapLabel } from "@/lib/field/labels";
 import { leadsFromOutcomes } from "@/lib/field/local-outcomes";
+import { isSameLondonDay } from "@/lib/field/london-date";
 
 /**
  * Read-only. This canvasser, today, in the order they were taken.
@@ -61,6 +62,9 @@ export function LeadsTab() {
         <ol className="divide-y divide-ink/10 bg-paper">
           {leads.map((lead) => {
             const label = labelFor(lead.uprn);
+            const immediate =
+              lead.bookedFor !== null &&
+              isSameLondonDay(new Date(lead.bookedFor), new Date(lead.occurredAt));
             return (
               <li key={lead.clientEventId} className="px-4 py-3">
                 <p className="font-display text-base tracking-tight">
@@ -70,10 +74,20 @@ export function LeadsTab() {
                   Logged {TIME.format(new Date(lead.occurredAt))}
                   {lead.undoable ? " · still undoable" : ""}
                 </p>
-                <p className="mt-1 text-sm">
-                  {lead.bookedFor
-                    ? `Appointment ${WHEN.format(new Date(lead.bookedFor))}`
-                    : "No appointment time booked"}
+                <p className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+                  <span>
+                    {lead.bookedFor
+                      ? `Appointment ${WHEN.format(new Date(lead.bookedFor))}`
+                      : "No appointment time booked"}
+                  </span>
+                  {immediate ? (
+                    <span
+                      className="inline-flex items-center rounded-md bg-lead px-2 py-1 text-xs font-semibold text-paper"
+                      data-testid="lead-immediate-badge"
+                    >
+                      Immediate
+                    </span>
+                  ) : null}
                 </p>
               </li>
             );

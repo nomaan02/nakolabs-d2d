@@ -24,9 +24,18 @@ import { formatAssignmentHeader } from "@/lib/geo/todays-assignment";
  * never disagree about which door is current.
  */
 export function MapTab() {
-  const { phase, canvasserId, labels, outcomes, cursor, labelFor } = useFieldData();
+  const {
+    phase,
+    canvasserId,
+    labels,
+    outcomes,
+    cursor,
+    labelFor,
+    mapSelectedUprn,
+    mapCameraNonce,
+    selectDoorOnMap,
+  } = useFieldData();
   const router = useRouter();
-  const [selectedUprn, setSelectedUprn] = useState<number | null>(null);
   const [otherOpen, setOtherOpen] = useState(false);
 
   if (phase.kind === "loading") {
@@ -54,6 +63,7 @@ export function MapTab() {
   }
 
   const assignment = phase.assignment;
+  const selectedUprn = mapSelectedUprn;
   const selectedLabel = selectedUprn !== null ? labelFor(selectedUprn) : undefined;
   const selectedLogged = selectedUprn !== null ? outcomes.get(selectedUprn) : undefined;
 
@@ -73,7 +83,7 @@ export function MapTab() {
       `${outcomeSpec(outcome).logged} · ${mapLabel(selectedLabel) ?? doorPlate(selectedLabel)}`,
     );
     setOtherOpen(false);
-    setSelectedUprn(null);
+    selectDoorOnMap(null);
   };
 
   return (
@@ -98,8 +108,9 @@ export function MapTab() {
           labels={labels}
           outcomes={outcomes}
           selectedUprn={selectedUprn}
+          cameraNonce={mapCameraNonce}
           onSelectUprn={(uprn) => {
-            setSelectedUprn(uprn);
+            selectDoorOnMap(uprn);
             cursor.goToUprn(uprn);
           }}
           active
@@ -128,7 +139,7 @@ export function MapTab() {
             </div>
             <button
               type="button"
-              onClick={() => setSelectedUprn(null)}
+              onClick={() => selectDoorOnMap(null)}
               className="min-h-11 shrink-0 rounded-md border border-ink/25 px-4 text-sm font-medium"
             >
               Close
@@ -140,7 +151,7 @@ export function MapTab() {
                 // A lead needs the appointment sheet, which lives on the
                 // Logger. Move the cursor there rather than duplicating it.
                 cursor.goToUprn(selectedUprn);
-                setSelectedUprn(null);
+                selectDoorOnMap(null);
                 router.push("/field/logger");
                 return;
               }

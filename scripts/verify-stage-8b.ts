@@ -320,6 +320,11 @@ function unitChecks() {
       tenureFor("no_opportunity") === "no_opportunity",
   );
   check(
+    "Rented/Council wording is the same on the button, sequence list and legend",
+    outcomeSpec("no_opportunity").label === "Rented/Council" &&
+      outcomeSpec("no_opportunity").logged === "Rented/Council",
+  );
+  check(
     "do_not_call is a real enum value, not free text",
     KNOCK_OUTCOMES.includes("do_not_call") && outcomeSpec("do_not_call").label.length > 0,
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 import {
   useFieldData,
@@ -9,9 +10,8 @@ import {
 } from "@/components/field/field-data-provider";
 import { HouseNumberSheet, NotesSheet, OtherOutcomeSheet } from "@/components/field/door-sheets";
 import { LeadSheet } from "@/components/field/lead-sheet";
-import { MiniMap } from "@/components/field/mini-map";
 import { OutcomeButtons } from "@/components/field/outcome-buttons";
-import { pulse } from "@/lib/field/feedback";
+import { pulse, useInputLock } from "@/lib/field/feedback";
 import { doorPlate } from "@/lib/field/labels";
 import { logHouseNumber, logOutcome } from "@/lib/field/log-outcome";
 import { outcomeSpec, type OtherOutcome, type PrimaryOutcome } from "@/lib/field/outcomes";
@@ -46,7 +46,6 @@ export function LoggerTab() {
   const {
     phase,
     canvasserId,
-    sequence,
     cursor,
     outcomes,
     labelFor,
@@ -55,10 +54,12 @@ export function LoggerTab() {
     setLeadDraft,
     noteDrafts,
     setNoteDraft,
+    showDoorOnMap,
   } = useFieldData();
 
+  const router = useRouter();
+  const lock = useInputLock();
   const [sheet, setSheet] = useState<Sheet>({ kind: "none" });
-  const [mapOpen, setMapOpen] = useState(true);
 
   if (phase.kind !== "ready") return <PhaseNotice phase={phase} />;
 
@@ -134,6 +135,35 @@ export function LoggerTab() {
           {/* SEAM (Stage 10): the teammate line lands here. */}
           <TeammateLine />
 
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={cursor.previous}
+              disabled={cursor.atStart}
+              className="min-h-11 rounded-md border-2 border-ink/25 bg-paper text-sm font-medium disabled:opacity-40"
+              data-testid="cursor-back"
+            >
+              ‹ Back
+            </button>
+            <button
+              type="button"
+              onClick={() => setSheet({ kind: "notes" })}
+              className="min-h-11 rounded-md border-2 border-ink/25 bg-paper text-sm font-medium"
+              data-testid="open-notes"
+            >
+              Notes{noteDraft ? " •" : ""}
+            </button>
+            <button
+              type="button"
+              onClick={cursor.next}
+              disabled={cursor.atEnd}
+              className="min-h-11 rounded-md border-2 border-ink/25 bg-paper text-sm font-medium disabled:opacity-40"
+              data-testid="cursor-skip"
+            >
+              Skip ›
+            </button>
+          </div>
+
           <div className="mt-3 flex items-center justify-center gap-3">
             <p
               className="rounded-md border-2 border-ink bg-worksheet px-5 py-2 font-data text-4xl leading-none"
@@ -154,6 +184,20 @@ export function LoggerTab() {
           <p className="mt-1 text-center text-base text-ink-soft" data-testid="door-street">
             {street ?? "\u00a0"}
           </p>
+
+          <button
+            type="button"
+            onClick={() =>
+              lock(() => {
+                showDoorOnMap(door.uprn);
+                router.push("/field");
+              })
+            }
+            className="mt-3 flex min-h-11 w-full items-center justify-center rounded-md border-2 border-ink bg-paper text-base font-semibold"
+            data-testid="show-on-map"
+          >
+            Show on map
+          </button>
 
           {logged ? (
             <p
@@ -176,53 +220,6 @@ export function LoggerTab() {
             </p>
           ) : null}
         </header>
-
-        <div className="border-b border-ink/15 bg-paper">
-          <button
-            type="button"
-            onClick={() => setMapOpen((open) => !open)}
-            className="flex min-h-11 w-full items-center justify-between px-4 text-sm font-medium"
-            aria-expanded={mapOpen}
-            data-testid="mini-map-toggle"
-          >
-            <span>Mini map</span>
-            <span aria-hidden>{mapOpen ? "▾ Hide" : "▸ Show"}</span>
-          </button>
-          {mapOpen ? (
-            <div style={{ height: 120 }} className="w-full">
-              <MiniMap sequence={sequence} index={cursor.index} />
-            </div>
-          ) : null}
-        </div>
-
-        <div className="grid grid-cols-3 gap-2 px-3 py-3">
-          <button
-            type="button"
-            onClick={cursor.previous}
-            disabled={cursor.atStart}
-            className="min-h-11 rounded-md border-2 border-ink/25 bg-paper text-sm font-medium disabled:opacity-40"
-            data-testid="cursor-back"
-          >
-            ‹ Back
-          </button>
-          <button
-            type="button"
-            onClick={() => setSheet({ kind: "notes" })}
-            className="min-h-11 rounded-md border-2 border-ink/25 bg-paper text-sm font-medium"
-            data-testid="open-notes"
-          >
-            Notes{noteDraft ? " •" : ""}
-          </button>
-          <button
-            type="button"
-            onClick={cursor.next}
-            disabled={cursor.atEnd}
-            className="min-h-11 rounded-md border-2 border-ink/25 bg-paper text-sm font-medium disabled:opacity-40"
-            data-testid="cursor-skip"
-          >
-            Skip ›
-          </button>
-        </div>
 
         {/* SEAM (Stage 16). Auto-advance is off because `getRoutePosition()`
             is null, not because of a separate switch someone could flip.

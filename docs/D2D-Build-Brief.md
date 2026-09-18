@@ -1277,6 +1277,27 @@ satisfied. See Section 6, Stages 5b and 16.
       The snapshot ordering is untouched.
 - [ ] Tested on a real phone, one-handed, at arm's length.
 
+> **Amended 2026-09-18 (on-device field test).** The Logger mini map was removed
+> after a real-phone pass: MapLibre's attribution block rendered over the 120px
+> strip, and the map was not interactive, so it could not confirm the door when
+> the label was missing. Making it interactive was rejected — a draggable map
+> inside a scrolling page creates a thumb-drag conflict. Replaced with a single
+> **Show on map** control: it switches to the Map tab, centres and zooms on the
+> current door, and highlights that door. The Logger cursor is unchanged on the
+> round trip. One MapLibre instance in the field app.
+>
+> Attribution on the Map tab is MapLibre `AttributionControl` with
+> `{ compact: true }` (collapses to ⓘ). The full four-licence text is
+> permanent on the Profile tab: OS/Crown, OGL, MHCLG EPC, and
+> "Map data © OpenStreetMap contributors". The admin prop drawer footer is
+> unchanged.
+>
+> **KNOWN LIMITATION.** Offline basemap: MapTiler tiles survive a
+> close-and-reopen but NOT a process kill. Killing the app and relaunching in
+> airplane mode gives a blank basemap. Tiles are in the HTTP cache, not a
+> service worker Cache Storage. Logging is unaffected — the snapshot and labels
+> are in Dexie. Proper tile caching is Track B service-worker work, not a patch.
+
 ---
 
 ### Stage 9 — Prop completion

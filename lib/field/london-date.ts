@@ -8,6 +8,15 @@ export function londonDate(at: Date = new Date()): string {
   }).format(at);
 }
 
+/**
+ * Same Europe/London calendar day. Mirrors `leads_set_is_immediate`, which
+ * compares `booked_for` to the knock's `occurred_at`. Display only — never
+ * written onto a payload; the trigger owns `is_immediate`.
+ */
+export function isSameLondonDay(a: Date, b: Date): boolean {
+  return londonDate(a) === londonDate(b);
+}
+
 const PARTS = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Europe/London",
   hour12: false,

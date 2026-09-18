@@ -3,6 +3,7 @@
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { useFieldData } from "@/components/field/field-data-provider";
 import { SyncStatus } from "@/components/field/sync-status";
+import { ATTRIBUTION_LINES } from "@/lib/field/map-style";
 
 /**
  * Name, role, sign out, and the queue depth and last-sync time Stage 7
@@ -35,6 +36,15 @@ export function ProfileTab() {
             ? `${phase.assignment.territory_name} · ${phase.assignment.door_count} doors`
             : "No prop loaded."}
         </p>
+      </section>
+
+      <section className="border-b border-ink/15 bg-paper px-4 py-4" data-testid="profile-attribution">
+        <h2 className="text-sm font-semibold">Map and data attribution</h2>
+        <ul className="mt-2 space-y-2 text-xs leading-relaxed text-ink-soft">
+          {ATTRIBUTION_LINES.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
       </section>
 
       <div className="px-4 py-4">
