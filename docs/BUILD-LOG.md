@@ -570,4 +570,27 @@ One entry per stage, appended by the agent at the end of each session.
 - **Not done / deferred:** Stage 9, Stage 14, Track B service-worker tile cache (the known basemap limitation). No schema change. No 2,000-door test. Not re-tested on the physical phone that found the defects — desktop Chromium plus a 390×844 emulation only.
 - **Follow-ups:** Re-test Show on map on the same real phone. Proper offline tiles remain Track B. Harness fixtures from this pass were cleaned up.
 
+---
+
+### Stage 14a — Demo seed
+- **Date:** 2026-09-18
+- **Model:** Cursor Grok 4.6
+- **Built:** `scripts/seed-demo.ts` (`npm run seed:demo`) generating three real Bristol props, ten assignments over 7–18 September 2026, knocks/leads/observations, with `--reset`. Seeded RNG (`0x14a014a0`). Rotation from `lib/geo/rotation.ts` (`rotationForVisit`); snapshots from `lib/geo/snapshot.ts` (`orderKnockableBySweep`) — the Stage 5 interim angular rule, not a second implementation. No migration. Existing profiles reused; no auth users created. Demo rows tagged `DEMO - ` on territory names and `seed-demo-` on `client_event_id`.
+- **Acceptance:**
+  - Seed from empty (no demo rows) produces 3 territories, their assignments, members, knocks, leads and observations: **PASS** — 3 territories, 10 assignments, 10 members (solo), 869 knocks, 42 leads, 85 tenure observations, 8 address observations. Pre-existing non-demo rows left in place (7 territories / 7 assignments / 31 knocks).
+  - Every prop is between 40 and 150 knockable doors: **PASS** — Bishopston 69, Southville 138, Clifton 133. Matches a SQL `ST_Within` count of the same rings.
+  - Every seeded uprn exists in properties. Zero foreign key errors: **PASS** — insert succeeded; orphan query `knock_events` vs `properties` = 0.
+  - no_opportunity knocks and matching tenure observations are present: **PASS** — 85 knocks, 85 `property_observations` with `tenure='no_opportunity'`.
+  - At least one prop is visibly unfinished: **PASS** — Southville ever-worked **90 / 138** knockable (48 doors never touched); last visit 74 / 138. Bishopston and Clifton were fully covered across visits (last visits 63/69 and 121/133).
+  - leads cover every status value: **PASS** — pending 6, re_app 6, sale 5, pm 5, blowout 5, utc 5, btc 5, cancelled 5. `is_immediate` was not inserted; the trigger derived it (pending all same-day → true; re_app +7 days → false).
+  - `--reset` leaves all seven tables at the counts they had before seeding: **PASS** — before seed 7/7/7/31/3/3/1; after `--reset` 7/7/7/31/3/3/1 (`territories`, `assignments`, `assignment_members`, `knock_events`, `leads`, `property_observations`, `address_observations`).
+  - `--reset` then seed reproduces byte-identical data: **PASS** — SHA-256 of seeded `knock_events` ordered by `client_event_id` (`id|client_event_id|assignment_id|uprn|outcome|occurred_at|sequence_position`) was `ee7ca3f685933c9ed51a1da91b3df92c210db54d0fe2be65d182347363768be8` on both runs.
+  - Rotation and snapshot came from `lib/geo/`, not reimplemented: **PASS** — `rotationForVisit` from `lib/geo/rotation.ts`; `orderKnockableBySweep` / `uniqueVertices` from `lib/geo/snapshot.ts`. Observed entry vertices 1,2,3,0 and ccw/cw/ccw/cw match `rotationForVisit(n, 4)`.
+- **Deviations from brief:**
+  - PostgREST 14 has no `st_within` URL filter. Doors are loaded with `ov` (PostGIS `&&` bbox overlap) then a strict interior test so the set matches `ST_Within`. Counts matched the SQL count of the same rings.
+  - `lib/geo/snapshot.ts` is new: the Stage 5 JS sweep lived only in `scripts/verify-stage-5.ts`. Moved so 14a can import it. SQL `allocate_prop` is unchanged.
+  - Only one canvasser profile exists, so every demo team is a solo. Script prints a warning asking for a second canvasser in the Supabase Dashboard if a duo is wanted. No auth users created.
+- **Not done / deferred:** Stage 14b coverage map and dashboard. Stage 9. Did not create a second canvasser. Did not start Stage 9. Next free migration remains `015`; none written.
+- **Follow-ups:** Create a second canvasser in the Dashboard and re-run `--reset --seed` for duo leapfrogging. 14b should run against this seeded data, not an empty database.
+
 

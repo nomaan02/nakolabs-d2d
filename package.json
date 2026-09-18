@@ -13,6 +13,7 @@
     "ingest:uprn": "tsx scripts/ingest-uprn.ts",
     "ingest:nccz": "tsx scripts/ingest-nccz.ts",
     "ingest:addresses": "tsx scripts/ingest-addresses.ts",
+    "seed:demo": "tsx scripts/seed-demo.ts",
     "verify:stage4": "tsx scripts/verify-stage-4.ts",
     "verify:stage5": "tsx scripts/verify-stage-5.ts",
     "verify:stage6": "tsx scripts/verify-stage-6.ts",

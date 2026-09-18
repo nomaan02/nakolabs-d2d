@@ -685,6 +685,12 @@ The snapshot is frozen at allocation. If the prop polygon is edited later, the a
 - [ ] Editing the prop polygon does not alter an existing snapshot.
 - [ ] Allocating with three canvassers succeeds; a fourth is rejected by Stage 2's trigger, not by new logic in this stage.
 
+> **Amended 2026-09-18.** Stage 14a's demo seed imports the interim angular
+> snapshot from `lib/geo/snapshot.ts` — the TypeScript form of the same
+> placeholder `allocate_prop` uses in SQL, previously only duplicated inside
+> `scripts/verify-stage-5.ts`. Rotation stays `lib/geo/rotation.ts`. Stage 5b
+> still replaces both for new allocations; frozen snapshots are untouched.
+
 ---
 
 ### Stage 5b — Route generation
@@ -1541,6 +1547,10 @@ Office creates and closes slots. Canvassers read, and can place a ten-minute aut
 - [ ] Full demo run end to end, timed, twice. The second run is the one that finds the break.
 - [ ] Coverage map renders 2,000 dots without stutter on a mid-range phone.
 - [ ] Seed script is repeatable from empty.
+
+> **Amended 2026-09-18.** Stage 14 is split. **14a** is the demo seed only
+> (`scripts/seed-demo.ts`, `npm run seed:demo`). **14b** is the coverage map
+> and dashboard, a separate session. Do not start 14b in the 14a session.
 
 ---
 
