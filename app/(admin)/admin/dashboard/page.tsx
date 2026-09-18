@@ -1,6 +1,7 @@
 import { DashboardView } from "@/components/admin/dashboard-view";
 import { clampStaleWeeks, fetchAdminDashboard } from "@/lib/admin/dashboard";
 import { getOwnProfile } from "@/lib/auth/profile";
+import { fetchPropCompletions } from "@/lib/prop-completion";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,10 @@ export default async function DashboardPage({
   const params = await searchParams;
   const weeks = clampStaleWeeks(params.weeks);
 
-  const result = await fetchAdminDashboard(supabase, weeks);
+  const [result, completion] = await Promise.all([
+    fetchAdminDashboard(supabase, weeks),
+    fetchPropCompletions(supabase),
+  ]);
 
   if (!result.ok) {
     return (
@@ -36,6 +40,8 @@ export default async function DashboardPage({
   return (
     <DashboardView
       payload={result.payload}
+      completions={completion.ok ? completion.rows : []}
+      completionError={completion.ok ? null : completion.message}
       signedInAs={profile?.full_name ?? user?.email ?? ""}
     />
   );

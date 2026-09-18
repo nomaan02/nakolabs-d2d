@@ -5,7 +5,7 @@
  * Contact, Lead and Rented/Council all mean somebody came to the door.
  * Counting only `outcome = 'answered'` understates the answer rate.
  *
- * SQL (Stage 14b):
+ * SQL (Stage 14b dashboard / coverage, and Stage 9 `v_prop_completion`):
  *   outcome not in ('no_answer','inaccessible')
  */
 export const ANSWERED_SQL = "outcome not in ('no_answer','inaccessible')" as const;

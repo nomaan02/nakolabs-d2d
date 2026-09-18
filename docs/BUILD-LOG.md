@@ -618,4 +618,34 @@ One entry per stage, appended by the agent at the end of each session.
 - **Not done / deferred:** Stage 9. Stage 15 recommender. Phone / mid-range-device 2,000-dot pass. Did not start Stage 9. Next free migration is `016`.
 - **Follow-ups:** Re-run the 2,000-dot check on a mid-range phone before calling the performance item done for the demo-day brief. Demo seed now teams as a duo when a second canvasser profile exists (members=20); knock checksum still matches 14a because it does not include `canvasser_id`.
 
+---
+
+### Stage 09 — Prop completion
+- **Date:** 2026-09-18
+- **Model:** Cursor Grok 4.6
+- **Built:** Read-only migration `016_stage_9_prop_completion.sql`: view `v_prop_completion` (`security_invoker = true`) joining `assignments` to `v_latest_knock` (no second `DISTINCT ON`, not `knock_events`). Columns: assignment identity, knockable, worked, answered, remaining. Canonical answered filter `outcome not in ('no_answer', 'inaccessible')` — identical to Stage 14b. `GRANT SELECT` to `authenticated`; `REVOKE` from `anon`. No new table, no coverage table, nothing that writes. Admin dashboard panel lists every assignment (three numbers, no percentage). Field Profile shows today's assignment only as status. Harness `npm run verify:stage9`.
+- **Policies / grants:** No new table RLS (no new table). View inherits RLS from `assignments`, `territories` and `knock_events` via invoker. `authenticated` may `SELECT` the view; `anon` may not. Admin JWT sees all assignments; canvasser JWT sees only assignments they belong to; office JWT sees zero rows.
+- **Acceptance:**
+  - Numbers reconcile against a hand-counted seeded prop: **PASS** — DEMO Southville 2026-09-14 visit 3. Manual from `v_latest_knock`: knockable 138, worked 74, histogram answered 15 / callback 1 / do_not_call 1 / inaccessible 1 / lead 4 / no_answer 42 / no_opportunity 7 / refused 3 → answered 31 (not in no_answer, inaccessible), remaining 64. View: **138 / 74 / 31 / 64**.
+  - A duplicate re-sync does not inflate worked: **PASS** — second insert of the same `client_event_id` → `23505` unique; worked stayed 1.
+  - A corrected outcome changes answered without changing worked: **PASS** — `no_answer` then `lead` on the same UPRN; `v_latest_knock` 1 row `lead`; raw `knock_events` 2; view worked 1 → 1, answered 0 → 1.
+  - Canvasser sees only their own current prop; admin sees all. Tested under real JWTs: **PASS** — canvasser A 1 row (own assignment), not B's; canvasser B only theirs; admin 20 rows including both; office 0. Field-style fetch of B's `assignment_id` as A returned empty. Browser: canvasser Profile showed only today's Bishopston **63 / 29 / 6** (matches the view); admin dashboard table listed every allocation including that row and Southville **74 / 31 / 64**.
+  - The view reports `security_invoker = true` in `pg_class.reloptions`: **PASS** — `{security_invoker=true}` for `v_prop_completion` (same as `v_latest_knock` and `v_coverage_latest`).
+  - The answered expression is identical to Stage 14b's dashboard: **PASS** — quoted below.
+  - Three numbers shown, no percentage anywhere: **PASS** on Stage 9 surfaces — field Profile `WORKED 63 / ANSWERED 29 / DOORS REMAINING 6`, no `%` in that section; admin completion table columns Worked / Answered / Remaining, `hasPct=false`. Stage 14b's existing slot panel still shows answered/worked as a rate; that was not part of this stage and was not removed.
+- **Quoted answered expressions:**
+  - Stage 14b `admin_dashboard.answered_sql`: `outcome not in ('no_answer','inaccessible')`
+  - Stage 14b coverage / dashboard SQL: `c.outcome not in ('no_answer', 'inaccessible')`
+  - Stage 9 view source: `ke.outcome not in ('no_answer', 'inaccessible')`
+  - Planner form of the view (`pg_get_viewdef`): `ke.outcome <> ALL (ARRAY['no_answer'::text, 'inaccessible'::text])` — semantically identical `NOT IN`.
+- **Deviations from brief:**
+  - Original Stage 9 SQL counted `outcome = 'answered'` and selected `leads_raised`. Built with the canonical answered rule (so it cannot disagree with 14b) and remaining as the third number. `leads_raised` omitted so `/field` cannot read a quality count off this view. Dated note under Stage 9; original SQL body left in place.
+  - `count(ke.uprn)` rather than `count(distinct ke.uprn)`: uniqueness already comes from `v_latest_knock`. No second `DISTINCT ON`.
+  - Territory name and work date are on the view so the admin list does not join in the app.
+  - RLS is membership-scoped (a canvasser querying the view unfiltered sees every assignment they belong to). "Current prop" is the field UI filtering to today's `assignment_id`.
+  - Archived props' visits appear in `v_prop_completion` (it is per assignment). Stage 14b coverage excludes archived territories. Different grain, not a second coverage copy.
+- **Not done / deferred:** Stage 10 claims / teammate line. Stage 12. Stage 15 recommender. Did not touch `lib/sync`, Dexie, or snapshot ordering. No coverage table. Field-ergonomics on-device pass (sun / wet thumb / one-handed) **NOT VERIFIED** — desktop Chromium only; the new field control is read-only status, not a tap target. Did not begin Stage 10.
+- **Follow-ups:** None for this stage. Next free migration is `017`.
+
+
 

@@ -2,10 +2,12 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 
 import { AdminNav } from "@/components/admin/admin-nav";
+import { PropCompletionList } from "@/components/admin/prop-completion-list";
 import { ThreeNumbers } from "@/components/admin/three-numbers";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import type { DashboardPayload, LeadOutcomeStatus } from "@/lib/admin/dashboard";
 import { formatSlot } from "@/lib/geo/rotation";
+import type { PropCompletion } from "@/lib/prop-completion";
 
 const LEAD_LABEL: Record<LeadOutcomeStatus, string> = {
   sale: "Sale",
@@ -25,9 +27,13 @@ const LEAD_TONE: Record<LeadOutcomeStatus, string> = {
 
 export function DashboardView({
   payload,
+  completions,
+  completionError,
   signedInAs,
 }: {
   payload: DashboardPayload;
+  completions: PropCompletion[];
+  completionError: string | null;
   signedInAs: string;
 }) {
   const totals = payload.coverage.reduce(
@@ -79,6 +85,18 @@ export function DashboardView({
 
       <main className="flex flex-1 flex-col bg-ink p-3 lg:h-full lg:overflow-y-auto">
         <div className="grid flex-1 gap-3 bg-paper p-4 lg:grid-cols-2 lg:p-6">
+          <Panel title="Prop completion — this visit" wide>
+            <p className="mb-4 text-[13px] leading-relaxed text-ink-soft">
+              Worked, answered and doors remaining for every allocation. Answered
+              means someone came to the door — not no-answer and not inaccessible.
+              There is no completion percentage.
+            </p>
+            {completionError ? (
+              <p className="text-[14px] text-ink-soft">{completionError}</p>
+            ) : (
+              <PropCompletionList rows={completions} />
+            )}
+          </Panel>
           <Panel title="Doors worked per prop per week">
             {payload.worked_per_week.length === 0 ? (
               <Empty>No allocations on live props yet.</Empty>
@@ -244,9 +262,17 @@ export function DashboardView({
   );
 }
 
-function Panel({ title, children }: { title: string; children: ReactNode }) {
+function Panel({
+  title,
+  children,
+  wide,
+}: {
+  title: string;
+  children: ReactNode;
+  wide?: boolean;
+}) {
   return (
-    <section className="flex flex-col border border-ink/15 p-5">
+    <section className={`flex flex-col border border-ink/15 p-5 ${wide ? "lg:col-span-2" : ""}`}>
       <h2 className="font-data text-[10px] uppercase tracking-[0.18em] text-ink-soft">{title}</h2>
       <div className="mt-4 min-h-0 flex-1">{children}</div>
     </section>

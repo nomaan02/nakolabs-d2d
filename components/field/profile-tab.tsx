@@ -2,6 +2,7 @@
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { useFieldData } from "@/components/field/field-data-provider";
+import { PropStatus } from "@/components/field/prop-status";
 import { SyncStatus } from "@/components/field/sync-status";
 import { ATTRIBUTION_LINES } from "@/lib/field/map-style";
 
@@ -36,6 +37,7 @@ export function ProfileTab() {
             ? `${phase.assignment.territory_name} · ${phase.assignment.door_count} doors`
             : "No prop loaded."}
         </p>
+        <PropStatus />
       </section>
 
       <section className="border-b border-ink/15 bg-paper px-4 py-4" data-testid="profile-attribution">

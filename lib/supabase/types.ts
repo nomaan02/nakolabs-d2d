@@ -91,6 +91,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "assignment_members_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "v_prop_completion"
+            referencedColumns: ["assignment_id"]
+          },
+          {
             foreignKeyName: "assignment_members_canvasser_id_fkey"
             columns: ["canvasser_id"]
             isOneToOne: false
@@ -209,6 +216,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "assignments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knock_events_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "v_prop_completion"
+            referencedColumns: ["assignment_id"]
           },
           {
             foreignKeyName: "knock_events_canvasser_id_fkey"
@@ -630,6 +644,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "knock_events_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "v_prop_completion"
+            referencedColumns: ["assignment_id"]
+          },
+          {
             foreignKeyName: "knock_events_uprn_fkey"
             columns: ["uprn"]
             isOneToOne: false
@@ -673,6 +694,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "knock_events_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "v_prop_completion"
+            referencedColumns: ["assignment_id"]
+          },
+          {
             foreignKeyName: "knock_events_canvasser_id_fkey"
             columns: ["canvasser_id"]
             isOneToOne: false
@@ -692,6 +720,28 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_door_label"
             referencedColumns: ["uprn"]
+          },
+        ]
+      }
+      v_prop_completion: {
+        Row: {
+          answered: number | null
+          assignment_id: string | null
+          knockable: number | null
+          remaining: number | null
+          territory_id: string | null
+          territory_name: string | null
+          visit_number: number | null
+          work_date: string | null
+          worked: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignments_territory_id_fkey"
+            columns: ["territory_id"]
+            isOneToOne: false
+            referencedRelation: "territories"
+            referencedColumns: ["id"]
           },
         ]
       }

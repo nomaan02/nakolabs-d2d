@@ -1331,6 +1331,14 @@ group by a.id;
 > `security_invoker`, defined in Stage 8a, and is the single place the rule
 > lives.
 
+> **Amended 2026-09-18 (Stage 9 built).** Answered uses the canonical rule
+> `outcome NOT IN ('no_answer','inaccessible')`, identical to Stage 14b's
+> `v_coverage_latest` / `admin_dashboard`. The original SQL above still shows
+> `outcome = 'answered'` (Contact only) and would disagree with the dashboard.
+> The third displayed number is remaining (`knockable − worked`). `leads_raised`
+> is omitted from the view so it cannot leak into `/field` as a quality signal.
+> `v_prop_completion` itself is `security_invoker = true`.
+
 **Report three numbers, never one percentage.** "62% complete" hides the difference between a prop that was half-walked and one where half the doors did not answer — and those two call for opposite decisions next time. Show *worked*, *answered*, *doors remaining*.
 
 **Acceptance:**
