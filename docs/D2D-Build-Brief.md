@@ -1551,6 +1551,15 @@ Office creates and closes slots. Canvassers read, and can place a ten-minute aut
 > **Amended 2026-09-18.** Stage 14 is split. **14a** is the demo seed only
 > (`scripts/seed-demo.ts`, `npm run seed:demo`). **14b** is the coverage map
 > and dashboard, a separate session. Do not start 14b in the 14a session.
+>
+> **Amended 2026-09-18 (14b).** Coverage map at `/admin/coverage` and dashboard
+> at `/admin/dashboard`. Counts resolve through `v_latest_knock`; the fog-lift
+> additionally collapses to one row per UPRN via `v_coverage_latest`
+> (`security_invoker`). Answered is `outcome not in ('no_answer','inaccessible')`.
+> No `coverage` table, no `v_prop_completion` (Stage 9), no Stage 15 recommender.
+> Archived props (`archived_at is not null`) are excluded from the map and every
+> dashboard panel. Three numbers, never a single percentage: worked, answered,
+> remaining.
 
 ---
 

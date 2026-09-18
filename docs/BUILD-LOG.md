@@ -593,4 +593,29 @@ One entry per stage, appended by the agent at the end of each session.
 - **Not done / deferred:** Stage 14b coverage map and dashboard. Stage 9. Did not create a second canvasser. Did not start Stage 9. Next free migration remains `015`; none written.
 - **Follow-ups:** Create a second canvasser in the Dashboard and re-run `--reset --seed` for duo leapfrogging. 14b should run against this seeded data, not an empty database.
 
+---
+
+### Stage 14b — Coverage map and admin dashboard
+- **Date:** 2026-09-18
+- **Model:** Cursor Grok 4.6
+- **Built:** Admin fog-lift at `/admin/coverage` (MapLibre GeoJSON circle layer, feature-state from knocks, labels in a separate symbol layer at minzoom 18) and dashboard at `/admin/dashboard` (four panels). Read-only migration `015_stage_14b_coverage.sql`: view `v_coverage_latest` (`security_invoker = true`) plus RPCs `coverage_map_payload()` and `admin_dashboard(p_stale_weeks)`. Outcome is never a GeoJSON property. Archived props excluded. Feature-state applied on `load` / `style.load` and in the React effect. `["zoom"]` only as the input of a top-level interpolate. No `app/(field)` / Dexie / `lib/sync` changes. Harness `npm run verify:stage14b`.
+- **Acceptance:**
+  - Coverage map renders the seeded props with worked doors revealed and unworked doors dim: **PASS** — Southville selected: 90 worked / 35 answered / 48 remaining; dim cluster on the unfinished tail, revealed pale/blue/green/oxide dots on the walked streets. Attribution (OS/Crown, OGL, MHCLG EPC, OSM, MapTiler) on the control and in the footer.
+  - Switching away from the map tab/route and back leaves the colouring intact: **PASS** — Dashboard then back to Coverage, Southville re-selected; outcome colours still applied (not all-unworked). Feature-state is painted in the style-load handler from a ref, not only in the effect.
+  - A door knocked twice with different outcomes shows the NEWER outcome: **PASS** — harness inserted `no_answer` then `lead` on UPRN 48895; `v_latest_knock` 1 row `lead`; `v_coverage_latest` 1 row `lead`; coverage payload outcomes map has `lead` once. Outcome absent from GeoJSON properties.
+  - Dashboard answer rate uses the canonical "answered" definition: **PASS** — SQL is `outcome not in ('no_answer','inaccessible')` (`admin_dashboard.answered_sql`, same filter in `v_coverage_latest` counts). Southville view `worked=90 answered=35` matched the payload. Slot panel shows answered/worked counts, not `outcome = 'answered'` alone.
+  - Coverage shows three numbers, not a single percentage: **PASS** — Worked / Answered / Remaining on the coverage rail and the dashboard rail. No completion percentage as the primary figure.
+  - The unfinished seeded prop is visibly unfinished on the map: **PASS** — Southville remaining 48, dim unworked tail inside the polygon.
+  - 2,000 dots render without stutter: **PASS on desktop Chromium** (Cursor's embedded browser, canvas 1408×1118). Real snapshot set is 1,337 doors; `/admin/coverage?stress=2000` pads the same circle source to `data-door-count=2000`. **Not tested on a mid-range phone.**
+  - Any new view is security_invoker and tested under a real admin JWT: **PASS** — `pg_class.reloptions = {security_invoker=true}` for `v_coverage_latest`. Admin JWT SELECT on the view succeeds; office JWT sees 0 rows; canvasser JWT `coverage_map_payload` → `42501 Coverage is an admin view.`; office JWT `admin_dashboard` → `42501`. Service role has no EXECUTE on the RPCs.
+  - No coverage table was created. No second copy of derived state exists: **PASS** — `pg_tables` like `%coverage%` is empty; `GET /rest/v1/coverage` → PGRST205 suggesting `v_coverage_latest`. No `v_prop_completion`.
+  - Seed script still runs clean after your changes: **PASS** — `npx tsx scripts/seed-demo.ts --reset --seed` exit 0; knock_events checksum `ee7ca3f685933c9ed51a1da91b3df92c210db54d0fe2be65d182347363768be8` (byte-identical to Stage 14a).
+- **Deviations from brief:**
+  - Stage 9's `v_prop_completion` was not created (this session was forbidden from starting Stage 9). Coverage numbers live on `v_coverage_latest` / `admin_dashboard` with the canonical answered rule, not `outcome = 'answered'`.
+  - `admin_dashboard` joins `knock_events` only to attach a lead to its assignment so archived props can be filtered out. The lead panel counts `leads.status`, not knock outcome.
+  - Live allocated non-demo props (Bishopston East, `test`) appear on the map alongside the seeded three. Archived `redland_test` does not.
+  - Hidden `?stress=2000` pads unworked dots for the 2,000-point check because no single live snapshot holds 2,000 doors.
+- **Not done / deferred:** Stage 9. Stage 15 recommender. Phone / mid-range-device 2,000-dot pass. Did not start Stage 9. Next free migration is `016`.
+- **Follow-ups:** Re-run the 2,000-dot check on a mid-range phone before calling the performance item done for the demo-day brief. Demo seed now teams as a duo when a second canvasser profile exists (members=20); knock checksum still matches 14a because it does not include `canvasser_id`.
+
 

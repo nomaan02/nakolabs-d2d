@@ -604,6 +604,47 @@ export type Database = {
         }
         Relationships: []
       }
+      v_coverage_latest: {
+        Row: {
+          assignment_id: string | null
+          occurred_at: string | null
+          outcome: string | null
+          slot: string | null
+          territory_id: string | null
+          uprn: number | null
+          work_date: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignments_territory_id_fkey"
+            columns: ["territory_id"]
+            isOneToOne: false
+            referencedRelation: "territories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knock_events_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knock_events_uprn_fkey"
+            columns: ["uprn"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["uprn"]
+          },
+          {
+            foreignKeyName: "knock_events_uprn_fkey"
+            columns: ["uprn"]
+            isOneToOne: false
+            referencedRelation: "v_door_label"
+            referencedColumns: ["uprn"]
+          },
+        ]
+      }
       v_door_label: {
         Row: {
           building_name: string | null
@@ -792,6 +833,7 @@ export type Database = {
           uprn: number
         }[]
       }
+      admin_dashboard: { Args: { p_stale_weeks?: number }; Returns: Json }
       allocate_prop: {
         Args: {
           canvasser_ids: string[]
@@ -818,6 +860,7 @@ export type Database = {
           total: number
         }[]
       }
+      coverage_map_payload: { Args: never; Returns: Json }
       disablelongtransactions: { Args: never; Returns: string }
       dropgeometrycolumn:
         | {

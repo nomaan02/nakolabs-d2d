@@ -62,3 +62,17 @@
   font-size: 9px;
   pointer-events: none;
 }
+
+.maplibregl-popup-content {
+  background: var(--color-paper);
+  border-radius: 0;
+  box-shadow: none;
+  border: 1px solid color-mix(in srgb, var(--color-ink) 20%, transparent);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  padding: 10px 12px;
+}
+
+.maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
+  border-top-color: var(--color-paper);
+}
