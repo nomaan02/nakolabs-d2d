@@ -509,6 +509,69 @@ export type Database = {
           },
         ]
       }
+      road_nodes: {
+        Row: {
+          geom: unknown
+          id: number
+        }
+        Insert: {
+          geom: unknown
+          id: number
+        }
+        Update: {
+          geom?: unknown
+          id?: number
+        }
+        Relationships: []
+      }
+      road_segments: {
+        Row: {
+          from_node: number
+          geom: unknown
+          highway: string
+          id: number
+          length_m: number
+          name: string | null
+          osm_way_id: number
+          to_node: number
+        }
+        Insert: {
+          from_node: number
+          geom: unknown
+          highway: string
+          id?: number
+          length_m: number
+          name?: string | null
+          osm_way_id: number
+          to_node: number
+        }
+        Update: {
+          from_node?: number
+          geom?: unknown
+          highway?: string
+          id?: number
+          length_m?: number
+          name?: string | null
+          osm_way_id?: number
+          to_node?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "road_segments_from_node_fkey"
+            columns: ["from_node"]
+            isOneToOne: false
+            referencedRelation: "road_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "road_segments_to_node_fkey"
+            columns: ["to_node"]
+            isOneToOne: false
+            referencedRelation: "road_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       spatial_ref_sys: {
         Row: {
           auth_name: string | null
@@ -1692,6 +1755,8 @@ export type Database = {
       }
       upsert_properties: { Args: { p_rows: Json }; Returns: number }
       upsert_property_addresses: { Args: { p_rows: Json }; Returns: number }
+      upsert_road_nodes: { Args: { p_rows: Json }; Returns: number }
+      upsert_road_segments: { Args: { p_rows: Json }; Returns: number }
     }
     Enums: {
       [_ in never]: never

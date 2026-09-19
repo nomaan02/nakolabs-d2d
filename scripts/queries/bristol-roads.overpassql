@@ -1,0 +1,20 @@
+// Inner Bristol road extract for Stage 1b (first run).
+//
+// Bbox is south,west,north,east — lon -2.64..-2.53, lat 51.43..51.51
+// (Bishopston, Southville, Clifton, Northville). North edge is 51.51
+// because the live Northville prop sits at 51.4986..51.5047; 51.49
+// misses it. Still far narrower than the Section 13 city box so a
+// recurse-to-nodes query cannot blow the 180s timeout.
+//
+// This run does NOT recurse. `out geom` puts node ids and coordinates
+// on each way, so T-junctions still share one OSM node id without
+// emitting every node as its own element.
+//
+// highway filter omits pedestrian|footway on purpose. Those are a
+// second pass later, same tables, no schema change.
+//
+// Commit this query. Never commit the JSON response.
+
+[out:json][timeout:180];
+way["highway"~"^(residential|living_street|unclassified|tertiary|secondary|service)$"](51.43,-2.64,51.51,-2.53);
+out geom;

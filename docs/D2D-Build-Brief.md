@@ -359,6 +359,17 @@ A useful side effect: `road_segments.name` gives street-name resolution for free
 - [ ] Every segment has a valid geometry and a non-zero length.
 - [ ] OSM attribution visible wherever the route is drawn.
 
+> **Amended 2026-09-19 (Stage 1b first extract).** The query above remains
+> the full-city / pedestrian-inclusive form for a later pass. This session
+> loaded a narrower inner-Bristol extract: bbox `(51.43,-2.64,51.51,-2.53)`,
+> highway types without `pedestrian|footway`, and `out geom` instead of
+> `(._;>;); out body` so junction node ids stay on the way without pulling
+> every node as its own element. Pedestrian and footway are a second pass
+> into the same `road_nodes` / `road_segments` tables; no schema change.
+> North edge is 51.51 because the live Northville prop sits at
+> 51.4986–51.5047; 51.49 misses it. `length_m` is `ST_Length(geom::geography)`
+> (metres). Oneway tags are ignored.
+
 ---
 
 ### Stage 1c — Address labels

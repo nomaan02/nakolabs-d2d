@@ -647,5 +647,32 @@ One entry per stage, appended by the agent at the end of each session.
 - **Not done / deferred:** Stage 10 claims / teammate line. Stage 12. Stage 15 recommender. Did not touch `lib/sync`, Dexie, or snapshot ordering. No coverage table. Field-ergonomics on-device pass (sun / wet thumb / one-handed) **NOT VERIFIED** — desktop Chromium only; the new field control is read-only status, not a tap target. Did not begin Stage 10.
 - **Follow-ups:** None for this stage. Next free migration is `017`.
 
+---
+
+### Stage 1b — Road network ingest
+- **Date:** 2026-09-19
+- **Model:** Cursor Grok 4.6
+- **Built:** Migration `017_stage_1b_road_network.sql` (remote version `20260919143732`): `road_nodes` (OSM node id PK, `geometry(Point,4326)`, GiST) and `road_segments` (`geometry(LineString,4326)`, GiST, btree on `(from_node, to_node)`, unique on `(osm_way_id, from_node, to_node)`). `length_m` is `ST_Length(geom::geography)` in the ingest RPC. Overpass query `scripts/queries/bristol-roads.overpassql` (`out geom`, no node recursion; no pedestrian/footway). Streaming ingest `scripts/ingest-roads.ts` splits each way at junction nodes (nodes in two or more ways, plus every way's first and last node); geom is the full polyline of the run. Oneway ignored. Service-role RPCs `upsert_road_nodes` / `upsert_road_segments`. Harness `npm run verify:stage1b`.
+- **Policies / grants:** Reference data, same shape as `properties` / `nccz_zones`. RLS enabled, default deny. `SELECT` policy for `authenticated` only; no write policy; no anon. `REVOKE ALL` from `public`, `anon`, `authenticated` on both tables and `road_segments_id_seq`, then `GRANT SELECT` to `authenticated`. RPCs: `REVOKE ALL` from `public`, `anon`, `authenticated`; `GRANT EXECUTE` to `service_role` only.
+- **Acceptance:**
+  - Migration numbering convention confirmed and the new file named correctly: **PASS** — next file is `017_stage_1b_road_network.sql`. Remote version is `20260919143732`, a fresh MCP timestamp, not `20260918215553`.
+  - Junction nodes are SHARED: **PASS** — OSM node `69254247` at `POINT(-2.5949673 51.4787538)` (Monmouth Road / Monk Road, Bishopston). One `road_nodes` row at those coordinates (`nodes_at_same_point=1`). Three segments reference that id: Monmouth Road 219.7 m (`from=69254247`), Monk Road 95.7 m (`to=69254247`), Monk Road 62.0 m (`from=69254247`).
+  - Re-running the ingest changes no row counts: **PASS** — two consecutive runs on the same 9.3 MiB extract both ended at `road_nodes=21,877` `road_segments=24,419`.
+  - Every segment has a valid geometry (ST_IsValid), SRID 4326, and a non-zero length_m in metres: **PASS** — invalid=0, not_4326=0, zero_or_neg=0. Sanity: OSM Monmouth Road (Bishopston) is one 219.7 m segment between Monk Road and Falmouth Road; the DEMO Bishopston ring is ~210 m east–west. Princess Victoria Street 370.1 m across 4 segments; Stackpool Road 576.1 m across 9.
+  - Segment granularity is right: **PASS** — min 0.51 m, median **34.12 m**, max 1,811.35 m, mean 48.03 m. Tens of metres, not single-digit (split at every node) and not hundreds (unsplit ways). 14,551 ways → 24,419 segments (~1.7 segments/way).
+  - Every from_node and to_node resolves to a road_nodes row: **PASS** — missing_from_node=0, missing_to_node=0.
+  - Final row counts and database size: **PASS** — `road_nodes=21,877` `road_segments=24,419`. Database **199 MB** (208,555,155 bytes).
+  - Readable by an authenticated JWT, denied to anon: **PASS** — real canvasser JWT `road_nodes=21,877` `road_segments=24,419` matching service role; anon head count null (no rows); authenticated INSERT → `permission denied for table`; `upsert_road_nodes` → `permission denied for function`. Harness user deleted afterwards.
+  - Road coverage under Northville, Bishopston, Southville, Clifton props: **PASS** — intersecting segments: DEMO Bishopston 4 (507 m), DEMO Southville 12 (1,366 m), DEMO Clifton 17 (739 m), Northville 144 (9,116 m).
+  - OSM attribution present on field and admin maps and Profile: **PASS** — `Map data © OpenStreetMap contributors.` in `lib/field/map-style.ts` `ATTRIBUTION_LINES`, field Map compact control, Profile tab list, admin prop drawer footer, coverage view/map. Not added this stage; confirmed present.
+- **Deviations from brief:**
+  - First extract omits `pedestrian|footway` and uses `out geom` rather than `(._;>;); out body`. The brief query is unchanged; dated note under Stage 1b records the first-run form. Second pass later, same tables.
+  - North edge 51.51 rather than the instructed 51.49: the live Northville prop is 51.4986–51.5047. 51.49 left it with 0 intersecting segments.
+  - Unique index `road_segments_osm_endpoints_uidx (osm_way_id, from_node, to_node)` for idempotent upsert. Not in the brief DDL; no extra columns.
+  - Ingest deletes existing segments for way ids in the file before inserting, so a wider extract that discovers new junctions cannot leave a coarser stale split. Nodes still upsert.
+  - Overpass `overpass-api.de` returns Apache 406 without a `User-Agent`. The working command sets `-A nakolabs-d2d/stage-1b`.
+- **Not done / deferred:** Stage 5b (no route generation, no traversal, no `route_steps`, no field route UI). Pedestrian/footway second pass. Full Section 13 Bristol bbox. Did not touch `properties`, `knock_events`, `assignments`, applied migrations, `app/(field)`, `lib/sync`, Dexie, or snapshot ordering. Did not begin Stage 5b.
+- **Follow-ups:** Pedestrian/footway pass into the same tables when traversal exists and can use them. Next free migration is `018`.
+
 
 
