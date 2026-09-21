@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { allocatePropAction } from "@/lib/props/allocate";
+import { generateRouteAction, type RouteActionResult } from "@/lib/props/generate-route";
 import { formatSlot, formatSweep, type Slot, type SweepDirection } from "@/lib/geo/rotation";
 
 export type AllocatableProp = {
@@ -27,9 +28,16 @@ export type ExistingAllocation = {
   entryVertexIndex: number;
   sweepDirection: SweepDirection;
   slot: Slot;
+  /** Null until Stage 5b's generator has drawn a route for this allocation. */
+  routeLengthM: number | null;
+  routeStrandedCount: number;
 };
 
+/** Stage 5b. What the admin sees for the route after allocation. Never an error. */
+type RouteState = { status: "drawing" } | { status: "done"; result: RouteActionResult };
+
 type Saved = {
+  assignmentId: string;
   name: string;
   workDate: string;
   visitNumber: number;
@@ -38,7 +46,26 @@ type Saved = {
   slot: Slot;
   knockableDoors: number;
   teamSize: number;
+  route: RouteState;
 };
+
+function formatKm(metres: number): string {
+  return `${(metres / 1000).toLocaleString("en-GB", { maximumFractionDigits: 1 })} km`;
+}
+
+function routeSentence(result: RouteActionResult): string {
+  if (!result.ok) return `Route not drawn: ${result.message}`;
+  const { summary } = result;
+  const stranded =
+    summary.strandedCount > 0
+      ? ` ${summary.strandedCount.toLocaleString("en-GB")} ${summary.strandedCount === 1 ? "door is" : "doors are"} more than 40 m from any road and sit at the end of the order.`
+      : "";
+  return (
+    `Route drawn: ${formatKm(summary.routeLengthM)}, ${summary.steps.toLocaleString("en-GB")} steps` +
+    `${summary.components > 1 ? `, ${summary.components} separate road sections` : ""}.` +
+    stranded
+  );
+}
 
 function tomorrowISO(): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -86,6 +113,18 @@ export function AllocateForm({
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<Saved | null>(null);
   const [pending, startTransition] = useTransition();
+  // Stage 5b: "Draw route" on an already-allocated row. Keyed by assignment id.
+  const [redraw, setRedraw] = useState<{ id: string; state: RouteState } | null>(null);
+  const [redrawPending, startRedraw] = useTransition();
+
+  const drawRouteFor = (assignmentId: string) => {
+    setRedraw({ id: assignmentId, state: { status: "drawing" } });
+    startRedraw(async () => {
+      const result = await generateRouteAction(assignmentId);
+      setRedraw({ id: assignmentId, state: { status: "done", result } });
+      router.refresh();
+    });
+  };
 
   const selected = props.find((prop) => prop.id === territoryId) ?? null;
   const nextVisit = (selected?.visitCount ?? 0) + 1;
@@ -120,7 +159,10 @@ export function AllocateForm({
         setError(result.message);
         return;
       }
-      setSaved({
+      // Allocation is saved and confirmed before the route is attempted.
+      // The route is a second call so a route failure can never undo it.
+      const base: Saved = {
+        assignmentId: result.allocation.id,
         name: selected?.name ?? "prop",
         workDate,
         visitNumber: result.allocation.visitNumber,
@@ -129,8 +171,18 @@ export function AllocateForm({
         slot: result.allocation.slot,
         knockableDoors: result.allocation.knockableDoors,
         teamSize: picked.length,
-      });
+        route: { status: "drawing" },
+      };
+      setSaved(base);
       setPicked([]);
+      router.refresh();
+
+      const route = await generateRouteAction(result.allocation.id);
+      setSaved((current) =>
+        current && current.assignmentId === base.assignmentId
+          ? { ...current, route: { status: "done", result: route } }
+          : current,
+      );
       router.refresh();
     });
   };
@@ -284,12 +336,20 @@ export function AllocateForm({
               </button>
 
               {saved ? (
-                <p className="text-[14px] leading-relaxed text-ink" role="status">
-                  Allocated {saved.name} for {formatWorkDate(saved.workDate)} to a team of{" "}
-                  {saved.teamSize}. Visit {saved.visitNumber} starts at vertex{" "}
-                  {saved.entryVertexIndex}, {formatSweep(saved.sweepDirection)}, {formatSlot(saved.slot)}{" "}
-                  slot. {saved.knockableDoors.toLocaleString("en-GB")} knockable doors frozen.
-                </p>
+                <div className="flex flex-col gap-2" role="status">
+                  <p className="text-[14px] leading-relaxed text-ink">
+                    Allocated {saved.name} for {formatWorkDate(saved.workDate)} to a team of{" "}
+                    {saved.teamSize}. Visit {saved.visitNumber} starts at vertex{" "}
+                    {saved.entryVertexIndex}, {formatSweep(saved.sweepDirection)},{" "}
+                    {formatSlot(saved.slot)} slot.{" "}
+                    {saved.knockableDoors.toLocaleString("en-GB")} knockable doors frozen.
+                  </p>
+                  <p className="text-[14px] leading-relaxed text-ink-soft">
+                    {saved.route.status === "drawing"
+                      ? "Drawing the route…"
+                      : routeSentence(saved.route.result)}
+                  </p>
+                </div>
               ) : null}
 
               {error ? (
@@ -304,18 +364,43 @@ export function AllocateForm({
                     Already allocated
                   </p>
                   <ul className="mt-3 flex flex-col gap-2">
-                    {existingForProp.map((row) => (
-                      <li
-                        key={row.id}
-                        className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-[13px] text-ink"
-                      >
-                        <span>{formatWorkDate(row.workDate)}</span>
-                        <span className="font-data text-[10px] uppercase tracking-[0.12em] text-ink-soft">
-                          visit {row.visitNumber} · vertex {row.entryVertexIndex} ·{" "}
-                          {formatSweep(row.sweepDirection)} · {formatSlot(row.slot)}
-                        </span>
-                      </li>
-                    ))}
+                    {existingForProp.map((row) => {
+                      const mine = redraw?.id === row.id ? redraw.state : null;
+                      const routed = row.routeLengthM !== null;
+                      return (
+                        <li key={row.id} className="flex flex-col gap-1 text-[13px] text-ink">
+                          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                            <span>{formatWorkDate(row.workDate)}</span>
+                            <span className="font-data text-[10px] uppercase tracking-[0.12em] text-ink-soft">
+                              visit {row.visitNumber} · vertex {row.entryVertexIndex} ·{" "}
+                              {formatSweep(row.sweepDirection)} · {formatSlot(row.slot)} ·{" "}
+                              {routed
+                                ? `route ${formatKm(row.routeLengthM as number)}${
+                                    row.routeStrandedCount > 0
+                                      ? ` · ${row.routeStrandedCount} off-route`
+                                      : ""
+                                  }`
+                                : "no route"}
+                            </span>
+                          </div>
+                          {!routed && !mine ? (
+                            <button
+                              type="button"
+                              disabled={redrawPending}
+                              onClick={() => drawRouteFor(row.id)}
+                              className="min-h-11 w-fit border border-ink/25 px-3 font-data text-[10px] uppercase tracking-[0.14em] text-ink hover:bg-worksheet-deep disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-prop"
+                            >
+                              Draw route
+                            </button>
+                          ) : null}
+                          {mine ? (
+                            <p className="text-[13px] leading-relaxed text-ink-soft" role="status">
+                              {mine.status === "drawing" ? "Drawing the route…" : routeSentence(mine.result)}
+                            </p>
+                          ) : null}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               ) : null}

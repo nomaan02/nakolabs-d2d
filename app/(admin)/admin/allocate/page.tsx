@@ -5,6 +5,11 @@ import type { Slot, SweepDirection } from "@/lib/geo/rotation";
 
 export const metadata = { title: "Allocate · nakolabs-d2d" };
 
+// Stage 5b: the route generator runs as a server action from this page after
+// allocation. Northville (1,225 doors) is sized to finish well inside 30 s;
+// the platform default would cut it off before that.
+export const maxDuration = 60;
+
 function isSweep(value: string): value is SweepDirection {
   return value === "cw" || value === "ccw";
 }
@@ -39,7 +44,9 @@ export default async function AllocatePage({
       .order("full_name", { ascending: true }),
     supabase
       .from("assignments")
-      .select("id, territory_id, work_date, visit_number, entry_vertex_index, sweep_direction, slot")
+      .select(
+        "id, territory_id, work_date, visit_number, entry_vertex_index, sweep_direction, slot, route_length_m, route_stranded_count",
+      )
       .order("work_date", { ascending: true }),
   ]);
 
@@ -65,6 +72,10 @@ export default async function AllocatePage({
             entryVertexIndex: row.entry_vertex_index,
             sweepDirection: row.sweep_direction,
             slot: row.slot,
+            // route_length_m is written in the same UPDATE as route_geom, so
+            // it stands in for "route_geom is not null" without shipping the line.
+            routeLengthM: row.route_length_m,
+            routeStrandedCount: row.route_stranded_count,
           },
         ];
       })}

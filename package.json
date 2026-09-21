@@ -18,6 +18,7 @@
     "verify:stage1b": "tsx scripts/verify-stage-1b.ts",
     "verify:stage4": "tsx scripts/verify-stage-4.ts",
     "verify:stage5": "tsx scripts/verify-stage-5.ts",
+    "verify:stage5b": "tsx scripts/verify-stage-5b.ts",
     "verify:stage6": "tsx scripts/verify-stage-6.ts",
     "verify:stage7": "tsx scripts/verify-stage-7.ts",
     "verify:stage8b": "tsx scripts/verify-stage-8b.ts",

@@ -115,6 +115,7 @@ export type Database = {
           id: string
           route_geom: unknown
           route_length_m: number | null
+          route_stranded_count: number
           slot: string
           started_at: string | null
           sweep_direction: string
@@ -131,6 +132,7 @@ export type Database = {
           id?: string
           route_geom?: unknown
           route_length_m?: number | null
+          route_stranded_count?: number
           slot: string
           started_at?: string | null
           sweep_direction: string
@@ -147,6 +149,7 @@ export type Database = {
           id?: string
           route_geom?: unknown
           route_length_m?: number | null
+          route_stranded_count?: number
           slot?: string
           started_at?: string | null
           sweep_direction?: string
@@ -568,6 +571,64 @@ export type Database = {
             columns: ["to_node"]
             isOneToOne: false
             referencedRelation: "road_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      route_steps: {
+        Row: {
+          assignment_id: string
+          cumulative_m: number
+          geom: unknown
+          id: number
+          instruction: string
+          is_spur: boolean
+          segment_id: number | null
+          step_index: number
+          street_name: string | null
+        }
+        Insert: {
+          assignment_id: string
+          cumulative_m: number
+          geom: unknown
+          id?: number
+          instruction: string
+          is_spur?: boolean
+          segment_id?: number | null
+          step_index: number
+          street_name?: string | null
+        }
+        Update: {
+          assignment_id?: string
+          cumulative_m?: number
+          geom?: unknown
+          id?: number
+          instruction?: string
+          is_spur?: boolean
+          segment_id?: number | null
+          step_index?: number
+          street_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_steps_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "route_steps_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "v_prop_completion"
+            referencedColumns: ["assignment_id"]
+          },
+          {
+            foreignKeyName: "route_steps_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "road_segments"
             referencedColumns: ["id"]
           },
         ]
@@ -1158,6 +1219,21 @@ export type Database = {
       postgis_wagyu_version: { Args: never; Returns: string }
       properties_in_polygon: {
         Args: { cap?: number; poly: unknown }
+        Returns: Json
+      }
+      route_clipped_subgraph: {
+        Args: { p_assignment_id: string }
+        Returns: Json
+      }
+      route_commit: {
+        Args: {
+          p_assignment_id: string
+          p_route_length_m: number
+          p_route_wkt: string
+          p_snapshot: number[]
+          p_steps: Json
+          p_stranded_count: number
+        }
         Returns: Json
       }
       st_3dclosestpoint: {
