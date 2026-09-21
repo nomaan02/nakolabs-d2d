@@ -370,6 +370,22 @@ A useful side effect: `road_segments.name` gives street-name resolution for free
 > 51.4986–51.5047; 51.49 misses it. `length_m` is `ST_Length(geom::geography)`
 > (metres). Oneway tags are ignored.
 
+> **Built 2026-09-19.** Migration 017. 21,877 nodes, 24,419 segments, inner Bristol
+> (lon −2.64 to −2.53, lat 51.43 to 51.51). The north edge is 51.51, not the planned
+> 51.49, because the live Northville prop sits at 51.4986–51.5047.
+>
+> **First-run form, accepted:** `out geom` with no `(._;>;)` node recursion, which
+> returns geometry inline and kept the response to 9.3 MiB. `pedestrian` and
+> `footway` omitted; they are a second pass into the same tables with no schema
+> change. The query as written above is unchanged and remains the target form.
+>
+> Overpass returns HTTP 406 without a `User-Agent` header — set `-A` on the request.
+>
+> **Clipped graph sizes** (segments with ≥ 50 % of their length inside the prop):
+> Northville 127 · DEMO Clifton 12 · DEMO Southville 7 · DEMO Bishopston 2.
+> `ST_Intersects` counts are materially higher and are not the number route
+> generation sees.
+
 ---
 
 ### Stage 1c — Address labels
@@ -702,6 +718,18 @@ The snapshot is frozen at allocation. If the prop polygon is edited later, the a
 > `scripts/verify-stage-5.ts`. Rotation stays `lib/geo/rotation.ts`. Stage 5b
 > still replaces both for new allocations; frozen snapshots are untouched.
 
+> **Amended 2026-09-19.** `entry_vertex_index = n % vertex_count` indexes polygon
+> **vertices**, so the physical spacing between successive entry points depends
+> entirely on how densely the admin drew the polygon. A prop drawn with many
+> closely spaced vertices on one edge gets entry points clustered there. Measured
+> on Northville: vertices 1 and 2 resolve to route entry nodes 13 m apart.
+>
+> This was harmless while ordering was the interim angular sweep. Under Stage 5b's
+> route traversal it is the main reason rotation fails to vary which doors are
+> worked first. The fix — entry by perimeter fraction of the ring — is scheduled
+> with the Stage 5b rotation session. `allocate_prop` itself is not changed by
+> that fix; the entry point is resolved inside route generation.
+
 ---
 
 ### Stage 5b — Route generation
@@ -791,6 +819,79 @@ create table route_steps (
 > | `getCurrentStreetLabel()` | street from `v_door_label` | `route_steps.street_name` |
 > | header instruction slot | renders nothing | spur / crossing text |
 > | out-of-order banner | shown while the flag is `false` | auto-hides |
+
+> **Built in part 2026-09-19 (Stage 5b-a, generator only).** Migration 018.
+> `route_steps`, `assignments.route_stranded_count`, `route_clipped_subgraph()`,
+> `route_commit()`, and the TypeScript generator in `lib/geo/route-*.ts`. Design
+> decisions are recorded in `docs/ROUTE-DESIGN.md`. Field wiring is Stage 5b-b.
+>
+> **Deviations, accepted:**
+> - The safety bound is **4×** the clipped network length, not 2×. Walking every
+>   segment twice makes 2× the exact floor of a perfect traversal, so any
+>   backtrack at all would have exceeded the brief's bound and failed every route.
+> - Route generation is two functions, not one: `route_clipped_subgraph` reads,
+>   `route_commit` writes atomically. PostgREST cannot hold a transaction across
+>   calls.
+> - Doors more than 40 m from every clipped segment are **stranded**: appended to
+>   the snapshot tail, counted in `route_stranded_count`, never dropped.
+> - Disconnected road components are joined by a straight transfer step
+>   (`segment_id` null, "Transfer to {street}").
+>
+> **Finding — rotation does not do what this section claims.** The paragraph
+> above states that *"a different entry node produces a genuinely different
+> traversal."* On a real prop it does not. Measured on Northville:
+>
+> | Comparison | Shared ordered steps | First-fifth door overlap |
+> |---|---|---|
+> | Visit 1 vs 2 (opposite sweep) | 25.3 % forward, **89.3 % reversed** | — |
+> | Visit 1 vs 3 (same sweep, entry 267 m apart) | **99.2 %** | **99.6 %** |
+>
+> Three causes, distinct:
+>
+> 1. **Face tracing.** Always taking the leftmost turn traces the faces of the
+>    planar road graph; always taking the rightmost traces the same faces in
+>    reverse. Because `sweep_direction` alternates every visit, odd visits walk
+>    route A and even visits walk A reversed.
+> 2. **Entry spacing depends on how the polygon was drawn.** `entry_vertex_index`
+>    is a vertex index, so two consecutive entries can land metres apart —
+>    Northville's vertices 1 and 2 map to entry nodes 13 m apart. See the Stage 5
+>    note.
+> 3. **Component order is fixed.** Components are traversed in ascending
+>    lowest-node-id order every visit. The entry point only moves the start within
+>    the first component; the rest always run in the same order at the same point
+>    in the walk.
+>
+> **Cause 1 is not the product failure.** A different start point on the same face
+> cycle is a cyclic rotation: same relative order, entirely different doors worked
+> in the first hour. That would satisfy the purpose of rotation with the traversal
+> unchanged. The 99.6 % first-fifth overlap shows it is causes 2 and 3 that prevent
+> it.
+>
+> **Resolution — to be built in a separate session, confined to the entry-point
+> calculation and `lib/geo/route-traverse.ts`:**
+> - Entry point by **perimeter fraction** of the prop ring, not vertex index.
+> - **Rotate the component start index** by visit number, keeping the deterministic
+>   base ordering.
+> - **Leave face tracing unchanged.** It is what makes the route conventional and
+>   walkable, and a reversal between visits is itself a different walk.
+>
+> The freeze (below) already guarantees this changes only unworked assignments.
+>
+> **The freeze is enforced, not just stated.** The generator refuses any assignment
+> with `knock_events > 0`, and `route_commit` independently re-checks both the
+> freeze and that the reordered snapshot is the same multiset as before. An
+> improved algorithm can never silently reorder a worked prop.
+>
+> **Small graphs.** A prop that clips to fewer than roughly ten segments cannot
+> demonstrate rotation — different entries legitimately give the same route or its
+> reverse. DEMO Bishopston clips to 2 segments and routes with 19 of 69 doors
+> stranded. **Open question for the rotation session:** fail open when the stranded
+> fraction exceeds a threshold, rather than producing a route most doors are not on.
+>
+> **For Stage 5b-b:** 82 of Northville's 280 steps are spurs, and 215 of its 1,225
+> doors sit on unnamed service roads (`street_name` null). The field display must
+> collapse consecutive spur steps, fall back to the door label where the street is
+> unnamed, and visibly mark stranded doors.
 
 ---
 
@@ -1580,6 +1681,14 @@ Office creates and closes slots. Canvassers read, and can place a ten-minute aut
 > dashboard panel. Three numbers, never a single percentage: worked, answered,
 > remaining.
 
+> **Amended 2026-09-19.** The seed must generate each assignment's route **before**
+> inserting that assignment's knocks. Stage 5b's generator refuses any assignment
+> with knocks (the freeze), so a seed that knocks first can never be routed
+> afterwards — every assignment from the original 14a seed is frozen on the
+> interim angular snapshot for this reason. Order is: allocate → generate route →
+> reorder snapshot → insert knocks, with `sequence_position` taken from the routed
+> snapshot. Props too small to route keep the angular snapshot and show the
+> out-of-order banner; the demo should include at least one of each.
 ---
 
 ### Stage 15 — Prop recommender (gated)
@@ -1723,6 +1832,21 @@ Worth a short email confirming the integration is fine, before the demo rather t
 Moved to Stages 1b and 5b. The earlier objection was aimed at route *optimisation* — solving for the shortest or most productive path, which does need calibration data that does not exist. Generating a consistent, conventional route and drawing it on a map is a different and much easier problem, and consistency is worth more here than optimality anyway.
 
 **Route optimisation itself stays parked.** Unblocks when Stage 12 has produced enough visit data to establish real walking pace and doors-per-hour. Until then, deterministic beats clever.
+
+> **Note 2026-09-19 — first calibration point.** A real shift: Northville, 1,225
+> doors, a duo bunny-hopping, fully worked in about five hours with ten minutes to
+> spare. Roughly 245 doors an hour for the team. About half of all doors are walked
+> past without knocking (visibly council, rented, or no work needed).
+>
+> The generated Northville route is **20,048 m** against a two-pass floor of
+> **15,890 m** — 4.2 km, or 26 %, is backtracking. At the pace implied by the real
+> shift, the generated route is longer than the walk the team actually did.
+>
+> Unresolved: whether the real walk also carried that backtracking, or whether the
+> generated route adds distance. Resolve on the first real shift that follows a
+> generated route. **The 26 % backtracking figure is the number optimisation would
+> attack**, and it is now measured rather than assumed. One shift is a reference,
+> not a calibration set — optimisation still waits for Stage 12's visit history.
 
 ### Two-turn greyed-out nav view
 
