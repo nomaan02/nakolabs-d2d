@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -16,7 +16,8 @@ import { doorPlate } from "@/lib/field/labels";
 import { logHouseNumber, logOutcome } from "@/lib/field/log-outcome";
 import { outcomeSpec, type OtherOutcome, type PrimaryOutcome } from "@/lib/field/outcomes";
 import { autoAdvanceEnabled } from "@/lib/field/position";
-import { getCurrentStreetLabel, SEQUENCE_IS_ROUTE_DERIVED } from "@/lib/field/sequence";
+import type { InstructionCard } from "@/lib/field/route-display";
+import { getCurrentStreetLabel, sequenceIsRouteDerived } from "@/lib/field/sequence";
 import { offerUndo } from "@/lib/field/undo";
 import { newClientEventId } from "@/lib/sync/ops";
 
@@ -48,6 +49,7 @@ export function LoggerTab() {
     canvasserId,
     cursor,
     outcomes,
+    routeProgress,
     labelFor,
     refreshLabels,
     leadDrafts,
@@ -76,7 +78,9 @@ export function LoggerTab() {
 
   const label = labelFor(door.uprn);
   const plate = doorPlate(label);
-  const street = getCurrentStreetLabel(label);
+  const view = routeProgress.doors[cursor.index];
+  const routed = sequenceIsRouteDerived(routeProgress.hasRoute);
+  const street = getCurrentStreetLabel(label, view?.routeStreet, routed);
   const logged = outcomes.get(door.uprn);
   const noteDraft = noteDrafts.get(door.uprn) ?? "";
 
@@ -130,8 +134,8 @@ export function LoggerTab() {
             Door {cursor.humanPosition} of {cursor.total}
           </p>
 
-          {/* SEAM (Stage 5b): spur and crossing instructions land here. */}
-          <HeaderInstruction />
+          {/* Spur, transfer and crossing text. Empty when this prop has no route. */}
+          <HeaderInstruction cards={view?.cards ?? []} />
           {/* SEAM (Stage 10): the teammate line lands here. */}
           <TeammateLine />
 
@@ -184,6 +188,11 @@ export function LoggerTab() {
           <p className="mt-1 text-center text-base text-ink-soft" data-testid="door-street">
             {street ?? "\u00a0"}
           </p>
+          {view?.stranded ? (
+            <p className="mt-2 text-center text-base font-semibold" data-testid="stranded-marker">
+              Off the drawn route
+            </p>
+          ) : null}
 
           <button
             type="button"
@@ -210,7 +219,7 @@ export function LoggerTab() {
             </p>
           ) : null}
 
-          {!SEQUENCE_IS_ROUTE_DERIVED ? (
+          {routeProgress.ready && !sequenceIsRouteDerived(routeProgress.hasRoute) ? (
             <p
               className="mt-2 rounded-md border-2 border-ink/25 px-3 py-1.5 text-xs leading-relaxed text-ink-soft"
               data-testid="out-of-order-banner"
@@ -317,11 +326,78 @@ export function LoggerTab() {
 }
 
 /**
- * SEAM (Stage 5b). Renders nothing in Stage 8. Becomes the spur and crossing
- * instruction for the current route step.
+ * The current step's instruction. Nothing when the assignment has no route.
+ * Consecutive spur steps arrive already collapsed into one card.
  */
-function HeaderInstruction() {
-  return null;
+function HeaderInstruction({ cards }: { cards: InstructionCard[] }) {
+  const key = cards.map((card) => `${card.kind}:${card.text}`).join("|");
+  const seen = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (seen.current === null) {
+      seen.current = key;
+      return;
+    }
+    if (seen.current !== key && key !== "") {
+      seen.current = key;
+      pulse(20);
+    }
+  }, [key]);
+
+  if (cards.length === 0) return null;
+
+  return (
+    <div className="mt-2 flex flex-col gap-2" data-testid="header-instructions">
+      {cards.map((card, index) => (
+        <InstructionCardView key={`${index}:${card.kind}:${card.text}`} card={card} />
+      ))}
+    </div>
+  );
+}
+
+function InstructionCardView({ card }: { card: InstructionCard }) {
+  if (card.kind === "transfer") {
+    return (
+      <p
+        className="rounded-md border-2 border-ink bg-ink px-3 py-2 text-base font-medium leading-snug text-paper"
+        data-testid="transfer-instruction"
+      >
+        <span className="mb-1 block font-data text-xs uppercase tracking-wide">Walk across</span>
+        {card.text}
+      </p>
+    );
+  }
+  if (card.kind === "stranded") {
+    return (
+      <p
+        className="rounded-md border-2 border-ink bg-paper px-3 py-2 text-base font-semibold leading-snug"
+        data-testid="stranded-instruction"
+      >
+        {card.text}
+      </p>
+    );
+  }
+  if (card.kind === "spur") {
+    return (
+      <p
+        className="rounded-md border-2 border-ink bg-worksheet px-3 py-2 text-base font-medium leading-snug"
+        data-testid="spur-instruction"
+      >
+        <span className="mr-2" aria-hidden>
+          ↩
+        </span>
+        {card.text}
+      </p>
+    );
+  }
+  return (
+    <p
+      className="rounded-md border-2 border-ink bg-paper px-3 py-2 text-base font-medium leading-snug"
+      data-testid="step-instruction"
+    >
+      {card.text}
+    </p>
+  );
 }
 
 /**
@@ -359,28 +435,36 @@ function PhaseNotice({ phase }: { phase: FieldPhase }) {
  * only, and nothing here is counted, ranked or grouped by street.
  */
 function SequenceStrip() {
-  const { sequence, cursor, outcomes, labelFor } = useFieldData();
+  const { sequence, cursor, outcomes, labelFor, routeProgress } = useFieldData();
+  const routed = sequenceIsRouteDerived(routeProgress.hasRoute);
 
   return (
-    <ol className="border-t border-ink/15 bg-paper" data-testid="sequence-strip">
+    <ol className="flex flex-col gap-2 border-t border-ink/15 bg-paper px-2 py-2" data-testid="sequence-strip">
       {sequence.map((door, index) => {
         const logged = outcomes.get(door.uprn);
         const label = labelFor(door.uprn);
+        const view = routeProgress.doors[index];
+        const street = getCurrentStreetLabel(label, view?.routeStreet, routed);
         const current = index === cursor.index;
         return (
           <li key={door.uprn}>
             <button
               type="button"
               onClick={() => cursor.goTo(index)}
-              className={`flex min-h-11 w-full items-center justify-between gap-3 px-4 text-left ${
+              className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-md px-2 text-left ${
                 current ? "bg-ink text-paper" : ""
               }`}
             >
               <span className="font-data text-xs opacity-70">{index + 1}</span>
               <span className="min-w-0 flex-1 truncate text-base">
                 {doorPlate(label)}
-                {label?.street_name ? ` ${label.street_name}` : ""}
+                {street ? ` ${street}` : ""}
               </span>
+              {view?.stranded ? (
+                <span className="shrink-0 text-sm font-medium" data-testid="sequence-stranded">
+                  Off the drawn route
+                </span>
+              ) : null}
               <span className="shrink-0 text-sm">
                 {logged ? `${outcomeSpec(logged.outcome).glyph} ${outcomeSpec(logged.outcome).logged}` : "—"}
               </span>

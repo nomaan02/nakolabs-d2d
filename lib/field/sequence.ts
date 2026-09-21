@@ -7,10 +7,12 @@ import type { DoorCollection } from "@/lib/geo/todays-assignment";
  * Stage 8: `uprn_snapshot` order, which until Stage 5b is the interim angular
  * sweep from the prop centroid. House numbers therefore appear out of
  * sequence — 14, 2, 40, 8 — and that is the placeholder working as specified,
- * not a bug. The Logger says so on screen; see `SEQUENCE_IS_ROUTE_DERIVED`.
+ * not a bug. The Logger says so on screen while `sequenceIsRouteDerived` is
+ * false for this assignment.
  *
- * Stage 5b swaps the body of `getSequence()` for route-derived order and
- * flips the flag. Nothing else in the Logger changes.
+ * Stage 5b-a already writes that order into `uprn_snapshot` when it commits a
+ * route, so `getSequence()` still reads the snapshot. An unrouted assignment
+ * keeps the angular sweep. The per-assignment flag is `route_geom is not null`.
  */
 
 export type SequenceDoor = {
@@ -21,12 +23,24 @@ export type SequenceDoor = {
 };
 
 /**
- * Stage 8: `false` — the sequence is the interim sweep.
- * Stage 5b: `true` — the sequence follows the route.
+ * Per assignment, not a global constant. True when this assignment has a
+ * `route_geom`. An unrouted prop keeps the interim-sweep banner.
  *
- * Gates the out-of-order banner and, with `getRoutePosition()`, auto-advance.
+ * Gates the out-of-order banner. Auto-advance stays with `getRoutePosition()`
+ * (Stage 16) and is not switched on here.
  */
-export const SEQUENCE_IS_ROUTE_DERIVED = false;
+export function sequenceIsRouteDerived(hasRoute: boolean): boolean {
+  return hasRoute;
+}
+
+const NOT_A_STREET = new Set(["service road", "unnamed road"]);
+
+function namedStreet(value: string | null | undefined): string | null {
+  const street = value?.trim();
+  if (!street) return null;
+  if (NOT_A_STREET.has(street.toLowerCase())) return null;
+  return street;
+}
 
 /**
  * Stage 8: `uprn_snapshot` order, which the RPC already encodes as
@@ -51,10 +65,20 @@ export function getSequence(doors: DoorCollection): SequenceDoor[] {
  *
  * Stage 8: the street on the current door's `v_door_label` row, which is
  * whatever the address ingest resolved and is absent for roughly 40% of
- * doors. Stage 5b swaps this for `route_steps.street_name`, which is known
- * for every step because the route is built from the road network.
+ * doors. On a routed assignment the street is `route_steps.street_name`.
+ * That column is null on unnamed service roads — 215 of Northville's doors —
+ * and the plate then falls back to this door's `v_door_label` street.
+ * "service road" and "unnamed road" are instruction vocabulary, never a
+ * street on the plate.
  */
-export function getCurrentStreetLabel(label: CachedAddress | undefined): string | null {
-  const street = label?.street_name?.trim();
-  return street ? street : null;
+export function getCurrentStreetLabel(
+  label: CachedAddress | undefined,
+  routeStreet?: string | null,
+  routed = false,
+): string | null {
+  if (routed) {
+    const fromRoute = namedStreet(routeStreet);
+    if (fromRoute) return fromRoute;
+  }
+  return namedStreet(label?.street_name);
 }

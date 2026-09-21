@@ -892,6 +892,15 @@ create table route_steps (
 > doors sit on unnamed service roads (`street_name` null). The field display must
 > collapse consecutive spur steps, fall back to the door label where the street is
 > unnamed, and visibly mark stranded doors.
+>
+> **Built 2026-09-21 (Stage 5b-b, field wiring).** The generator was not changed.
+> `getSequence()` still reads the snapshot, because 5b-a already stores route
+> order there. `sequenceIsRouteDerived` is per assignment (`route_geom is not
+> null`), not a global `true`: an unrouted prop keeps the out-of-order banner.
+> The field caches `route_steps` and `route_geom` in Dexie (version 5) once per
+> prop open. Consecutive spur steps collapse into one header card. Stranded
+> doors — the last `route_stranded_count` snapshot entries — are labelled
+> "Off the drawn route". The rotation fix remains a separate session.
 
 ---
 
@@ -1689,6 +1698,14 @@ Office creates and closes slots. Canvassers read, and can place a ten-minute aut
 > reorder snapshot → insert knocks, with `sequence_position` taken from the routed
 > snapshot. Props too small to route keep the angular snapshot and show the
 > out-of-order banner; the demo should include at least one of each.
+>
+> **Done 2026-09-21 (Stage 5b-b).** `scripts/seed-demo.ts` now follows that
+> order. The generator is called as-is, under the existing admin's session,
+> because `route_commit` refuses the service role. A fourth prop, St Andrews
+> Park, has no road with half its length inside the polygon, so it stays on the
+> angular snapshot. Bishopston still routes and strands 19 of 69 doors (27.5%);
+> enlarging that polygon, or a stranded-fraction fail-open in the generator,
+> was not done.
 ---
 
 ### Stage 15 — Prop recommender (gated)

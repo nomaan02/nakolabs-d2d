@@ -20,6 +20,7 @@ import { createHash } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { SHIFT_DOORS, ringToEwkt, type Ring } from "../lib/geo/prop-polygon";
 import { rotationForVisit, type Slot } from "../lib/geo/rotation";
+import { generateRoute, type RouteFailureCode } from "../lib/geo/route-generate";
 import { orderKnockableBySweep, uniqueVertices, type SweepDoor } from "../lib/geo/snapshot";
 import type { Database } from "../lib/supabase/types";
 import type { KnockOutcome } from "../lib/sync/ops";
@@ -58,7 +59,7 @@ const OUTCOME_WEIGHTS: [KnockOutcome, number][] = [
 const HOUSE_NUMBERS = ["7", "12A", "3", "18", "24", "9", "11", "2"] as const;
 
 type PropSpec = {
-  key: "bishopston" | "southville" | "clifton";
+  key: "bishopston" | "southville" | "clifton" | "park";
   name: string;
   ring: Ring;
   dates: string[];
@@ -66,6 +67,12 @@ type PropSpec = {
   workFraction: number[];
   /** Leave a contiguous tail of visit-1's snapshot untouched on every visit. */
   unfinishedTail: number;
+  /**
+   * A polygon the generator fail-opens on (no clipped road). Stays on the
+   * angular snapshot so the demo still has an unrouted prop. Door count may
+   * sit outside the shift window.
+   */
+  unroutedFixture?: boolean;
 };
 
 /**
@@ -112,6 +119,23 @@ const PROPS: PropSpec[] = [
     dates: ["2026-09-09", "2026-09-15", "2026-09-17"],
     workFraction: [0.88, 0.93, 0.91],
     unfinishedTail: 0,
+  },
+  {
+    key: "park",
+    name: `${TERRITORY_PREFIX}St Andrews Park (no through road)`,
+    // St Andrews Park. Roads touch the box but none has half its length
+    // inside, so the generator fail-opens and the angular snapshot stays.
+    // Measured 2026-09-19 in the Stage 5b harness: 5 knockable doors, 0 segments.
+    ring: [
+      [-2.5884, 51.4719],
+      [-2.5866, 51.4719],
+      [-2.5866, 51.4738],
+      [-2.5884, 51.4738],
+    ],
+    dates: ["2026-09-04"],
+    workFraction: [1],
+    unfinishedTail: 0,
+    unroutedFixture: true,
   },
 ];
 
@@ -281,6 +305,7 @@ type TableCounts = {
   leads: number;
   property_observations: number;
   address_observations: number;
+  route_steps: number;
 };
 
 async function allCounts(supabase: SupabaseClient<Database>): Promise<TableCounts> {
@@ -292,6 +317,7 @@ async function allCounts(supabase: SupabaseClient<Database>): Promise<TableCount
     leads: await countTable(supabase, "leads"),
     property_observations: await countTable(supabase, "property_observations"),
     address_observations: await countTable(supabase, "address_observations"),
+    route_steps: await countTable(supabase, "route_steps"),
   };
 }
 
@@ -361,6 +387,139 @@ async function knockChecksum(supabase: SupabaseClient<Database>): Promise<string
   return createHash("sha256").update(canonical).digest("hex");
 }
 
+async function demoRouteChecksum(supabase: SupabaseClient<Database>): Promise<string> {
+  const { data: territories, error } = await supabase
+    .from("territories")
+    .select("id, name")
+    .like("name", `${TERRITORY_PREFIX}%`)
+    .order("name");
+  if (error) throw new Error(`route checksum territories: ${error.message}`);
+  const lines: string[] = [];
+  for (const territory of territories ?? []) {
+    const { data: assignments, error: assignmentError } = await supabase
+      .from("assignments")
+      .select("id, work_date, visit_number, route_length_m, route_stranded_count, uprn_snapshot")
+      .eq("territory_id", territory.id)
+      .order("work_date")
+      .order("visit_number");
+    if (assignmentError) throw new Error(`route checksum assignments: ${assignmentError.message}`);
+    for (const assignment of assignments ?? []) {
+      const { data: steps, error: stepError } = await supabase
+        .from("route_steps")
+        .select("step_index, instruction, is_spur, street_name, segment_id, cumulative_m")
+        .eq("assignment_id", assignment.id)
+        .order("step_index");
+      if (stepError) throw new Error(`route checksum steps: ${stepError.message}`);
+      const snapshot = asUprnList(assignment.uprn_snapshot).join(",");
+      const stepText = (steps ?? [])
+        .map(
+          (step) =>
+            `${step.step_index}|${step.instruction}|${step.is_spur}|${step.street_name ?? ""}|${step.segment_id ?? ""}|${step.cumulative_m}`,
+        )
+        .join(";");
+      lines.push(
+        `${territory.name}|${assignment.work_date}|v${assignment.visit_number}|${assignment.route_length_m ?? ""}|${assignment.route_stranded_count}|${snapshot}|${stepText}`,
+      );
+    }
+  }
+  return createHash("sha256").update(lines.join("\n")).digest("hex");
+}
+
+const ROUTE_FAIL_OPEN = new Set<RouteFailureCode>(["no_roads", "bound_hit", "polygon_changed"]);
+
+/**
+ * `generateRoute` refuses the service role. `route_clipped_subgraph` and
+ * `route_commit` are granted to `authenticated` only, and both raise unless
+ * `app_role()` is admin — which reads `auth.uid()`. The service key has no
+ * user id. Smallest change that leaves the generator untouched: open a
+ * session for the existing admin profile and call `generateRoute` with it.
+ */
+async function adminClientFor(
+  service: SupabaseClient<Database>,
+  adminId: string,
+): Promise<SupabaseClient<Database>> {
+  const url = requiredEnv("NEXT_PUBLIC_SUPABASE_URL");
+  const anonKey = requiredEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  const { data: userData, error: userError } = await service.auth.admin.getUserById(adminId);
+  const email = userData?.user?.email;
+  if (userError || !email) {
+    throw new Error(
+      `Cannot open an admin session (${userError?.message ?? "the admin profile has no email"}). The route generator cannot run as the service role.`,
+    );
+  }
+  const { data: link, error: linkError } = await service.auth.admin.generateLink({
+    type: "magiclink",
+    email,
+  });
+  const tokenHash = link?.properties?.hashed_token;
+  if (linkError || !tokenHash) {
+    throw new Error(
+      `Cannot open an admin session (${linkError?.message ?? "no magic-link token"}). The route generator cannot run as the service role.`,
+    );
+  }
+  const admin = createClient<Database>(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data: verified, error: verifyError } = await admin.auth.verifyOtp({
+    token_hash: tokenHash,
+    type: "magiclink",
+  });
+  if (verifyError || !verified.session) {
+    throw new Error(
+      `Cannot open an admin session (${verifyError?.message ?? "no session"}). The route generator cannot run as the service role.`,
+    );
+  }
+  return admin;
+}
+
+/**
+ * Opens one admin session, runs `fn`, then signs that session out.
+ * `scope: "local"` revokes only the session this process created. The
+ * default `global` scope would sign the admin out everywhere else.
+ */
+async function withAdminSession<T>(
+  service: SupabaseClient<Database>,
+  adminId: string,
+  fn: (admin: SupabaseClient<Database>) => Promise<T>,
+): Promise<T> {
+  const admin = await adminClientFor(service, adminId);
+  let failed = false;
+  try {
+    return await fn(admin);
+  } catch (error) {
+    failed = true;
+    throw error;
+  } finally {
+    const { error } = await admin.auth.signOut({ scope: "local" });
+    if (error) {
+      const message = `admin session sign-out failed: ${error.message}`;
+      if (failed) line(`  ${message}`);
+      else throw new Error(message);
+    } else {
+      line("  admin session closed.");
+    }
+  }
+}
+
+function asUprnList(value: unknown): number[] {
+  if (!Array.isArray(value)) throw new Error("uprn_snapshot was not an array");
+  return value.map((item) => {
+    const uprn = Number(item);
+    if (!Number.isFinite(uprn)) throw new Error("uprn_snapshot contained a non-numeric UPRN");
+    return uprn;
+  });
+}
+
+type RouteReport = {
+  key: string;
+  visit: number;
+  routed: boolean;
+  steps: number;
+  doors: number;
+  stranded: number;
+  lengthM: number | null;
+};
+
 async function resetDemo(supabase: SupabaseClient<Database>): Promise<void> {
   heading("Reset (demo rows only)");
 
@@ -414,6 +573,30 @@ async function resetDemo(supabase: SupabaseClient<Database>): Promise<void> {
     line(`  deleted address_observations     ${count ?? 0}`);
   }
   if (assignmentIds.length > 0) {
+    // Knocks logged from the app against a demo assignment do not carry the
+    // seed prefix, and they block the assignment delete. Reset removes them
+    // with the assignment. Leads first: they reference knock_events.
+    const { data: hanging, error: hangingError } = await supabase
+      .from("knock_events")
+      .select("id")
+      .in("assignment_id", assignmentIds);
+    if (hangingError) throw new Error(`reset leftover knocks: ${hangingError.message}`);
+    const hangingIds = (hanging ?? []).map((row) => row.id);
+    if (hangingIds.length > 0) {
+      const { count: leadCount, error: leadError } = await supabase
+        .from("leads")
+        .delete({ count: "exact" })
+        .in("knock_event_id", hangingIds);
+      if (leadError) throw new Error(`reset leftover leads: ${leadError.message}`);
+      line(`  deleted leftover leads           ${leadCount ?? 0}`);
+      const { count: knockCount, error: knockError } = await supabase
+        .from("knock_events")
+        .delete({ count: "exact" })
+        .in("id", hangingIds);
+      if (knockError) throw new Error(`reset leftover knock_events: ${knockError.message}`);
+      line(`  deleted leftover knock_events    ${knockCount ?? 0}`);
+    }
+
     const { count, error } = await supabase
       .from("assignment_members")
       .delete({ count: "exact" })
@@ -468,7 +651,12 @@ async function seedDemo(supabase: SupabaseClient<Database>): Promise<void> {
   }
 
   const team = canvassers.slice(0, Math.min(2, canvassers.length)).map((p) => p.id);
-  const adminId = admins[0]?.id ?? null;
+  const adminId = admins[0]?.id;
+  if (!adminId) {
+    throw new Error(
+      "No active admin profile exists. The route generator runs as that admin; this script will not call it with the service key.",
+    );
+  }
   const officeId = office[0]!.id;
 
   for (const p of rows) {
@@ -510,10 +698,16 @@ async function seedDemo(supabase: SupabaseClient<Database>): Promise<void> {
     line(
       `  ${spec.name}: total ${doors.all.length}, knockable ${knockable.length}, NCCZ ${doors.all.length - knockable.length}`,
     );
-    if (knockable.length < SHIFT_DOORS.min || knockable.length > SHIFT_DOORS.max) {
+    if (
+      !spec.unroutedFixture &&
+      (knockable.length < SHIFT_DOORS.min || knockable.length > SHIFT_DOORS.max)
+    ) {
       throw new Error(
         `${spec.name} has ${knockable.length} knockable doors; demo props must sit between ${SHIFT_DOORS.min} and ${SHIFT_DOORS.max}.`,
       );
+    }
+    if (spec.unroutedFixture && knockable.length === 0) {
+      throw new Error(`${spec.name} has no knockable doors, so it cannot show an unrouted walk.`);
     }
     prepared.push({
       spec,
@@ -564,30 +758,6 @@ async function seedDemo(supabase: SupabaseClient<Database>): Promise<void> {
     observed_at: string;
   };
 
-  const territoryRows: {
-    id: string;
-    name: string;
-    geom: string;
-    visit_count: number;
-    last_visited_at: string | null;
-    created_by: string | null;
-    created_at: string;
-  }[] = [];
-  const assignmentRows: {
-    id: string;
-    territory_id: string;
-    work_date: string;
-    visit_number: number;
-    entry_vertex_index: number;
-    sweep_direction: "cw" | "ccw";
-    slot: Slot;
-    uprn_snapshot: number[];
-    started_at: string;
-    closed_at: string;
-    created_by: string | null;
-    created_at: string;
-  }[] = [];
-  const memberRows: { assignment_id: string; canvasser_id: string }[] = [];
   const knockRows: KnockInsert[] = [];
   const leadRows: LeadInsert[] = [];
   const obsRows: ObsInsert[] = [];
@@ -601,42 +771,114 @@ async function seedDemo(supabase: SupabaseClient<Database>): Promise<void> {
   }[] = [];
 
   let leadIndex = 0;
+  const routeReports: RouteReport[] = [];
 
-  heading("Allocations, rotation, knocks");
+  heading("Admin session for route generation");
+  await withAdminSession(supabase, adminId, async (admin) => {
+  line("  signed in as the existing admin profile. The service key is not used for routes.");
+
+  heading("Allocate, then route, then knocks");
   for (const prop of prepared) {
     const skip = new Set<number>();
     const ever = new Set<number>();
     let lastWorked = 0;
     let lastClosed: string | null = null;
 
+    const { error: territoryError } = await supabase.from("territories").insert({
+      id: prop.territoryId,
+      name: prop.spec.name,
+      geom: ringToEwkt(prop.spec.ring),
+      visit_count: prop.spec.dates.length,
+      last_visited_at: null,
+      created_by: adminId,
+      created_at: CREATED_AT,
+    });
+    if (territoryError) throw new Error(`territory insert: ${territoryError.message}`);
+
     for (let visit = 0; visit < prop.spec.dates.length; visit += 1) {
       const visitNumber = visit + 1;
       const workDate = prop.spec.dates[visit]!;
       const rotation = rotationForVisit(visitNumber, prop.vertices.length);
-      const snapshot = orderKnockableBySweep(
+      const angular = orderKnockableBySweep(
         prop.knockable,
         prop.spec.ring,
         rotation.entryVertexIndex,
         rotation.sweepDirection,
       );
 
+      const assignmentId = rng.uuid();
+      const start = SLOT_START[rotation.slot];
+      const startedAt = londonIso(workDate, start.hour, start.minute);
+
+      const { error: assignmentError } = await supabase.from("assignments").insert({
+        id: assignmentId,
+        territory_id: prop.territoryId,
+        work_date: workDate,
+        visit_number: rotation.visitNumber,
+        entry_vertex_index: rotation.entryVertexIndex,
+        sweep_direction: rotation.sweepDirection,
+        slot: rotation.slot,
+        uprn_snapshot: angular,
+        started_at: startedAt,
+        closed_at: startedAt,
+        created_by: adminId,
+        created_at: startedAt,
+      });
+      if (assignmentError) throw new Error(`assignment insert: ${assignmentError.message}`);
+
+      const { error: memberError } = await supabase.from("assignment_members").insert(
+        team.map((canvasserId) => ({ assignment_id: assignmentId, canvasser_id: canvasserId })),
+      );
+      if (memberError) throw new Error(`member insert: ${memberError.message}`);
+
+      const routed = await generateRoute(admin, assignmentId);
+      let snapshot = angular;
+      let steps = 0;
+      let stranded = 0;
+      let lengthM: number | null = null;
+      if (routed.ok) {
+        const { data: saved, error: savedError } = await supabase
+          .from("assignments")
+          .select("uprn_snapshot, route_stranded_count, route_length_m")
+          .eq("id", assignmentId)
+          .single();
+        if (savedError || !saved) throw new Error(`read routed snapshot: ${savedError?.message}`);
+        snapshot = asUprnList(saved.uprn_snapshot);
+        if (snapshot.length !== angular.length) {
+          throw new Error(
+            `${prop.spec.key} visit ${visitNumber} route changed the door count (${angular.length} -> ${snapshot.length}).`,
+          );
+        }
+        stranded = saved.route_stranded_count;
+        lengthM = saved.route_length_m === null ? null : Number(saved.route_length_m);
+        steps = routed.summary.steps;
+      } else if (!ROUTE_FAIL_OPEN.has(routed.code)) {
+        throw new Error(
+          `${prop.spec.key} visit ${visitNumber} route failed (${routed.code}): ${routed.message}`,
+        );
+      }
+
       if (visit === 0 && prop.spec.unfinishedTail > 0) {
         for (const uprn of snapshot.slice(-prop.spec.unfinishedTail)) skip.add(uprn);
       }
 
       const allowed = snapshot.filter((uprn) => !skip.has(uprn));
-      const nWork = Math.max(0, Math.min(allowed.length, Math.round(allowed.length * prop.spec.workFraction[visit]!)));
+      const nWork = Math.max(
+        0,
+        Math.min(allowed.length, Math.round(allowed.length * prop.spec.workFraction[visit]!)),
+      );
       const worked = allowed.slice(0, nWork);
       lastWorked = worked.length;
       for (const uprn of worked) ever.add(uprn);
 
-      const assignmentId = rng.uuid();
-      const start = SLOT_START[rotation.slot];
-      const startedAt = londonIso(workDate, start.hour, start.minute);
       const outcomes = outcomeBag(worked.length, rng);
+      const positionOf = new Map(snapshot.map((uprn, index) => [uprn, index]));
 
       worked.forEach((uprn, workI) => {
-        const sequencePosition = snapshot.indexOf(uprn);
+        const sequencePosition = positionOf.get(uprn);
+        if (sequencePosition === undefined) {
+          throw new Error(`worked UPRN missing from snapshot on ${prop.spec.key} visit ${visitNumber}`);
+        }
         const canvasserId = team[workI % team.length]!;
         const occurredAt = addMinutes(startedAt, workI * 2);
         const clientEventId = rng.clientEventId();
@@ -669,7 +911,6 @@ async function seedDemo(supabase: SupabaseClient<Database>): Promise<void> {
             status,
             status_set_at: settled ? addMinutes(occurredAt, 90) : null,
             status_set_by: settled ? officeId : null,
-            // is_immediate is owned by leads_is_immediate_biu — not sent.
           });
           leadIndex += 1;
         }
@@ -685,43 +926,42 @@ async function seedDemo(supabase: SupabaseClient<Database>): Promise<void> {
         }
       });
 
-      const lastKnock = knockRows.filter((k) => k.assignment_id === assignmentId).at(-1);
-      const closedAt = lastKnock ? addMinutes(lastKnock.occurred_at, 8) : addMinutes(startedAt, 30);
+      const closedAt =
+        worked.length > 0
+          ? addMinutes(addMinutes(startedAt, (worked.length - 1) * 2), 8)
+          : addMinutes(startedAt, 30);
       lastClosed = closedAt;
+      const { error: closeError } = await supabase
+        .from("assignments")
+        .update({ closed_at: closedAt })
+        .eq("id", assignmentId);
+      if (closeError) throw new Error(`assignment close: ${closeError.message}`);
 
-      assignmentRows.push({
-        id: assignmentId,
-        territory_id: prop.territoryId,
-        work_date: workDate,
-        visit_number: rotation.visitNumber,
-        entry_vertex_index: rotation.entryVertexIndex,
-        sweep_direction: rotation.sweepDirection,
-        slot: rotation.slot,
-        uprn_snapshot: snapshot,
-        started_at: startedAt,
-        closed_at: closedAt,
-        created_by: adminId,
-        created_at: startedAt,
+      routeReports.push({
+        key: prop.spec.key,
+        visit: visitNumber,
+        routed: routed.ok,
+        steps,
+        doors: snapshot.length,
+        stranded,
+        lengthM,
       });
-      for (const canvasserId of team) {
-        memberRows.push({ assignment_id: assignmentId, canvasser_id: canvasserId });
-      }
 
+      const strandedPct = snapshot.length === 0 ? 0 : (stranded / snapshot.length) * 100;
+      const flag = routed.ok && strandedPct > 20 ? "  FLAG stranded > 20%" : "";
       line(
-        `  ${prop.spec.key}  ${workDate}  visit ${visitNumber}  vertex=${rotation.entryVertexIndex}  ` +
-          `${rotation.sweepDirection}  ${rotation.slot}  snapshot=${snapshot.length}  worked=${worked.length}`,
+        `  ${prop.spec.key}  ${workDate}  visit ${visitNumber}  ${routed.ok ? "routed" : "unrouted"}  ` +
+          `steps=${steps}  stranded=${stranded}/${snapshot.length} (${strandedPct.toFixed(1)}%)  ` +
+          `worked=${worked.length}${flag}`,
       );
     }
 
-    territoryRows.push({
-      id: prop.territoryId,
-      name: prop.spec.name,
-      geom: ringToEwkt(prop.spec.ring),
-      visit_count: prop.spec.dates.length,
-      last_visited_at: lastClosed,
-      created_by: adminId,
-      created_at: CREATED_AT,
-    });
+    const { error: touchError } = await supabase
+      .from("territories")
+      .update({ last_visited_at: lastClosed })
+      .eq("id", prop.territoryId);
+    if (touchError) throw new Error(`territory last visit: ${touchError.message}`);
+
     coverage.push({
       name: prop.spec.name,
       knockable: prop.knockable.length,
@@ -760,17 +1000,13 @@ async function seedDemo(supabase: SupabaseClient<Database>): Promise<void> {
     });
   });
 
-  heading("Insert");
-  await insertChunk(supabase, "territories", territoryRows);
-  await insertChunk(supabase, "assignments", assignmentRows);
-  await insertChunk(supabase, "assignment_members", memberRows);
+  heading("Insert knocks");
   await insertChunk(supabase, "knock_events", knockRows);
   await insertChunk(supabase, "leads", leadRows);
   await insertChunk(supabase, "property_observations", obsRows);
   await insertChunk(supabase, "address_observations", addrRows);
   line(
-    `  wrote territories=${territoryRows.length} assignments=${assignmentRows.length} ` +
-      `members=${memberRows.length} knocks=${knockRows.length} leads=${leadRows.length} ` +
+    `  wrote knocks=${knockRows.length} leads=${leadRows.length} ` +
       `tenure obs=${obsRows.length} address obs=${addrRows.length}`,
   );
 
@@ -800,10 +1036,21 @@ async function seedDemo(supabase: SupabaseClient<Database>): Promise<void> {
       `    ${row.name}: knockable ${row.knockable}, ever worked ${row.everWorked}, last visit ${row.lastWorked}`,
     );
   }
+  line("  routes (per assignment):");
+  for (const report of routeReports) {
+    const pct = report.doors === 0 ? 0 : (report.stranded / report.doors) * 100;
+    const flag = report.routed && pct > 20 ? " FLAG" : "";
+    line(
+      `    ${report.key} visit ${report.visit}: ${report.routed ? "routed" : "unrouted"}, steps ${report.steps}, stranded ${report.stranded}/${report.doors} (${pct.toFixed(1)}%)${flag}`,
+    );
+  }
 
   const checksum = await knockChecksum(supabase);
+  const routes = await demoRouteChecksum(supabase);
   line();
   line(`  knock_events checksum (ordered by client_event_id): ${checksum}`);
+  line(`  demo route checksum (no geometry): ${routes}`);
+  });
 }
 
 async function main() {

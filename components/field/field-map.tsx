@@ -212,7 +212,30 @@ function withLabels(doors: DoorCollection, labels: DoorLabels): DoorCollection {
   };
 }
 
-/** Current-assignment outcomes only. Colour is never baked into the snapshot. */
+function applyRoute(instance: MapLibreMap, line: GeoJSON.LineString | null) {
+  const source = instance.getSource(ROUTE_SOURCE) as GeoJSONSource | undefined;
+  if (!source) return;
+  if (!line) {
+    source.setData(EMPTY);
+    return;
+  }
+  source.setData({ type: "Feature", geometry: line, properties: {} });
+}
+
+const FIELD_LAYER_ORDER = [
+  ROUTE_LAYER,
+  FOCUS_LAYER,
+  DOORS_LAYER,
+  `${DOORS_LAYER}-core`,
+  LABELS_LAYER,
+  POSITION_LAYER,
+];
+
+function recordLayerOrder(instance: MapLibreMap, container: HTMLElement, line: GeoJSON.LineString | null) {
+  const ids = new Set(instance.getStyle()?.layers?.map((layer) => layer.id) ?? []);
+  container.dataset.layerOrder = FIELD_LAYER_ORDER.filter((id) => ids.has(id)).join(",");
+  container.dataset.routeVertices = String(line?.coordinates.length ?? 0);
+}
 function applyOutcomeState(
   instance: MapLibreMap,
   outcomes: LocalOutcomes,
@@ -232,6 +255,7 @@ export function FieldMap({
   doors,
   labels,
   outcomes,
+  routeLine,
   selectedUprn,
   cameraNonce,
   onSelectUprn,
@@ -240,6 +264,7 @@ export function FieldMap({
   doors: DoorCollection;
   labels: DoorLabels;
   outcomes: LocalOutcomes;
+  routeLine: GeoJSON.LineString | null;
   selectedUprn: number | null;
   cameraNonce: number;
   onSelectUprn: (uprn: number) => void;
@@ -252,11 +277,13 @@ export function FieldMap({
   const labelsRef = useRef(labels);
   const outcomesRef = useRef(outcomes);
   const selectedRef = useRef(selectedUprn);
+  const routeRef = useRef(routeLine);
   onSelect.current = onSelectUprn;
   doorsRef.current = doors;
   labelsRef.current = labels;
   outcomesRef.current = outcomes;
   selectedRef.current = selectedUprn;
+  routeRef.current = routeLine;
 
   useEffect(() => {
     if (!container.current || map.current) return;
@@ -294,15 +321,16 @@ export function FieldMap({
           promoteId: "uprn",
         });
 
-        // SEAM (Stage 5b): the route line. Empty source, real layer id, so
-        // 5b swaps the data and touches nothing else.
+        // The route line is added BEFORE the door circles, so it paints
+        // underneath them. Clicks are bound to the circle layer; the line
+        // does not take the tap.
         instance.addSource(ROUTE_SOURCE, { type: "geojson", data: EMPTY });
         instance.addLayer({
           id: ROUTE_LAYER,
           type: "line",
           source: ROUTE_SOURCE,
           layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": "#1c2226", "line-width": 3, "line-opacity": 0.55 },
+          paint: { "line-color": "#1c2226", "line-width": 4, "line-opacity": 0.85 },
         });
 
         // Focus halo sits under the dots so a selected door reads as a ring,
@@ -400,6 +428,8 @@ export function FieldMap({
         // remount still colours, and jump to a focused door instead of
         // fitting the whole prop — "Show on map" asked for this door.
         applyOutcomeState(instance, outcomesRef.current, selectedRef.current);
+        applyRoute(instance, routeRef.current);
+        if (container.current) recordLayerOrder(instance, container.current, routeRef.current);
         if (!flyToDoor(instance, current, selectedRef.current, "jump")) {
           fitDoors(instance, current);
         }
@@ -434,6 +464,14 @@ export function FieldMap({
     source.setData(withLabels(doors, labels));
     applyOutcomeState(instance, outcomes, selectedUprn);
   }, [doors, labels, outcomes, selectedUprn]);
+
+  useEffect(() => {
+    const instance = map.current;
+    const node = container.current;
+    if (!instance?.getSource(ROUTE_SOURCE) || !node) return;
+    applyRoute(instance, routeLine);
+    recordLayerOrder(instance, node, routeLine);
+  }, [routeLine]);
 
   // Outcome colour, current assignment only, applied as feature state.
   useEffect(() => {

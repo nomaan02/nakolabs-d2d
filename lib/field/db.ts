@@ -17,6 +17,11 @@ import type { SyncOp, SyncOpKind } from "@/lib/sync/ops";
  * store's record shape is untouched — field devices have populated caches —
  * and no store is cleared. An absent or empty `addresses` store means labels
  * do not render and everything else works unchanged: fail open.
+ *
+ * Version 5 (Stage 5b-b) adds `routes` and `route_steps`. The snapshot and
+ * addresses stores are repeated verbatim and not reshaped. An absent route
+ * store, or a row with `has_route` false, means the out-of-order banner
+ * shows and the logger behaves as it did before routes existed.
  */
 export type CachedAssignment = {
   assignment_id: string;
@@ -81,12 +86,37 @@ export type OutboxRow = {
   last_error: OutboxError | null;
 };
 
+/** `route_geom` for one assignment. `line` is null when the assignment is unrouted. */
+export type CachedRoute = {
+  assignment_id: string;
+  has_route: boolean;
+  stranded_count: number;
+  line: GeoJSON.LineString | null;
+};
+
+/** One `route_steps` row, without the database geometry wrapper. */
+export type CachedRouteStep = {
+  /** `${assignment_id}:${step_index}` so a re-fetch replaces rather than duplicates. */
+  id: string;
+  assignment_id: string;
+  step_index: number;
+  segment_id: number | null;
+  street_name: string | null;
+  instruction: string;
+  is_spur: boolean;
+  cumulative_m: number;
+  coordinates: [number, number][];
+};
+
 /**
- * `addresses_for:<assignment_id>` records that the one-shot label fetch has
- * already run for that assignment, so reopening the app does not re-run a
- * query that measured 748 ms cold on a 2,000-door prop.
+ * `addresses_for:<id>` and `route_for:<id>` record that the one-shot fetch
+ * for that assignment has already run. Reopening does not repeat it.
  */
-export type SyncMetaKey = "last_sync_at" | "last_canvasser_id" | `addresses_for:${string}`;
+export type SyncMetaKey =
+  | "last_sync_at"
+  | "last_canvasser_id"
+  | `addresses_for:${string}`
+  | `route_for:${string}`;
 
 export type SyncMetaRow = {
   key: SyncMetaKey;
@@ -98,6 +128,8 @@ export type FieldDatabase = Dexie & {
   outbox: EntityTable<OutboxRow, "seq">;
   sync_meta: EntityTable<SyncMetaRow, "key">;
   addresses: EntityTable<CachedAddress, "uprn">;
+  routes: EntityTable<CachedRoute, "assignment_id">;
+  route_steps: EntityTable<CachedRouteStep, "id">;
 };
 
 let instance: FieldDatabase | null = null;
@@ -136,6 +168,18 @@ export function fieldDb(): FieldDatabase {
         "++seq, &client_event_id, assignment_id, canvasser_id, status, [assignment_id+seq], [status+assignment_id]",
       sync_meta: "key",
       addresses: "uprn",
+    });
+    // Stage 5b-b. Only `routes` and `route_steps` are new. Every earlier
+    // store is repeated because Dexie treats an omitted store as a drop.
+    // No `.upgrade()` — populated snapshot and address caches stay.
+    instance.version(5).stores({
+      assignments: "assignment_id, work_date, canvasser_id",
+      outbox:
+        "++seq, &client_event_id, assignment_id, canvasser_id, status, [assignment_id+seq], [status+assignment_id]",
+      sync_meta: "key",
+      addresses: "uprn",
+      routes: "assignment_id",
+      route_steps: "id, assignment_id, step_index",
     });
   }
   return instance;

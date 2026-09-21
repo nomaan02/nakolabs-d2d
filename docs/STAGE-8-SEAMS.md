@@ -1,18 +1,23 @@
 # Stage 8 seams
 
-Stage 8b's acceptance checklist requires every row below to be ticked.
+Stage 8b shipped each seam with a safe default. A later stage swaps the source.
 
-Each seam ships in Stage 8 with a safe default. A later stage swaps the source and touches nothing else. Source: brief amendments H (Stage 5b) and I (Stage 16), plus the cursor and teammate-line slots named in the Stage 8 redesign.
+## Live — Stage 5b-b (2026-09-21)
 
-- [x] **`getSequence()`** — `lib/field/sequence.ts` — Stage 8: returns `uprn_snapshot` order — swapped by Stage 5b to route-derived order
-- [x] **`SEQUENCE_IS_ROUTE_DERIVED`** — `lib/field/sequence.ts` — Stage 8: `false` — swapped by Stage 5b to `true`
-- [x] **map layer id `route-line`** — `components/field/field-map.tsx` — Stage 8: registered, renders nothing — swapped by Stage 5b to `route_geom`
-- [x] **`getCurrentStreetLabel()`** — `lib/field/sequence.ts` — Stage 8: street from `v_door_label` — swapped by Stage 5b to `route_steps.street_name`
-- [x] **header instruction slot** — logger header — Stage 8: renders nothing — swapped by Stage 5b to spur / crossing text
-- [x] **out-of-order banner** — Logger tab — Stage 8: shown while `SEQUENCE_IS_ROUTE_DERIVED` is `false` — swapped by Stage 5b: auto-hides
-- [x] **`getRoutePosition()`** — `lib/field/position.ts` — Stage 8: returns `null` — swapped by Stage 16 to snapped scalar
-- [x] **logger auto-advance** — Logger tab — Stage 8: disabled while `getRoutePosition()` is null — swapped by Stage 16: enabled on opt-in
-- [x] **`positionEnabled`** — `lib/field/position.ts` — Stage 8: client-side, default `false` — swapped by Stage 16 to per-assignment opt-in
-- [x] **map layer id `you-are-here`** — `components/field/field-map.tsx` — Stage 8: registered, hidden — swapped by Stage 16 to live marker
-- [x] **current-door cursor** — `lib/field/cursor.ts` — Stage 8: owns current-door state — swapped by Stage 10, which wraps claims around it
-- [x] **teammate line slot** — logger header — Stage 8: renders nothing — swapped by Stage 10
+- [x] **`getSequence()`** — `lib/field/sequence.ts` — still returns `uprn_snapshot` order. Stage 5b-a already writes that order from the route, so a routed assignment's snapshot is the walk. An unrouted assignment keeps the angular sweep. The function body did not need to change.
+- [x] **`sequenceIsRouteDerived(hasRoute)`** — `lib/field/sequence.ts` — per assignment, true when `route_geom` is not null. The Stage 8 global constant is gone. An unrouted assignment keeps the banner.
+- [x] **map layer id `route-line`** — `components/field/field-map.tsx` — populated from `route_geom`, drawn under the door circles.
+- [x] **`getCurrentStreetLabel()`** — `lib/field/sequence.ts` — on a routed assignment, `route_steps.street_name`, then the door's `v_door_label` street when that name is null. "service road" is never shown on the plate.
+- [x] **header instruction slot** — logger header — the current step's instruction. Consecutive spur steps are one card. Transfer steps render as "Walk across". Empty when the assignment is unrouted.
+- [x] **out-of-order banner** — Logger tab — shown only when the assignment has no route. Still there for small and frozen props.
+
+## Still pending
+
+The slots below are still in the code from Stage 8. Their sources have not been swapped.
+
+- [ ] **`getRoutePosition()`** — `lib/field/position.ts` — still returns `null`. Stage 16.
+- [ ] **logger auto-advance** — Logger tab — still off while `getRoutePosition()` is null. Stage 16.
+- [ ] **`positionEnabled`** — `lib/field/position.ts` — still client-side, default `false`. Stage 16.
+- [ ] **map layer id `you-are-here`** — `components/field/field-map.tsx` — still registered and hidden. Stage 16.
+- [ ] **current-door cursor** — `lib/field/cursor.ts` — still owns current-door state, with no claims wrapped around it. Stage 10.
+- [ ] **teammate line slot** — logger header — still renders nothing. Stage 10.

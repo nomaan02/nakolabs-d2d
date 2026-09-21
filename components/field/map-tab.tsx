@@ -31,6 +31,7 @@ export function MapTab() {
     outcomes,
     cursor,
     labelFor,
+    routeLine,
     mapSelectedUprn,
     mapCameraNonce,
     selectDoorOnMap,
@@ -107,6 +108,7 @@ export function MapTab() {
           doors={assignment.doors}
           labels={labels}
           outcomes={outcomes}
+          routeLine={routeLine}
           selectedUprn={selectedUprn}
           cameraNonce={mapCameraNonce}
           onSelectUprn={(uprn) => {

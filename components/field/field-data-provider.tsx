@@ -20,6 +20,11 @@ import { useCursor, type Cursor } from "@/lib/field/cursor";
 import type { CachedAddress } from "@/lib/field/db";
 import { ensureAddresses, readLabels, type DoorLabels } from "@/lib/field/labels";
 import { useLocalOutcomes, type LocalOutcomes } from "@/lib/field/local-outcomes";
+import { ensureRoute, readRoute } from "@/lib/field/route-cache";
+import {
+  describeRoute,
+  type RouteDescription,
+} from "@/lib/field/route-display";
 import { getSequence, type SequenceDoor } from "@/lib/field/sequence";
 import {
   fetchTodaysAssignment,
@@ -57,6 +62,10 @@ type FieldData = {
   signedInAs: string;
   role: string;
   sequence: SequenceDoor[];
+  /** Route line, steps and stranded tail. Ready false until Dexie has been read. */
+  routeProgress: RouteDescription;
+  /** `route_geom` when this assignment is routed. Null hides the line. */
+  routeLine: GeoJSON.LineString | null;
   labels: DoorLabels;
   outcomes: LocalOutcomes;
   cursor: Cursor;
@@ -102,6 +111,8 @@ export function FieldDataProvider({
   const [canvasserId, setCanvasserId] = useState<string | null>(null);
   const [labels, setLabels] = useState<DoorLabels>(() => new Map());
   const [labelEpoch, setLabelEpoch] = useState(0);
+  const [route, setRoute] = useState<Awaited<ReturnType<typeof readRoute>>>(null);
+  const [routeReady, setRouteReady] = useState(false);
   const [leadDrafts, setLeadDrafts] = useState<Map<number, LeadDraft>>(() => new Map());
   const [noteDrafts, setNoteDrafts] = useState<Map<number, string>>(() => new Map());
   const [mapSelectedUprn, setMapSelectedUprn] = useState<number | null>(null);
@@ -180,6 +191,11 @@ export function FieldDataProvider({
     [phase],
   );
 
+  const routeProgress = useMemo(
+    () => describeRoute(sequence, route, routeReady),
+    [sequence, route, routeReady],
+  );
+
   // One RPC per prop, then Dexie for the rest of the day. Fails open: no
   // labels simply means dots without text.
   useEffect(() => {
@@ -198,8 +214,34 @@ export function FieldDataProvider({
     };
   }, [assignmentId, sequence, labelEpoch]);
 
+  // Route geometry and steps, once per prop, same as the labels. An absent
+  // store or a failed fetch leaves `route` null and the banner up.
+  useEffect(() => {
+    if (!assignmentId) {
+      setRoute(null);
+      setRouteReady(false);
+      return;
+    }
+    let cancelled = false;
+    setRouteReady(false);
+
+    void (async () => {
+      await ensureRoute(createClient(), assignmentId).catch(() => false);
+      const loaded = await readRoute(assignmentId).catch(() => null);
+      if (cancelled) return;
+      setRoute(loaded);
+      setRouteReady(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [assignmentId]);
+
   const outcomes = useLocalOutcomes(assignmentId);
   const cursor = useCursor(sequence);
+
+  const routeLine = route?.hasRoute ? route.line : null;
 
   const labelFor = useCallback((uprn: number) => labels.get(uprn), [labels]);
   const refreshLabels = useCallback(() => setLabelEpoch((n) => n + 1), []);
@@ -238,6 +280,8 @@ export function FieldDataProvider({
       signedInAs,
       role,
       sequence,
+      routeProgress,
+      routeLine,
       labels,
       outcomes,
       cursor,
@@ -258,6 +302,8 @@ export function FieldDataProvider({
       signedInAs,
       role,
       sequence,
+      routeProgress,
+      routeLine,
       labels,
       outcomes,
       cursor,

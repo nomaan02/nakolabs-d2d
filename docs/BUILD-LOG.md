@@ -712,5 +712,38 @@ One entry per stage, appended by the agent at the end of each session.
   - Spur steps are numerous (82 of 280) because every dead-end service road is in-and-out; Session C's field display should collapse consecutive spur steps into one card.
   - Next free migration is `019`.
 
+---
+
+### Stage 5b-b — Field route display and routed demo seed
+- **Date:** 2026-09-21
+- **Model:** Grok 4.7
+- **Built:** The field Logger and map now read a generated route. Dexie schema version 4 → 5, adding `routes` and `route_steps` without changing the snapshot or addresses stores. `lib/field/route-cache.ts` fetches `route_geom` and `route_steps` once per prop open. `lib/field/route-display.ts` places each door on a step, collapses consecutive spurs, and marks the stranded tail. The route line paints under the door circles. `scripts/seed-demo.ts` is now allocate → generate route → knocks, calling `generateRoute` as-is under the existing admin's session. A fourth demo prop, St Andrews Park, stays unrouted (`no_roads`). `npm run verify:stage5bb`.
+- **Acceptance:**
+  - Northville Logger follows the route and the out-of-order banner is gone: **PASS** — live Logger, banner count 0, header "Start on Eden Grove". First 10: (1) Eden Grove, step 0, "Start on Eden Grove"; (2) Eden Grove, step 1, "Eden Grove — continue to the end"; (3–8) Filton Avenue, step 3, "Left into Filton Avenue"; (9–10) Sixth Avenue, step 4, "Right into Sixth Avenue". `npx tsx scripts/verify-stage-5bb.ts`.
+  - Unrouted assignment still shows the banner: **PASS** — DEMO St Andrews Park (no through road), visit 1, 5 doors, header instruction empty, banner "Door order follows the interim sweep, not the street. Numbers will look out of sequence." Map `data-route-vertices` 0.
+  - Route line under the door circles, dots tappable: **PASS** — style order `route-line, field-doors-focus, field-doors, field-doors-core, field-door-labels, you-are-here`. Northville line 813 vertices. A canvas click opened the door panel ("Not logged on this visit"), so the line did not take the tap. Attribution control still present. Desktop browser, 1,225 doors, not a mid-range phone.
+  - Logger header instruction, British English: **PASS** — "Start on Eden Grove"; "Eden Grove — continue to the end"; "Left into Filton Avenue".
+  - Consecutive spurs collapse: **PASS** — 82 spur steps → 24 cards (`verify:stage5bb`). Door 14 showed one card, "Spur — return the way you came".
+  - Stranded doors marked: **PASS** — 39 elements with "Off the drawn route" on Northville. Door 1225 header and marker both say "Off the drawn route".
+  - Transfer steps distinct: **PASS** — door 519, "WALK ACROSS" plus "Transfer to Cropthorne Road", separate from "Cropthorne Road — continue to the end".
+  - Unnamed streets fall back to the door label: **PASS** — door 17, plate "105", street "Eden Grove", route street null. Logger text contained "service road" 0 times.
+  - Airplane mode from Dexie: **PASS as browser emulation, not a phone.** Supabase hosts blocked, page reloaded. Status "Showing the copy saved on this phone." IndexedDB `nakolabs-d2d-field` version 5 (storage version 50), 280 `route_steps`, route line 813 vertices, header "Start on Eden Grove", 39 stranded, no `route_steps` network request. Real radio-off phone: **NOT VERIFIED**.
+  - Stage 5b seams ticked: **PASS** — `docs/STAGE-8-SEAMS.md`. Stage 10 and Stage 16 rows left pending.
+  - Seed reordered, one routed and one unrouted: **PASS**. Bishopston visits 1–4 routed, 4 steps, stranded 19/69 (27.5%) **FLAG**. Southville visits 1–3 routed, 14 steps, 15/138 (10.9%). Clifton visits 1–3 routed, 25 steps, 2/133 (1.5%). St Andrews Park visit 1 unrouted, 0 steps, 0/5, `no_roads`.
+  - Seed idempotent: **PASS** — two `--reset --seed` runs, knock_events checksum `e9c8eecab816d50f5fef3105e63361d64ca04ce5204fd36a9abd1f2b651a4d89`, demo route checksum (no geometry) `e07eee7b6e401c6954872eceb9e4936cd4c80dc5d531f342cb6b3e66c9cc1c76`. `--reset` restored territories 8, assignments 9, assignment_members 10, knock_events 33, leads 3, property_observations 3, address_observations 1, route_steps 280 (Northville only).
+  - Freeze untouched: **PASS** — `git diff` of `lib/geo/route-traverse.ts`, `route-plan.ts`, `route-graph.ts`, `route-generate.ts` empty. No knocks deleted to make an assignment routable.
+  - `navigator.geolocation`: **PASS** — only a comment in `lib/field/position.ts`. Zero call sites.
+  - Field writes through the queue: **PASS** — no `supabase.from` or `supabase.rpc` under `app/(field)` or `components/field`. Route reads live in `lib/field/route-cache.ts`.
+- **Deviations from brief:**
+  - `sequenceIsRouteDerived` is per assignment (`route_geom` not null), not a global `true`. The brief's seam table said the flag becomes true everywhere; an unrouted prop must keep the banner. Dated note under Stage 5b, 2026-09-21.
+  - `getSequence()` body unchanged. The snapshot is already route order after Stage 5b-a.
+  - The seed cannot call the generator with the service key: `route_commit` is granted to `authenticated` only and `app_role()` reads `auth.uid()`. The seed opens a magic-link session for the existing admin and calls `generateRoute` unchanged.
+  - St Andrews Park was added so the demo has an unrouted prop. The three original polygons all route.
+  - `--reset` also deletes knock rows on demo assignments whose `client_event_id` does not start with `seed-demo-`. Four such rows blocked assignment delete. This is reset cleanup, not a freeze bypass.
+  - Admin coverage map does not receive `route_geom`. Adding the line there is a new fetch, so it was left out.
+  - Bishopston strands 27.5%. Not enlarged, and no fail-open threshold was added. Proposal only: enlarge that demo polygon so more of each road falls inside the half-length clip, or fail open in the generator when the stranded fraction exceeds a stated share.
+- **Not done / deferred:** Rotation fix. Stage 10. Stage 16. Admin coverage route line. Real-phone sunlight, wet-thumb and haptic checks. A 2,000-door layer test on a mid-range phone. No migration (next free remains 019).
+- **Follow-ups:** Door-to-step placement is deterministic and not stored: cursor never moves backwards; a door snaps to the nearest working step at or after the cursor; two passes within 1.5 m keep the earlier pass unless the fraction along the street drops by more than 0.08, which advances to the return pass. Transfers show on the first door of the following working step. Northville: 0 backward moves, longest forward jump 6 steps.
+
 
 
