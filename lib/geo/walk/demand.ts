@@ -6,19 +6,24 @@
  * that segment's from_node → to_node direction by the cross product at the
  * closest point (z > 0 left, z ≤ 0 right — the documented tie). A door more
  * than 40 m from every segment is stranded: kept, appended to the tail, never
- * dropped. The threshold is `STRANDED_THRESHOLD_M` from route-plan.ts and is
- * never tuned.
+ * dropped. The threshold is `STRANDED_THRESHOLD_M` below — the same 40 m the
+ * 5b-a generator used (it lived in the now-deleted route-plan.ts and moved
+ * here in R2 unchanged) — and is never tuned.
  *
  * A WORKING SIDE is a (segment, side) with at least one snapped door. Those
  * must be knocked. Every other buffer segment is walking-only.
  *
- * The snap itself mirrors the private `snapToSegments` in route-plan.ts,
- * which cannot be imported without editing that file.
+ * The snap itself is the 5b-a `snapToSegments`, carried over as it was.
  */
 
 import { planarDistance, type RouteDoor, type RouteGraph, type XY } from "@/lib/geo/route-graph";
-import { STRANDED_THRESHOLD_M } from "@/lib/geo/route-plan";
 import type { Hand } from "@/lib/geo/walk/types";
+
+/**
+ * A door further than this from every buffer segment is stranded. 40 m, set
+ * in Stage 5b-a. Not a tuning knob: changing it changes every route.
+ */
+export const STRANDED_THRESHOLD_M = 40;
 
 /** 0 = left of from_node → to_node, 1 = right. */
 export type Side = 0 | 1;

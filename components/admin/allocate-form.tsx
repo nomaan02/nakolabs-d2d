@@ -12,7 +12,12 @@ import { formatSlot, formatSweep, type Slot, type SweepDirection } from "@/lib/g
 export type AllocatableProp = {
   id: string;
   name: string;
-  visitCount: number;
+  /**
+   * Stage 5b-R2: how many assignments this prop already has. The next
+   * allocation is visit allocationCount + 1 — the same count allocate_prop
+   * takes under its row lock. Not territories.visit_count.
+   */
+  allocationCount: number;
 };
 
 export type CanvasserOption = {
@@ -31,6 +36,8 @@ export type ExistingAllocation = {
   /** Null until Stage 5b's generator has drawn a route for this allocation. */
   routeLengthM: number | null;
   routeStrandedCount: number;
+  /** Stage 5b-R2: the saved variant frozen on. Null on 5b-a routes and unrouted rows. */
+  routeVariantKey: string | null;
 };
 
 /** Stage 5b. What the admin sees for the route after allocation. Never an error. */
@@ -53,6 +60,12 @@ function formatKm(metres: number): string {
   return `${(metres / 1000).toLocaleString("en-GB", { maximumFractionDigits: 1 })} km`;
 }
 
+function formatVariant(key: string): string {
+  if (key === "best") return "best route";
+  if (key === "best_reversed") return "best route, walked backwards";
+  return key.replace("_", " ");
+}
+
 function routeSentence(result: RouteActionResult): string {
   if (!result.ok) return `Route not drawn: ${result.message}`;
   const { summary } = result;
@@ -60,10 +73,15 @@ function routeSentence(result: RouteActionResult): string {
     summary.strandedCount > 0
       ? ` ${summary.strandedCount.toLocaleString("en-GB")} ${summary.strandedCount === 1 ? "door is" : "doors are"} more than 40 m from any road and sit at the end of the order.`
       : "";
+  const regenerated =
+    summary.regenerated && summary.variants !== null
+      ? ` ${summary.variants} route variants were generated and saved for this prop.`
+      : "";
   return (
-    `Route drawn: ${formatKm(summary.routeLengthM)}, ${summary.steps.toLocaleString("en-GB")} steps` +
-    `${summary.components > 1 ? `, ${summary.components} separate road sections` : ""}.` +
-    stranded
+    `Route frozen: ${formatVariant(summary.variantKey)}, ${summary.hand} hand, ` +
+    `${formatKm(summary.routeLengthM)}, ${summary.steps.toLocaleString("en-GB")} steps.` +
+    stranded +
+    regenerated
   );
 }
 
@@ -127,7 +145,7 @@ export function AllocateForm({
   };
 
   const selected = props.find((prop) => prop.id === territoryId) ?? null;
-  const nextVisit = (selected?.visitCount ?? 0) + 1;
+  const nextVisit = (selected?.allocationCount ?? 0) + 1;
   const existingForProp = useMemo(
     () => allocations.filter((row) => row.territoryId === territoryId),
     [allocations, territoryId],
@@ -230,7 +248,7 @@ export function AllocateForm({
                           active ? "text-paper/80" : "text-ink-soft"
                         }`}
                       >
-                        visit {prop.visitCount}
+                        next visit {prop.allocationCount + 1}
                       </span>
                     </button>
                   </li>
@@ -262,8 +280,9 @@ export function AllocateForm({
                   {nextVisit}
                 </p>
                 <p className="mt-3 text-[14px] leading-relaxed text-ink-soft">
-                  {selected.name}. Rotation is taken from how many times this prop has been
-                  closed, not from this screen. Closing a shift (later) is what advances the count.
+                  {selected.name}. The visit number counts this prop&apos;s allocations, not
+                  anything on this screen: this would be allocation {nextVisit}. Odd visits walk
+                  the best route forwards, even visits walk it backwards.
                 </p>
               </div>
 
@@ -376,6 +395,8 @@ export function AllocateForm({
                               {formatSweep(row.sweepDirection)} · {formatSlot(row.slot)} ·{" "}
                               {routed
                                 ? `route ${formatKm(row.routeLengthM as number)}${
+                                    row.routeVariantKey ? ` · ${row.routeVariantKey.replace("_", " ")}` : ""
+                                  }${
                                     row.routeStrandedCount > 0
                                       ? ` · ${row.routeStrandedCount} off-route`
                                       : ""

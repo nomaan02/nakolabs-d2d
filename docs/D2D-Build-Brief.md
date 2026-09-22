@@ -802,6 +802,19 @@ The snapshot is frozen at allocation. If the prop polygon is edited later, the a
 >
 > `entry_vertex_index` and `sweep_direction` stay populated (they are NOT NULL)
 > but are **legacy**. They no longer drive routing. Do not build on them.
+
+> **Done 2026-09-22 (Stage 5b-R2), with one precision.** Migration `020`
+> re-creates `allocate_prop` with `visit_number = 1 + count(*)` of the prop's
+> **existing assignments**, taken inside the existing `for update` lock on
+> `territories` — not "assignments with an earlier `work_date`" as the note
+> above says. Allocated in date order the two are identical; they differ only
+> when an admin backdates an allocation, where the earlier-`work_date` rule
+> would mint a duplicate `visit_number` (and, under the parity default, a
+> second copy of the same variant) while the count cannot. `visit_count` is
+> no longer read by `allocate_prop` at all. Verified live: redland, with two
+> assignments both wrongly at visit 1, allocated a test visit as **3**; the
+> two existing rows were left as they are (existing data is not rewritten).
+> The allocate page's "next visit" now counts assignments the same way.
 ---
 
 ### Stage 5b — Route generation
@@ -1033,6 +1046,49 @@ create table route_steps (
 >
 > **The 2026-09-19 rotation finding is resolved by this pivot.** It was a
 > consequence of face tracing, which no longer exists.
+
+> **Done 2026-09-22 (Stage 5b-R2 — storage, freeze, visit numbering).**
+> Migration `020_route_storage_and_freeze.sql`:
+>
+> - `territory_routes` (one row per prop per variant: key, hand, start/end
+>   node and point, the six distance totals, `stranded_count`,
+>   `straight_transfers`, `door_order`, `warnings`, `generated_by/at`) and
+>   `territory_route_steps` (kind, segment, street, side, from/to node,
+>   centreline, walkline, `first_seq`/`last_seq`, instruction, `is_dead_end`,
+>   `length_m`) — the `WalkVariant` / `WalkStep` shape of
+>   `lib/geo/walk/types.ts`, field for field. Admin-only RLS on both; office
+>   and canvassers read nothing there. `territory_route_steps.segment_id` has
+>   **no** foreign key, so a road re-ingest is never blocked by a regenerable
+>   variant; the freeze checks the ids still exist instead (hint
+>   `stale_variant`).
+> - `route_steps` gains `kind`, `side`, `walk_geom`, `first_seq`, `last_seq`,
+>   `is_dead_end`. `is_spur` and `geom` stay: 5b-a rows still read them, and
+>   R2 rows derive `is_spur = (kind = 'work' and is_dead_end)` and keep
+>   `cumulative_m` as the running sum of `length_m`. Office gains the missing
+>   `SELECT` on `route_steps`.
+> - `assignments` gains `route_variant_key` and `route_source_id` (nullable;
+>   5b-a assignments keep neither; `route_source_id` nulls when the prop's
+>   variants are regenerated, the frozen copy stays).
+> - `territory_routes_save(territory_id, variants jsonb)`: admin only,
+>   delete-and-replace the prop's whole set in one transaction, requires
+>   `best` and `best_reversed`, validates every step before any geometry is
+>   built.
+> - `assignment_route_freeze(assignment_id, variant_key default null)`:
+>   `route_commit`'s discipline check for check — admin, row lock, refuses any
+>   assignment with `knock_events` (hint `frozen`), door-set equality with the
+>   frozen `uprn_snapshot` (hint `snapshot_mismatch`), contiguous steps,
+>   delete-then-insert `route_steps`, one `UPDATE` of `assignments`. Key
+>   omitted → `best` on odd `visit_number`, `best_reversed` on even.
+>
+> `lib/geo/walk/save.ts` and `freeze.ts` wrap the two; the allocate page's
+> server action freezes first and generates-and-saves only when the prop has
+> no usable variants. `lib/geo/route-generate.ts`, `route-plan.ts`,
+> `route-traverse.ts` and `scripts/verify-stage-5b.ts` are deleted;
+> `route-graph.ts` stays (the walk generator uses it); `STRANDED_THRESHOLD_M`
+> moved to `lib/geo/walk/demand.ts` unchanged at 40 m. Migration `018`'s
+> `route_commit` and `route_clipped_subgraph` are left in place, uncalled.
+> "Previewed and saved from the draw page" is **R3**, not done here: the only
+> save path in the app today is the allocate flow.
 
 ---
 
@@ -1852,6 +1908,19 @@ Office creates and closes slots. Canvassers read, and can place a ten-minute aut
 > `sequence_position` taken from the routed snapshot. It signs its admin session
 > out in a `finally` block — an earlier version left nine live admin sessions
 > behind.
+>
+> **Done 2026-09-22 (Stage 5b-R2) — reordered, not run.** `scripts/seed-demo.ts`
+> now does, per prop: insert the territory → `saveTerritoryRoutes` once → per
+> visit: insert the assignment (direct insert with `visit_number = visit + 1`,
+> the same ordinal `allocate_prop` would compute; the RPC cannot backdate
+> `created_at` / `started_at` / `closed_at`) → `freezeAssignmentRoute` with no
+> key, so parity picks the variant → then that visit's knocks. St Andrews Park
+> is skipped explicitly (`unroutedFixture`), because the walking generator's
+> 250 m buffer would otherwise route it and the demo would lose its unrouted
+> prop. The `try/finally` sign-out is kept. **Not executed this session:**
+> running it means `--reset`, which deletes the frozen DEMO assignments and
+> their 5b-a routes, and R2's boundary was to leave those alone. Type-checked
+> only; first run is a decision for whoever next resets the demo.
 ---
 
 ### Stage 15 — Prop recommender (gated)

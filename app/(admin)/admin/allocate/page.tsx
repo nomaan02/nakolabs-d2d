@@ -6,8 +6,9 @@ import type { Slot, SweepDirection } from "@/lib/geo/rotation";
 export const metadata = { title: "Allocate · nakolabs-d2d" };
 
 // Stage 5b: the route generator runs as a server action from this page after
-// allocation. Northville (1,225 doors) is sized to finish well inside 30 s;
-// the platform default would cut it off before that.
+// allocation (R2: freeze a saved variant, generating and saving the prop's
+// variant set first when it has none). Northville (1,225 doors) is sized to
+// finish well inside 30 s; the platform default would cut it off before that.
 export const maxDuration = 60;
 
 function isSweep(value: string): value is SweepDirection {
@@ -33,7 +34,7 @@ export default async function AllocatePage({
   const [{ data: territories }, { data: people }, { data: assignmentRows }] = await Promise.all([
     supabase
       .from("territories")
-      .select("id, name, visit_count")
+      .select("id, name")
       .is("archived_at", null)
       .order("created_at", { ascending: false }),
     supabase
@@ -45,17 +46,26 @@ export default async function AllocatePage({
     supabase
       .from("assignments")
       .select(
-        "id, territory_id, work_date, visit_number, entry_vertex_index, sweep_direction, slot, route_length_m, route_stranded_count",
+        "id, territory_id, work_date, visit_number, entry_vertex_index, sweep_direction, slot, route_length_m, route_stranded_count, route_variant_key",
       )
       .order("work_date", { ascending: true }),
   ]);
+
+  // Stage 5b-R2: visit_number is 1 + the prop's existing assignments (the
+  // count allocate_prop takes under its row lock), not territories.visit_count,
+  // which nothing increments before Stage 12b. Every assignment is loaded
+  // above, so the count is taken from the same rows the list shows.
+  const allocationCounts = new Map<string, number>();
+  for (const row of assignmentRows ?? []) {
+    allocationCounts.set(row.territory_id, (allocationCounts.get(row.territory_id) ?? 0) + 1);
+  }
 
   return (
     <AllocateForm
       props={(territories ?? []).map((row) => ({
         id: row.id,
         name: row.name,
-        visitCount: row.visit_count,
+        allocationCount: allocationCounts.get(row.id) ?? 0,
       }))}
       canvassers={(people ?? []).map((row) => ({
         id: row.id,
@@ -76,6 +86,7 @@ export default async function AllocatePage({
             // it stands in for "route_geom is not null" without shipping the line.
             routeLengthM: row.route_length_m,
             routeStrandedCount: row.route_stranded_count,
+            routeVariantKey: row.route_variant_key,
           },
         ];
       })}

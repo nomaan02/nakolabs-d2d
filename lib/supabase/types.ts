@@ -115,7 +115,9 @@ export type Database = {
           id: string
           route_geom: unknown
           route_length_m: number | null
+          route_source_id: string | null
           route_stranded_count: number
+          route_variant_key: string | null
           slot: string
           started_at: string | null
           sweep_direction: string
@@ -132,7 +134,9 @@ export type Database = {
           id?: string
           route_geom?: unknown
           route_length_m?: number | null
+          route_source_id?: string | null
           route_stranded_count?: number
+          route_variant_key?: string | null
           slot: string
           started_at?: string | null
           sweep_direction: string
@@ -149,7 +153,9 @@ export type Database = {
           id?: string
           route_geom?: unknown
           route_length_m?: number | null
+          route_source_id?: string | null
           route_stranded_count?: number
+          route_variant_key?: string | null
           slot?: string
           started_at?: string | null
           sweep_direction?: string
@@ -164,6 +170,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignments_route_source_id_fkey"
+            columns: ["route_source_id"]
+            isOneToOne: false
+            referencedRelation: "territory_routes"
             referencedColumns: ["id"]
           },
           {
@@ -579,35 +592,53 @@ export type Database = {
         Row: {
           assignment_id: string
           cumulative_m: number
+          first_seq: number | null
           geom: unknown
           id: number
           instruction: string
+          is_dead_end: boolean
           is_spur: boolean
+          kind: string | null
+          last_seq: number | null
           segment_id: number | null
+          side: string | null
           step_index: number
           street_name: string | null
+          walk_geom: unknown
         }
         Insert: {
           assignment_id: string
           cumulative_m: number
+          first_seq?: number | null
           geom: unknown
           id?: number
           instruction: string
+          is_dead_end?: boolean
           is_spur?: boolean
+          kind?: string | null
+          last_seq?: number | null
           segment_id?: number | null
+          side?: string | null
           step_index: number
           street_name?: string | null
+          walk_geom?: unknown
         }
         Update: {
           assignment_id?: string
           cumulative_m?: number
+          first_seq?: number | null
           geom?: unknown
           id?: number
           instruction?: string
+          is_dead_end?: boolean
           is_spur?: boolean
+          kind?: string | null
+          last_seq?: number | null
           segment_id?: number | null
+          side?: string | null
           step_index?: number
           street_name?: string | null
+          walk_geom?: unknown
         }
         Relationships: [
           {
@@ -694,6 +725,155 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      territory_route_steps: {
+        Row: {
+          centreline: unknown
+          first_seq: number | null
+          from_node: number
+          id: number
+          instruction: string
+          is_dead_end: boolean
+          kind: string
+          last_seq: number | null
+          length_m: number
+          route_id: string
+          segment_id: number | null
+          side: string
+          step_index: number
+          street_name: string | null
+          to_node: number
+          walkline: unknown
+        }
+        Insert: {
+          centreline: unknown
+          first_seq?: number | null
+          from_node: number
+          id?: number
+          instruction: string
+          is_dead_end?: boolean
+          kind: string
+          last_seq?: number | null
+          length_m: number
+          route_id: string
+          segment_id?: number | null
+          side: string
+          step_index: number
+          street_name?: string | null
+          to_node: number
+          walkline: unknown
+        }
+        Update: {
+          centreline?: unknown
+          first_seq?: number | null
+          from_node?: number
+          id?: number
+          instruction?: string
+          is_dead_end?: boolean
+          kind?: string
+          last_seq?: number | null
+          length_m?: number
+          route_id?: string
+          segment_id?: number | null
+          side?: string
+          step_index?: number
+          street_name?: string | null
+          to_node?: number
+          walkline?: unknown
+        }
+        Relationships: [
+          {
+            foreignKeyName: "territory_route_steps_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "territory_routes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      territory_routes: {
+        Row: {
+          door_order: number[]
+          end_geom: unknown
+          end_node_id: number
+          end_to_start_m: number
+          generated_at: string
+          generated_by: string | null
+          hand: string
+          id: string
+          non_working_m: number
+          rank_cost_m: number
+          return_m: number
+          start_geom: unknown
+          start_node_id: number
+          straight_transfers: number
+          stranded_count: number
+          territory_id: string
+          total_m: number
+          variant_key: string
+          warnings: string[]
+          working_m: number
+        }
+        Insert: {
+          door_order: number[]
+          end_geom: unknown
+          end_node_id: number
+          end_to_start_m: number
+          generated_at?: string
+          generated_by?: string | null
+          hand: string
+          id?: string
+          non_working_m: number
+          rank_cost_m: number
+          return_m?: number
+          start_geom: unknown
+          start_node_id: number
+          straight_transfers?: number
+          stranded_count: number
+          territory_id: string
+          total_m: number
+          variant_key: string
+          warnings?: string[]
+          working_m: number
+        }
+        Update: {
+          door_order?: number[]
+          end_geom?: unknown
+          end_node_id?: number
+          end_to_start_m?: number
+          generated_at?: string
+          generated_by?: string | null
+          hand?: string
+          id?: string
+          non_working_m?: number
+          rank_cost_m?: number
+          return_m?: number
+          start_geom?: unknown
+          start_node_id?: number
+          straight_transfers?: number
+          stranded_count?: number
+          territory_id?: string
+          total_m?: number
+          variant_key?: string
+          warnings?: string[]
+          working_m?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "territory_routes_generated_by_fkey"
+            columns: ["generated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "territory_routes_territory_id_fkey"
+            columns: ["territory_id"]
+            isOneToOne: false
+            referencedRelation: "territories"
             referencedColumns: ["id"]
           },
         ]
@@ -1026,6 +1206,10 @@ export type Database = {
       app_role: { Args: never; Returns: string }
       apply_nccz_flags: { Args: never; Returns: number }
       assert_prop_polygon: { Args: { poly: unknown }; Returns: undefined }
+      assignment_route_freeze: {
+        Args: { p_assignment_id: string; p_variant_key?: string }
+        Returns: Json
+      }
       count_knockable: {
         Args: { poly: unknown }
         Returns: {
@@ -1817,6 +2001,10 @@ export type Database = {
       st_wrapx: {
         Args: { geom: unknown; move: number; wrap: number }
         Returns: unknown
+      }
+      territory_routes_save: {
+        Args: { p_territory_id: string; p_variants: Json }
+        Returns: Json
       }
       todays_assignment: { Args: never; Returns: Json }
       unlockrows: { Args: { "": string }; Returns: number }

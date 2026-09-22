@@ -7,7 +7,12 @@
  * Territories whose name starts with `DEMO - `. Reset walks that prefix in
  * foreign-key-safe order, then also deletes observations whose
  * `client_event_id` starts with `seed-demo-` (those tables do not hang off
- * territories).
+ * territories). Saved route variants (territory_routes, R2) cascade from the
+ * territory delete.
+ *
+ * Order per prop (Stage 14 note, 2026-09-22): create the territory → save
+ * its route variants → for each visit: create the assignment → freeze the
+ * variant chosen by visit parity → then insert that visit's knocks.
  *
  * Auth users are never created. Existing `profiles` rows are read and reused.
  *
@@ -20,8 +25,9 @@ import { createHash } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { SHIFT_DOORS, ringToEwkt, type Ring } from "../lib/geo/prop-polygon";
 import { rotationForVisit, type Slot } from "../lib/geo/rotation";
-import { generateRoute, type RouteFailureCode } from "../lib/geo/route-generate";
 import { orderKnockableBySweep, uniqueVertices, type SweepDoor } from "../lib/geo/snapshot";
+import { freezeAssignmentRoute } from "../lib/geo/walk/freeze";
+import { saveTerritoryRoutes, type SaveRoutesFailureCode } from "../lib/geo/walk/save";
 import type { Database } from "../lib/supabase/types";
 import type { KnockOutcome } from "../lib/sync/ops";
 import { loadEnvLocal, requiredEnv } from "./lib/env";
@@ -68,9 +74,11 @@ type PropSpec = {
   /** Leave a contiguous tail of visit-1's snapshot untouched on every visit. */
   unfinishedTail: number;
   /**
-   * A polygon the generator fail-opens on (no clipped road). Stays on the
-   * angular snapshot so the demo still has an unrouted prop. Door count may
-   * sit outside the shift window.
+   * The demo's unrouted prop: no variants are saved and nothing is frozen,
+   * so it stays on the angular snapshot and shows the out-of-order banner.
+   * Skipped explicitly since R2: the walking generator's 250 m buffer would
+   * route it (the 5b-a half-length rule that fail-opened on it is gone).
+   * Door count may sit outside the shift window.
    */
   unroutedFixture?: boolean;
 };
@@ -123,9 +131,9 @@ const PROPS: PropSpec[] = [
   {
     key: "park",
     name: `${TERRITORY_PREFIX}St Andrews Park (no through road)`,
-    // St Andrews Park. Roads touch the box but none has half its length
-    // inside, so the generator fail-opens and the angular snapshot stays.
-    // Measured 2026-09-19 in the Stage 5b harness: 5 knockable doors, 0 segments.
+    // St Andrews Park. Under 5b-a no road had half its length inside the box
+    // (5 knockable doors, 0 segments, measured 2026-09-19), so the generator
+    // fail-opened. R2 skips it by the flag below for the same effect.
     ring: [
       [-2.5884, 51.4719],
       [-2.5866, 51.4719],
@@ -306,6 +314,7 @@ type TableCounts = {
   property_observations: number;
   address_observations: number;
   route_steps: number;
+  territory_routes: number;
 };
 
 async function allCounts(supabase: SupabaseClient<Database>): Promise<TableCounts> {
@@ -318,6 +327,8 @@ async function allCounts(supabase: SupabaseClient<Database>): Promise<TableCount
     property_observations: await countTable(supabase, "property_observations"),
     address_observations: await countTable(supabase, "address_observations"),
     route_steps: await countTable(supabase, "route_steps"),
+    // Cascades from territories on reset; counted so the reset shows it going.
+    territory_routes: await countTable(supabase, "territory_routes"),
   };
 }
 
@@ -398,7 +409,9 @@ async function demoRouteChecksum(supabase: SupabaseClient<Database>): Promise<st
   for (const territory of territories ?? []) {
     const { data: assignments, error: assignmentError } = await supabase
       .from("assignments")
-      .select("id, work_date, visit_number, route_length_m, route_stranded_count, uprn_snapshot")
+      .select(
+        "id, work_date, visit_number, route_length_m, route_stranded_count, route_variant_key, uprn_snapshot",
+      )
       .eq("territory_id", territory.id)
       .order("work_date")
       .order("visit_number");
@@ -418,21 +431,26 @@ async function demoRouteChecksum(supabase: SupabaseClient<Database>): Promise<st
         )
         .join(";");
       lines.push(
-        `${territory.name}|${assignment.work_date}|v${assignment.visit_number}|${assignment.route_length_m ?? ""}|${assignment.route_stranded_count}|${snapshot}|${stepText}`,
+        `${territory.name}|${assignment.work_date}|v${assignment.visit_number}|${assignment.route_variant_key ?? ""}|${assignment.route_length_m ?? ""}|${assignment.route_stranded_count}|${snapshot}|${stepText}`,
       );
     }
   }
   return createHash("sha256").update(lines.join("\n")).digest("hex");
 }
 
-const ROUTE_FAIL_OPEN = new Set<RouteFailureCode>(["no_roads", "bound_hit", "polygon_changed"]);
+/**
+ * Saving a prop's variants fails open only when the generator finds no road
+ * with a door on it. That prop stays on the angular snapshot, unrouted, the
+ * way St Andrews Park does by design. Every other failure is a seed error.
+ */
+const SAVE_FAIL_OPEN = new Set<SaveRoutesFailureCode>(["no_route"]);
 
 /**
- * `generateRoute` refuses the service role. `route_clipped_subgraph` and
- * `route_commit` are granted to `authenticated` only, and both raise unless
- * `app_role()` is admin — which reads `auth.uid()`. The service key has no
- * user id. Smallest change that leaves the generator untouched: open a
- * session for the existing admin profile and call `generateRoute` with it.
+ * The route functions refuse the service role. `route_walk_inputs`,
+ * `territory_routes_save` and `assignment_route_freeze` are granted to
+ * `authenticated` only, and each raises unless `app_role()` is admin — which
+ * reads `auth.uid()`. The service key has no user id. So: open a session for
+ * the existing admin profile and call them with it.
  */
 async function adminClientFor(
   service: SupabaseClient<Database>,
@@ -514,6 +532,7 @@ type RouteReport = {
   key: string;
   visit: number;
   routed: boolean;
+  variantKey: string | null;
   steps: number;
   doors: number;
   stranded: number;
@@ -777,13 +796,17 @@ async function seedDemo(supabase: SupabaseClient<Database>): Promise<void> {
   await withAdminSession(supabase, adminId, async (admin) => {
   line("  signed in as the existing admin profile. The service key is not used for routes.");
 
-  heading("Allocate, then route, then knocks");
+  heading("Territory, save variants, then per visit: allocate, freeze, knocks");
   for (const prop of prepared) {
     const skip = new Set<number>();
     const ever = new Set<number>();
     let lastWorked = 0;
     let lastClosed: string | null = null;
 
+    // visit_count keeps its Stage 12b meaning — closed visits — and every
+    // demo visit is closed below. It is not what numbers the visits: that
+    // is the allocation ordinal, visit + 1, the same count allocate_prop
+    // takes from assignments (R2).
     const { error: territoryError } = await supabase.from("territories").insert({
       id: prop.territoryId,
       name: prop.spec.name,
@@ -794,6 +817,27 @@ async function seedDemo(supabase: SupabaseClient<Database>): Promise<void> {
       created_at: CREATED_AT,
     });
     if (territoryError) throw new Error(`territory insert: ${territoryError.message}`);
+
+    // R2: the prop's variant set is saved once, before any visit. Every
+    // visit is then a copy of one saved variant, chosen by parity.
+    let hasVariants = false;
+    if (prop.spec.unroutedFixture) {
+      line(`  ${prop.spec.key}  unrouted fixture: no variants saved, angular snapshot kept`);
+    } else {
+      const saved = await saveTerritoryRoutes(admin, prop.territoryId);
+      if (saved.ok) {
+        hasVariants = true;
+        line(
+          `  ${prop.spec.key}  saved ${saved.summary.variants} variants (${saved.summary.keys.join(", ")}), ` +
+            `${saved.summary.steps} steps, best ${(saved.summary.bestTotalM / 1000).toFixed(2)} km, ` +
+            `stranded ${saved.summary.strandedCount}/${saved.summary.doors}, ${saved.summary.generateMs.toFixed(0)} ms`,
+        );
+      } else if (SAVE_FAIL_OPEN.has(saved.code)) {
+        line(`  ${prop.spec.key}  no route (${saved.code}): ${saved.message}`);
+      } else {
+        throw new Error(`${prop.spec.key} save variants failed (${saved.code}): ${saved.message}`);
+      }
+    }
 
     for (let visit = 0; visit < prop.spec.dates.length; visit += 1) {
       const visitNumber = visit + 1;
@@ -831,31 +875,40 @@ async function seedDemo(supabase: SupabaseClient<Database>): Promise<void> {
       );
       if (memberError) throw new Error(`member insert: ${memberError.message}`);
 
-      const routed = await generateRoute(admin, assignmentId);
+      // Freeze through the normal default: no variant key, so the function
+      // picks by this assignment's visit_number parity (odd best, even
+      // best_reversed). The frozen copy is read back from the row, not
+      // from the return value.
+      let routed = false;
+      let variantKey: string | null = null;
       let snapshot = angular;
       let steps = 0;
       let stranded = 0;
       let lengthM: number | null = null;
-      if (routed.ok) {
+      if (hasVariants) {
+        const frozen = await freezeAssignmentRoute(admin, assignmentId);
+        if (!frozen.ok) {
+          throw new Error(
+            `${prop.spec.key} visit ${visitNumber} freeze failed (${frozen.code}): ${frozen.message}`,
+          );
+        }
         const { data: saved, error: savedError } = await supabase
           .from("assignments")
-          .select("uprn_snapshot, route_stranded_count, route_length_m")
+          .select("uprn_snapshot, route_stranded_count, route_length_m, route_variant_key")
           .eq("id", assignmentId)
           .single();
-        if (savedError || !saved) throw new Error(`read routed snapshot: ${savedError?.message}`);
+        if (savedError || !saved) throw new Error(`read frozen snapshot: ${savedError?.message}`);
         snapshot = asUprnList(saved.uprn_snapshot);
         if (snapshot.length !== angular.length) {
           throw new Error(
             `${prop.spec.key} visit ${visitNumber} route changed the door count (${angular.length} -> ${snapshot.length}).`,
           );
         }
+        routed = true;
+        variantKey = saved.route_variant_key;
         stranded = saved.route_stranded_count;
         lengthM = saved.route_length_m === null ? null : Number(saved.route_length_m);
-        steps = routed.summary.steps;
-      } else if (!ROUTE_FAIL_OPEN.has(routed.code)) {
-        throw new Error(
-          `${prop.spec.key} visit ${visitNumber} route failed (${routed.code}): ${routed.message}`,
-        );
+        steps = frozen.summary.steps;
       }
 
       if (visit === 0 && prop.spec.unfinishedTail > 0) {
@@ -940,7 +993,8 @@ async function seedDemo(supabase: SupabaseClient<Database>): Promise<void> {
       routeReports.push({
         key: prop.spec.key,
         visit: visitNumber,
-        routed: routed.ok,
+        routed,
+        variantKey,
         steps,
         doors: snapshot.length,
         stranded,
@@ -948,9 +1002,9 @@ async function seedDemo(supabase: SupabaseClient<Database>): Promise<void> {
       });
 
       const strandedPct = snapshot.length === 0 ? 0 : (stranded / snapshot.length) * 100;
-      const flag = routed.ok && strandedPct > 20 ? "  FLAG stranded > 20%" : "";
+      const flag = routed && strandedPct > 20 ? "  FLAG stranded > 20%" : "";
       line(
-        `  ${prop.spec.key}  ${workDate}  visit ${visitNumber}  ${routed.ok ? "routed" : "unrouted"}  ` +
+        `  ${prop.spec.key}  ${workDate}  visit ${visitNumber}  ${routed ? `frozen ${variantKey}` : "unrouted"}  ` +
           `steps=${steps}  stranded=${stranded}/${snapshot.length} (${strandedPct.toFixed(1)}%)  ` +
           `worked=${worked.length}${flag}`,
       );
@@ -1041,7 +1095,7 @@ async function seedDemo(supabase: SupabaseClient<Database>): Promise<void> {
     const pct = report.doors === 0 ? 0 : (report.stranded / report.doors) * 100;
     const flag = report.routed && pct > 20 ? " FLAG" : "";
     line(
-      `    ${report.key} visit ${report.visit}: ${report.routed ? "routed" : "unrouted"}, steps ${report.steps}, stranded ${report.stranded}/${report.doors} (${pct.toFixed(1)}%)${flag}`,
+      `    ${report.key} visit ${report.visit}: ${report.routed ? `frozen ${report.variantKey}` : "unrouted"}, steps ${report.steps}, stranded ${report.stranded}/${report.doors} (${pct.toFixed(1)}%)${flag}`,
     );
   }
 
