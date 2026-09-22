@@ -1236,6 +1236,7 @@ export type Database = {
         }
         Returns: Json
       }
+      route_walk_inputs: { Args: { p_territory_id: string }; Returns: Json }
       st_3dclosestpoint: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: unknown

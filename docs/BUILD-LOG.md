@@ -747,3 +747,51 @@ One entry per stage, appended by the agent at the end of each session.
 
 
 
+
+---
+
+### Stage 5b-R1 - Route traversal pivot: walking-pattern generator (generator, read function, harness, previews only)
+- **Date:** 2026-09-22
+- **Model:** Claude Fable 5.1
+- **Built:** `docs/ROUTE-DESIGN-v2.md` (design a-g written before code, plus dated post-run corrections). Migration `019_route_walk_read_functions.sql`: one `stable`, `security invoker`, admin-only function `route_walk_inputs(territory_id)` returning ring, centroid, every `road_segments` row within 250 m (geography, spatially filtered), their nodes and every knockable door, all `ORDER BY id`; no table touched. `lib/geo/walk/`: `types.ts` (output shape), `inputs.ts` (RPC + parse via 5b-a `parseRouteInputs`), `demand.ts` (40 m snap, side classification, working sides), `geometry.ts` (4 m walkline offset, unproject), `shortest-path.ts` (deterministic Dijkstra), `traverse.ts` (chain DFS: out, cross at the far end, back; hand-side sub-branches at intermediate junctions only; carry-on for one-sided chains in trunk mode; transfers over real roads; appended "Back to the start"), `steps.ts` (door order, vocabulary-only instructions, walklines), `generate.ts` (24 perimeter-sample starts x 2 hands, ranking, `best` / `best_reversed` / `alt_1..4`), `preview.ts` (GeoJSON). `scripts/verify-stage-5b-r1.ts` (`npm run verify:stage5b-r1`, flags `--props`, `--candidates`, `--breakdown`). `lib/geo/route-*.ts` untouched (`git diff` empty) and still what the app calls.
+- **Acceptance:**
+  - Design note a-g: **PASS** (`docs/ROUTE-DESIGN-v2.md`).
+  - Speedwell best, Derwent and Selby each one out-and-back with the cross at the Ventnor end, consecutively: **PASS** (Derwent steps 1-3, cross step 2 on Ventnor Road; Selby steps 5-7, cross step 6 on Ventnor Road; 0 foreign steps inside).
+  - Speedwell best, every segment of Speedwell / Harewood / Ventnor exactly one work step on the prop side: **PASS** (Speedwell 3 working segments of 12 in the buffer, Harewood 3/3, Ventnor 5/6; one work step per working side each; the 6th Ventnor segment, 10.73 m mid-street, has no door within 40 m and is a walk step).
+  - Speedwell best, every work step side equals the route hand: **PASS** (15/15, hand right).
+  - Speedwell best ends within 100 m of start: **PASS** (0 m; the trunk closes the loop at the start, no return leg).
+  - Speedwell every door once, stranded count: **PASS** (182 doors, 182 in order, 0 duplicates, 0 stranded).
+  - redland best, two-sided streets separated only by their own branches: **PASS** (84/84 two-sided segments, 42/42 named streets; old 0/96).
+  - redland straight transfers: **FAIL** (3 straight transfers + 1 straight return = 4 / 751 m; old 20 / 2,492 m; target 0). All cross Whiteladies Road (A4018), a `primary` road absent from `road_segments`; no segment within 3 m of the stranded nodes. Not fixable inside this stage without re-ingesting.
+  - redland and Northville non-working / total: **PASS as a report** - redland best 30.4 %, alts 30.4 / 31.3 / 32.7 / 33.7 %; Northville best 32.9 %, alts 33.7 / 34.8 / 35.1 / 36.7 % (old Northville 26 %, a different quantity: straight-line transfers, no crosses, no return leg). Breakdown in the design note, post-run item 5.
+  - best_reversed is best backwards: **PASS** (steps reversed, every side flipped, centrelines reversed, step-multiset md5 equal, totals equal, on all three props).
+  - Alts materially different: **PASS** (Speedwell 3 alts, first-fifth overlap vs best 0 / 0 / 22 %; redland 4 alts, 20 / 0 / 0 / 0 %; Northville 4 alts, 0 / 1 / 1 / 9 %; every alt from a new start node).
+  - Determinism, three runs, md5 of the full output minus timings: **PASS** (Speedwell 8129c065c7bb x3, redland 9b22c6726777 x3, Northville 5aed8cc489b6 x3).
+  - Walklines, every door on the hand side of its walkline: **FAIL** (Speedwell 180/182, redland 2,720/2,819, Northville 1,166/1,217; every failing door is on the correct side of the centreline but within 4 m of it, i.e. inside the pavement offset; data, not routing).
+  - Per-phase timings: **PASS** (redland 178-211 ms total: graph 1-3, demand 29-30, candidates 127-149, variants 21-29; Northville 156-172 ms; limits 10 s / 5 s).
+  - Previews: **PASS** (33 GeoJSON files in `data/route-previews/`, gitignored: 5 Speedwell, 6 redland, 6 Northville, 5 DEMO Clifton, 6 DEMO Southville, 5 DEMO Bishopston, plus a `.txt` step summary each. Demo props: 0 straight transfers, 0 stranded; Bishopston (Monmouth Road) stranded 27.5 % under the old clip).
+  - Old generator untouched, nothing stored, no table changed: **PASS** (`git diff --stat lib/geo/route-*.ts` empty; migration 019 is `create function` + `revoke` + `grant`; the function is `stable`, so Postgres forbids writes inside it).
+- **Deviations from brief:**
+  - Ranking counts the return leg (prompt's literal "least non-working metres"); the pre-code design excluded it and live data showed that rewarded starting beside a doorless segment. Final tie-break is right hand before left, chosen so the Speedwell tie resolves to the reference drawing; rules 1-8 do not decide it.
+  - The far-end rule is strict ("you do not turn onto the next road"), so interior cross streets reachable only at far ends are transfers; half the non-working metres on redland / Northville are transfers.
+  - Vocabulary: "Walk to {street} - no doors" names the street of the next work step; a one-sided branch's return uses "Come back down {street}"; unnamed roads use the highway type as before.
+- **Not done / deferred:** No storage (`territory_routes`), no allocation copy, no `allocate_prop` change, no admin / field / sync / Dexie / seed change. `lib/geo/route-*.ts` still drives the app. Primary/trunk roads not added to the network.
+- **Follow-ups:** R2 stores `WalkVariant` per prop per key; `route_steps` cannot hold it (no kind, side, walkline, door range, dead-end flag, variant key, hand). Field display must key on `walk` runs and chain returns instead of `is_spur`. Add `primary`/`trunk` to the Stage 1b ingest as walking-only roads to remove the remaining straight lines.
+
+---
+
+### Stage 1b — Primary and trunk roads (data patch)
+- **Date:** 2026-09-22
+- **Model:** Cursor Grok 4.7
+- **Built:** Widened `scripts/queries/bristol-roads.overpassql` with `primary|primary_link|trunk|trunk_link`. Same bbox `(51.43,-2.64,51.51,-2.53)`, same `out geom`, no node recursion. Fetched once (`User-Agent: nakolabs-d2d/stage-1b-patch`, HTTP 200, 10,898,685 bytes) to `data/raw/bristol-roads-primary.osm.json`. The 2026-09-19 file is untouched (9,738,217 bytes, mtime 2026-09-19). `scripts/ingest-roads.ts` accepts `--file=` and skips ways whose segments are referenced by `route_steps`. No migration, no schema, no RLS change. Dated note under Stage 1b.
+- **Acceptance:**
+  - `road_segments` includes primary and trunk. **PASS.** Before: service 10,178 · residential 9,339 · unclassified 2,312 · tertiary 1,258 · secondary 1,220 · living_street 112 · primary 0 · trunk 0 · primary_link 0 · trunk_link 0 (24,419 segments, 21,877 nodes). After: service 10,186 · residential 9,346 · unclassified 2,319 · primary 1,335 · tertiary 1,258 · secondary 1,226 · trunk 665 · living_street 112 · trunk_link 111 · primary_link 35 (26,593 segments, 22,771 nodes).
+  - Whiteladies Road (A4018) and Filton Road (A38) are named segments. **PASS.** Whiteladies Road: 63 primary segments, 1,665 m (29 OSM ways tagged `primary` + `ref=A4018`). Filton Road: 54 primary segments, 2,602 m (34 OSM ways `primary` + `ref=A38`, plus 9 `primary` + `ref=A4174`). Filton Avenue is in the graph (12 residential, 1 service, 53 tertiary) and was already there; in this extract OSM does not tag it `primary` or `A38`. The A38 through the bbox is also named Gloucester Road (107 primary segments, 3,132 m) and Gloucester Road North (41 primary segments, 1,579 m).
+  - A primary road and an already-ingested road share one junction node. **PASS.** OSM node `17585272` at `51.4645025, -2.6096534`. One `road_nodes` row within 2 m. Three segments use that id: Whiteladies Road primary way `3552331` (31.7 m ending there, 24.6 m starting there) and Cotham Hill residential way `261464010` (19.9 m starting there). Duplicate `(osm_way_id, from_node, to_node)` keys: 0.
+  - Re-running the full ingest (old file, then widened file) a second time changes no row counts. **PASS.** Both cycles ended at `road_nodes=22,771` `road_segments=26,593`. The old-file pass in each cycle lands on 26,573 segments (it cannot see primary/trunk junctions); the widened file restores 26,593. Cleared and rebuilt counts matched exactly across the two cycles.
+  - `npm run verify:stage5b-r1 -- --props=redland` straight transfers. **PASS.** Best, best_reversed and alt_1–alt_4 are each 0 straight transfers / 0 m, against the prior best of 4 / 751 m. Measured on this run, not assumed.
+- **Deviations from brief:**
+  - `ingest-roads.ts` leaves 177 ways in place when any of their segments are referenced by `route_steps` (`route_steps_segment_id_fkey`, no cascade). Replacing them would delete stored steps or mint new segment ids. A check after the second cycle found 0 primary/trunk junction nodes sitting mid-segment on those frozen ways. The first ingest attempt aborted on that foreign key after deleting 767 unreferenced segments; the completed run replaced them.
+  - `--file=` selects the extract. The default path is still `data/raw/bristol-roads.osm.json`.
+- **Not done / deferred:** No schema, no RLS, no migration (next free remains `020`). Did not touch `lib/geo/walk/`, `lib/geo/route-*.ts`, migration 019, or `app/`. Pedestrian and footway still omitted. Did not re-run Speedwell or Northville. The redland harness still fails the existing walkline check (92 of 2,819 doors inside the 4 m pavement offset); that is not this patch.
+- **Follow-ups:** None for this patch. Stored `route_steps` still point at the pre-patch segment ids of those 177 ways.

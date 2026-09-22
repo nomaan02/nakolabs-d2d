@@ -409,6 +409,16 @@ A useful side effect: `road_segments.name` gives street-name resolution for free
 > `ST_Intersects` counts are materially higher and are not the number route
 > generation sees.
 
+> **Amended 2026-09-22 (primary and trunk).** The operational query in
+> `scripts/queries/bristol-roads.overpassql` now also matches
+> `primary|primary_link|trunk|trunk_link`. Same bbox
+> `(51.43,-2.64,51.51,-2.53)`, same `out geom`, no `(._;>;)` recursion.
+> The response is `data/raw/bristol-roads-primary.osm.json` (10.4 MiB);
+> the 2026-09-19 extract is unchanged. No schema change. Pedestrian and
+> footway remain a later pass. Ingest skips any way whose segments are
+> referenced by `route_steps`, because that foreign key has no cascade
+> and a replacement would mint new segment ids.
+
 ---
 
 ### Stage 1c — Address labels

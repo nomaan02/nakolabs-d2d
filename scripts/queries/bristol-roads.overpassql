@@ -13,8 +13,15 @@
 // highway filter omits pedestrian|footway on purpose. Those are a
 // second pass later, same tables, no schema change.
 //
+// Amended 2026-09-22: primary|primary_link|trunk|trunk_link added so
+// transfer roads (Whiteladies Road / A4018, and the A38, including
+// Filton Road) are in the graph. Same bbox, same `out geom` (no node
+// recursion).
+// The widened response is saved separately; do not overwrite
+// data/raw/bristol-roads.osm.json.
+//
 // Commit this query. Never commit the JSON response.
 
 [out:json][timeout:180];
-way["highway"~"^(residential|living_street|unclassified|tertiary|secondary|service)$"](51.43,-2.64,51.51,-2.53);
+way["highway"~"^(residential|living_street|unclassified|tertiary|secondary|service|primary|primary_link|trunk|trunk_link)$"](51.43,-2.64,51.51,-2.53);
 out geom;

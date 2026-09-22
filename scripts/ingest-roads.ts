@@ -27,8 +27,20 @@ import { createIngestClient, rpc, withRetry } from "./lib/supabase";
 const NODE_BATCH = 500;
 const SEGMENT_BATCH = 100;
 const DELETE_CHUNK = 200;
-const OSM_JSON = path.resolve(process.cwd(), "data", "raw", "bristol-roads.osm.json");
+const DEFAULT_OSM_JSON = path.resolve(
+  process.cwd(),
+  "data",
+  "raw",
+  "bristol-roads.osm.json",
+);
 const QUERY_FILE = "scripts/queries/bristol-roads.overpassql";
+
+/** Optional `--file=` selects an extract. Default remains the Stage 1b file. */
+function osmJsonPath(): string {
+  const flag = process.argv.find((arg) => arg.startsWith("--file="));
+  if (!flag) return DEFAULT_OSM_JSON;
+  return path.resolve(process.cwd(), flag.slice("--file=".length));
+}
 
 const FETCH_COMMAND = [
   "curl.exe -A nakolabs-d2d/stage-1b -H \"Accept: application/json\"",
@@ -268,6 +280,45 @@ function splitWay(
   return out;
 }
 
+/**
+ * Ways whose segments are referenced by route_steps cannot be replaced:
+ * road_segments.id is a foreign key with no ON DELETE CASCADE, and a
+ * replacement would mint new ids. Leave those ways as they are.
+ */
+async function wayIdsReferencedByRoutes(): Promise<Set<number>> {
+  const supabase = createIngestClient();
+  const segmentIds: number[] = [];
+  const page = 1000;
+  for (let from = 0; ; from += page) {
+    const { data, error } = await supabase
+      .from("route_steps")
+      .select("segment_id")
+      .not("segment_id", "is", null)
+      .range(from, from + page - 1);
+    if (error) throw new Error(`route_steps segment ids: ${error.message}`);
+    const rows = data ?? [];
+    for (const row of rows) {
+      const id = row.segment_id;
+      if (typeof id === "number") segmentIds.push(id);
+    }
+    if (rows.length < page) break;
+  }
+
+  const wayIds = new Set<number>();
+  for (let i = 0; i < segmentIds.length; i += DELETE_CHUNK) {
+    const chunk = segmentIds.slice(i, i + DELETE_CHUNK);
+    const { data, error } = await supabase
+      .from("road_segments")
+      .select("osm_way_id")
+      .in("id", chunk);
+    if (error) throw new Error(`referenced osm_way_id: ${error.message}`);
+    for (const row of data ?? []) {
+      if (typeof row.osm_way_id === "number") wayIds.add(row.osm_way_id);
+    }
+  }
+  return wayIds;
+}
+
 async function deleteSegmentsForWays(wayIds: number[]): Promise<number> {
   const supabase = createIngestClient();
   let deleted = 0;
@@ -321,15 +372,16 @@ async function countTable(table: "road_nodes" | "road_segments"): Promise<number
 
 async function main(): Promise<void> {
   createIngestClient();
+  const osmJson = osmJsonPath();
 
-  if (!existsSync(OSM_JSON)) {
+  if (!existsSync(osmJson)) {
     throw new Error(
-      `Missing ${OSM_JSON}. Fetch it once (do not loop Overpass):\n  ${FETCH_COMMAND}`,
+      `Missing ${osmJson}. Fetch it once (do not loop Overpass):\n  ${FETCH_COMMAND}`,
     );
   }
 
-  const bytes = statSync(OSM_JSON).size;
-  console.log(`Streaming ${OSM_JSON} (${(bytes / 1_048_576).toFixed(1)} MiB)`);
+  const bytes = statSync(osmJson).size;
+  console.log(`Streaming ${osmJson} (${(bytes / 1_048_576).toFixed(1)} MiB)`);
   console.log("Pass 1: node coordinates and junction membership");
 
   const nodeCoords = new Map<number, NodeCoord>();
@@ -339,7 +391,7 @@ async function main(): Promise<void> {
   let wayTotal = 0;
   let skippedWays = 0;
 
-  for await (const element of streamOverpassElements(OSM_JSON)) {
+  for await (const element of streamOverpassElements(osmJson)) {
     if (typeof element.remark === "string" && element.remark.length > 0) {
       throw new Error(`Overpass remark: ${element.remark}`);
     }
@@ -380,9 +432,19 @@ async function main(): Promise<void> {
   nodesWritten += await flushNodes(nodeBatch);
   console.log(`road_nodes upserted this pass: ${nodesWritten.toLocaleString("en-GB")}`);
 
-  const deleted = await deleteSegmentsForWays([...wayIds]);
+  const protectedWays = await wayIdsReferencedByRoutes();
+  let protectedInFile = 0;
+  for (const id of wayIds) {
+    if (protectedWays.has(id)) protectedInFile += 1;
+  }
+  const replaceable = [...wayIds].filter((id) => !protectedWays.has(id));
   console.log(
-    `cleared ${deleted.toLocaleString("en-GB")} existing segments for ${wayIds.size.toLocaleString("en-GB")} ways`,
+    `ways left in place (referenced by route_steps): ${protectedInFile.toLocaleString("en-GB")}`,
+  );
+
+  const deleted = await deleteSegmentsForWays(replaceable);
+  console.log(
+    `cleared ${deleted.toLocaleString("en-GB")} existing segments for ${replaceable.length.toLocaleString("en-GB")} ways`,
   );
 
   console.log("Pass 2: split ways at junctions");
@@ -391,10 +453,11 @@ async function main(): Promise<void> {
   let segmentsWritten = 0;
   let waysSeen = 0;
 
-  for await (const element of streamOverpassElements(OSM_JSON)) {
+  for await (const element of streamOverpassElements(osmJson)) {
     const way = asWay(element);
     if (!way) continue;
     waysSeen += 1;
+    if (protectedWays.has(way.id)) continue;
     const pieces = splitWay(way, nodeCoords, isJunction);
     for (const row of pieces) {
       segmentsBuilt += 1;
