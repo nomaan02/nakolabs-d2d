@@ -100,9 +100,10 @@ function tomorrowISO(): string {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).formatToParts(new Date(Date.now() + 36 * 3600 * 1000));
-  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
-  return `${value("year")}-${value("month")}-${value("day")}`;
+  }).formatToParts(new Date());
+  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value);
+  const next = new Date(Date.UTC(value("year"), value("month") - 1, value("day") + 1));
+  return next.toISOString().slice(0, 10);
 }
 
 function formatWorkDate(iso: string): string {
@@ -152,9 +153,23 @@ export function AllocateForm({
   const drawRouteFor = (assignmentId: string) => {
     setRedraw({ id: assignmentId, state: { status: "drawing" } });
     startRedraw(async () => {
-      const result = await generateRouteAction(assignmentId);
-      setRedraw({ id: assignmentId, state: { status: "done", result } });
-      router.refresh();
+      try {
+        const result = await generateRouteAction(assignmentId);
+        setRedraw({ id: assignmentId, state: { status: "done", result } });
+        router.refresh();
+      } catch {
+        setRedraw({
+          id: assignmentId,
+          state: {
+            status: "done",
+            result: {
+              ok: false,
+              code: "unavailable",
+              message: "The route reply could not be read. Refresh the page before drawing it again.",
+            },
+          },
+        });
+      }
     });
   };
 
@@ -190,45 +205,73 @@ export function AllocateForm({
     setError(null);
 
     startTransition(async () => {
-      const result = await allocatePropAction({
-        territoryId,
-        workDate,
-        canvasserIds: picked,
-      });
-      if (!result.ok) {
-        setSaved(null);
-        setError(result.message);
-        return;
-      }
-      // Allocation is saved and confirmed before the route is attempted.
-      // The route is a second call so a route failure can never undo it.
-      const base: Saved = {
-        assignmentId: result.allocation.id,
-        name: selected?.name ?? "prop",
-        workDate,
-        visitNumber: result.allocation.visitNumber,
-        entryVertexIndex: result.allocation.entryVertexIndex,
-        sweepDirection: result.allocation.sweepDirection,
-        slot: result.allocation.slot,
-        knockableDoors: result.allocation.knockableDoors,
-        teamSize: picked.length,
-        route: { status: "drawing" },
-      };
-      setSaved(base);
-      setPicked([]);
-      setVariantOverride("");
-      router.refresh();
+      let base: Saved | null = null;
+      try {
+        const result = await allocatePropAction({
+          territoryId,
+          workDate,
+          canvasserIds: picked,
+        });
+        if (!result.ok) {
+          setSaved(null);
+          setError(result.message);
+          return;
+        }
+        // Allocation is saved and confirmed before the route is attempted.
+        // The route is a second call so a route failure can never undo it.
+        // Do not refresh until that second call returns: a refresh in flight
+        // at the same time is not a server-action payload, and Next replaces
+        // the page with "An unexpected response was received from the server."
+        base = {
+          assignmentId: result.allocation.id,
+          name: selected?.name ?? "prop",
+          workDate,
+          visitNumber: result.allocation.visitNumber,
+          entryVertexIndex: result.allocation.entryVertexIndex,
+          sweepDirection: result.allocation.sweepDirection,
+          slot: result.allocation.slot,
+          knockableDoors: result.allocation.knockableDoors,
+          teamSize: picked.length,
+          route: { status: "drawing" },
+        };
+        setSaved(base);
+        setPicked([]);
+        setVariantOverride("");
 
-      const chosen = propVariants.length > 0 ? variantOverride : "";
-      const route = chosen
-        ? await freezeVariantAction(result.allocation.id, chosen)
-        : await generateRouteAction(result.allocation.id);
-      setSaved((current) =>
-        current && current.assignmentId === base.assignmentId
-          ? { ...current, route: { status: "done", result: route } }
-          : current,
-      );
-      router.refresh();
+        const chosen = propVariants.length > 0 ? variantOverride : "";
+        const route = chosen
+          ? await freezeVariantAction(result.allocation.id, chosen)
+          : await generateRouteAction(result.allocation.id);
+        setSaved((current) =>
+          current && current.assignmentId === base?.assignmentId
+            ? { ...current, route: { status: "done", result: route } }
+            : current,
+        );
+        router.refresh();
+      } catch {
+        if (base) {
+          setSaved((current) =>
+            current && current.assignmentId === base?.assignmentId
+              ? {
+                  ...current,
+                  route: {
+                    status: "done",
+                    result: {
+                      ok: false,
+                      code: "unavailable",
+                      message:
+                        "The allocation is saved, but the route reply could not be read. Refresh the page to see it.",
+                    },
+                  },
+                }
+              : current,
+          );
+          return;
+        }
+        setError(
+          "That request did not complete. Refresh the page before allocating again — the visit may already have been saved.",
+        );
+      }
     });
   };
 
