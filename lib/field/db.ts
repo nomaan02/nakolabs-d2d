@@ -22,6 +22,12 @@ import type { SyncOp, SyncOpKind } from "@/lib/sync/ops";
  * addresses stores are repeated verbatim and not reshaped. An absent route
  * store, or a row with `has_route` false, means the out-of-order banner
  * shows and the logger behaves as it did before routes existed.
+ *
+ * Version 6 (Stage 5b-R4) adds no store and no index. The new route columns
+ * (`kind`, `side`, `walk`, `first_seq`, `last_seq`, `is_dead_end`,
+ * `variant_key`) are fields on the existing rows. Dexie does not reshape
+ * objects, so a route cached before this version simply lacks those keys.
+ * Readers treat a missing key as null and do not throw.
  */
 export type CachedAssignment = {
   assignment_id: string;
@@ -86,15 +92,23 @@ export type OutboxRow = {
   last_error: OutboxError | null;
 };
 
-/** `route_geom` for one assignment. `line` is null when the assignment is unrouted. */
+/**
+ * `route_geom` for one assignment. `line` is null when the assignment is unrouted.
+ * `variant_key` is absent on rows cached before version 6.
+ */
 export type CachedRoute = {
   assignment_id: string;
   has_route: boolean;
   stranded_count: number;
   line: GeoJSON.LineString | null;
+  variant_key?: string | null;
 };
 
-/** One `route_steps` row, without the database geometry wrapper. */
+/**
+ * One `route_steps` row, without the database geometry wrapper.
+ * The version-6 fields are optional: a row written by version 5 has none of
+ * them, and reading it must not throw.
+ */
 export type CachedRouteStep = {
   /** `${assignment_id}:${step_index}` so a re-fetch replaces rather than duplicates. */
   id: string;
@@ -106,6 +120,13 @@ export type CachedRouteStep = {
   is_spur: boolean;
   cumulative_m: number;
   coordinates: [number, number][];
+  kind?: string | null;
+  side?: string | null;
+  /** Pavement line. Absent on a version-5 row; null when the server has no walkline. */
+  walk?: [number, number][] | null;
+  first_seq?: number | null;
+  last_seq?: number | null;
+  is_dead_end?: boolean;
 };
 
 /**
@@ -173,6 +194,17 @@ export function fieldDb(): FieldDatabase {
     // store is repeated because Dexie treats an omitted store as a drop.
     // No `.upgrade()` — populated snapshot and address caches stay.
     instance.version(5).stores({
+      assignments: "assignment_id, work_date, canvasser_id",
+      outbox:
+        "++seq, &client_event_id, assignment_id, canvasser_id, status, [assignment_id+seq], [status+assignment_id]",
+      sync_meta: "key",
+      addresses: "uprn",
+      routes: "assignment_id",
+      route_steps: "id, assignment_id, step_index",
+    });
+    // Stage 5b-R4. Same stores, same indexes. No `.upgrade()` — a version-5
+    // route row stays on disk and is read as the old shape.
+    instance.version(6).stores({
       assignments: "assignment_id, work_date, canvasser_id",
       outbox:
         "++seq, &client_event_id, assignment_id, canvasser_id, status, [assignment_id+seq], [status+assignment_id]",

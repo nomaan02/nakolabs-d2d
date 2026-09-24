@@ -12,7 +12,7 @@ import { doorPlate, mapLabel } from "@/lib/field/labels";
 import { logOutcome } from "@/lib/field/log-outcome";
 import { outcomeSpec, type OtherOutcome, type PrimaryOutcome } from "@/lib/field/outcomes";
 import { offerUndo } from "@/lib/field/undo";
-import { formatAssignmentHeader } from "@/lib/geo/todays-assignment";
+import { formatFieldHeader } from "@/lib/field/route-display";
 
 /**
  * The map is the SECONDARY logging path and the recovery route: when the
@@ -31,7 +31,8 @@ export function MapTab() {
     outcomes,
     cursor,
     labelFor,
-    routeLine,
+    routeProgress,
+    routeModel,
     mapSelectedUprn,
     mapCameraNonce,
     selectDoorOnMap,
@@ -94,7 +95,7 @@ export function MapTab() {
           {assignment.territory_name}
         </h1>
         <p className="font-data text-xs leading-relaxed text-ink-soft">
-          {formatAssignmentHeader(assignment)}
+          {formatFieldHeader(assignment, routeProgress)}
         </p>
         {phase.fromCache ? (
           <p className="mt-1 text-xs text-ink-soft" role="status">
@@ -108,7 +109,7 @@ export function MapTab() {
           doors={assignment.doors}
           labels={labels}
           outcomes={outcomes}
-          routeLine={routeLine}
+          routeModel={routeModel}
           selectedUprn={selectedUprn}
           cameraNonce={mapCameraNonce}
           onSelectUprn={(uprn) => {

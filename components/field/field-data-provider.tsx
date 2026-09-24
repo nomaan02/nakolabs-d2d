@@ -23,8 +23,10 @@ import { useLocalOutcomes, type LocalOutcomes } from "@/lib/field/local-outcomes
 import { ensureRoute, readRoute } from "@/lib/field/route-cache";
 import {
   describeRoute,
+  fieldRoutePaintModel,
   type RouteDescription,
 } from "@/lib/field/route-display";
+import type { RoutePaintModel } from "@/lib/map/route-layers";
 import { getSequence, type SequenceDoor } from "@/lib/field/sequence";
 import {
   fetchTodaysAssignment,
@@ -64,8 +66,8 @@ type FieldData = {
   sequence: SequenceDoor[];
   /** Route line, steps and stranded tail. Ready false until Dexie has been read. */
   routeProgress: RouteDescription;
-  /** `route_geom` when this assignment is routed. Null hides the line. */
-  routeLine: GeoJSON.LineString | null;
+  /** Pavement-line model for a new-engine route. Empty for an old-engine route. */
+  routeModel: RoutePaintModel;
   labels: DoorLabels;
   outcomes: LocalOutcomes;
   cursor: Cursor;
@@ -241,7 +243,7 @@ export function FieldDataProvider({
   const outcomes = useLocalOutcomes(assignmentId);
   const cursor = useCursor(sequence);
 
-  const routeLine = route?.hasRoute ? route.line : null;
+  const routeModel = useMemo(() => fieldRoutePaintModel(route), [route]);
 
   const labelFor = useCallback((uprn: number) => labels.get(uprn), [labels]);
   const refreshLabels = useCallback(() => setLabelEpoch((n) => n + 1), []);
@@ -281,7 +283,7 @@ export function FieldDataProvider({
       role,
       sequence,
       routeProgress,
-      routeLine,
+      routeModel,
       labels,
       outcomes,
       cursor,
@@ -303,7 +305,7 @@ export function FieldDataProvider({
       role,
       sequence,
       routeProgress,
-      routeLine,
+      routeModel,
       labels,
       outcomes,
       cursor,

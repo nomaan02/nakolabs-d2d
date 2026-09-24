@@ -15,6 +15,7 @@ import { mapLabel } from "@/lib/field/labels";
 import type { LocalOutcomes } from "@/lib/field/local-outcomes";
 import { ATTRIBUTION_LINES, fieldMapStyle } from "@/lib/field/map-style";
 import type { DoorCollection } from "@/lib/geo/todays-assignment";
+import { paintRouteLayers, type RoutePaintModel } from "@/lib/map/route-layers";
 
 const BRISTOL: [number, number] = [-2.5879, 51.4545];
 const DOORS_SOURCE = "field-doors";
@@ -212,14 +213,11 @@ function withLabels(doors: DoorCollection, labels: DoorLabels): DoorCollection {
   };
 }
 
-function applyRoute(instance: MapLibreMap, line: GeoJSON.LineString | null) {
+function applyRoute(instance: MapLibreMap, model: RoutePaintModel) {
   const source = instance.getSource(ROUTE_SOURCE) as GeoJSONSource | undefined;
-  if (!source) return;
-  if (!line) {
-    source.setData(EMPTY);
-    return;
-  }
-  source.setData({ type: "Feature", geometry: line, properties: {} });
+  source?.setData(EMPTY);
+  const key = model.steps[0]?.variantKey || "route";
+  paintRouteLayers(instance, model, key, FOCUS_LAYER);
 }
 
 const FIELD_LAYER_ORDER = [
@@ -231,10 +229,22 @@ const FIELD_LAYER_ORDER = [
   POSITION_LAYER,
 ];
 
-function recordLayerOrder(instance: MapLibreMap, container: HTMLElement, line: GeoJSON.LineString | null) {
+function recordLayerOrder(instance: MapLibreMap, container: HTMLElement, model: RoutePaintModel) {
   const ids = new Set(instance.getStyle()?.layers?.map((layer) => layer.id) ?? []);
   container.dataset.layerOrder = FIELD_LAYER_ORDER.filter((id) => ids.has(id)).join(",");
-  container.dataset.routeVertices = String(line?.coordinates.length ?? 0);
+  container.dataset.routeVertices = String(model.steps.length);
+  container.dataset.routeCrossings = String(model.points.filter((point) => point.role === "cross").length);
+  const present = (instance.getStyle()?.layers ?? []).map((layer) => layer.id);
+  container.dataset.routeLayers = [
+    "route-walk-work",
+    "route-walk-other",
+    "route-walk-chevrons",
+    "route-walk-cross",
+    "route-walk-start",
+    "route-walk-end",
+  ]
+    .filter((id) => present.includes(id))
+    .join(",");
 }
 function applyOutcomeState(
   instance: MapLibreMap,
@@ -255,7 +265,7 @@ export function FieldMap({
   doors,
   labels,
   outcomes,
-  routeLine,
+  routeModel,
   selectedUprn,
   cameraNonce,
   onSelectUprn,
@@ -264,7 +274,7 @@ export function FieldMap({
   doors: DoorCollection;
   labels: DoorLabels;
   outcomes: LocalOutcomes;
-  routeLine: GeoJSON.LineString | null;
+  routeModel: RoutePaintModel;
   selectedUprn: number | null;
   cameraNonce: number;
   onSelectUprn: (uprn: number) => void;
@@ -277,13 +287,13 @@ export function FieldMap({
   const labelsRef = useRef(labels);
   const outcomesRef = useRef(outcomes);
   const selectedRef = useRef(selectedUprn);
-  const routeRef = useRef(routeLine);
+  const routeRef = useRef(routeModel);
   onSelect.current = onSelectUprn;
   doorsRef.current = doors;
   labelsRef.current = labels;
   outcomesRef.current = outcomes;
   selectedRef.current = selectedUprn;
-  routeRef.current = routeLine;
+  routeRef.current = routeModel;
 
   useEffect(() => {
     if (!container.current || map.current) return;
@@ -430,6 +440,10 @@ export function FieldMap({
         applyOutcomeState(instance, outcomesRef.current, selectedRef.current);
         applyRoute(instance, routeRef.current);
         if (container.current) recordLayerOrder(instance, container.current, routeRef.current);
+        instance.on("style.load", () => {
+          applyRoute(instance, routeRef.current);
+          if (container.current) recordLayerOrder(instance, container.current, routeRef.current);
+        });
         if (!flyToDoor(instance, current, selectedRef.current, "jump")) {
           fitDoors(instance, current);
         }
@@ -468,10 +482,10 @@ export function FieldMap({
   useEffect(() => {
     const instance = map.current;
     const node = container.current;
-    if (!instance?.getSource(ROUTE_SOURCE) || !node) return;
-    applyRoute(instance, routeLine);
-    recordLayerOrder(instance, node, routeLine);
-  }, [routeLine]);
+    if (!instance?.getStyle() || !instance.getSource(ROUTE_SOURCE) || !node) return;
+    applyRoute(instance, routeModel);
+    recordLayerOrder(instance, node, routeModel);
+  }, [routeModel]);
 
   // Outcome colour, current assignment only, applied as feature state.
   useEffect(() => {

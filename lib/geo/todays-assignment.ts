@@ -104,17 +104,15 @@ export function parseTodaysAssignment(data: Json | null): TodaysAssignment | nul
   };
 }
 
-export function formatSweepField(direction: SweepDirection): string {
-  return direction === "cw" ? "clockwise" : "anticlockwise";
-}
-
+/**
+ * Fallback header when the assignment has no new-engine route. Visit, slot
+ * and door count are stored facts. The withdrawn sweep wording is not shown.
+ */
 export function formatAssignmentHeader(assignment: TodaysAssignment): string {
   return [
     `Visit ${assignment.visit_number}`,
-    `starting from the ${assignment.entry_compass}`,
-    formatSweepField(assignment.sweep_direction),
     assignment.slot,
-    `${assignment.door_count} doors`,
+    `${assignment.door_count.toLocaleString("en-GB")} doors`,
   ].join(" · ");
 }
 

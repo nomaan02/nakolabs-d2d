@@ -42,6 +42,25 @@ function stepId(assignmentId: string, stepIndex: number): string {
   return `${assignmentId}:${stepIndex}`;
 }
 
+function asKind(value: unknown): "work" | "cross" | "walk" | null {
+  if (value === "work" || value === "cross" || value === "walk") return value;
+  return null;
+}
+
+function asSide(value: unknown): "left" | "right" | null {
+  if (value === "left" || value === "right") return value;
+  return null;
+}
+
+/**
+ * A version-5 row has no `kind` key. A version-6 row always has the key,
+ * even when the server value is null (an old-engine freeze).
+ */
+function cacheHasKind(steps: CachedRouteStep[]): boolean {
+  if (steps.length === 0) return true;
+  return steps.some((step) => Object.prototype.hasOwnProperty.call(step, "kind"));
+}
+
 /**
  * Fetch and cache the route unless this assignment was already fetched.
  * Returns true when the network was used. Never throws: a failure leaves
@@ -59,11 +78,14 @@ export async function ensureRoute(
   }
 
   const already = await db.sync_meta.get(metaKey(assignmentId)).catch(() => undefined);
-  if (already) return false;
+  if (already) {
+    const cached = await db.route_steps.where("assignment_id").equals(assignmentId).toArray().catch(() => []);
+    if (cacheHasKind(cached)) return false;
+  }
 
   const assignment = await supabase
     .from("assignments")
-    .select("route_geom, route_stranded_count")
+    .select("route_geom, route_stranded_count, route_variant_key")
     .eq("id", assignmentId)
     .maybeSingle();
   if (assignment.error || !assignment.data) return false;
@@ -76,13 +98,15 @@ export async function ensureRoute(
   if (hasRoute) {
     const loaded = await supabase
       .from("route_steps")
-      .select("step_index, segment_id, street_name, instruction, is_spur, cumulative_m, geom")
+      .select(
+        "step_index, segment_id, street_name, instruction, is_spur, cumulative_m, geom, kind, side, walk_geom, first_seq, last_seq, is_dead_end",
+      )
       .eq("assignment_id", assignmentId)
       .order("step_index");
     if (loaded.error || !loaded.data) return false;
     steps = [];
     for (const row of loaded.data) {
-      const coordinates = asLine(row.geom)?.coordinates;
+      const coordinates = asLine(row.geom)?.coordinates ?? asLine(row.walk_geom)?.coordinates;
       const cumulative = asNumber(row.cumulative_m);
       if (!coordinates || cumulative === null) continue;
       steps.push({
@@ -95,6 +119,12 @@ export async function ensureRoute(
         is_spur: row.is_spur,
         cumulative_m: cumulative,
         coordinates,
+        kind: asKind(row.kind),
+        side: asSide(row.side),
+        walk: asLine(row.walk_geom)?.coordinates ?? null,
+        first_seq: asNumber(row.first_seq),
+        last_seq: asNumber(row.last_seq),
+        is_dead_end: row.is_dead_end === true,
       });
     }
   }
@@ -104,6 +134,7 @@ export async function ensureRoute(
     has_route: hasRoute,
     stranded_count: stranded,
     line,
+    variant_key: assignment.data.route_variant_key,
   };
 
   await db.transaction("rw", db.routes, db.route_steps, db.sync_meta, async () => {
@@ -116,6 +147,38 @@ export async function ensureRoute(
   return true;
 }
 
+/**
+ * Turns a Dexie row into the field route. Missing version-6 keys become
+ * null. Never throws on an old-shaped row.
+ */
+export function fieldRouteFromCache(
+  row: CachedRoute,
+  steps: readonly CachedRouteStep[],
+): FieldRoute {
+  const fieldSteps: FieldRouteStep[] = steps.map((step) => ({
+    step_index: step.step_index,
+    segment_id: step.segment_id ?? null,
+    street_name: step.street_name ?? null,
+    instruction: step.instruction,
+    is_spur: step.is_spur === true,
+    cumulative_m: asNumber(step.cumulative_m) ?? 0,
+    coordinates: Array.isArray(step.coordinates) ? step.coordinates : [],
+    kind: asKind(step.kind),
+    side: asSide(step.side),
+    walk: Array.isArray(step.walk) ? step.walk : null,
+    first_seq: asNumber(step.first_seq),
+    last_seq: asNumber(step.last_seq),
+    is_dead_end: step.is_dead_end === true,
+  }));
+  return {
+    hasRoute: row.has_route,
+    strandedCount: asNumber(row.stranded_count) ?? 0,
+    line: row.line,
+    variantKey: typeof row.variant_key === "string" ? row.variant_key : null,
+    steps: fieldSteps,
+  };
+}
+
 /** The cached route, or null when the store is absent or this prop was never fetched. */
 export async function readRoute(assignmentId: string): Promise<FieldRoute | null> {
   try {
@@ -123,21 +186,7 @@ export async function readRoute(assignmentId: string): Promise<FieldRoute | null
     const row = await db.routes.get(assignmentId);
     if (!row) return null;
     const steps = await db.route_steps.where("assignment_id").equals(assignmentId).sortBy("step_index");
-    const fieldSteps: FieldRouteStep[] = steps.map((step) => ({
-      step_index: step.step_index,
-      segment_id: step.segment_id,
-      street_name: step.street_name,
-      instruction: step.instruction,
-      is_spur: step.is_spur,
-      cumulative_m: step.cumulative_m,
-      coordinates: step.coordinates,
-    }));
-    return {
-      hasRoute: row.has_route,
-      strandedCount: row.stranded_count,
-      line: row.line,
-      steps: fieldSteps,
-    };
+    return fieldRouteFromCache(row, steps);
   } catch {
     return null;
   }

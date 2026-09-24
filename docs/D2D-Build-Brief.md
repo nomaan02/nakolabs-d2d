@@ -1109,6 +1109,14 @@ create table route_steps (
 > migration `020` were not changed. An assignment with `route_variant_key`
 > set opens read-only. Cross-session staleness was not added. R4 was not
 > started.
+>
+> **Done 2026-09-24 (Stage 5b-R4).** The field Map tab paints a new-engine
+> freeze through `lib/map/route-layers.ts` (walkline, chevrons, crossings,
+> dashed non-working legs). Door-to-step is `first_seq`/`last_seq`. The
+> geometric snap is gone. An old-engine freeze (those columns null) keeps
+> snapshot order and draws no route line. The header uses the variant key,
+> the work-step hand and the door count. Dexie is version 6; a row cached
+> before that version has no `kind` key and is read as the old shape.
 
 ---
 

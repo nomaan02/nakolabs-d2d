@@ -1,26 +1,20 @@
 import type { SequenceDoor } from "@/lib/field/sequence";
+import { emptyRouteModel, toRoutePaintModel, type RoutePaintModel } from "@/lib/map/route-layers";
+import type { DoorCollection, TodaysAssignment } from "@/lib/geo/todays-assignment";
 
 /**
- * How the field app turns a generated route into the thing on the doorstep.
+ * How the field app turns a frozen route into the thing on the doorstep.
  *
- * Which step a door is on is not stored. The choice, applied the same way
- * every time:
+ * New-engine assignments (a step `kind` is set) place each door by the
+ * step's `first_seq`/`last_seq`. Those are 0-based positions in the frozen
+ * snapshot, which is the walk order. There is no geometric snap.
  *
- * - Transfers (`segment_id` null) have no doors. A door is placed on a
- *   working step only.
- * - Doors are walked in snapshot order, which Stage 5b-a already made the
- *   route order. The cursor never moves backwards.
- * - Each door snaps to the working step at or after that cursor whose
- *   geometry is nearest. Two passes of one segment are the same line, so
- *   they tie: the earlier pass keeps the door.
- * - A U-turn is the tie breaking the other way. When the door's position
- *   along the current pass drops by more than 8% of that pass, and the next
- *   working step is just as close, the door belongs to the return pass.
- * - The last `strandedCount` doors are not given a step. They are the tail
- *   Stage 5b-a appended.
+ * Old-engine assignments have a centreline and `is_spur`, and every
+ * `first_seq`/`last_seq`/`kind` is null. They keep the snapshot order and
+ * the stranded tail, and they do not draw a route line.
  *
- * A transfer is shown on the first door of the working step that follows it.
- * Consecutive spur steps are one card, not one card per step.
+ * A transfer, cross or walk is shown on the first door of the working step
+ * that follows it. Consecutive spur steps are one card.
  */
 
 export type FieldRouteStep = {
@@ -30,13 +24,21 @@ export type FieldRouteStep = {
   instruction: string;
   is_spur: boolean;
   cumulative_m: number;
+  /** Centreline. Kept so an old cached row still has a line to ignore. */
   coordinates: [number, number][];
+  kind: "work" | "cross" | "walk" | null;
+  side: "left" | "right" | null;
+  walk: [number, number][] | null;
+  first_seq: number | null;
+  last_seq: number | null;
+  is_dead_end: boolean;
 };
 
 export type FieldRoute = {
   hasRoute: boolean;
   strandedCount: number;
   line: GeoJSON.LineString | null;
+  variantKey: string | null;
   steps: FieldRouteStep[];
 };
 
@@ -57,11 +59,16 @@ export type RouteDescription = {
   /** False while the Dexie read has not finished. The banner stays hidden. */
   ready: boolean;
   hasRoute: boolean;
+  /** True only for a new-engine route. The map paints nothing otherwise. */
+  paintRoute: boolean;
+  variantKey: string | null;
+  hand: "left" | "right" | null;
+  startStreet: string | null;
+  /** First point of the pavement line, for the header compass. */
+  startPoint: [number, number] | null;
   doors: DoorRouteView[];
 };
 
-const TIE_M = 1.5;
-const FRACTION_DROP = 0.08;
 const NOT_A_STREET = new Set(["service road", "unnamed road"]);
 
 const EMPTY_DOOR: DoorRouteView = {
@@ -71,85 +78,28 @@ const EMPTY_DOOR: DoorRouteView = {
   cards: [],
 };
 
-type Proj = { x: number; y: number };
-
-type Working = {
-  listIndex: number;
-  step: FieldRouteStep;
-  startM: number;
-  endM: number;
-};
-
-function project(lon: number, lat: number, lat0: number): Proj {
-  const rad = Math.PI / 180;
-  const cos = Math.cos(lat0 * rad);
-  return { x: lon * rad * cos * 6371000, y: lat * rad * 6371000 };
-}
-
-function snapToStep(
-  point: Proj,
-  step: FieldRouteStep,
-  lat0: number,
-): { dist: number; fraction: number } {
-  const coords = step.coordinates;
-  if (coords.length < 2) return { dist: Number.POSITIVE_INFINITY, fraction: 0 };
-
-  let best = Number.POSITIVE_INFINITY;
-  let bestAlong = 0;
-  let walked = 0;
-  let total = 0;
-  const lengths: number[] = [];
-  const projected = coords.map(([lon, lat]) => project(lon, lat, lat0));
-  for (let i = 1; i < projected.length; i += 1) {
-    const a = projected[i - 1]!;
-    const b = projected[i]!;
-    const len = Math.hypot(b.x - a.x, b.y - a.y);
-    lengths.push(len);
-    total += len;
-  }
-
-  for (let i = 1; i < projected.length; i += 1) {
-    const a = projected[i - 1]!;
-    const b = projected[i]!;
-    const len = lengths[i - 1]!;
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    let u = 0;
-    if (len > 0) {
-      u = ((point.x - a.x) * dx + (point.y - a.y) * dy) / (len * len);
-      if (u < 0) u = 0;
-      else if (u > 1) u = 1;
-    }
-    const qx = a.x + u * dx;
-    const qy = a.y + u * dy;
-    const dist = Math.hypot(point.x - qx, point.y - qy);
-    const along = walked + u * len;
-    if (dist < best) {
-      best = dist;
-      bestAlong = along;
-    }
-    walked += len;
-  }
-
-  return { dist: best, fraction: total > 0 ? bestAlong / total : 0 };
-}
-
-function workingSteps(steps: FieldRouteStep[]): Working[] {
-  const out: Working[] = [];
-  for (let i = 0; i < steps.length; i += 1) {
-    const step = steps[i]!;
-    if (step.segment_id === null) continue;
-    const startM = i === 0 ? 0 : steps[i - 1]!.cumulative_m;
-    out.push({ listIndex: out.length, step, startM, endM: step.cumulative_m });
-  }
-  return out;
-}
+const COMPASS = [
+  "north",
+  "north-east",
+  "east",
+  "south-east",
+  "south",
+  "south-west",
+  "west",
+  "north-west",
+] as const;
 
 export function plateStreet(name: string | null | undefined): string | null {
   const trimmed = name?.trim();
   if (!trimmed) return null;
   if (NOT_A_STREET.has(trimmed.toLowerCase())) return null;
   return trimmed;
+}
+
+/** A new-engine freeze has `kind` on its steps. An old freeze does not. */
+export function routeIsNewEngine(route: FieldRoute | null | undefined): boolean {
+  if (!route) return false;
+  return route.steps.some((step) => step.kind === "work" || step.kind === "cross" || step.kind === "walk");
 }
 
 function spurCardText(run: FieldRouteStep[]): string {
@@ -199,65 +149,31 @@ function instructionForStep(steps: FieldRouteStep[], stepIndex: number): Instruc
   return { kind: "spur", text: spurCardText(run) };
 }
 
-function placeDoors(doors: SequenceDoor[], route: FieldRoute): Array<number | null> {
-  const strandedFrom = Math.max(0, doors.length - Math.max(0, route.strandedCount));
-  const placed: Array<number | null> = doors.map(() => null);
-  const working = workingSteps(route.steps);
-  if (working.length === 0) return placed;
+function isBetween(step: FieldRouteStep): boolean {
+  if (step.kind === "work") return false;
+  if (step.kind === "cross" || step.kind === "walk") return true;
+  return step.segment_id === null;
+}
 
-  const lat0 = route.steps[0]?.coordinates[0]?.[1] ?? doors[0]?.lngLat[1] ?? 51.45;
-  let cursor = 0;
-  let lastEst = Number.NEGATIVE_INFINITY;
-  let prevFraction: number | null = null;
-  let prevList = -1;
-
-  for (let d = 0; d < doors.length; d += 1) {
-    if (d >= strandedFrom) continue;
-    const door = doors[d]!;
-    const point = project(door.lngLat[0], door.lngLat[1], lat0);
-    const snaps = working.map((row) => {
-      const snap = snapToStep(point, row.step, lat0);
-      const span = Math.max(0, row.endM - row.startM);
-      return {
-        listIndex: row.listIndex,
-        dist: snap.dist,
-        fraction: snap.fraction,
-        est: row.startM + snap.fraction * span,
-      };
-    });
-
-    let minDist = Number.POSITIVE_INFINITY;
-    for (const snap of snaps) {
-      if (snap.listIndex >= cursor && snap.dist < minDist) minDist = snap.dist;
-    }
-
-    const near = snaps.filter(
-      (snap) => snap.listIndex >= cursor && snap.dist <= minDist + TIE_M,
+/**
+ * Exact placement. `first_seq`/`last_seq` are snapshot positions. A door
+ * outside every range is not given a step.
+ */
+function placeByRange(doors: SequenceDoor[], route: FieldRoute): Map<number, number> {
+  const placed = new Map<number, number>();
+  const ranges = route.steps.filter(
+    (step) =>
+      step.kind === "work" &&
+      step.first_seq !== null &&
+      step.last_seq !== null &&
+      step.last_seq >= step.first_seq,
+  );
+  for (const door of doors) {
+    const step = ranges.find(
+      (row) => door.position >= row.first_seq! && door.position <= row.last_seq!,
     );
-    const pool = near.length > 0 ? near : snaps.filter((snap) => snap.listIndex >= cursor);
-    const forward = pool.filter((snap) => snap.est >= lastEst - 8);
-    const choices = forward.length > 0 ? forward : pool;
-    choices.sort((a, b) => a.est - b.est || a.listIndex - b.listIndex);
-    let chosen = choices[0];
-    if (!chosen) continue;
-
-    if (
-      chosen.listIndex === cursor &&
-      prevList === cursor &&
-      prevFraction !== null &&
-      chosen.fraction < prevFraction - FRACTION_DROP
-    ) {
-      const next = pool.find((snap) => snap.listIndex === cursor + 1);
-      if (next && next.dist <= minDist + TIE_M) chosen = next;
-    }
-
-    cursor = chosen.listIndex;
-    lastEst = chosen.est;
-    prevFraction = chosen.fraction;
-    prevList = chosen.listIndex;
-    placed[d] = working[chosen.listIndex]!.step.step_index;
+    if (step) placed.set(door.position, step.step_index);
   }
-
   return placed;
 }
 
@@ -275,7 +191,7 @@ function cardsForDoor(
   if (firstOfStep) {
     const after = previousStep ?? -1;
     for (const step of steps) {
-      if (step.segment_id !== null) continue;
+      if (!isBetween(step)) continue;
       if (step.step_index <= after || step.step_index >= stepIndex) continue;
       cards.push({ kind: "transfer", text: step.instruction });
     }
@@ -285,37 +201,70 @@ function cardsForDoor(
   return cards;
 }
 
+function routeFacts(route: FieldRoute | null, paintRoute: boolean): Pick<
+  RouteDescription,
+  "variantKey" | "hand" | "startStreet" | "startPoint"
+> {
+  if (!route || !paintRoute) {
+    return { variantKey: route?.variantKey ?? null, hand: null, startStreet: null, startPoint: null };
+  }
+  const work = route.steps.find((step) => step.kind === "work");
+  const hand = work?.side === "left" || work?.side === "right" ? work.side : null;
+  const startStreet = plateStreet(work?.street_name);
+  const start = route.steps.find((step) => step.walk && step.walk.length > 0)?.walk?.[0] ?? null;
+  return {
+    variantKey: route.variantKey,
+    hand,
+    startStreet,
+    startPoint: start,
+  };
+}
+
+function blank(sequence: SequenceDoor[], ready: boolean, hasRoute: boolean): RouteDescription {
+  return {
+    ready,
+    hasRoute,
+    paintRoute: false,
+    variantKey: null,
+    hand: null,
+    startStreet: null,
+    startPoint: null,
+    doors: sequence.map(() => EMPTY_DOOR),
+  };
+}
+
 export function describeRoute(
   sequence: SequenceDoor[],
   route: FieldRoute | null,
   ready: boolean,
 ): RouteDescription {
-  if (!ready) {
-    return { ready: false, hasRoute: false, doors: sequence.map(() => EMPTY_DOOR) };
-  }
-  if (!route?.hasRoute) {
-    return { ready: true, hasRoute: false, doors: sequence.map(() => EMPTY_DOOR) };
-  }
-  if (route.steps.length === 0) {
-    const strandedFrom = Math.max(0, sequence.length - Math.max(0, route.strandedCount));
+  if (!ready) return blank(sequence, false, false);
+  if (!route?.hasRoute) return blank(sequence, true, false);
+
+  const strandedFrom = Math.max(0, sequence.length - Math.max(0, route.strandedCount));
+  const paintRoute = routeIsNewEngine(route);
+  const facts = routeFacts(route, paintRoute);
+
+  if (!paintRoute || route.steps.length === 0) {
     return {
       ready: true,
       hasRoute: true,
-      doors: sequence.map((_, index) =>
-        index >= strandedFrom
+      paintRoute: false,
+      ...facts,
+      doors: sequence.map((door, index) =>
+        index >= strandedFrom || door.position >= strandedFrom
           ? { stranded: true, stepIndex: null, routeStreet: null, cards: [{ kind: "stranded", text: "Off the drawn route" }] }
           : EMPTY_DOOR,
       ),
     };
   }
 
-  const strandedFrom = Math.max(0, sequence.length - Math.max(0, route.strandedCount));
-  const placed = placeDoors(sequence, route);
+  const placed = placeByRange(sequence, route);
   const byIndex = new Map(route.steps.map((step) => [step.step_index, step]));
   let previousStep: number | null = null;
-  const doors = sequence.map((_, index) => {
-    const stranded = index >= strandedFrom;
-    const stepIndex = stranded ? null : (placed[index] ?? null);
+  const doors = sequence.map((door, index) => {
+    const stranded = index >= strandedFrom || door.position >= strandedFrom;
+    const stepIndex = stranded ? null : (placed.get(door.position) ?? null);
     const step = stepIndex === null ? undefined : byIndex.get(stepIndex);
     const view: DoorRouteView = {
       stranded,
@@ -327,5 +276,68 @@ export function describeRoute(
     return view;
   });
 
-  return { ready: true, hasRoute: true, doors };
+  return { ready: true, hasRoute: true, paintRoute: true, ...facts, doors };
+}
+
+/** Pavement line for the shared renderer. Empty for an old-engine route. */
+export function fieldRoutePaintModel(route: FieldRoute | null): RoutePaintModel {
+  if (!route || !routeIsNewEngine(route)) return emptyRouteModel();
+  const key = route.variantKey || "route";
+  return toRoutePaintModel({
+    variantKey: key,
+    steps: route.steps.map((step) => ({
+      step_index: step.step_index,
+      kind: step.kind,
+      walk_geom: step.walk ? { type: "LineString", coordinates: step.walk } : null,
+      variant_key: key,
+    })),
+  });
+}
+
+/** North-based eight-point compass. The word for the octant only. */
+export function compassBetween(from: [number, number], to: [number, number]): string {
+  const angle = Math.atan2(to[0] - from[0], to[1] - from[1]);
+  const radians = angle < 0 ? angle + 2 * Math.PI : angle;
+  const octant = Math.floor(((radians * 180) / Math.PI + 22.5) / 45) % 8;
+  return COMPASS[octant] ?? "north";
+}
+
+function doorCentroid(doors: DoorCollection): [number, number] | null {
+  if (doors.features.length === 0) return null;
+  let lon = 0;
+  let lat = 0;
+  for (const feature of doors.features) {
+    lon += feature.geometry.coordinates[0];
+    lat += feature.geometry.coordinates[1];
+  }
+  return [lon / doors.features.length, lat / doors.features.length];
+}
+
+/**
+ * Header for the Map tab. A new-engine route contributes only facts the
+ * freeze recorded: reversed or not, the start street, the hand, the door
+ * count. An old or unrouted assignment keeps visit, slot and door count.
+ */
+export function formatFieldHeader(assignment: TodaysAssignment, route: RouteDescription): string {
+  const doors = `${assignment.door_count.toLocaleString("en-GB")} doors`;
+  if (!route.paintRoute) {
+    return [`Visit ${assignment.visit_number}`, assignment.slot, doors].join(" · ");
+  }
+
+  const parts = [`Visit ${assignment.visit_number}`];
+  if (route.variantKey === "best_reversed") parts.push("reversed");
+  else if (route.variantKey) {
+    const alt = /^alt_(\d+)$/.exec(route.variantKey);
+    if (alt) parts.push(`alternative ${alt[1]}`);
+  }
+  if (route.startStreet) {
+    const centroid = route.startPoint ? doorCentroid(assignment.doors) : null;
+    const compass =
+      centroid && route.startPoint ? compassBetween(centroid, route.startPoint) : null;
+    parts.push(compass ? `start ${route.startStreet} (${compass})` : `start ${route.startStreet}`);
+  }
+  if (route.hand === "left") parts.push("doors on your left");
+  else if (route.hand === "right") parts.push("doors on your right");
+  parts.push(doors);
+  return parts.join(" · ");
 }

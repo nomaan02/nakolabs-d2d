@@ -76,6 +76,12 @@ async function main() {
       is_spur: row.is_spur,
       cumulative_m: Number(row.cumulative_m),
       coordinates,
+      kind: null,
+      side: null,
+      walk: null,
+      first_seq: null,
+      last_seq: null,
+      is_dead_end: false,
     });
   }
 
@@ -112,12 +118,17 @@ async function main() {
     hasRoute: lineGeom !== null,
     strandedCount: assignment.route_stranded_count,
     line: lineGeom ? { type: "LineString", coordinates: lineGeom } : null,
+    variantKey: null,
     steps,
   };
   const described = describeRoute(sequence, route, true);
   const collapse = collapseSpurRuns(steps);
 
-  const unrouted = describeRoute(sequence, { hasRoute: false, strandedCount: 0, line: null, steps: [] }, true);
+  const unrouted = describeRoute(
+    sequence,
+    { hasRoute: false, strandedCount: 0, line: null, variantKey: null, steps: [] },
+    true,
+  );
   const notReady = describeRoute(sequence, route, false);
 
   line(`hasRoute ${described.hasRoute}  steps ${steps.length}  line vertices ${lineGeom?.length ?? 0}`);
