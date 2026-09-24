@@ -42,6 +42,13 @@ export type SaveRoutesResult =
   | { ok: true; summary: SaveRoutesSummary; result: WalkResult }
   | { ok: false; code: SaveRoutesFailureCode; message: string; detail?: string };
 
+/** Preview is the same read-and-generate path as save, with no `territory_routes_save` call. */
+export type PreviewRoutesResult =
+  | { ok: true; result: WalkResult }
+  | { ok: false; code: SaveRoutesFailureCode; message: string; detail?: string };
+
+const NO_ROUTE = "No road near this prop has a door on it, so no route could be drawn.";
+
 const SERVER_HINTS: Record<string, SaveRoutesFailureCode> = {
   not_admin: "not_admin",
   missing_territory: "missing_territory",
@@ -73,6 +80,43 @@ export function variantForStorage(v: WalkVariant): Json {
 }
 
 /**
+ * Reads the prop and generates every variant. No write.
+ * Never throws. `supabase` must carry the admin's own session.
+ */
+async function generateForTerritory(
+  supabase: SupabaseClient<Database>,
+  territoryId: string,
+  thrownMessage: string,
+): Promise<PreviewRoutesResult> {
+  try {
+    const fetched = await fetchWalkInputs(supabase, territoryId);
+    if (!fetched.ok) return { ok: false, code: fetched.code, message: fetched.message, detail: fetched.detail };
+
+    const result = generateWalk(fetched.inputs);
+    if (result.variants.length === 0) return { ok: false, code: "no_route", message: NO_ROUTE };
+    return { ok: true, result };
+  } catch (err) {
+    return {
+      ok: false,
+      code: "unavailable",
+      message: thrownMessage,
+      detail: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+/**
+ * Preview only: `route_walk_inputs` then `generateWalk`. Does not call
+ * `territory_routes_save`. The draw page renders this `WalkResult` directly.
+ */
+export async function previewTerritoryRoutes(
+  supabase: SupabaseClient<Database>,
+  territoryId: string,
+): Promise<PreviewRoutesResult> {
+  return generateForTerritory(supabase, territoryId, "The route could not be generated.");
+}
+
+/**
  * Generates every variant for a prop and replaces its saved set. Never
  * throws. `supabase` must carry the admin's own session.
  */
@@ -80,19 +124,11 @@ export async function saveTerritoryRoutes(
   supabase: SupabaseClient<Database>,
   territoryId: string,
 ): Promise<SaveRoutesResult> {
+  const preview = await generateForTerritory(supabase, territoryId, "The routes could not be saved.");
+  if (!preview.ok) return preview;
+
   try {
-    const fetched = await fetchWalkInputs(supabase, territoryId);
-    if (!fetched.ok) return { ok: false, code: fetched.code, message: fetched.message, detail: fetched.detail };
-
-    const result = generateWalk(fetched.inputs);
-    if (result.variants.length === 0) {
-      return {
-        ok: false,
-        code: "no_route",
-        message: "No road near this prop has a door on it, so no route could be drawn.",
-      };
-    }
-
+    const result = preview.result;
     const { data, error } = await supabase.rpc("territory_routes_save", {
       p_territory_id: territoryId,
       p_variants: result.variants.map(variantForStorage),

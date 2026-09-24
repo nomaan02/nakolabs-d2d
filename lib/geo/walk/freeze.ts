@@ -71,6 +71,14 @@ function asNumber(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/**
+ * The key `assignment_route_freeze` uses when `p_variant_key` is omitted.
+ * Odd visit → best, even visit → best_reversed.
+ */
+export function defaultVariantKey(visitNumber: number): "best" | "best_reversed" {
+  return visitNumber % 2 === 0 ? "best_reversed" : "best";
+}
+
 /** Never throws. `supabase` must carry the admin's own session. */
 export async function freezeAssignmentRoute(
   supabase: SupabaseClient<Database>,

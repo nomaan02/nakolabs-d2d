@@ -94,6 +94,104 @@ export function offsetPolyline(ptsIn: XY[], offsetM: number, side: Hand): XY[] {
   return out;
 }
 
+/** Along-track parameter of `point` on the line through `from` → `to`. 0 at `from`, 1 at `to`. */
+function along(from: XY, to: XY, point: XY): number {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return 0;
+  return ((point.x - from.x) * dx + (point.y - from.y) * dy) / lenSq;
+}
+
+/**
+ * The mitre `offsetPolyline` would place at the shared vertex of two parts.
+ * Reuses that function on the two neighbouring edges so the mitre maths stays
+ * in one place.
+ */
+function cornerMitre(prev: XY[], next: XY[], offsetM: number, side: Hand): XY {
+  const p = prev[prev.length - 2];
+  const v = prev[prev.length - 1];
+  const q = next[1];
+  return offsetPolyline([p, v, q], offsetM, side)[1];
+}
+
+/**
+ * True when the mitre at this join falls past the far end of either
+ * neighbouring edge. Joining there would fold the walkline back on itself.
+ */
+function joinOvershoots(prev: XY[], next: XY[], offsetM: number, side: Hand): boolean {
+  const v = prev[prev.length - 1];
+  const w = next[0];
+  if (v.x !== w.x || v.y !== w.y) return true;
+  const p = prev[prev.length - 2];
+  const q = next[1];
+  if ((p.x === v.x && p.y === v.y) || (q.x === v.x && q.y === v.y)) return true;
+  const m = cornerMitre(prev, next, offsetM, side);
+  return along(p, v, m) < 0 || along(v, q, m) > 1;
+}
+
+/**
+ * Offsets each part of a continuous run as one polyline, so a shared vertex
+ * gets a single mitred point instead of two independent square ends.
+ * A join whose mitre would land beyond the far end of either neighbouring
+ * edge — or that would reverse that edge once the other end is mitred too —
+ * is left as two independent square ends.
+ */
+export function offsetRun(partsIn: XY[][], offsetM: number, side: Hand): XY[][] {
+  const parts = partsIn.map((p) => dedupeXY(p));
+  const n = parts.length;
+  if (n === 0) return [];
+  const join = new Array<boolean>(n - 1).fill(true);
+  for (let i = 0; i < n - 1; i += 1) {
+    if (parts[i].length < 2 || parts[i + 1].length < 2 || joinOvershoots(parts[i], parts[i + 1], offsetM, side)) {
+      join[i] = false;
+    }
+  }
+  for (let i = 0; i < n; i += 1) {
+    const part = parts[i];
+    if (part.length < 2) continue;
+    const own = offsetPolyline(part, offsetM, side);
+    for (let e = 0; e < part.length - 1; e += 1) {
+      const startIsJoin = e === 0 && i > 0 && join[i - 1];
+      const endIsJoin = e === part.length - 2 && i < n - 1 && join[i];
+      if (!startIsJoin && !endIsJoin) continue;
+      const startPt = startIsJoin ? cornerMitre(parts[i - 1], part, offsetM, side) : own[e];
+      const endPt = endIsJoin ? cornerMitre(part, parts[i + 1], offsetM, side) : own[e + 1];
+      if (along(part[e], part[e + 1], endPt) <= along(part[e], part[e + 1], startPt)) {
+        if (startIsJoin) join[i - 1] = false;
+        if (endIsJoin) join[i] = false;
+      }
+    }
+  }
+
+  const out: XY[][] = new Array(n);
+  let i = 0;
+  while (i < n) {
+    let j = i;
+    while (j < n - 1 && join[j]) j += 1;
+    const group = parts.slice(i, j + 1);
+    const offset = offsetGroup(group, offsetM, side);
+    for (let k = 0; k < offset.length; k += 1) out[i + k] = offset[k];
+    i = j + 1;
+  }
+  return out;
+}
+
+/** Concatenates parts that share their join vertex, offsets once, splits back. */
+function offsetGroup(parts: XY[][], offsetM: number, side: Hand): XY[][] {
+  if (parts.length === 1) return [offsetPolyline(parts[0], offsetM, side)];
+  const merged: XY[] = [];
+  const ranges: [number, number][] = [];
+  for (const part of parts) {
+    const start = merged.length === 0 ? 0 : merged.length - 1;
+    if (merged.length === 0) merged.push(...part);
+    else merged.push(...part.slice(1));
+    ranges.push([start, merged.length]);
+  }
+  const offset = offsetPolyline(merged, offsetM, side);
+  return ranges.map(([a, b]) => offset.slice(a, b));
+}
+
 /**
  * Which side of a polyline a point lies on, judged at the nearest polyline
  * segment: 'left' or 'right' of the direction of travel, 'on' when collinear.

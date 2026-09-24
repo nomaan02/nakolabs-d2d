@@ -733,6 +733,15 @@ Same EXECUTE discipline as `count_knockable` — explicit revoke and narrow re-g
 >
 > **The 3,000-dot render cap and its truncation message stay.** That is a
 > rendering limit, not a policy one.
+>
+> **Done 2026-09-22 (Stage 5b-R3).** The readout on the draw page is
+> "{n} knockable · {m} excluded", with no colour and no threshold. The
+> "(NCCZ)" suffix from the sentence above was not added: excluded doors are
+> not only NCCZ. The 150-door warning is gone. The 3,000-dot cap and its
+> truncation message remain. Editing the polygon after a generate keeps the
+> lines on the map, shows a banner, and disables Save until the route is
+> generated again. That check is same-session only — `territories` has no
+> polygon-edit timestamp, and this stage added no migration.
 
 ---
 
@@ -1089,6 +1098,17 @@ create table route_steps (
 > `route_commit` and `route_clipped_subgraph` are left in place, uncalled.
 > "Previewed and saved from the draw page" is **R3**, not done here: the only
 > save path in the app today is the allocate flow.
+>
+> **Done 2026-09-22 (Stage 5b-R3).** The draw page previews with
+> `previewTerritoryRoutes` (`route_walk_inputs` → `generateWalk`, no persist)
+> and saves with the existing `saveTerritoryRoutes` (every variant).
+> `lib/map/route-layers.ts` paints the walkline for both
+> `territory_route_steps` and `route_steps`. Allocate shows the parity
+> default and an override; the chosen key reaches `assignment_route_freeze`
+> through `lib/props/freeze-variant.ts`. `lib/props/generate-route.ts` and
+> migration `020` were not changed. An assignment with `route_variant_key`
+> set opens read-only. Cross-session staleness was not added. R4 was not
+> started.
 
 ---
 

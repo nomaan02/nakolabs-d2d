@@ -5,9 +5,9 @@ export type Position = [number, number];
 export type Ring = Position[];
 
 /**
- * The walk-list window canvassing practice converges on: roughly 40 to 150
- * doors for a one-to-two-hour shift. `max` drives a soft warning, never a
- * block — the admin knows things the boundary does not.
+ * Size window the demo seed still checks its fixtures against. The draw page
+ * no longer warns on this threshold — Stage 5b-R3 replaced that with a
+ * neutral door count.
  */
 export const SHIFT_DOORS = { min: 40, max: 150 } as const;
 

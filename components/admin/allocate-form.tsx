@@ -4,9 +4,13 @@ import { useMemo, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { AdminNav } from "@/components/admin/admin-nav";
+import { FrozenRouteMap } from "@/components/admin/frozen-route-map";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { defaultVariantKey } from "@/lib/geo/walk/freeze";
 import { allocatePropAction } from "@/lib/props/allocate";
+import { freezeVariantAction } from "@/lib/props/freeze-variant";
 import { generateRouteAction, type RouteActionResult } from "@/lib/props/generate-route";
+import { compareVariantKeys, variantLabel } from "@/lib/map/route-layers";
 import { formatSlot, formatSweep, type Slot, type SweepDirection } from "@/lib/geo/rotation";
 
 export type AllocatableProp = {
@@ -18,6 +22,11 @@ export type AllocatableProp = {
    * takes under its row lock. Not territories.visit_count.
    */
   allocationCount: number;
+};
+
+export type SavedRouteVariant = {
+  territoryId: string;
+  variantKey: string;
 };
 
 export type CanvasserOption = {
@@ -111,12 +120,14 @@ export function AllocateForm({
   props,
   canvassers,
   allocations,
+  savedVariants,
   initialPropId,
   signedInAs,
 }: {
   props: AllocatableProp[];
   canvassers: CanvasserOption[];
   allocations: ExistingAllocation[];
+  savedVariants: SavedRouteVariant[];
   initialPropId: string | null;
   signedInAs: string;
 }) {
@@ -134,6 +145,9 @@ export function AllocateForm({
   // Stage 5b: "Draw route" on an already-allocated row. Keyed by assignment id.
   const [redraw, setRedraw] = useState<{ id: string; state: RouteState } | null>(null);
   const [redrawPending, startRedraw] = useTransition();
+  /** Empty string means the parity default. A value is passed to assignment_route_freeze. */
+  const [variantOverride, setVariantOverride] = useState("");
+  const [viewingId, setViewingId] = useState<string | null>(null);
 
   const drawRouteFor = (assignmentId: string) => {
     setRedraw({ id: assignmentId, state: { status: "drawing" } });
@@ -150,6 +164,15 @@ export function AllocateForm({
     () => allocations.filter((row) => row.territoryId === territoryId),
     [allocations, territoryId],
   );
+  const propVariants = useMemo(
+    () =>
+      savedVariants
+        .filter((row) => row.territoryId === territoryId)
+        .sort((a, b) => compareVariantKeys(a.variantKey, b.variantKey)),
+    [savedVariants, territoryId],
+  );
+  const defaultKey = defaultVariantKey(nextVisit);
+  const viewing = allocations.find((row) => row.id === viewingId && row.routeVariantKey) ?? null;
 
   const toggle = (id: string) => {
     setSaved(null);
@@ -193,9 +216,13 @@ export function AllocateForm({
       };
       setSaved(base);
       setPicked([]);
+      setVariantOverride("");
       router.refresh();
 
-      const route = await generateRouteAction(result.allocation.id);
+      const chosen = propVariants.length > 0 ? variantOverride : "";
+      const route = chosen
+        ? await freezeVariantAction(result.allocation.id, chosen)
+        : await generateRouteAction(result.allocation.id);
       setSaved((current) =>
         current && current.assignmentId === base.assignmentId
           ? { ...current, route: { status: "done", result: route } }
@@ -236,6 +263,8 @@ export function AllocateForm({
                         setTerritoryId(prop.id);
                         setSaved(null);
                         setError(null);
+                        setVariantOverride("");
+                        setViewingId(null);
                       }}
                       aria-pressed={active}
                       className={`flex min-h-11 w-full items-baseline justify-between gap-3 px-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-prop ${
@@ -265,8 +294,15 @@ export function AllocateForm({
       </aside>
 
       <main className="flex flex-1 flex-col bg-ink p-3 lg:h-full lg:overflow-y-auto">
-        <div className="relative flex-1 bg-paper p-6 lg:p-10">
-          {!selected ? (
+        <div className={`relative flex-1 bg-paper ${viewing ? "flex min-h-[54dvh] flex-col" : "p-6 lg:p-10"}`}>
+          {viewing?.routeVariantKey ? (
+            <FrozenRouteMap
+              assignmentId={viewing.id}
+              variantKey={viewing.routeVariantKey}
+              title={`${props.find((prop) => prop.id === viewing.territoryId)?.name ?? "Prop"} · Visit ${viewing.visitNumber}`}
+              onClose={() => setViewingId(null)}
+            />
+          ) : !selected ? (
             <p className="text-[14px] leading-relaxed text-ink-soft">
               Nothing to allocate yet. Draw a prop, then come back here and pick a date and a team.
             </p>
@@ -346,6 +382,31 @@ export function AllocateForm({
                 </p>
               </fieldset>
 
+              {propVariants.length > 0 ? (
+                <label className="flex flex-col gap-2">
+                  <span className="font-data text-[10px] uppercase tracking-[0.2em] text-ink-soft">
+                    Route variant
+                  </span>
+                  <select
+                    value={variantOverride}
+                    onChange={(event) => setVariantOverride(event.target.value)}
+                    data-testid="variant-override"
+                    className="min-h-11 w-full max-w-xs border border-ink/25 bg-worksheet px-3 font-data text-[14px] text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-prop"
+                  >
+                    <option value="">Default for this visit · {variantLabel(defaultKey)}</option>
+                    {propVariants.map((variant) => (
+                      <option key={variant.variantKey} value={variant.variantKey}>
+                        {variantLabel(variant.variantKey)}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-[13px] leading-snug text-ink-soft">
+                    Leave this on the default and the visit number picks the route. Pick another
+                    saved variant to override that for this day.
+                  </span>
+                </label>
+              ) : null}
+
               <button
                 type="submit"
                 disabled={pending || picked.length === 0}
@@ -404,7 +465,16 @@ export function AllocateForm({
                                 : "no route"}
                             </span>
                           </div>
-                          {!routed && !mine ? (
+                          {row.routeVariantKey ? (
+                            <button
+                              type="button"
+                              onClick={() => setViewingId(row.id)}
+                              className="min-h-11 w-fit border border-ink/25 px-3 font-data text-[10px] uppercase tracking-[0.14em] text-ink hover:bg-worksheet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-prop"
+                            >
+                              View route
+                            </button>
+                          ) : null}
+                          {!row.routeVariantKey && !routed && !mine ? (
                             <button
                               type="button"
                               disabled={redrawPending}

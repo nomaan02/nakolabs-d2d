@@ -16,16 +16,30 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 import { AdminNav } from "@/components/admin/admin-nav";
 import { PropTally } from "@/components/admin/prop-tally";
+import { RouteOverlay, type RouteVariantChoice } from "@/components/admin/route-overlay";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { countKnockable, type KnockableCount } from "@/lib/geo/count-knockable";
-import { SHIFT_DOORS, type Ring } from "@/lib/geo/prop-polygon";
-import { propWarnings } from "@/lib/geo/prop-warnings";
+import { type Ring } from "@/lib/geo/prop-polygon";
+import { previewTerritoryRoutes, saveTerritoryRoutes } from "@/lib/geo/walk/save";
+import { loadTerritoryRouteModel } from "@/lib/map/route-load";
+import {
+  applyRouteActive,
+  compareVariantKeys,
+  emptyRouteModel,
+  fitRouteBounds,
+  paintRouteLayers,
+  routeSaveEnabled,
+  toRoutePaintModel,
+  walkResultToPaintInput,
+  ROUTE_LINE_SOURCE,
+  type RoutePaintModel,
+} from "@/lib/map/route-layers";
 import {
   DOT_CAP,
   propertiesInPolygon,
   type DoorCollection,
 } from "@/lib/geo/properties-in-polygon";
-import { saveProp } from "@/lib/props/actions";
+import { saveProp, updatePropRing } from "@/lib/props/actions";
 import { createClient } from "@/lib/supabase/client";
 
 // MapLibre derives this from `import.meta.url` and gives up silently when the
@@ -73,6 +87,22 @@ type Phase =
 
 type Tool = "draw" | "amend";
 
+type RouteView = {
+  keys: string[];
+  highlighted: string;
+  /** The ring this preview was generated from. A later edit sets `stale`. */
+  ringKey: string;
+  stale: boolean;
+  /** True after Save has written territory_routes. The model then comes from those rows. */
+  persisted: boolean;
+  model: RoutePaintModel;
+  variants: RouteVariantChoice[];
+};
+
+function ringKeyOf(ring: Ring): string {
+  return JSON.stringify(ring);
+}
+
 /** Reads a design token so the map and the rail cannot drift apart. */
 function token(name: string, fallback: string) {
   const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -92,6 +122,9 @@ export function PropDrawer({
   const request = useRef(0);
   const recountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const measuredRing = useRef<string | null>(null);
+  const routeRef = useRef<RouteView | null>(null);
+  const paintedModel = useRef<RoutePaintModel | null>(null);
+  const paintRouteRef = useRef<(force: boolean) => void>(() => {});
 
   const [ready, setReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -101,7 +134,15 @@ export function PropDrawer({
   const [saved, setSaved] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [savedTerritory, setSavedTerritory] = useState<{ id: string; ringKey: string } | null>(null);
+  const [routeView, setRouteView] = useState<RouteView | null>(null);
+  const [routeBusy, setRouteBusy] = useState<null | "generating" | "saving">(null);
+  const [routeError, setRouteError] = useState<string | null>(null);
+  const [routeNotice, setRouteNotice] = useState<string | null>(null);
   const router = useRouter();
+  const phaseRef = useRef(phase);
+  routeRef.current = routeView;
+  phaseRef.current = phase;
 
   const setDoors = useCallback((doors: DoorCollection) => {
     const source = map.current?.getSource(DOORS_SOURCE) as GeoJSONSource | undefined;
@@ -112,7 +153,17 @@ export function PropDrawer({
   const measure = useCallback(
     async (ring: Ring) => {
       const seq = (request.current += 1);
-      measuredRing.current = JSON.stringify(ring);
+      const key = ringKeyOf(ring);
+      measuredRing.current = key;
+      // Same session only. `territories` has no column that records when the
+      // polygon last changed, so a boundary edited before this page was
+      // opened cannot be told apart from the one the routes were generated
+      // from. That case stays undetected rather than guessed.
+      setRouteView((current) => {
+        if (!current) return current;
+        if (current.ringKey === key) return current.stale ? { ...current, stale: false } : current;
+        return { ...current, stale: true };
+      });
       setSaved(null);
       setSaveError(null);
       setPhase({ kind: "counting" });
@@ -150,6 +201,29 @@ export function PropDrawer({
   useEffect(() => {
     if (!container.current || map.current) return;
 
+    paintRouteRef.current = (force: boolean) => {
+      const instance = map.current;
+      if (!instance?.getStyle() || !instance.getLayer(DOORS_SOURCE)) return;
+      const view = routeRef.current;
+      if (!view) {
+        if (force || paintedModel.current) {
+          paintRouteLayers(instance, emptyRouteModel(), "", DOORS_SOURCE);
+          paintedModel.current = null;
+        }
+        return;
+      }
+      const modelChanged = paintedModel.current !== view.model;
+      if (force || modelChanged) {
+        paintRouteLayers(instance, view.model, view.highlighted, DOORS_SOURCE);
+        paintedModel.current = view.model;
+        if (modelChanged) {
+          fitRouteBounds(instance, view.model, view.highlighted, { maxZoom: 16 });
+        }
+      } else if (instance.getSource(ROUTE_LINE_SOURCE)) {
+        applyRouteActive(instance, view.model, view.highlighted);
+      }
+    };
+
     const key = process.env.NEXT_PUBLIC_MAPTILER_KEY;
     const view = readView();
     const instance = new MapLibreMap({
@@ -177,6 +251,13 @@ export function PropDrawer({
     // A blank plate with no explanation is the worst outcome here.
     instance.on("error", (event) => {
       setMapError(event.error?.message ?? "The map could not be loaded.");
+    });
+
+    // Feature-state has to be applied here as well as in the effect. The
+    // effect returns early until the door layer exists, and a style reload
+    // would otherwise leave every variant dimmed.
+    instance.on("style.load", () => {
+      paintRouteRef.current(true);
     });
 
     instance.on("load", () => {
@@ -302,6 +383,7 @@ export function PropDrawer({
       });
 
         draw.current = instanceDraw;
+        paintRouteRef.current(true);
         setReady(true);
       } catch (error) {
         setMapError(error instanceof Error ? error.message : "The drawing tools failed to start.");
@@ -312,10 +394,17 @@ export function PropDrawer({
       if (recountTimer.current) clearTimeout(recountTimer.current);
       draw.current?.stop();
       draw.current = null;
+      paintedModel.current = null;
       instance.remove();
       map.current = null;
     };
   }, [measure]);
+
+  useEffect(() => {
+    const instance = map.current;
+    if (!instance?.isStyleLoaded() || !instance.getLayer(DOORS_SOURCE)) return;
+    paintRouteRef.current(false);
+  }, [routeView]);
 
   const startDrawing = () => {
     request.current += 1;
@@ -329,6 +418,12 @@ export function PropDrawer({
     setName("");
     setSaved(null);
     setSaveError(null);
+    setSavedTerritory(null);
+    setRouteView(null);
+    setRouteBusy(null);
+    setRouteError(null);
+    setRouteNotice(null);
+    paintedModel.current = null;
   };
 
   const amendShape = () => {
@@ -352,9 +447,102 @@ export function PropDrawer({
       }
       setSaved(result.name);
       setName("");
+      setSavedTerritory({ id: result.id, ringKey: ringKeyOf(ring) });
+      setRouteView(null);
+      setRouteError(null);
+      setRouteNotice(null);
+      paintedModel.current = null;
       router.refresh();
     });
   };
+
+  const onGenerate = () => {
+    if (phase.kind !== "counted" || !savedTerritory || routeBusy) return;
+    const ring = phase.ring;
+    const key = ringKeyOf(ring);
+    const territoryId = savedTerritory.id;
+    setRouteError(null);
+    setRouteNotice(null);
+    setRouteBusy("generating");
+
+    void (async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      if (key !== savedTerritory.ringKey) {
+        const updated = await updatePropRing({ id: territoryId, ring });
+        if (!updated.ok) {
+          setRouteError(updated.message);
+          setRouteBusy(null);
+          return;
+        }
+        setSavedTerritory({ id: territoryId, ringKey: key });
+      }
+
+      const preview = await previewTerritoryRoutes(createClient(), territoryId);
+      if (!preview.ok) {
+        setRouteError(preview.message);
+        setRouteBusy(null);
+        return;
+      }
+
+      const keys = preview.result.variants.map((variant) => variant.key).sort(compareVariantKeys);
+      const latest = phaseRef.current;
+      const moved = latest.kind !== "counted" || ringKeyOf(latest.ring) !== key;
+      setRouteView({
+        keys,
+        highlighted: keys[0] ?? "best",
+        ringKey: key,
+        stale: moved,
+        persisted: false,
+        model: toRoutePaintModel(walkResultToPaintInput(preview.result)),
+        variants: preview.result.variants.map((variant) => ({
+          key: variant.key,
+          hand: variant.hand,
+          totalM: variant.total_m,
+          steps: variant.steps.length,
+        })),
+      });
+      setRouteBusy(null);
+    })();
+  };
+
+  const onSaveRoute = () => {
+    if (!savedTerritory || !routeView || routeBusy) return;
+    if (!routeSaveEnabled({ hasPreview: true, stale: routeView.stale, busy: false })) return;
+    const territoryId = savedTerritory.id;
+    setRouteError(null);
+    setRouteNotice(null);
+    setRouteBusy("saving");
+
+    void (async () => {
+      // The highlighted variant is not passed. Save writes the whole set.
+      const savedRoutes = await saveTerritoryRoutes(createClient(), territoryId);
+      if (!savedRoutes.ok) {
+        setRouteError(savedRoutes.message);
+        setRouteBusy(null);
+        return;
+      }
+      const loaded = await loadTerritoryRouteModel(createClient(), territoryId);
+      setRouteView((current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          persisted: true,
+          model: loaded.ok && loaded.steps > 0 ? loaded.model : current.model,
+        };
+      });
+      if (!loaded.ok) {
+        setRouteError(loaded.message);
+      } else {
+        setRouteNotice(
+          `Saved ${savedRoutes.summary.variants.toLocaleString("en-GB")} variants, ${savedRoutes.summary.steps.toLocaleString("en-GB")} steps.`,
+        );
+      }
+      setRouteBusy(null);
+    })();
+  };
+
+  const routeVariants = [...(routeView?.variants ?? [])].sort((a, b) => compareVariantKeys(a.key, b.key));
+  const showRouteControls = phase.kind === "counted" || phase.kind === "counting" || routeView !== null;
 
   return (
     <div className="flex min-h-dvh flex-col lg:h-dvh lg:flex-row lg:overflow-hidden">
@@ -395,8 +583,8 @@ export function PropDrawer({
                   again to close the ring.
                 </p>
                 <p className="mt-3">
-                  Doors are counted the moment the ring closes. A shift is usually{" "}
-                  {SHIFT_DOORS.min} to {SHIFT_DOORS.max} doors.
+                  Doors are counted the moment the ring closes. Save the prop, then generate a
+                  route.
                 </p>
               </div>
             ) : null}
@@ -422,11 +610,7 @@ export function PropDrawer({
             ) : null}
 
             {phase.kind === "counted" ? (
-              <PropTally
-                count={phase.count}
-                shown={phase.shown}
-                warnings={propWarnings(phase.count)}
-              />
+              <PropTally count={phase.count} shown={phase.shown} />
             ) : null}
           </div>
 
@@ -498,6 +682,33 @@ export function PropDrawer({
               position: relative on its own container, which would undo an
               absolute one and collapse the map to nothing. */}
           <div ref={container} className="h-full w-full bg-worksheet-deep" />
+          {showRouteControls ? (
+            <RouteOverlay
+              canGenerate={phase.kind === "counted" && savedTerritory !== null && routeBusy === null}
+              generateHint={
+                phase.kind === "counted" && !savedTerritory
+                  ? "Save the prop first, then generate its route."
+                  : null
+              }
+              generating={routeBusy === "generating"}
+              saving={routeBusy === "saving"}
+              variants={routeVariants}
+              highlighted={routeView?.highlighted ?? null}
+              stale={routeView?.stale ?? false}
+              notice={routeNotice}
+              error={routeError}
+              canSave={routeSaveEnabled({
+                hasPreview: routeView !== null,
+                stale: routeView?.stale ?? false,
+                busy: routeBusy !== null,
+              })}
+              onGenerate={onGenerate}
+              onHighlight={(key) => {
+                setRouteView((current) => (current ? { ...current, highlighted: key } : current));
+              }}
+              onSave={onSaveRoute}
+            />
+          ) : null}
           {!ready ? (
             <p className="absolute inset-x-6 top-1/2 text-center font-data text-[10px] uppercase tracking-[0.2em] text-ink-soft">
               {mapError ?? "Loading the map…"}

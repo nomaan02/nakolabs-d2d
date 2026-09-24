@@ -31,7 +31,8 @@ export default async function AllocatePage({
   const profile = user ? await getOwnProfile(supabase, user.id) : null;
   const params = await searchParams;
 
-  const [{ data: territories }, { data: people }, { data: assignmentRows }] = await Promise.all([
+  const [{ data: territories }, { data: people }, { data: assignmentRows }, { data: variantRows }] =
+    await Promise.all([
     supabase
       .from("territories")
       .select("id, name")
@@ -49,6 +50,7 @@ export default async function AllocatePage({
         "id, territory_id, work_date, visit_number, entry_vertex_index, sweep_direction, slot, route_length_m, route_stranded_count, route_variant_key",
       )
       .order("work_date", { ascending: true }),
+    supabase.from("territory_routes").select("territory_id, variant_key"),
   ]);
 
   // Stage 5b-R2: visit_number is 1 + the prop's existing assignments (the
@@ -91,6 +93,10 @@ export default async function AllocatePage({
         ];
       })}
       initialPropId={params.prop ?? null}
+      savedVariants={(variantRows ?? []).map((row) => ({
+        territoryId: row.territory_id,
+        variantKey: row.variant_key,
+      }))}
       signedInAs={profile?.full_name ?? user?.email ?? ""}
     />
   );

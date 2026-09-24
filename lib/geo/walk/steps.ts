@@ -18,7 +18,7 @@ import {
   CROSS_M,
   PAVEMENT_OFFSET_M,
   makeUnproject,
-  offsetPolyline,
+  offsetRun,
   round2,
   roundCoord,
 } from "@/lib/geo/walk/geometry";
@@ -149,6 +149,48 @@ export function buildInstructions(graph: RouteGraph, records: Rec[], hand: Hand)
 // Geometry and assembly
 // ---------------------------------------------------------------------------
 
+/** A mitre is meaningless once the turn is this close to a U-turn. */
+const RUN_BREAK_RAD = (170 * Math.PI) / 180;
+
+function stepCentreXY(graph: RouteGraph, r: Rec): XY[] {
+  if (r.half === -1) return [graph.nodes[r.fromNode].xy, graph.nodes[r.toNode].xy];
+  const h = graph.halfEdges[r.half];
+  const seg = graph.segments[h.segment];
+  return h.dir === 1 ? seg.xy : [...seg.xy].reverse();
+}
+
+/** Consecutive road steps share a mitre while they meet at a node and do not reverse. */
+function continuesRun(graph: RouteGraph, prev: Rec, next: Rec): boolean {
+  if (prev.kind === "cross" || next.kind === "cross") return false;
+  if (prev.toNode !== next.fromNode) return false;
+  if (prev.half !== -1 && next.half !== -1 && next.half === graph.halfEdges[prev.half].reverse) return false;
+  const turn = wrapTurn(departureBearing(graph, next) - arrivalBearing(graph, prev));
+  return Math.abs(turn) <= RUN_BREAK_RAD;
+}
+
+/**
+ * Walkline of every non-cross record, in planar metres. Records in one run
+ * are offset together so the shared vertex is a single mitred point.
+ */
+function walklinesXY(graph: RouteGraph, records: Rec[], hand: Hand): (XY[] | null)[] {
+  const out: (XY[] | null)[] = new Array(records.length).fill(null);
+  let i = 0;
+  while (i < records.length) {
+    if (records[i].kind === "cross") {
+      i += 1;
+      continue;
+    }
+    let j = i;
+    while (j + 1 < records.length && continuesRun(graph, records[j], records[j + 1])) j += 1;
+    const parts: XY[][] = [];
+    for (let k = i; k <= j; k += 1) parts.push(stepCentreXY(graph, records[k]));
+    const offset = offsetRun(parts, PAVEMENT_OFFSET_M, hand);
+    for (let k = i; k <= j; k += 1) out[k] = offset[k - i];
+    i = j + 1;
+  }
+  return out;
+}
+
 function unitNormalAtEnd(xy: XY[], hand: Hand): XY {
   // Normal at the last vertex of a polyline, on the hand side of travel.
   let i = xy.length - 2;
@@ -172,6 +214,7 @@ export function buildVariant(
   const toLonLat = (pts: XY[]): LonLat[] => pts.map((p) => roundCoord(unproject(p)));
   const doorOrder = buildDoorOrder(graph, demand, t.records);
   const instructions = buildInstructions(graph, t.records, t.hand);
+  const walkXY = walklinesXY(graph, t.records, t.hand);
 
   const steps: WalkStep[] = t.records.map((r, i) => {
     const range = doorOrder.ranges[i];
@@ -211,7 +254,7 @@ export function buildVariant(
         from_node: a.id,
         to_node: b.id,
         centreline: [roundCoord(a.lonLat), roundCoord(b.lonLat)],
-        walkline: toLonLat(offsetPolyline([a.xy, b.xy], PAVEMENT_OFFSET_M, t.hand)),
+        walkline: toLonLat(walkXY[i] as XY[]),
         first_seq: null,
         last_seq: null,
         instruction: instructions[i],
@@ -221,7 +264,6 @@ export function buildVariant(
     }
     const h = graph.halfEdges[r.half];
     const seg = graph.segments[h.segment];
-    const xy = h.dir === 1 ? seg.xy : [...seg.xy].reverse();
     return {
       kind: r.kind,
       segment_id: seg.id,
@@ -230,7 +272,7 @@ export function buildVariant(
       from_node: graph.nodes[h.from].id,
       to_node: graph.nodes[h.to].id,
       centreline: halfEdgeLonLat(graph, h).map(roundCoord),
-      walkline: toLonLat(offsetPolyline(xy, PAVEMENT_OFFSET_M, t.hand)),
+      walkline: toLonLat(walkXY[i] as XY[]),
       first_seq: range ? range[0] : null,
       last_seq: range ? range[1] : null,
       instruction: instructions[i],
