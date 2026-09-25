@@ -311,3 +311,130 @@ are the places the live data proved it wrong, and what the code does instead.
    the centreline, but inside the pavement offset, so on the wrong side of the
    walkline. Data (OS UPRN point vs OSM centreline), not routing; the ~4 m
    offset is the prompt's and was not tuned.
+
+## Design change — open paths (2026-09-25)
+
+The body and the corrections above stay as written. This section supersedes
+the parts named in each paragraph.
+
+**Open paths (supersedes (a) "The end", f.10, g.2, corrections 1 and 3).**
+A route starts at its first door and finishes at its last. After the DFS,
+`traverse()` keeps only the records from the first `work` record to the last
+one. There is no "Back to the start" leg, and no opening walk. Before this,
+`reverseTraversal` turned `best`'s return leg into `best_reversed`'s lead-in:
+TEST - dry run 173.4 m, Northville about 542 m. `best` itself could also open
+with walks: TEST - dry run 5 steps, 219.8 m. Both are now 0. Non-working
+steps between streets are unchanged. The walk between streets still follows
+the pattern in (a).
+
+**Ranking (supersedes (c) cost and tie-break, correction 1).**
+`rank_cost_m` is the sum of the non-working metres between the first and last
+door, using the trimmed lengths below. It still equals `non_working_m`. The
+tie-breaks keep their order: `end_to_start_m`, then start node id, then right
+before left. `end_to_start_m` now means the planar distance between the first
+and last door's feet on the centreline. `best_reversed` gets the same value
+as `best` instead of 0. `return_m` is always 0; the column stays. Correction
+1 counted the return leg because leaving it out made a doorless segment a
+"free" return. Under open paths those metres really are not walked, so that
+reason is gone.
+
+- **Speedwell winner change.** `best` now costs 16 m (its two crosses)
+  instead of 26.73 m. It starts at node 835754530 and ends at 835754551,
+  right hand. Derwent Road is crossed at its far end, node 835754600.
+  Selby Road is crossed at node 835754551, a Ventnor Road node, but the arc's
+  apex is 10.0 m from that node (see below). The stored `door_order` changed
+  (`b3a1e256…` → `cec4b37c…`); the door set did not.
+- **Stale column comment.** Migration 020's comment on
+  `territory_routes.rank_cost_m` still says "including the return leg". It is
+  wrong now. An applied migration is not edited, and a new migration only for
+  a comment is not justified, so it is recorded here.
+
+**Trimming.** `lib/geo/walk/trim.ts` gives every road record one canonical
+keep interval `[lo, hi]` in planar metres from its `from_node`. Steps slice
+their centreline to it once (`sliceAlong`), and ranking uses the same
+lengths. Rules, in order:
+
+1. **Turn far bound.** At a turn, both passes stop at T, the furthest door
+   either of them knocks on that segment. Nothing is drawn between T and the
+   junction. Only the far end of the chain's last segment moves. The mouth
+   end is never trimmed.
+2. **Route ends.** The first work step starts at its first door and the last
+   work step ends at its last door.
+3. **Minimum span.** A span under 1 m is widened to 1 m, centred then clamped
+   to the segment, so the save's two-point check always holds.
+
+`length_m` of a trimmed record is `seg.lengthM × span / planarLengthM`. A cut
+within 1e-6 m of a vertex is that vertex (a door snapped to a corner).
+
+**Which turns.** A turn is a road record, an optional cross, then the
+reverse half-edge. It is found structurally, so both variants find the same
+turns. Two kinds qualify:
+
+- the same chain (a branch's far end, as planned);
+- **(added)** a no-cross reversal where exactly one side is a transfer
+  (chain −1). A transfer often walks straight back down the pavement a chain
+  has just knocked, or hands a street back to one. On the committed
+  generator those 124 reversals were 8 m pavement-to-pavement jumps. Without
+  this second kind, the one-sided rule below could not hold for them.
+
+**U-turn arc (supersedes the geometric reading of (a) "Crossings" and f.11).**
+A cross step's centreline and walkline are a 9-point half-ellipse built with
+`uTurnArc`.
+
+- **Ends.** It runs from the out step's walkline end to the back step's
+  walkline start, exactly, so the joins are bit-identical.
+- **Bulge direction.** It bulges along u, the direction of travel on the edge
+  walked in on at T. At a vertex that is the incoming edge, not the edge
+  beyond.
+- **Bulge size.** The bulge is `a = min(r, max(0, D − r − 1))`. D is the
+  smaller of two distances to the far node: along the road, and straight
+  ahead along u (**tightened from the plan**, which used the along-road
+  distance only). On a bend the straight bulge could otherwise get nearer
+  the node than the rule allows.
+- **Canonical build.** The arc is always built from segment side 0 to
+  side 1, so `best_reversed` gets the exact reverse.
+- **Length.** `length_m` stays `CROSS_M`, so the arc has no ranking effect.
+
+`from_node`/`to_node` on a cross are still the junction node; the drawing no
+longer sits there.
+
+**One-sided turns (added 2026-09-25, beyond the plan's "no arc").** A turn
+with no cross is a work pass and a walk back on the same pavement. It is
+drawn as follows:
+
+- **Walk back.** The walk back sits `PAVEMENT_OFFSET_M − WALK_BACK_INSET_M`
+  (2 m) from the centreline, on the knocked side, nearer the road than the
+  work line. It continues over the same chain's contiguous walks.
+- **Join.** It meets the work line through the same `uTurnArc` and clamp.
+- **Two walks.** Where the turn is two walks (a chain walk handed back by a
+  transfer), the transfer half is the walk back.
+- **Onward connection.** At the walk back's far end a connecting line runs
+  to the next step's start. Between two walk backs, that line goes on the
+  lower segment id, so `best_reversed` puts it on the same record.
+- **Clearance.** Where the work line bends in towards the road at a junction
+  join, the walk back stops short of it (1 m clearance) and the connecting
+  line takes over.
+- **Geometry only.** The walk record's side, kind, `length_m` and rank are
+  unchanged.
+
+**Correction to the premise.** Before this change the one-sided walk back was
+not drawn on top of the work line. It was offset to the hand of its own
+direction of travel, which is the opposite pavement, so it read as an 8 m
+jump across the road and back.
+
+**Instructions (f.13 amended).** Cross steps read "Cross at the last door".
+The last step's wording gains " — finish at the last door". "Back to the
+start" no longer exists. A walk step's street is still the street of the next
+work step.
+
+**Start and finish markers.** `route-walk-start` and `route-walk-end` are
+SDF square symbols (green `START_COLOUR`, burgundy `MARKER_COLOUR`) with a
+pale halo, at the first and last walkline points. They are squares because a
+round green dot means Lead and a round burgundy dot means Rented/Council. The
+field Map-tab legend names them "Start" and "Finish" when the route has both.
+
+**Not changed.** `offsetRun`'s junction joins. Where a mitre would pass the
+far end of a neighbouring edge, those joins still leave square ends with a
+gap. After this change the harness finds 162 such corner gaps over 39
+variants, all corners. The committed generator had 191 corners plus 193
+reversals.

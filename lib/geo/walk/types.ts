@@ -23,9 +23,20 @@ export type WalkStep = {
   /** road_nodes ids. Equal on a cross. */
   from_node: number;
   to_node: number;
-  /** LineString coordinates in walking direction. On a cross, the same short line as the walkline. */
+  /**
+   * LineString coordinates in walking direction: the part of the segment
+   * actually walked (the first and last steps start and end level with a
+   * door; a street's far end stops level with its furthest door). On a cross,
+   * the same arc as the walkline.
+   */
   centreline: LonLat[];
-  /** The centreline offset ~4 m onto the pavement being walked; a cross is pavement to pavement. */
+  /**
+   * The centreline offset ~4 m onto the pavement being walked. A cross is a
+   * 9-point U-turn arc from one pavement to the other. A one-sided street's
+   * walk back sits on the knocked pavement, inset towards the road, starts
+   * with the U-turn arc from the work line and ends with a short line to
+   * the next step.
+   */
   walkline: LonLat[];
   /** 0-based positions in `door_order` knocked by a work step; null otherwise. */
   first_seq: number | null;
@@ -34,27 +45,34 @@ export type WalkStep = {
   instruction: string;
   /** True when the step ends at a node with a single road (degree 1 in the buffer graph). */
   is_dead_end: boolean;
-  /** road_segments.length_m for road steps; the crossing distance for a cross; great-circle metres for a straight line. */
+  /**
+   * road_segments.length_m scaled to the part walked, for road steps; the
+   * crossing distance (pavement to pavement, not the drawn arc) for a
+   * cross; great-circle metres for a straight line.
+   */
   length_m: number;
 };
 
+/** `node_id` is the first step's from_node / last step's to_node; lon/lat is the first / last walkline point. */
 export type WalkEndpoint = { node_id: number; lon: number; lat: number };
 
 export type WalkVariant = {
   key: VariantKey;
   hand: Hand;
+  /** Level with the first door. */
   start: WalkEndpoint;
+  /** Level with the last door. */
   end: WalkEndpoint;
-  /** working_m + non_working_m. */
+  /** Sum of every step's length_m. */
   total_m: number;
   working_m: number;
-  /** Every cross, walk and transfer, including the appended "Back to the start" leg. */
+  /** Every cross, walk and transfer between the first door and the last. */
   non_working_m: number;
-  /** The appended "Back to the start" leg; 0 when the pattern ends at the start (and on best_reversed). */
+  /** Always 0: routes are open paths with no leg back to the start. Kept for the stored column. */
   return_m: number;
-  /** What ranked this candidate: every non-working metre, the return leg included (equals non_working_m). Copied onto best_reversed. */
+  /** What ranked this candidate: the non-working metres between the first and last door (equals non_working_m). Copied onto best_reversed. */
   rank_cost_m: number;
-  /** Planar metres from the pattern's end (before any return leg) to the start. */
+  /** Planar metres between the first and last doors' centreline feet. The same on best_reversed. */
   end_to_start_m: number;
   stranded_count: number;
   straight_transfers: number;
@@ -64,7 +82,7 @@ export type WalkVariant = {
   warnings: string[];
   /**
    * Verification aid, not for display: the chain (street as walked) each step
-   * belongs to (-1 on transfers and the return leg) and each chain's parent
+   * belongs to (-1 on transfers) and each chain's parent
    * chain (-1 at the root). A two-sided street's two passes must be separated
    * only by steps whose chain descends from its own.
    */

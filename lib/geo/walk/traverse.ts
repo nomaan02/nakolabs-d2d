@@ -8,8 +8,10 @@
  * walked straight back knocking the other side, entering hand-side
  * sub-branches at intermediate junctions on the way. A one-sided chain met in
  * trunk mode is a carry-on: the walker follows it and does not come back.
- * Leftovers are reached by transfers over the buffer graph. The walk ends
- * where the pattern ends; a "Back to the start" leg is appended.
+ * Leftovers are reached by transfers over the buffer graph. The route is an
+ * open path from the first door to the last (design change, open paths):
+ * nothing walked before the first work record or after the last is kept, and
+ * there is no leg back to the start.
  *
  * Determinism: every candidate list is sorted on an explicit total order
  * (turn key, segment id, direction); no Set or Map is iterated; the only
@@ -28,12 +30,13 @@ import {
 import { knockedSide, otherSide, type Demand, type Side } from "@/lib/geo/walk/demand";
 import { CROSS_M } from "@/lib/geo/walk/geometry";
 import { shortestPath } from "@/lib/geo/walk/shortest-path";
+import { doorFeet, findTurns, keepIntervals, keptLengthM } from "@/lib/geo/walk/trim";
 import type { Hand, StepKind } from "@/lib/geo/walk/types";
 
 /** A continuation with a different name must be within this of straight. Also the wording threshold for "Carry on". */
 export const STRAIGHT_RAD = (30 * Math.PI) / 180;
 
-export type Role = "out" | "back" | "carry" | "transfer" | "return";
+export type Role = "out" | "back" | "carry" | "transfer";
 
 export type Rec = {
   kind: StepKind;
@@ -43,23 +46,27 @@ export type Rec = {
   toNode: number;
   /** Segment side knocked (0 left / 1 right of from_node → to_node) on a work step; -1 otherwise. */
   side: Side | -1;
-  /** Chain id; -1 on transfers and the return leg. */
+  /** Chain id; -1 on transfers. */
   chain: number;
   role: Role;
+  /** Whole-segment metres (the crossing distance on a cross); the walked part is `keptLengthM` in trim.ts. */
   lengthM: number;
   straight: boolean;
 };
 
 export type Traversal = {
   hand: Hand;
+  /** The search start node. The route itself starts at `records[0].fromNode`. */
   startNode: number;
-  /** Node where the pattern ended, before any return leg. */
+  /** Node the last record ends at. */
   endNode: number;
+  /** First work record to last work record, nothing either side. */
   records: Rec[];
   chainParent: number[];
+  /** Non-working metres between the first and last door, trimmed (trim.ts). */
   rankCostM: number;
+  /** Planar metres between the first door's and the last door's centreline feet. */
   endToStartM: number;
-  returnM: number;
   workingM: number;
   nonWorkingM: number;
   transfers: number;
@@ -205,8 +212,20 @@ export function traverse(graph: RouteGraph, demand: Demand, startNode: number, h
     }
   }
 
-  /** Walks a chain out; as a branch, crosses at the far end when needed and walks back. Returns the node the walker stands on afterwards. */
-  function walkChain(edges: number[], chain: number, isBranch: boolean): number {
+  /**
+   * Walks a chain out; as a branch, crosses at the far end when needed and
+   * walks back. Returns the node the walker stands on afterwards and the
+   * half-edge that arrived there (-1 when nothing was walked).
+   */
+  function walkChain(edgesIn: number[], chain: number, isBranch: boolean): { node: number; arrived: number } {
+    // chainFor already ends the chain at its last segment with demand. Cut
+    // again here so a far end with nothing to knock can never be emitted.
+    let lastDemand = -1;
+    for (let i = 0; i < edgesIn.length; i += 1) {
+      if (hasDemand(graph.halfEdges[edgesIn[i]].segment)) lastDemand = i;
+    }
+    if (lastDemand === -1) return { node: graph.halfEdges[edgesIn[0]].from, arrived: -1 };
+    const edges = edgesIn.slice(0, lastDemand + 1);
     for (const e of edges) active[graph.halfEdges[e].segment] += 1;
     for (let i = 0; i < edges.length; i += 1) {
       const h = graph.halfEdges[edges[i]];
@@ -216,7 +235,7 @@ export function traverse(graph: RouteGraph, demand: Demand, startNode: number, h
     const last = graph.halfEdges[edges[edges.length - 1]];
     if (!isBranch) {
       for (const e of edges) active[graph.halfEdges[e].segment] -= 1;
-      return last.to;
+      return { node: last.to, arrived: last.index };
     }
     let needCross = false;
     for (const e of edges) {
@@ -232,7 +251,7 @@ export function traverse(graph: RouteGraph, demand: Demand, startNode: number, h
       if (i > 0) intermediate(r, graph.halfEdges[edges[i - 1]].reverse, chain);
     }
     for (const e of edges) active[graph.halfEdges[e].segment] -= 1;
-    return graph.halfEdges[edges[0]].from;
+    return { node: graph.halfEdges[edges[0]].from, arrived: graph.halfEdges[edges[0]].reverse };
   }
 
   /**
@@ -266,8 +285,9 @@ export function traverse(graph: RouteGraph, demand: Demand, startNode: number, h
         const c = handOnly[0];
         const chain = newChain(parentChain);
         const end = walkChain(c.edges, chain, false);
-        const last = graph.halfEdges[c.edges[c.edges.length - 1]];
-        node = end;
+        if (end.arrived === -1) return { node, arrivalBearing };
+        const last = graph.halfEdges[end.arrived];
+        node = end.node;
         arrivalBearing = last.arrivalBearing;
         exclude = last.reverse;
         parentChain = chain;
@@ -338,52 +358,42 @@ export function traverse(graph: RouteGraph, demand: Demand, startNode: number, h
     }
   }
 
-  const endNode = cur.node;
-  const endToStartM = planarDistance(graph.nodes[endNode].xy, graph.nodes[startNode].xy);
+  // Open path: the route runs from the first door to the last. Whatever the
+  // search walked before the first work record or after the last is not
+  // walked by anyone, so it is neither kept nor charged.
+  let firstWork = -1;
+  let lastWork = -1;
+  for (let i = 0; i < records.length; i += 1) {
+    if (records[i].kind !== "work") continue;
+    if (firstWork === -1) firstWork = i;
+    lastWork = i;
+  }
+  const kept = firstWork === -1 ? [] : records.slice(firstWork, lastWork + 1);
 
+  const intervals = keepIntervals(graph, demand, kept, findTurns(graph, demand, kept));
   let rankCostM = 0;
   let workingM = 0;
-  for (const r of records) {
-    if (r.kind === "work") workingM += r.lengthM;
-    else rankCostM += r.lengthM;
-  }
+  let keptStraight = 0;
+  kept.forEach((r, i) => {
+    const len = keptLengthM(graph, r, intervals[i]);
+    if (r.kind === "work") workingM += len;
+    else rankCostM += len;
+    if (r.straight) keptStraight += 1;
+  });
+  const feet = doorFeet(graph, demand, kept);
 
-  let returnM = 0;
-  if (endNode !== startNode) {
-    const back = shortestPath(graph, endNode, (n) => n === startNode);
-    if (back === null) {
-      const a = graph.nodes[endNode];
-      const b = graph.nodes[startNode];
-      const d = haversineM(a.lonLat, b.lonLat);
-      records.push({ kind: "walk", half: -1, fromNode: a.index, toNode: b.index, side: -1, chain: -1, role: "return", lengthM: d, straight: true });
-      returnM += d;
-      warnings.push(`straight-line return: no road in the buffer joins node ${a.id} back to the start node ${b.id}`);
-    } else {
-      for (const e of back.path) {
-        const h = graph.halfEdges[e];
-        const len = graph.segments[h.segment].lengthM;
-        records.push({ kind: "walk", half: e, fromNode: h.from, toNode: h.to, side: -1, chain: -1, role: "return", lengthM: len, straight: false });
-        returnM += len;
-      }
-    }
-  }
-
-  // Rank cost is every non-working metre, the return leg included (design c,
-  // post-run correction): excluding it rewarded starting beside a doorless
-  // segment so that segment became a "free" return leg.
   return {
     hand,
     startNode,
-    endNode,
-    records,
+    endNode: kept.length > 0 ? kept[kept.length - 1].toNode : cur.node,
+    records: kept,
     chainParent,
-    rankCostM: rankCostM + returnM,
-    endToStartM,
-    returnM,
+    rankCostM,
+    endToStartM: feet ? planarDistance(feet.first, feet.last) : 0,
     workingM,
-    nonWorkingM: rankCostM + returnM,
+    nonWorkingM: rankCostM,
     transfers,
-    straightTransfers,
+    straightTransfers: firstWork === -1 ? straightTransfers : keptStraight,
     warnings,
     coveredEverySide: remaining === 0,
   };
@@ -391,15 +401,16 @@ export function traverse(graph: RouteGraph, demand: Demand, startNode: number, h
 
 /**
  * `best_reversed`: the record list backwards, every half-edge reversed, out
- * and back passes swapped. The old return leg becomes an opening walk. The
- * knocked segment side is a physical pavement and does not change; the side
- * relative to travel flips because the hand flips (design d).
+ * and back passes swapped. Both ends are already doors, so the reverse is an
+ * open path too, with the same metres. The knocked segment side is a
+ * physical pavement and does not change; the side relative to travel flips
+ * because the hand flips (design d).
  */
 export function reverseTraversal(graph: RouteGraph, t: Traversal): Traversal {
   const records: Rec[] = [];
   for (let i = t.records.length - 1; i >= 0; i -= 1) {
     const r = t.records[i];
-    const role: Role = r.role === "out" ? "back" : r.role === "back" ? "out" : r.role === "return" ? "transfer" : r.role;
+    const role: Role = r.role === "out" ? "back" : r.role === "back" ? "out" : r.role;
     if (r.kind === "cross") {
       records.push({ ...r, role });
       continue;
@@ -420,8 +431,7 @@ export function reverseTraversal(graph: RouteGraph, t: Traversal): Traversal {
     records,
     chainParent: [...t.chainParent],
     rankCostM: t.rankCostM,
-    endToStartM: 0,
-    returnM: 0,
+    endToStartM: t.endToStartM,
     workingM: t.workingM,
     nonWorkingM: t.nonWorkingM,
     transfers: t.transfers,

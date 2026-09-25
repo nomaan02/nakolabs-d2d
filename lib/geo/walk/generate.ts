@@ -85,9 +85,9 @@ export function enumerateStarts(graph: RouteGraph, demand: Demand, ring: XY[]): 
 type Scored = { t: Traversal; startNodeId: number };
 
 /**
- * Rank order (design c, post-run correction): non-working metres including
- * the return leg, then end nearer the start, then start node id, then the
- * reference drawing's hand (right) before left.
+ * Rank order (design change, open paths): non-working metres between the
+ * first and last door, then first and last doors nearer each other, then
+ * search start node id, then the reference drawing's hand (right) before left.
  */
 export function compareCandidates(a: Scored, b: Scored): number {
   return (

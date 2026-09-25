@@ -182,14 +182,27 @@ export function MapTab() {
  *
  * Outcomes shown are this assignment's only. Nothing here is a count, a rate
  * or a ranking.
+ *
+ * Start and Finish are squares because green and burgundy dots already mean
+ * Lead and Rented/Council.
  */
 function Legend() {
+  const { routeModel } = useFieldData();
+  const hasEnds =
+    routeModel.points.some((point) => point.role === "start") &&
+    routeModel.points.some((point) => point.role === "end");
   const items = [
-    { label: "Not yet logged", className: "h-3 w-3 bg-ink-soft" },
-    { label: "No answer", className: "h-3 w-3 bg-worksheet-deep ring-1 ring-ink" },
-    { label: "Contact", className: "h-3.5 w-3.5 bg-prop ring-2 ring-inset ring-paper" },
-    { label: "Rented/Council", className: "h-2 w-2 bg-oxide" },
-    { label: "Lead", className: "h-5 w-5 bg-lead ring-2 ring-inset ring-paper" },
+    { label: "Not yet logged", className: "rounded-full h-3 w-3 bg-ink-soft" },
+    { label: "No answer", className: "rounded-full h-3 w-3 bg-worksheet-deep ring-1 ring-ink" },
+    { label: "Contact", className: "rounded-full h-3.5 w-3.5 bg-prop ring-2 ring-inset ring-paper" },
+    { label: "Rented/Council", className: "rounded-full h-2 w-2 bg-oxide" },
+    { label: "Lead", className: "rounded-full h-5 w-5 bg-lead ring-2 ring-inset ring-paper" },
+    ...(hasEnds
+      ? [
+          { label: "Start", className: "h-3.5 w-3.5 bg-lead" },
+          { label: "Finish", className: "h-3 w-3 bg-oxide" },
+        ]
+      : []),
   ];
 
   return (
@@ -199,7 +212,7 @@ function Legend() {
     >
       {items.map((item) => (
         <li key={item.label} className="flex items-center gap-2 py-0.5 text-[11px] leading-none">
-          <span className={`inline-block shrink-0 rounded-full ${item.className}`} />
+          <span className={`inline-block shrink-0 ${item.className}`} />
           {item.label}
         </li>
       ))}

@@ -7,13 +7,127 @@
  * itself is offset instead. "~4 m" is a display offset, not a measurement.
  */
 
-import type { LonLat, XY } from "@/lib/geo/route-graph";
+import type { GraphSegment, LonLat, XY } from "@/lib/geo/route-graph";
 import type { Hand } from "@/lib/geo/walk/types";
 
 /** Metres from the road centreline to the walkline. */
 export const PAVEMENT_OFFSET_M = 4;
 /** The crossing distance charged for every cross step: pavement to pavement. */
 export const CROSS_M = 2 * PAVEMENT_OFFSET_M;
+/**
+ * A walk back along the pavement just knocked is drawn this much nearer the
+ * road than the work line, so the two sit side by side instead of on top of
+ * each other. Display only.
+ */
+export const WALK_BACK_INSET_M = 2;
+
+type SegmentLine = Pick<GraphSegment, "xy" | "lonLat" | "cumXY" | "planarLengthM">;
+
+/** A distance along this close to a vertex is that vertex (a door snapped to a corner). */
+const VERTEX_EPS_M = 1e-6;
+
+/** Index of the first non-degenerate edge whose far vertex is at or beyond `m`. */
+function edgeAt(seg: SegmentLine, m: number): number {
+  const n = seg.xy.length;
+  for (let i = 1; i < n; i += 1) {
+    if (seg.cumXY[i] > seg.cumXY[i - 1] && seg.cumXY[i] >= m) return i;
+  }
+  for (let i = n - 1; i >= 1; i -= 1) {
+    if (seg.cumXY[i] > seg.cumXY[i - 1]) return i;
+  }
+  return 1;
+}
+
+function cutPoint(seg: SegmentLine, m: number): { xy: XY; lonLat: LonLat } {
+  const i = edgeAt(seg, m);
+  const span = seg.cumXY[i] - seg.cumXY[i - 1];
+  const u = span > 0 ? Math.max(0, Math.min(1, (m - seg.cumXY[i - 1]) / span)) : 0;
+  const a = seg.xy[i - 1];
+  const b = seg.xy[i];
+  const la = seg.lonLat[i - 1];
+  const lb = seg.lonLat[i];
+  return {
+    xy: { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u },
+    lonLat: [la[0] + (lb[0] - la[0]) * u, la[1] + (lb[1] - la[1]) * u],
+  };
+}
+
+/** The centreline point `m` planar metres from the segment's from_node. */
+export function pointAlong(seg: SegmentLine, m: number): XY {
+  return cutPoint(seg, m).xy;
+}
+
+/**
+ * Unit direction of the segment's edge at `m`, from_node → to_node. At a
+ * vertex, `approach` picks the edge arrived along: 1 the edge before `m`,
+ * -1 the edge after it.
+ */
+export function directionAlong(seg: SegmentLine, m: number, approach: 1 | -1 = 1): XY {
+  let i = edgeAt(seg, approach === 1 ? m - VERTEX_EPS_M : m);
+  if (approach === -1) {
+    while (i < seg.xy.length - 1 && seg.cumXY[i] <= m + VERTEX_EPS_M) i += 1;
+  }
+  const dx = seg.xy[i].x - seg.xy[i - 1].x;
+  const dy = seg.xy[i].y - seg.xy[i - 1].y;
+  const len = Math.hypot(dx, dy);
+  return len > 0 ? { x: dx / len, y: dy / len } : { x: 0, y: 0 };
+}
+
+/**
+ * The part of a segment between `fromM` and `toM` planar metres from its
+ * from_node, in the segment's own direction. The segment's vertices are kept
+ * exactly; only a cut end is interpolated. The full span returns the
+ * segment's own arrays.
+ */
+export function sliceAlong(seg: SegmentLine, fromM: number, toM: number): { xy: XY[]; lonLat: LonLat[] } {
+  const n = seg.xy.length;
+  const L = seg.planarLengthM;
+  if (fromM <= 0 && toM >= L) return { xy: [...seg.xy], lonLat: [...seg.lonLat] };
+  const xy: XY[] = [];
+  const lonLat: LonLat[] = [];
+  const push = (p: { xy: XY; lonLat: LonLat }) => {
+    xy.push(p.xy);
+    lonLat.push(p.lonLat);
+  };
+  const EPS = VERTEX_EPS_M;
+  const vertex = (k: number) => ({ xy: seg.xy[k], lonLat: seg.lonLat[k] });
+  const at = (m: number, fallback: number) => {
+    for (let k = 0; k < n; k += 1) if (Math.abs(seg.cumXY[k] - m) <= EPS) return vertex(k);
+    return m <= 0 || m >= L ? vertex(fallback) : cutPoint(seg, m);
+  };
+  push(fromM <= 0 ? vertex(0) : at(fromM, 0));
+  for (let k = 0; k < n; k += 1) {
+    if (seg.cumXY[k] > fromM + EPS && seg.cumXY[k] < toM - EPS) push(vertex(k));
+  }
+  push(toM >= L ? vertex(n - 1) : at(toM, n - 1));
+  return { xy, lonLat };
+}
+
+export const ARC_POINTS = 9;
+const ARC_COS = Array.from({ length: ARC_POINTS }, (_, k) => Math.cos((k * Math.PI) / (ARC_POINTS - 1)));
+const ARC_SIN = Array.from({ length: ARC_POINTS }, (_, k) => Math.sin((k * Math.PI) / (ARC_POINTS - 1)));
+
+/**
+ * A U-turn from `p0` to `p1`: half an ellipse on the chord, bulging along
+ * `u` (the direction of travel into the turn). The bulge is at most half the
+ * chord and keeps the apex one pavement offset plus 1 m short of the far
+ * node, `reachM` metres ahead of the chord. At 0 it is the straight chord.
+ * The end points are `p0` and `p1` themselves, so the joins are exact.
+ */
+export function uTurnArc(p0: XY, p1: XY, u: XY, reachM: number): XY[] {
+  const cx = (p0.x + p1.x) / 2;
+  const cy = (p0.y + p1.y) / 2;
+  const ex = p0.x - cx;
+  const ey = p0.y - cy;
+  const r = Math.hypot(ex, ey);
+  const a = Math.min(r, Math.max(0, reachM - PAVEMENT_OFFSET_M - 1));
+  const out: XY[] = [p0];
+  for (let k = 1; k < ARC_POINTS - 1; k += 1) {
+    out.push({ x: cx + ex * ARC_COS[k] + u.x * a * ARC_SIN[k], y: cy + ey * ARC_COS[k] + u.y * a * ARC_SIN[k] });
+  }
+  out.push(p1);
+  return out;
+}
 
 /**
  * Inverse of `makeProjection(origin)`. The projection is linear

@@ -18,13 +18,13 @@ import { join } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { loadEnvLocal, requiredEnv } from "./lib/env";
 import type { Database } from "@/lib/supabase/types";
-import type { RouteGraph } from "@/lib/geo/route-graph";
+import type { GraphSegment, RouteGraph, XY } from "@/lib/geo/route-graph";
 import { fetchWalkInputs, type WalkInputs } from "@/lib/geo/walk/inputs";
 import { generateWalk, overlap, prepare } from "@/lib/geo/walk/generate";
 import { variantToGeoJson } from "@/lib/geo/walk/preview";
-import { sideOfPolyline } from "@/lib/geo/walk/geometry";
+import { PAVEMENT_OFFSET_M, pointAlong, sideOfPolyline } from "@/lib/geo/walk/geometry";
 import type { Demand } from "@/lib/geo/walk/demand";
-import type { WalkResult, WalkVariant } from "@/lib/geo/walk/types";
+import type { WalkResult, WalkStep, WalkVariant } from "@/lib/geo/walk/types";
 
 loadEnvLocal();
 const URL_ = requiredEnv("NEXT_PUBLIC_SUPABASE_URL");
@@ -36,6 +36,7 @@ const PREVIEW_ONLY_PROPS = [
   "DEMO - Clifton (Princess Victoria Street)",
   "DEMO - Southville (Stackpool Road)",
   "DEMO - Bishopston (Monmouth Road)",
+  "TEST - dry run",
 ];
 const PREVIEW_DIR = join(process.cwd(), "data", "route-previews");
 
@@ -121,8 +122,13 @@ function segmentNodesByStreet(graph: RouteGraph, name: string): Set<number> {
   return nodes;
 }
 
-/** One out-and-back: work steps of `street` form one contiguous block [work+, cross, work+] and the cross node is on `crossStreet`. */
-function checkOutAndBack(p: Prepared, v: WalkVariant, street: string, crossStreet: string): { ok: boolean; evidence: string } {
+/**
+ * One out-and-back: the steps of `street` form one contiguous block
+ * [out+, cross, back+] with no foreign steps, and the single cross is at
+ * the far end from where the street was entered: its node is the out pass's
+ * last to_node.
+ */
+function checkOutAndBack(v: WalkVariant, street: string): { ok: boolean; evidence: string } {
   const idx = v.steps.map((s, i) => (s.street_name === street && s.kind !== "cross" ? i : -1)).filter((i) => i >= 0);
   if (idx.length === 0) return { ok: false, evidence: `${street}: no steps` };
   const first = idx[0];
@@ -131,15 +137,365 @@ function checkOutAndBack(p: Prepared, v: WalkVariant, street: string, crossStree
   const foreign = block.filter((s) => s.street_name !== street && s.kind !== "cross");
   const crosses = block.map((s, i) => (s.kind === "cross" ? first + i : -1)).filter((i) => i >= 0);
   const works = idx.filter((i) => v.steps[i].kind === "work");
-  const crossNodes = segmentNodesByStreet(p.graph, crossStreet);
-  const crossOnStreet = crosses.length === 1 && crossNodes.has(v.steps[crosses[0]].to_node);
-  const before = works.filter((i) => i < (crosses[0] ?? Infinity)).length;
-  const after = works.filter((i) => i > (crosses[0] ?? -1)).length;
-  const ok = foreign.length === 0 && crosses.length === 1 && crossOnStreet && before > 0 && after > 0;
+  const c = crosses[0];
+  const atFarEnd = crosses.length === 1 && c > first && v.steps[c].to_node === v.steps[c - 1].to_node;
+  const before = idx.filter((i) => i < (c ?? Infinity)).length;
+  const after = idx.filter((i) => i > (c ?? -1)).length;
+  const ok = foreign.length === 0 && crosses.length === 1 && atFarEnd && before > 0 && after > 0;
   return {
     ok,
-    evidence: `${street}: steps ${first}–${last} (${works.length} work, cross at step ${crosses.join(",") || "none"}${crossOnStreet ? ` on ${crossStreet}` : ""}, ${foreign.length} foreign steps inside)`,
+    evidence: `${street}: steps ${first}–${last} (${works.length} work, cross at step ${crosses.join(",") || "none"}${atFarEnd ? ` at node ${v.steps[c].to_node}, the out pass's far end` : ""}, ${foreign.length} foreign steps inside)`,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Open paths, turns, connectivity (2026-09-25)
+// ---------------------------------------------------------------------------
+
+function dist(a: XY, b: XY): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function sameCoord(a: [number, number], b: [number, number]): boolean {
+  return a[0] === b[0] && a[1] === b[1];
+}
+
+function lineLength(pts: XY[]): number {
+  let t = 0;
+  for (let i = 1; i < pts.length; i += 1) t += dist(pts[i - 1], pts[i]);
+  return t;
+}
+
+/** Planar metres from from_node of the nearest point on the segment centreline. */
+function projectAlong(seg: GraphSegment, p: XY): number {
+  let best = Infinity;
+  let along = 0;
+  for (let i = 1; i < seg.xy.length; i += 1) {
+    const a = seg.xy[i - 1];
+    const b = seg.xy[i];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const l2 = dx * dx + dy * dy;
+    const u = l2 > 0 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2)) : 0;
+    const d = Math.hypot(p.x - (a.x + u * dx), p.y - (a.y + u * dy));
+    if (d < best) {
+      best = d;
+      along = seg.cumXY[i - 1] + u * Math.sqrt(l2);
+    }
+  }
+  return along;
+}
+
+function distToPolyline(pts: XY[], p: XY): number {
+  let best = Infinity;
+  for (let i = 1; i < pts.length; i += 1) {
+    const a = pts[i - 1];
+    const b = pts[i];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const l2 = dx * dx + dy * dy;
+    const u = l2 > 0 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2)) : 0;
+    best = Math.min(best, Math.hypot(p.x - (a.x + u * dx), p.y - (a.y + u * dy)));
+  }
+  return best;
+}
+
+/** Points every ≤ 0.5 m along a polyline, vertices included. */
+function samples(pts: XY[]): XY[] {
+  const out: XY[] = [];
+  for (let i = 1; i < pts.length; i += 1) {
+    const a = pts[i - 1];
+    const b = pts[i];
+    const n = Math.max(1, Math.ceil(dist(a, b) / 0.5));
+    for (let k = 0; k < n; k += 1) out.push({ x: a.x + ((b.x - a.x) * k) / n, y: a.y + ((b.y - a.y) * k) / n });
+  }
+  if (pts.length > 0) out.push(pts[pts.length - 1]);
+  return out;
+}
+
+type Ctx = {
+  p: Prepared;
+  segById: Map<number, GraphSegment>;
+  alongByUprn: Map<number, number>;
+  nodeXY: Map<number, XY>;
+};
+
+function ctxFor(p: Prepared): Ctx {
+  const segById = new Map(p.graph.segments.map((s) => [s.id, s]));
+  const alongByUprn = new Map<number, number>();
+  for (const d of p.demand.doors) if (!d.stranded) alongByUprn.set(d.uprn, d.alongM);
+  const nodeXY = new Map(p.graph.nodes.map((n) => [n.id, n.xy]));
+  return { p, segById, alongByUprn, nodeXY };
+}
+
+function xyOf(c: Ctx, coords: [number, number][]): XY[] {
+  return coords.map((q) => c.p.graph.project(q));
+}
+
+function leadIn(v: WalkVariant): { steps: number; metres: number } {
+  let steps = 0;
+  let metres = 0;
+  for (const s of v.steps) {
+    if (s.kind === "work") break;
+    steps += 1;
+    metres += s.length_m;
+  }
+  return { steps, metres };
+}
+
+function checkOpenPath(c: Ctx, v: WalkVariant): string[] {
+  const problems: string[] = [];
+  const n = v.steps.length;
+  if (n === 0) return ["no steps"];
+  const first = v.steps[0];
+  const last = v.steps[n - 1];
+  if (first.kind !== "work") problems.push(`step 0 is ${first.kind}`);
+  if (last.kind !== "work") problems.push(`step ${n - 1} is ${last.kind}`);
+  if (v.return_m !== 0) problems.push(`return_m ${v.return_m}`);
+  if (!sameCoord([v.start.lon, v.start.lat], first.walkline[0])) problems.push("start is not the first walkline point");
+  if (!sameCoord([v.end.lon, v.end.lat], last.walkline[last.walkline.length - 1])) problems.push("end is not the last walkline point");
+  const sum = v.steps.reduce((a, s) => a + s.length_m, 0);
+  if (Math.abs(sum - v.total_m) > 0.01) problems.push(`total_m ${v.total_m} vs Σ length_m ${sum.toFixed(2)}`);
+  if (first.kind === "work" && first.first_seq !== null && first.segment_id !== null) {
+    const seg = c.segById.get(first.segment_id) as GraphSegment;
+    const along = c.alongByUprn.get(v.door_order[first.first_seq]);
+    const centre = xyOf(c, first.centreline);
+    const widened = lineLength(centre) <= WIDENED_MAX_M;
+    if (along !== undefined && !widened) {
+      const d = dist(pointAlong(seg, along), centre[0]);
+      if (d > 0.5) problems.push(`step 0 first door foot ${d.toFixed(2)} m from the first centreline vertex`);
+    }
+  }
+  return problems;
+}
+
+type FoundTurn = { a: number; cross: number; b: number; seg: GraphSegment; dir: 1 | -1 };
+
+function findStepTurns(c: Ctx, v: WalkVariant): FoundTurn[] {
+  const out: FoundTurn[] = [];
+  const steps = v.steps;
+  for (let i = 0; i < steps.length; i += 1) {
+    const a = steps[i];
+    if (a.kind === "cross" || a.segment_id === null) continue;
+    let j = i + 1;
+    let cross = -1;
+    if (j < steps.length && steps[j].kind === "cross") {
+      cross = j;
+      j += 1;
+    }
+    const b = steps[j];
+    if (!b || b.kind === "cross" || b.segment_id !== a.segment_id || b.from_node !== a.to_node || b.to_node !== a.from_node) continue;
+    const chainA = v.tree.step_chain[i];
+    const chainB = v.tree.step_chain[j];
+    const sameChain = chainA !== -1 && chainB === chainA;
+    const viaTransfer = cross === -1 && (chainA === -1) !== (chainB === -1);
+    if (!sameChain && !viaTransfer) continue;
+    const seg = c.segById.get(a.segment_id) as GraphSegment;
+    let dir: 1 | -1 = c.p.graph.nodes[seg.fromNode].id === a.from_node ? 1 : -1;
+    if (seg.fromNode === seg.toNode) {
+      // A loop's two ends are one node, so read the direction off the line itself, away from that node.
+      const centre = xyOf(c, a.centreline);
+      const m = Math.max(0, Math.floor(centre.length / 2) - 1);
+      dir = projectAlong(seg, centre[m + 1] ?? centre[m]) >= projectAlong(seg, centre[m]) ? 1 : -1;
+    }
+    out.push({ a: i, cross, b: j, seg, dir });
+  }
+  return out;
+}
+
+type TurnStats = {
+  checked: number;
+  crossTurns: number;
+  oneSided: number;
+  walkWalk: number;
+  loops: number;
+  pulledBackM: number;
+  problems: string[];
+  oneSidedExample: string | null;
+};
+
+const ARC_N = 9;
+/** A 1 m minimum span, as stored: coordinates are rounded to about 1 cm. */
+const WIDENED_MAX_M = 1.05;
+const CLAMP_M = PAVEMENT_OFFSET_M + 1 - 0.1;
+
+/** Direction of travel into the turn at T, and T's centreline foot. */
+function travelFrame(t: FoundTurn, T: number): { foot: XY; u: XY } {
+  const seg = t.seg;
+  // The edge walked in on: ending at T going forwards, starting at T going
+  // backwards. T within 1e-6 m of a vertex is that vertex, as in the generator.
+  const eps = 1e-6;
+  let i = 1;
+  while (i < seg.xy.length - 1 && !(seg.cumXY[i] > seg.cumXY[i - 1] && (t.dir === 1 ? seg.cumXY[i] >= T - eps : seg.cumXY[i] > T + eps))) i += 1;
+  const dx = seg.xy[i].x - seg.xy[i - 1].x;
+  const dy = seg.xy[i].y - seg.xy[i - 1].y;
+  const len = Math.hypot(dx, dy) || 1;
+  return { foot: pointAlong(seg, T), u: { x: (dx / len) * t.dir, y: (dy / len) * t.dir } };
+}
+
+function ahead(frame: { foot: XY; u: XY }, q: XY): number {
+  return (q.x - frame.foot.x) * frame.u.x + (q.y - frame.foot.y) * frame.u.y;
+}
+
+/** Arc clamp, in the direction of travel: every point at least one offset + 1 m short of the far node, or no forward bulge when the door itself is closer. */
+function arcClampProblem(c: Ctx, t: FoundTurn, T: number, arc: XY[], widened: boolean): string | null {
+  const frame = travelFrame(t, T);
+  const far = c.p.graph.nodes[t.dir === 1 ? t.seg.toNode : t.seg.fromNode].xy;
+  const doorShort = ahead(frame, far);
+  let worstShort = Infinity;
+  let worstPast = -Infinity;
+  for (const q of arc) {
+    worstShort = Math.min(worstShort, doorShort - ahead(frame, q));
+    worstPast = Math.max(worstPast, ahead(frame, q));
+  }
+  if (doorShort >= PAVEMENT_OFFSET_M + 1) {
+    if (worstShort < CLAMP_M - (widened ? 0.5 : 0)) return `arc reaches ${worstShort.toFixed(2)} m short of the far node`;
+  } else if (worstPast > 0.1 + (widened ? 0.5 : 0)) {
+    return `door ${doorShort.toFixed(2)} m from the far node but the arc bulges ${worstPast.toFixed(2)} m`;
+  }
+  return null;
+}
+
+function checkTurns(c: Ctx, v: WalkVariant, label: string): TurnStats {
+  const stats: TurnStats = { checked: 0, crossTurns: 0, oneSided: 0, walkWalk: 0, loops: 0, pulledBackM: 0, problems: [], oneSidedExample: null };
+  const bad = (i: number, msg: string) => stats.problems.push(`${label} step ${i}: ${msg}`);
+  for (const t of findStepTurns(c, v)) {
+    stats.checked += 1;
+    const a = v.steps[t.a];
+    const b = v.steps[t.b];
+    const L = t.seg.planarLengthM;
+    let T = t.dir === 1 ? -Infinity : Infinity;
+    for (const s of [a, b]) {
+      if (s.kind !== "work" || s.first_seq === null || s.last_seq === null) continue;
+      for (let q = s.first_seq; q <= s.last_seq; q += 1) {
+        const along = c.alongByUprn.get(v.door_order[q]);
+        if (along === undefined) continue;
+        T = t.dir === 1 ? Math.max(T, along) : Math.min(T, along);
+      }
+    }
+    const walkWalk = a.kind === "walk" && b.kind === "walk";
+    if (!Number.isFinite(T)) {
+      if (!walkWalk || t.cross !== -1) {
+        bad(t.a, "turn with no knocked door on its segment");
+        continue;
+      }
+      // A walk handed back by a transfer: nothing knocked, so it turns at the node.
+      T = t.dir === 1 ? L : 0;
+    }
+    stats.pulledBackM += t.dir === 1 ? L - T : T;
+    const aW = xyOf(c, a.walkline);
+    const bW = xyOf(c, b.walkline);
+    const widened = lineLength(xyOf(c, a.centreline)) <= WIDENED_MAX_M || lineLength(xyOf(c, b.centreline)) <= WIDENED_MAX_M;
+    const tol = 0.5 + (widened ? 0.5 : 0);
+    // Walkline points near the turn are judged in the direction of travel at
+    // T (a 4 m offset point at a bend projects onto the wrong edge). The
+    // centreline lies on the segment, so its points are judged by projection.
+    const frame = travelFrame(t, T);
+    const near = 2 * PAVEMENT_OFFSET_M + 1;
+    const loop = t.seg.fromNode === t.seg.toNode;
+    // On a loop the node is both ends, so projection cannot say which side of
+    // T a point is. There, each centreline must instead be the segment's own
+    // vertices in walking order, ending (a) or starting (b) at T's foot.
+    const past = (q: XY) => (!loop && dist(q, frame.foot) <= near ? ahead(frame, q) : -Infinity);
+    if (loop) {
+      stats.loops += 1;
+      for (const [k, s, towardT] of [[t.a, a, true], [t.b, b, false]] as const) {
+        const inner = s.centreline.slice(1, -1);
+        const idx = inner.map((p) => t.seg.lonLat.findIndex((q, n) => n > 0 && n < t.seg.lonLat.length - 1 && sameCoord(q, p)));
+        const stepDir = towardT ? t.dir : -t.dir;
+        const ordered = idx.every((n, m) => n > 0 && (m === 0 || (n - idx[m - 1]) * stepDir > 0));
+        if (!ordered) bad(k, "loop centreline is not the segment's vertices in walking order");
+        const endAtT = xyOf(c, [towardT ? s.centreline[s.centreline.length - 1] : s.centreline[0]])[0];
+        if (dist(endAtT, frame.foot) > tol) bad(k, `loop centreline ${towardT ? "ends" : "starts"} ${dist(endAtT, frame.foot).toFixed(2)} m from the furthest door`);
+      }
+    }
+    for (const [k, s] of loop ? [] : ([[t.a, a], [t.b, b]] as const)) {
+      const centre = xyOf(c, s.centreline);
+      const worst = Math.max(...centre.map((q) => {
+        const along = projectAlong(t.seg, q);
+        return t.dir === 1 ? along - T : T - along;
+      }));
+      if (worst > tol) bad(k, `centreline runs ${worst.toFixed(2)} m past the furthest door`);
+    }
+    const aCentreEnd = loop ? T : projectAlong(t.seg, xyOf(c, [a.centreline[a.centreline.length - 1]])[0]);
+    const bCentreStart = loop ? T : projectAlong(t.seg, xyOf(c, [b.centreline[0]])[0]);
+    if (Math.abs(aCentreEnd - T) > tol) bad(t.a, `centreline ends ${Math.abs(aCentreEnd - T).toFixed(2)} m from the furthest door`);
+    if (Math.abs(bCentreStart - T) > tol) bad(t.b, `centreline starts ${Math.abs(bCentreStart - T).toFixed(2)} m from the furthest door`);
+
+    // The arc of a one-sided turn is inside the walk step; it is held to the arc rule, not the past-T rule.
+    let aBody = aW;
+    let bBody = bW;
+    let arc: XY[] | null = null;
+    if (t.cross !== -1) {
+      stats.crossTurns += 1;
+      const x = v.steps[t.cross];
+      if (x.walkline.length !== ARC_N) bad(t.cross, `cross walkline has ${x.walkline.length} points`);
+      if (!sameCoord(x.walkline[0], a.walkline[a.walkline.length - 1])) bad(t.cross, "cross does not start at the out step's walkline end");
+      if (!sameCoord(x.walkline[x.walkline.length - 1], b.walkline[0])) bad(t.cross, "cross does not end at the back step's walkline start");
+      arc = xyOf(c, x.walkline);
+    } else {
+      stats.oneSided += 1;
+      // The walk back is the walk half; with two walks, the transfer half.
+      const walkFirst = walkWalk ? v.tree.step_chain[t.a] === -1 : a.kind === "walk";
+      const w = walkFirst ? a : b;
+      const k = walkFirst ? b : a;
+      if (walkWalk) stats.walkWalk += 1;
+      if (w.kind !== "walk" || (k.kind !== "work" && !walkWalk)) {
+        bad(t.a, `one-sided turn is ${a.kind}/${b.kind}`);
+        continue;
+      }
+      const wXY = walkFirst ? aW : bW;
+      const kXY = walkFirst ? bW : aW;
+      if (wXY.length < ARC_N + 1) {
+        bad(walkFirst ? t.a : t.b, `walk back has ${wXY.length} points, no room for an arc`);
+        continue;
+      }
+      arc = walkFirst ? wXY.slice(wXY.length - ARC_N) : wXY.slice(0, ARC_N);
+      const body = walkFirst ? wXY.slice(0, wXY.length - ARC_N + 1) : wXY.slice(ARC_N - 1);
+      // The far-end point may be the connecting line to the next step, which starts wherever that step starts.
+      const bodyPastCheck = walkFirst ? body.slice(1) : body.slice(0, -1);
+      if (walkFirst) aBody = bodyPastCheck;
+      else bBody = bodyPastCheck;
+      const joined = walkFirst
+        ? sameCoord(a.walkline[a.walkline.length - 1], b.walkline[0])
+        : sameCoord(b.walkline[0], a.walkline[a.walkline.length - 1]);
+      if (!joined) bad(t.a, "work line and walk back do not meet");
+      let nearest = Infinity;
+      for (const q of samples(bodyPastCheck)) nearest = Math.min(nearest, distToPolyline(kXY, q));
+      if (nearest < 1) bad(walkFirst ? t.a : t.b, `walk back comes within ${nearest.toFixed(2)} m of the work line`);
+      if (stats.oneSidedExample === null) {
+        stats.oneSidedExample = `steps ${t.a} (${a.kind}) → ${t.b} (${b.kind}) on ${a.street_name ?? "an unnamed road"} (segment ${a.segment_id}); separation ≥ ${nearest.toFixed(2)} m; arc bulge ${Math.max(...arc.map(past)).toFixed(2)} m`;
+      }
+    }
+
+    const aEnd = ahead(frame, aW[aW.length - 1]);
+    const bStart = ahead(frame, bW[0]);
+    if (Math.abs(aEnd) > tol) bad(t.a, `walkline ends ${aEnd.toFixed(2)} m from the furthest door`);
+    if (Math.abs(bStart) > tol) bad(t.b, `walkline starts ${bStart.toFixed(2)} m from the furthest door`);
+    const worstPast = Math.max(...aBody.map(past), ...bBody.map(past));
+    if (worstPast > tol) bad(t.a, `a walkline runs ${worstPast.toFixed(2)} m past the furthest door`);
+    if (arc) {
+      const clamp = arcClampProblem(c, t, T, arc, widened);
+      if (clamp) bad(t.cross !== -1 ? t.cross : t.a, clamp);
+    }
+  }
+  return stats;
+}
+
+type Gap = { i: number; m: number; what: string; kinds: string };
+
+function checkConnectivity(c: Ctx, v: WalkVariant): Gap[] {
+  const gaps: Gap[] = [];
+  for (let i = 0; i + 1 < v.steps.length; i += 1) {
+    const s: WalkStep = v.steps[i];
+    const t: WalkStep = v.steps[i + 1];
+    const m = dist(c.p.graph.project(s.walkline[s.walkline.length - 1]), c.p.graph.project(t.walkline[0]));
+    if (m > 0.5) {
+      const kinds = `${s.kind}${s.segment_id === null && s.kind === "walk" ? " (straight)" : ""} → ${t.kind}${t.segment_id === null && t.kind === "walk" ? " (straight)" : ""}`;
+      gaps.push({ i, m, kinds, what: `${s.kind} ${s.street_name ?? "-"} → ${t.kind} ${t.street_name ?? "-"}` });
+    }
+  }
+  return gaps;
 }
 
 function checkOneWorkStepPerSegment(p: Prepared, v: WalkVariant, street: string): { ok: boolean; evidence: string } {
@@ -371,22 +727,22 @@ async function main(): Promise<void> {
       if (process.argv.includes("--breakdown")) {
         for (const v of r.variants) {
           if (v.key === "best_reversed") continue;
-          const sum = { cross: 0, return: 0, transfer_road: 0, transfer_straight: 0, chain_back: 0, chain_other: 0 };
-          const n = { cross: 0, return: 0, transfer_road: 0, transfer_straight: 0, chain_back: 0, chain_other: 0 };
+          const sum = { cross: 0, transfer_road: 0, transfer_straight: 0, chain_back: 0, chain_other: 0 };
+          const n = { cross: 0, transfer_road: 0, transfer_straight: 0, chain_back: 0, chain_other: 0 };
+          let transferRuns = 0;
           v.steps.forEach((s, i) => {
+            if (v.tree.step_chain[i] === -1 && (i === 0 || v.tree.step_chain[i - 1] !== -1)) transferRuns += 1;
             if (s.kind === "work") return;
             let k: keyof typeof sum;
             if (s.kind === "cross") k = "cross";
-            else if (s.instruction === "Back to the start") k = "return";
             else if (v.tree.step_chain[i] === -1) k = s.segment_id === null ? "transfer_straight" : "transfer_road";
             else if (s.instruction.startsWith("Come back down")) k = "chain_back";
             else k = "chain_other";
             sum[k] += s.length_m;
             n[k] += 1;
           });
-          const cand = r.candidates.find((c) => c.start_node_id === v.start.node_id && c.hand === v.hand);
           console.log(
-            `    ${v.key.padEnd(6)} non-working breakdown: cross ${n.cross}/${Math.round(sum.cross)} m; transfers ${cand?.transfers ?? "?"} → road ${n.transfer_road} steps/${Math.round(sum.transfer_road)} m + straight ${n.transfer_straight}/${Math.round(sum.transfer_straight)} m; one-sided back passes ${n.chain_back}/${Math.round(sum.chain_back)} m; other in-chain walks ${n.chain_other}/${Math.round(sum.chain_other)} m; return ${Math.round(sum.return)} m`,
+            `    ${v.key.padEnd(6)} non-working breakdown: cross ${n.cross}/${Math.round(sum.cross)} m; transfers ${transferRuns} → road ${n.transfer_road} steps/${Math.round(sum.transfer_road)} m + straight ${n.transfer_straight}/${Math.round(sum.transfer_straight)} m; one-sided back passes ${n.chain_back}/${Math.round(sum.chain_back)} m; other in-chain walks ${n.chain_other}/${Math.round(sum.chain_other)} m`,
           );
         }
       }
@@ -400,7 +756,7 @@ async function main(): Promise<void> {
         const kinds = { work: 0, cross: 0, walk: 0 };
         for (const s of v.steps) kinds[s.kind] += 1;
         console.log(
-          `  ${v.key.padEnd(13)} ${v.hand.padEnd(5)} start ${v.start.node_id} end ${v.end.node_id}; total ${v.total_m} m = working ${v.working_m} + non-working ${v.non_working_m} (${pct(v.non_working_m, v.total_m)}; return ${v.return_m} m; rank cost ${v.rank_cost_m} m; end→start ${v.end_to_start_m} m); steps ${v.steps.length} (${kinds.work} work, ${kinds.cross} cross, ${kinds.walk} walk); straight transfers ${st.count} / ${st.metres} m; warnings ${v.warnings.length}; md5 ${md5(v.steps)}`,
+          `  ${v.key.padEnd(13)} ${v.hand.padEnd(5)} start ${v.start.node_id} end ${v.end.node_id}; total ${v.total_m} m = working ${v.working_m} + non-working ${v.non_working_m} (${pct(v.non_working_m, v.total_m)}; rank cost ${v.rank_cost_m} m; first↔last door ${v.end_to_start_m} m); steps ${v.steps.length} (${kinds.work} work, ${kinds.cross} cross, ${kinds.walk} walk); straight transfers ${st.count} / ${st.metres} m; warnings ${v.warnings.length}; md5 ${md5(v.steps)}`,
         );
       }
       const files = writePreviews(name, r);
@@ -419,9 +775,9 @@ async function main(): Promise<void> {
   const sp = prepared.get("REF - Speedwell");
   const spBest = sp ? variant(sp.result, "best") : undefined;
   if (sp && spBest) {
-    const derwent = checkOutAndBack(sp, spBest, "Derwent Road", "Ventnor Road");
-    const selby = checkOutAndBack(sp, spBest, "Selby Road", "Ventnor Road");
-    record("Speedwell best: Derwent and Selby each one out-and-back, cross at the Ventnor end", derwent.ok && selby.ok ? "PASS" : "FAIL", `${derwent.evidence}\n${selby.evidence}`);
+    const derwent = checkOutAndBack(spBest, "Derwent Road");
+    const selby = checkOutAndBack(spBest, "Selby Road");
+    record("Speedwell best: Derwent and Selby each one out-and-back, single cross at the far end from where the street was entered", derwent.ok && selby.ok ? "PASS" : "FAIL", `${derwent.evidence}\n${selby.evidence}`);
 
     const streets = ["Speedwell Road", "Harewood Road", "Ventnor Road"].map((s) => checkOneWorkStepPerSegment(sp, spBest, s));
     record("Speedwell best: every segment of Speedwell, Harewood, Ventnor has exactly one work step, on the prop side", streets.every((s) => s.ok) ? "PASS" : "FAIL", streets.map((s) => s.evidence).join("\n"));
@@ -430,22 +786,155 @@ async function main(): Promise<void> {
     const mismatched = workSides.filter((s) => s.side !== spBest.hand).length;
     record("Speedwell best: every work step's side equals the route hand", mismatched === 0 ? "PASS" : "FAIL", `${workSides.length} work steps, hand ${spBest.hand}, ${mismatched} mismatches`);
 
-    const finalEnd = spBest.end;
-    const startXY = sp.graph.project([spBest.start.lon, spBest.start.lat]);
-    const endXY = sp.graph.project([finalEnd.lon, finalEnd.lat]);
-    const finalM = Math.hypot(endXY.x - startXY.x, endXY.y - startXY.y);
-    record("Speedwell best: ends within 100 m of start", spBest.end_to_start_m <= 100 && finalM <= 100 ? "PASS" : "FAIL", `pattern end → start ${spBest.end_to_start_m} m (before the appended return leg of ${spBest.return_m} m); final end → start ${finalM.toFixed(1)} m`);
-
     const once = everyDoorOnce(sp, spBest);
     record("Speedwell: every door once; stranded count", once.ok ? "PASS" : "FAIL", once.evidence);
   } else {
     for (const item of [
-      "Speedwell best: Derwent and Selby each one out-and-back, cross at the Ventnor end",
+      "Speedwell best: Derwent and Selby each one out-and-back, single cross at the far end from where the street was entered",
       "Speedwell best: every segment of Speedwell, Harewood, Ventnor has exactly one work step, on the prop side",
       "Speedwell best: every work step's side equals the route hand",
-      "Speedwell best: ends within 100 m of start",
       "Speedwell: every door once; stranded count",
     ]) record(item, "NOT RUN", "REF - Speedwell not generated");
+  }
+
+  // Open paths (2026-09-25): replaces "Speedwell best: ends within 100 m of start".
+  {
+    const lines: string[] = [];
+    let ok = true;
+    let variants = 0;
+    for (const [name, p] of prepared) {
+      const c = ctxFor(p);
+      for (const v of p.result.variants) {
+        variants += 1;
+        const problems = checkOpenPath(c, v);
+        if (problems.length > 0) {
+          ok = false;
+          lines.push(`${name} ${v.key}: ${problems.slice(0, 4).join("; ")}`);
+        }
+      }
+    }
+    record(
+      "Open path: first and last steps are work, return_m 0, start/end are the walkline ends, total_m = Σ length_m, step 0 starts at its first door",
+      variants === 0 ? "NOT RUN" : ok ? "PASS" : "FAIL",
+      `${variants} variants over ${prepared.size} props${lines.length ? `\n${lines.slice(0, 12).join("\n")}` : ", no problems"}`,
+    );
+  }
+
+  {
+    const lines: string[] = [];
+    let ok = true;
+    let ran = false;
+    for (const [name, p] of prepared) {
+      for (const key of ["best", "best_reversed"]) {
+        const v = variant(p.result, key);
+        if (!v) continue;
+        ran = true;
+        const li = leadIn(v);
+        if (li.steps !== 0) ok = false;
+        lines.push(`${name} ${key}: ${li.steps} non-work steps / ${li.metres.toFixed(1)} m before the first door`);
+      }
+    }
+    record(
+      "Lead-in: no non-work step before the first door, best and best_reversed (was TEST - dry run 5 steps / 219.8 m and 173.4 m; Northville ~542 m)",
+      ran ? (ok ? "PASS" : "FAIL") : "NOT RUN",
+      lines.join("\n"),
+    );
+  }
+
+  {
+    const lines: string[] = [];
+    const problems: string[] = [];
+    let checked = 0;
+    for (const [name, p] of prepared) {
+      const c = ctxFor(p);
+      let n = 0;
+      let crossTurns = 0;
+      let oneSided = 0;
+      let loops = 0;
+      let pulled = 0;
+      for (const v of p.result.variants) {
+        const s = checkTurns(c, v, `${name} ${v.key}`);
+        n += s.checked;
+        crossTurns += s.crossTurns;
+        oneSided += s.oneSided;
+        loops += s.loops;
+        pulled += s.pulledBackM;
+        problems.push(...s.problems);
+      }
+      checked += n;
+      lines.push(`${name}: ${n} turns over ${p.result.variants.length} variants (${crossTurns} with a cross, ${oneSided} one-sided, ${loops} on a loop segment); ${pulled.toFixed(1)} m pulled back in total`);
+    }
+    const sp2 = prepared.get("REF - Speedwell");
+    if (sp2) {
+      const ventnor = segmentNodesByStreet(sp2.graph, "Ventnor Road");
+      const nodeXY = new Map(sp2.graph.nodes.map((n) => [n.id, n.xy]));
+      for (const key of ["best", "best_reversed"]) {
+        const v = variant(sp2.result, key);
+        if (!v) continue;
+        for (const street of ["Selby Road", "Derwent Road"]) {
+          const crosses = v.steps.map((s, i) => ({ s, i })).filter(({ s }) => s.kind === "cross" && s.street_name === street);
+          for (const { s, i } of crosses) {
+            const apex = sp2.graph.project(s.walkline[Math.floor((s.walkline.length - 1) / 2)]);
+            let nearest = Infinity;
+            for (const id of ventnor) nearest = Math.min(nearest, dist(apex, nodeXY.get(id) as XY));
+            lines.push(`Speedwell ${key} ${street} cross step ${i}: node ${s.to_node}${ventnor.has(s.to_node) ? " (a Ventnor Road node)" : " (not on Ventnor Road)"}; arc apex ${nearest.toFixed(1)} m from the nearest Ventnor Road node`);
+          }
+        }
+      }
+    }
+    record(
+      "Turns: walklines stop level with the furthest door, crosses are 9-point arcs joined exactly, arcs clamped short of the far node",
+      checked === 0 ? "NOT RUN" : problems.length === 0 ? "PASS" : "FAIL",
+      `${lines.join("\n")}${problems.length ? `\nproblems (${problems.length}): ${problems.slice(0, 12).join("; ")}` : ""}`,
+    );
+  }
+
+  {
+    const lines: string[] = [];
+    const problems: string[] = [];
+    let ran = false;
+    for (const [name, p] of prepared) {
+      const c = ctxFor(p);
+      for (const v of p.result.variants) {
+        const s = checkTurns(c, v, `${name} ${v.key}`);
+        ran = ran || s.oneSided > 0;
+        for (const pr of s.problems) if (/walk back|one-sided|do not meet/.test(pr)) problems.push(pr);
+        if (v.key === "best" && ["Northville", "REF - Speedwell", "TEST - dry run"].includes(name)) {
+          lines.push(`${name} best: ${s.oneSided} one-sided turns (${s.walkWalk} walk handed back by a transfer)${s.oneSidedExample ? `; e.g. ${s.oneSidedExample}` : ""}`);
+        }
+      }
+    }
+    record(
+      "One-sided turns: walk back ≥ 1 m from the work line along their shared length, joined to it by an arc",
+      ran ? (problems.length === 0 ? "PASS" : "FAIL") : "NOT RUN",
+      `${lines.join("\n")}${problems.length ? `\nproblems (${problems.length}): ${problems.slice(0, 12).join("; ")}` : ""}`,
+    );
+  }
+
+  {
+    const lines: string[] = [];
+    let gapsTotal = 0;
+    let variants = 0;
+    const byWhat = new Map<string, number>();
+    for (const [name, p] of prepared) {
+      const c = ctxFor(p);
+      for (const v of p.result.variants) {
+        variants += 1;
+        const gaps = checkConnectivity(c, v);
+        gapsTotal += gaps.length;
+        for (const g of gaps) byWhat.set(g.kinds, (byWhat.get(g.kinds) ?? 0) + 1);
+        if (gaps.length > 0) {
+          const worst = gaps.reduce((a, g) => (g.m > a.m ? g : a));
+          lines.push(`${name} ${v.key}: ${gaps.length} gaps; worst ${worst.m.toFixed(2)} m after step ${worst.i} (${worst.what})`);
+        }
+      }
+    }
+    const kinds = [...byWhat.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k}: ${n}`).join("; ");
+    record(
+      "Connectivity: every step's walkline ends within 0.5 m of the next step's walkline start",
+      variants === 0 ? "NOT RUN" : gapsTotal === 0 ? "PASS" : "FAIL",
+      `${variants} variants, ${gapsTotal} gaps${kinds ? ` (${kinds})` : ""}${lines.length ? `\n${lines.slice(0, 20).join("\n")}` : ""}`,
+    );
   }
 
   const rd = prepared.get("redland");
@@ -476,7 +965,7 @@ async function main(): Promise<void> {
       ran = true;
       for (const v of p.result.variants) {
         if (v.key === "best_reversed") continue;
-        lines.push(`${name} ${v.key}: non-working ${v.non_working_m} m / total ${v.total_m} m = ${pct(v.non_working_m, v.total_m)} (return leg ${v.return_m} m; rank cost ${v.rank_cost_m} m)`);
+        lines.push(`${name} ${v.key}: non-working ${v.non_working_m} m / total ${v.total_m} m = ${pct(v.non_working_m, v.total_m)} (rank cost ${v.rank_cost_m} m)`);
       }
     }
     record("redland and Northville: non-working / total, best and each alt", ran ? "PASS" : "NOT RUN", `${lines.join("\n")}\nold Northville: 26%`);

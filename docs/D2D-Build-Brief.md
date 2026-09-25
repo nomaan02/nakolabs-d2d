@@ -1118,6 +1118,37 @@ create table route_steps (
 > the work-step hand and the door count. Dexie is version 6; a row cached
 > before that version has no `kind` key and is read as the old shape.
 
+> **Amended 2026-09-25 (open paths).** A route now starts at its first door
+> and finishes at its last. There is no leg back to the start and no walk
+> before the first door. This supersedes the parts of the pivot note and the
+> R1 design that assumed a loop.
+>
+> - **`best`** is the variant with the least non-working metres between its
+>   first and last door. Ties go to the one whose first and last doors are
+>   closer together, then to start node id, then right before left.
+>   `return_m` is always 0.
+> - **Rule 3** now means crossing level with the street's last door, never
+>   beyond it. The walkline and the cross stop at the furthest door either
+>   pass knocks. The cross instruction reads "Cross at the last door".
+> - **Rule 7's** "final leg back towards the start" no longer implies a
+>   return. The last step reads "… — finish at the last door".
+> - **Display.** The route line only runs where there are doors, and U-turns
+>   are drawn as arcs. A one-sided street's walk back is drawn beside the
+>   work line on the same pavement, nearer the road, and joined to it by an
+>   arc. That is drawing only; the step's kind, side and length are
+>   unchanged.
+> - **Start and finish** are marked with a green square at the first door and
+>   a burgundy square at the last, not round pins, because a round green dot
+>   is Lead and a round burgundy dot is Rented/Council. The field Map-tab
+>   legend names them.
+> - **Acceptance.** The R1 item "route ends within 100 m of its start /
+>   closes to its start" is withdrawn. It is replaced by the open-path and
+>   turn checks in `scripts/verify-stage-5b-r1.ts`.
+>
+> Details, and the Speedwell winner change, are in `docs/ROUTE-DESIGN-v2.md`,
+> "Design change — open paths". No migration. The migration 020 comment on
+> `rank_cost_m` ("including the return leg") is stale and was left as it is.
+
 ---
 
 ### Stage 6 — Field prop view and offline cache

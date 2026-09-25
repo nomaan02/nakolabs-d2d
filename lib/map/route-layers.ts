@@ -27,6 +27,7 @@ import type { WalkResult } from "@/lib/geo/walk/types";
 export const ROUTE_LINE_SOURCE = "route-walk-lines";
 export const ROUTE_POINT_SOURCE = "route-walk-points";
 const CHEVRON_IMAGE = "route-walk-chevron";
+const SQUARE_IMAGE = "route-walk-square";
 
 const LINE_WORK = "route-walk-work";
 const LINE_OTHER = "route-walk-other";
@@ -404,6 +405,35 @@ function ensureChevron(map: MapLibreMap): void {
   map.addImage(CHEVRON_IMAGE, { width: size, height: size, data }, { sdf: true });
 }
 
+/**
+ * Start and finish are squares, not circles: a round burgundy dot already
+ * means Rented/Council on the door layer. The image is a distance field
+ * (edge at 0.75, 1/8 per pixel, MapLibre's SDF scale) so `icon-halo-*`
+ * draws the pale outline.
+ */
+function ensureSquare(map: MapLibreMap): void {
+  if (map.hasImage(SQUARE_IMAGE)) return;
+  const size = 32;
+  const half = 10;
+  const centre = (size - 1) / 2;
+  const data = new Uint8ClampedArray(size * size * 4);
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const outside = Math.max(Math.abs(x - centre), Math.abs(y - centre)) - half;
+      const index = (y * size + x) * 4;
+      data[index] = 255;
+      data[index + 1] = 255;
+      data[index + 2] = 255;
+      data[index + 3] = Math.round(255 * Math.max(0, Math.min(1, (6 - outside) / 8)));
+    }
+  }
+  map.addImage(SQUARE_IMAGE, { width: size, height: size, data }, { sdf: true });
+}
+
+function squareSize(small: number, mid: number, large: number): ExpressionSpecification {
+  return ["interpolate", ["linear"], ["zoom"], 12, small, 16, mid, 19, large];
+}
+
 function addBefore(map: MapLibreMap, layer: Parameters<MapLibreMap["addLayer"]>[0], beforeId?: string): void {
   if (map.getLayer(layer.id)) return;
   if (beforeId && map.getLayer(beforeId)) map.addLayer(layer, beforeId);
@@ -416,6 +446,7 @@ function addBefore(map: MapLibreMap, layer: Parameters<MapLibreMap["addLayer"]>[
  */
 export function ensureRouteLayers(map: MapLibreMap, beforeId?: string): void {
   ensureChevron(map);
+  ensureSquare(map);
   if (!map.getSource(ROUTE_LINE_SOURCE)) {
     map.addSource(ROUTE_LINE_SOURCE, { type: "geojson", data: EMPTY, promoteId: "fid" });
   }
@@ -504,16 +535,22 @@ export function ensureRouteLayers(map: MapLibreMap, beforeId?: string): void {
     map,
     {
       id: POINT_END,
-      type: "circle",
+      type: "symbol",
       source: ROUTE_POINT_SOURCE,
       filter: ["==", ["get", "role"], "end"],
+      layout: {
+        "icon-image": SQUARE_IMAGE,
+        "icon-size": squareSize(0.4, 0.55, 0.7),
+        "icon-allow-overlap": true,
+        "icon-ignore-placement": true,
+        "icon-rotation-alignment": "viewport",
+        "icon-pitch-alignment": "viewport",
+      },
       paint: {
-        "circle-radius": circleRadius(4, 5.5, 7),
-        "circle-color": MARKER_COLOUR,
-        "circle-stroke-width": 2,
-        "circle-stroke-color": HALO,
-        "circle-opacity": MARKER_OPACITY,
-        "circle-stroke-opacity": MARKER_OPACITY,
+        "icon-color": MARKER_COLOUR,
+        "icon-halo-color": HALO,
+        "icon-halo-width": 2,
+        "icon-opacity": MARKER_OPACITY,
       },
     },
     beforeId,
@@ -522,16 +559,22 @@ export function ensureRouteLayers(map: MapLibreMap, beforeId?: string): void {
     map,
     {
       id: POINT_START,
-      type: "circle",
+      type: "symbol",
       source: ROUTE_POINT_SOURCE,
       filter: ["==", ["get", "role"], "start"],
+      layout: {
+        "icon-image": SQUARE_IMAGE,
+        "icon-size": squareSize(0.5, 0.7, 0.9),
+        "icon-allow-overlap": true,
+        "icon-ignore-placement": true,
+        "icon-rotation-alignment": "viewport",
+        "icon-pitch-alignment": "viewport",
+      },
       paint: {
-        "circle-radius": circleRadius(5, 7, 9),
-        "circle-color": START_COLOUR,
-        "circle-stroke-width": 2,
-        "circle-stroke-color": HALO,
-        "circle-opacity": MARKER_OPACITY,
-        "circle-stroke-opacity": MARKER_OPACITY,
+        "icon-color": START_COLOUR,
+        "icon-halo-color": HALO,
+        "icon-halo-width": 2,
+        "icon-opacity": MARKER_OPACITY,
       },
     },
     beforeId,
