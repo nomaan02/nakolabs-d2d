@@ -836,6 +836,15 @@ The snapshot is frozen at allocation. If the prop polygon is edited later, the a
 > on that date on another prop, and numbers the visit from the highest
 > `visit_number` that still counts. `todays_assignment` skips a closed
 > assignment and a member who has left. No field or admin UI in this stage.
+
+> **Built 2026-09-26 (Stage 5c-b).** Migration `022` adds
+> `assignment_member_add`. The allocate page's already-allocated list is where
+> an admin manages an open visit: remove the allocation (with a confirm step),
+> remove a member, or add one. `/admin/settings` reads and writes
+> `rotation.visit_threshold_pct`. The next-visit figure on the allocate page
+> is 1 + the highest `visit_number` with `counts_for_rotation`, the same
+> query `allocate_prop` uses. The 5b-R2 note above, that the page counts
+> every assignment, is superseded by this.
 ---
 
 ### Stage 5b — Route generation

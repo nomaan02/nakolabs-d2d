@@ -1,4 +1,5 @@
 import { AllocateForm } from "@/components/admin/allocate-form";
+import type { AllocationMember } from "@/components/admin/allocation-manage";
 import { getOwnProfile } from "@/lib/auth/profile";
 import { createClient } from "@/lib/supabase/server";
 import type { Slot, SweepDirection } from "@/lib/geo/rotation";
@@ -31,7 +32,7 @@ export default async function AllocatePage({
   const profile = user ? await getOwnProfile(supabase, user.id) : null;
   const params = await searchParams;
 
-  const [{ data: territories }, { data: people }, { data: assignmentRows }, { data: variantRows }] =
+  const [{ data: territories }, { data: people }, { data: assignmentRows }, { data: variantRows }, { data: memberRows }] =
     await Promise.all([
     supabase
       .from("territories")
@@ -40,39 +41,77 @@ export default async function AllocatePage({
       .order("created_at", { ascending: false }),
     supabase
       .from("profiles")
-      .select("id, full_name")
-      .eq("role", "canvasser")
-      .eq("active", true)
+      .select("id, full_name, role, active")
       .order("full_name", { ascending: true }),
     supabase
       .from("assignments")
       .select(
-        "id, territory_id, work_date, visit_number, entry_vertex_index, sweep_direction, slot, route_length_m, route_stranded_count, route_variant_key",
+        "id, territory_id, work_date, visit_number, entry_vertex_index, sweep_direction, slot, route_length_m, route_stranded_count, route_variant_key, closed_at, counts_for_rotation",
       )
       .order("work_date", { ascending: true }),
     supabase.from("territory_routes").select("territory_id, variant_key"),
+    supabase.from("assignment_members").select("assignment_id, canvasser_id, left_at"),
   ]);
 
-  // Stage 5b-R2: visit_number is 1 + the prop's existing assignments (the
-  // count allocate_prop takes under its row lock), not territories.visit_count,
-  // which nothing increments before Stage 12b. Every assignment is loaded
-  // above, so the count is taken from the same rows the list shows.
-  const allocationCounts = new Map<string, number>();
+  // Same rule as allocate_prop: next visit_number is 1 + the highest
+  // visit_number on this prop with counts_for_rotation. Admin SELECT on
+  // assignments is assignments_all_admin, so this is that query, not a
+  // second definition. An early end at or under the threshold does not count.
+  const countingMax = new Map<string, number>();
   for (const row of assignmentRows ?? []) {
-    allocationCounts.set(row.territory_id, (allocationCounts.get(row.territory_id) ?? 0) + 1);
+    if (!row.counts_for_rotation) continue;
+    const prev = countingMax.get(row.territory_id) ?? 0;
+    if (row.visit_number > prev) countingMax.set(row.territory_id, row.visit_number);
   }
+
+  const names = new Map(
+    (people ?? []).map((row) => [row.id, row.full_name?.trim() || "Unnamed canvasser"] as const),
+  );
+  const membersByAssignment = new Map<string, AllocationMember[]>();
+  for (const row of memberRows ?? []) {
+    const list = membersByAssignment.get(row.assignment_id) ?? [];
+    list.push({
+      canvasserId: row.canvasser_id,
+      fullName: names.get(row.canvasser_id) ?? "Unnamed canvasser",
+      leftAt: row.left_at,
+    });
+    membersByAssignment.set(row.assignment_id, list);
+  }
+  for (const list of membersByAssignment.values()) {
+    list.sort((a, b) => {
+      const aLeft = a.leftAt ? 1 : 0;
+      const bLeft = b.leftAt ? 1 : 0;
+      if (aLeft !== bLeft) return aLeft - bLeft;
+      return a.fullName.localeCompare(b.fullName, "en-GB");
+    });
+  }
+
+  const assignmentById = new Map((assignmentRows ?? []).map((row) => [row.id, row]));
+  const bookings = (memberRows ?? []).flatMap((row) => {
+    if (row.left_at) return [];
+    const assignment = assignmentById.get(row.assignment_id);
+    if (!assignment || assignment.closed_at) return [];
+    return [
+      {
+        canvasserId: row.canvasser_id,
+        workDate: assignment.work_date,
+        assignmentId: row.assignment_id,
+      },
+    ];
+  });
 
   return (
     <AllocateForm
       props={(territories ?? []).map((row) => ({
         id: row.id,
         name: row.name,
-        allocationCount: allocationCounts.get(row.id) ?? 0,
+        nextVisit: (countingMax.get(row.id) ?? 0) + 1,
       }))}
-      canvassers={(people ?? []).map((row) => ({
-        id: row.id,
-        fullName: row.full_name?.trim() || "Unnamed canvasser",
-      }))}
+      canvassers={(people ?? []).flatMap((row) =>
+        row.role === "canvasser" && row.active
+          ? [{ id: row.id, fullName: row.full_name?.trim() || "Unnamed canvasser" }]
+          : [],
+      )}
       allocations={(assignmentRows ?? []).flatMap((row) => {
         if (!isSweep(row.sweep_direction) || !isSlot(row.slot)) return [];
         return [
@@ -89,10 +128,14 @@ export default async function AllocatePage({
             routeLengthM: row.route_length_m,
             routeStrandedCount: row.route_stranded_count,
             routeVariantKey: row.route_variant_key,
+            closedAt: row.closed_at,
+            countsForRotation: row.counts_for_rotation,
+            members: membersByAssignment.get(row.id) ?? [],
           },
         ];
       })}
       initialPropId={params.prop ?? null}
+      bookings={bookings}
       savedVariants={(variantRows ?? []).map((row) => ({
         territoryId: row.territory_id,
         variantKey: row.variant_key,

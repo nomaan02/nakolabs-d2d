@@ -1248,6 +1248,10 @@ export type Database = {
         Args: { p_assignment_id: string }
         Returns: Json
       }
+      assignment_member_add: {
+        Args: { p_assignment_id: string; p_canvasser_id: string }
+        Returns: Json
+      }
       assignment_member_remove: {
         Args: { p_assignment_id: string; p_canvasser_id: string }
         Returns: Json

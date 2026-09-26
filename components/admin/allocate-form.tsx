@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
+import { AllocationManage, type AllocationMember } from "@/components/admin/allocation-manage";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { FrozenRouteMap } from "@/components/admin/frozen-route-map";
 import { SignOutButton } from "@/components/auth/sign-out-button";
@@ -17,11 +18,17 @@ export type AllocatableProp = {
   id: string;
   name: string;
   /**
-   * Stage 5b-R2: how many assignments this prop already has. The next
-   * allocation is visit allocationCount + 1 — the same count allocate_prop
-   * takes under its row lock. Not territories.visit_count.
+   * 1 + the highest visit_number on this prop with counts_for_rotation.
+   * Computed on the server from the same rows allocate_prop reads. Not
+   * territories.visit_count, and not a count of every assignment.
    */
-  allocationCount: number;
+  nextVisit: number;
+};
+
+export type OpenBooking = {
+  canvasserId: string;
+  workDate: string;
+  assignmentId: string;
 };
 
 export type SavedRouteVariant = {
@@ -47,6 +54,10 @@ export type ExistingAllocation = {
   routeStrandedCount: number;
   /** Stage 5b-R2: the saved variant frozen on. Null on 5b-a routes and unrouted rows. */
   routeVariantKey: string | null;
+  closedAt: string | null;
+  /** Meaningful once the assignment has ended. Open rows still default to true. */
+  countsForRotation: boolean;
+  members: AllocationMember[];
 };
 
 /** Stage 5b. What the admin sees for the route after allocation. Never an error. */
@@ -121,6 +132,7 @@ export function AllocateForm({
   props,
   canvassers,
   allocations,
+  bookings,
   savedVariants,
   initialPropId,
   signedInAs,
@@ -128,6 +140,7 @@ export function AllocateForm({
   props: AllocatableProp[];
   canvassers: CanvasserOption[];
   allocations: ExistingAllocation[];
+  bookings: OpenBooking[];
   savedVariants: SavedRouteVariant[];
   initialPropId: string | null;
   signedInAs: string;
@@ -149,6 +162,7 @@ export function AllocateForm({
   /** Empty string means the parity default. A value is passed to assignment_route_freeze. */
   const [variantOverride, setVariantOverride] = useState("");
   const [viewingId, setViewingId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const drawRouteFor = (assignmentId: string) => {
     setRedraw({ id: assignmentId, state: { status: "drawing" } });
@@ -174,7 +188,7 @@ export function AllocateForm({
   };
 
   const selected = props.find((prop) => prop.id === territoryId) ?? null;
-  const nextVisit = (selected?.allocationCount ?? 0) + 1;
+  const nextVisit = selected?.nextVisit ?? 1;
   const existingForProp = useMemo(
     () => allocations.filter((row) => row.territoryId === territoryId),
     [allocations, territoryId],
@@ -308,6 +322,7 @@ export function AllocateForm({
                         setError(null);
                         setVariantOverride("");
                         setViewingId(null);
+                        setNotice(null);
                       }}
                       aria-pressed={active}
                       className={`flex min-h-11 w-full items-baseline justify-between gap-3 px-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-prop ${
@@ -320,7 +335,7 @@ export function AllocateForm({
                           active ? "text-paper/80" : "text-ink-soft"
                         }`}
                       >
-                        next visit {prop.allocationCount + 1}
+                        next visit {prop.nextVisit}
                       </span>
                     </button>
                   </li>
@@ -350,18 +365,24 @@ export function AllocateForm({
               Nothing to allocate yet. Draw a prop, then come back here and pick a date and a team.
             </p>
           ) : (
-            <form onSubmit={onSubmit} className="flex max-w-xl flex-col gap-8">
+            <div className="flex max-w-xl flex-col">
+            <form onSubmit={onSubmit} className="flex flex-col gap-8">
               <div>
                 <p className="font-data text-[10px] uppercase tracking-[0.2em] text-ink-soft">
                   Next visit
                 </p>
-                <p className="mt-2 font-data text-[64px] leading-[0.88] tracking-[-0.04em] text-ink tabular-nums">
+                <p
+                  className="mt-2 font-data text-[64px] leading-[0.88] tracking-[-0.04em] text-ink tabular-nums"
+                  data-testid="next-visit"
+                  data-territory-id={selected.id}
+                >
                   {nextVisit}
                 </p>
                 <p className="mt-3 text-[14px] leading-relaxed text-ink-soft">
-                  {selected.name}. The visit number counts this prop&apos;s allocations, not
-                  anything on this screen: this would be allocation {nextVisit}. Odd visits walk
-                  the best route forwards, even visits walk it backwards.
+                  {selected.name}. The next visit is one more than the highest visit on this prop
+                  that still counts toward rotation. An early end at or under the threshold does
+                  not count, so that number can be used again. Odd visits walk the best route
+                  forwards, even visits walk it backwards.
                 </p>
               </div>
 
@@ -480,65 +501,87 @@ export function AllocateForm({
                   {error}
                 </p>
               ) : null}
-
-              {existingForProp.length > 0 ? (
-                <div className="border-t border-ink/15 pt-6">
-                  <p className="font-data text-[10px] uppercase tracking-[0.2em] text-ink-soft">
-                    Already allocated
-                  </p>
-                  <ul className="mt-3 flex flex-col gap-2">
-                    {existingForProp.map((row) => {
-                      const mine = redraw?.id === row.id ? redraw.state : null;
-                      const routed = row.routeLengthM !== null;
-                      return (
-                        <li key={row.id} className="flex flex-col gap-1 text-[13px] text-ink">
-                          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                            <span>{formatWorkDate(row.workDate)}</span>
-                            <span className="font-data text-[10px] uppercase tracking-[0.12em] text-ink-soft">
-                              visit {row.visitNumber} · vertex {row.entryVertexIndex} ·{" "}
-                              {formatSweep(row.sweepDirection)} · {formatSlot(row.slot)} ·{" "}
-                              {routed
-                                ? `route ${formatKm(row.routeLengthM as number)}${
-                                    row.routeVariantKey ? ` · ${row.routeVariantKey.replace("_", " ")}` : ""
-                                  }${
-                                    row.routeStrandedCount > 0
-                                      ? ` · ${row.routeStrandedCount} off-route`
-                                      : ""
-                                  }`
-                                : "no route"}
-                            </span>
-                          </div>
-                          {row.routeVariantKey ? (
-                            <button
-                              type="button"
-                              onClick={() => setViewingId(row.id)}
-                              className="min-h-11 w-fit border border-ink/25 px-3 font-data text-[10px] uppercase tracking-[0.14em] text-ink hover:bg-worksheet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-prop"
-                            >
-                              View route
-                            </button>
-                          ) : null}
-                          {!row.routeVariantKey && !routed && !mine ? (
-                            <button
-                              type="button"
-                              disabled={redrawPending}
-                              onClick={() => drawRouteFor(row.id)}
-                              className="min-h-11 w-fit border border-ink/25 px-3 font-data text-[10px] uppercase tracking-[0.14em] text-ink hover:bg-worksheet-deep disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-prop"
-                            >
-                              Draw route
-                            </button>
-                          ) : null}
-                          {mine ? (
-                            <p className="text-[13px] leading-relaxed text-ink-soft" role="status">
-                              {mine.status === "drawing" ? "Drawing the route…" : routeSentence(mine.result)}
-                            </p>
-                          ) : null}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              ) : null}
             </form>
+
+            {notice ? (
+              <p className="mt-6 text-[14px] leading-relaxed text-ink" role="status" data-testid="allocation-notice">
+                {notice}
+              </p>
+            ) : null}
+
+            {existingForProp.length > 0 ? (
+              <div className="mt-8 border-t border-ink/15 pt-6">
+                <p className="font-data text-[10px] uppercase tracking-[0.2em] text-ink-soft">
+                  Already allocated
+                </p>
+                <ul className="mt-3 flex flex-col gap-4">
+                  {existingForProp.map((row) => {
+                    const mine = redraw?.id === row.id ? redraw.state : null;
+                    const routed = row.routeLengthM !== null;
+                    return (
+                      <li key={row.id} className="flex flex-col gap-1 text-[13px] text-ink">
+                        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                          <span>{formatWorkDate(row.workDate)}</span>
+                          <span className="font-data text-[10px] uppercase tracking-[0.12em] text-ink-soft">
+                            visit {row.visitNumber} · vertex {row.entryVertexIndex} ·{" "}
+                            {formatSweep(row.sweepDirection)} · {formatSlot(row.slot)} ·{" "}
+                            {routed
+                              ? `route ${formatKm(row.routeLengthM as number)}${
+                                  row.routeVariantKey ? ` · ${row.routeVariantKey.replace("_", " ")}` : ""
+                                }${
+                                  row.routeStrandedCount > 0
+                                    ? ` · ${row.routeStrandedCount} off-route`
+                                    : ""
+                                }`
+                              : "no route"}
+                            {row.closedAt
+                              ? row.countsForRotation
+                                ? " · ended · counts toward rotation"
+                                : " · ended · does not count toward rotation"
+                              : ""}
+                          </span>
+                        </div>
+                        {row.routeVariantKey ? (
+                          <button
+                            type="button"
+                            onClick={() => setViewingId(row.id)}
+                            className="min-h-11 w-fit border border-ink/25 px-3 font-data text-[10px] uppercase tracking-[0.14em] text-ink hover:bg-worksheet-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-prop"
+                          >
+                            View route
+                          </button>
+                        ) : null}
+                        {!row.routeVariantKey && !routed && !mine && !row.closedAt ? (
+                          <button
+                            type="button"
+                            disabled={redrawPending}
+                            onClick={() => drawRouteFor(row.id)}
+                            className="min-h-11 w-fit border border-ink/25 px-3 font-data text-[10px] uppercase tracking-[0.14em] text-ink hover:bg-worksheet-deep disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-prop"
+                          >
+                            Draw route
+                          </button>
+                        ) : null}
+                        {mine ? (
+                          <p className="text-[13px] leading-relaxed text-ink-soft" role="status">
+                            {mine.status === "drawing" ? "Drawing the route…" : routeSentence(mine.result)}
+                          </p>
+                        ) : null}
+                        {!row.closedAt ? (
+                          <AllocationManage
+                            assignmentId={row.id}
+                            workDate={row.workDate}
+                            members={row.members}
+                            canvassers={canvassers}
+                            bookings={bookings}
+                            onNotice={setNotice}
+                          />
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : null}
+            </div>
           )}
         </div>
       </main>
