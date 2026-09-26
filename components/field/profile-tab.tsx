@@ -4,6 +4,7 @@ import { SignOutButton } from "@/components/auth/sign-out-button";
 import { useFieldData } from "@/components/field/field-data-provider";
 import { PropStatus } from "@/components/field/prop-status";
 import { SyncStatus } from "@/components/field/sync-status";
+import { SharedKnockNotice } from "@/components/field/shared-knock-notice";
 import { ATTRIBUTION_LINES } from "@/lib/field/map-style";
 
 /**
@@ -28,6 +29,7 @@ export function ProfileTab() {
       <section className="border-b border-ink/15 bg-paper px-4 py-3">
         <h2 className="text-sm font-semibold">Sync</h2>
         <SyncStatus />
+        <SharedKnockNotice assignmentId={phase.kind === "ready" ? phase.assignment.assignment_id : null} />
       </section>
 
       <section className="border-b border-ink/15 bg-paper px-4 py-3">

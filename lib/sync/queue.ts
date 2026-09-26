@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { fieldDb, type OutboxError, type OutboxRow } from "@/lib/field/db";
+import { uprnsSharedWithTeammate } from "@/lib/field/shared-knock";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/types";
 import { delayMs } from "@/lib/sync/backoff";
@@ -374,11 +375,53 @@ function isRetryableAuthError(error: { name?: string; status?: number } | null):
   return error.status === 0 || error.status === undefined;
 }
 
+function knockUprn(row: OutboxRow): number | null {
+  if (row.kind !== "knock_event") return null;
+  const payload = row.payload as { knock?: { uprn?: number } };
+  return typeof payload.knock?.uprn === "number" ? payload.knock.uprn : null;
+}
+
+/**
+ * After a knock has synced, look for a teammate's row on the same UPRN.
+ * Both inserts are kept. The flag is local, so the canvasser can see it.
+ */
+async function markSharedDoors(supabase: Client, uid: string): Promise<void> {
+  const db = fieldDb();
+  const rows = await db.outbox.where("status").equals("synced").toArray();
+  const mine = rows.filter(
+    (row) => row.kind === "knock_event" && row.canvasser_id === uid && !row.shared_door && row.seq != null,
+  );
+  const byAssignment = new Map<string, OutboxRow[]>();
+  for (const row of mine) {
+    const group = byAssignment.get(row.assignment_id);
+    if (group) group.push(row);
+    else byAssignment.set(row.assignment_id, [row]);
+  }
+
+  for (const [assignmentId, group] of byAssignment) {
+    const uprns = [
+      ...new Set(group.map(knockUprn).filter((uprn): uprn is number => uprn !== null)),
+    ];
+    const shared = await uprnsSharedWithTeammate(supabase, assignmentId, uprns, uid);
+    for (const row of group) {
+      const uprn = knockUprn(row);
+      if (uprn !== null && shared.has(uprn)) {
+        await db.outbox.update(row.seq as number, { shared_door: true });
+      }
+    }
+  }
+}
+
 async function runFlush(reason: FlushReason) {
   const db = fieldDb();
 
   const pendingCount = await db.outbox.where("status").equals("pending").count();
   if (pendingCount === 0) {
+    const supabase = getClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session?.user.id) await markSharedDoors(supabase, session.user.id).catch(() => undefined);
     setRuntime({ state: "idle", held: 0, nextAttemptAt: null, lastReason: reason });
     return;
   }
@@ -469,6 +512,7 @@ async function runFlush(reason: FlushReason) {
   }
 
   const finishedAt = new Date().toISOString();
+  await markSharedDoors(supabase, uid).catch(() => undefined);
   if (sawRetryable) {
     const wait = delayMs(consecutiveFailures);
     consecutiveFailures += 1;

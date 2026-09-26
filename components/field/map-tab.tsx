@@ -6,11 +6,14 @@ import { useState } from "react";
 import { OtherOutcomeSheet } from "@/components/field/door-sheets";
 import { FieldMap } from "@/components/field/field-map";
 import { useFieldData } from "@/components/field/field-data-provider";
+import { NextDoorCard } from "@/components/field/next-door-card";
 import { OutcomeButtons } from "@/components/field/outcome-buttons";
+import { TeammateLines } from "@/components/field/teammate-lines";
 import { pulse } from "@/lib/field/feedback";
 import { doorPlate, mapLabel } from "@/lib/field/labels";
 import { logOutcome } from "@/lib/field/log-outcome";
 import { outcomeSpec, type OtherOutcome, type PrimaryOutcome } from "@/lib/field/outcomes";
+import { getCurrentStreetLabel, sequenceIsRouteDerived } from "@/lib/field/sequence";
 import { offerUndo } from "@/lib/field/undo";
 import { formatFieldHeader } from "@/lib/field/route-display";
 
@@ -36,6 +39,8 @@ export function MapTab() {
     mapSelectedUprn,
     mapCameraNonce,
     selectDoorOnMap,
+    sequence,
+    team,
   } = useFieldData();
   const router = useRouter();
   const [otherOpen, setOtherOpen] = useState(false);
@@ -80,6 +85,9 @@ export function MapTab() {
       outcome,
     });
     pulse(40);
+    const loggedDoor =
+      door ?? sequence.find((item) => item.uprn === selectedUprn) ?? null;
+    if (result.queued && loggedDoor) team.markKnocked(loggedDoor, result.clientEventId);
     offerUndo(
       result.clientEventId,
       `${outcomeSpec(outcome).logged} · ${mapLabel(selectedLabel) ?? doorPlate(selectedLabel)}`,
@@ -88,20 +96,46 @@ export function MapTab() {
     selectDoorOnMap(null);
   };
 
+  const routed = sequenceIsRouteDerived(routeProgress.hasRoute);
+  const nextDoor = team.nextDoor;
+  const nextIndex = nextDoor ? sequence.findIndex((item) => item.uprn === nextDoor.uprn) : -1;
+  const nextLabel = nextDoor ? labelFor(nextDoor.uprn) : undefined;
+  const nextStreet = nextDoor
+    ? getCurrentStreetLabel(
+        nextLabel,
+        nextIndex >= 0 ? routeProgress.doors[nextIndex]?.routeStreet : null,
+        routed,
+      )
+    : null;
+
   return (
     <div className="relative flex h-full flex-col" data-testid="map-tab">
-      <header className="z-10 border-b border-ink/15 bg-paper px-4 pb-2 pt-3">
-        <h1 className="font-display text-lg leading-snug tracking-tight">
+      <header className="z-10 border-b border-ink/15 bg-paper px-3 pb-3 pt-3">
+        <h1 className="px-1 font-display text-lg leading-snug tracking-tight">
           {assignment.territory_name}
         </h1>
-        <p className="font-data text-xs leading-relaxed text-ink-soft">
+        <p className="px-1 font-data text-xs leading-relaxed text-ink-soft">
           {formatFieldHeader(assignment, routeProgress)}
         </p>
         {phase.fromCache ? (
-          <p className="mt-1 text-xs text-ink-soft" role="status">
+          <p className="mt-1 px-1 text-xs text-ink-soft" role="status">
             Showing the copy saved on this phone.
           </p>
         ) : null}
+        <div className="mt-2">
+          <NextDoorCard
+            door={nextDoor}
+            plate={nextDoor ? doorPlate(nextLabel) : ""}
+            street={nextStreet}
+            onTake={() => {
+              if (!nextDoor) return;
+              team.claimDoor(nextDoor);
+              cursor.goTo(nextDoor.position);
+              selectDoorOnMap(nextDoor.uprn);
+            }}
+          />
+          <TeammateLines rows={team.teammates} labelFor={labelFor} />
+        </div>
       </header>
 
       <div className="relative min-h-0 flex-1">
@@ -115,6 +149,8 @@ export function MapTab() {
           onSelectUprn={(uprn) => {
             selectDoorOnMap(uprn);
             cursor.goToUprn(uprn);
+            const picked = sequence.find((item) => item.uprn === uprn);
+            if (picked && !outcomes.has(uprn)) team.claimDoor(picked);
           }}
           active
         />
@@ -142,7 +178,10 @@ export function MapTab() {
             </div>
             <button
               type="button"
-              onClick={() => selectDoorOnMap(null)}
+              onClick={() => {
+                if (selectedUprn !== null) team.releaseDoor(selectedUprn);
+                selectDoorOnMap(null);
+              }}
               className="min-h-11 shrink-0 rounded-md border border-ink/25 px-4 text-sm font-medium"
             >
               Close

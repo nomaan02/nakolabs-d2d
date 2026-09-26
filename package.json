@@ -27,6 +27,7 @@
     "verify:stage8b": "tsx scripts/verify-stage-8b.ts",
     "verify:stage14b": "tsx scripts/verify-stage-14b.ts",
     "verify:stage9": "tsx scripts/verify-stage-9.ts",
+    "verify:stage10": "tsx scripts/verify-stage-10.ts",
     "verify:stage5cb": "tsx scripts/verify-stage-5c-b.ts"
   },
   "dependencies": {

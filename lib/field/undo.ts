@@ -22,7 +22,16 @@ export type UndoTarget = {
 
 let target: UndoTarget | null = null;
 const listeners = new Set<() => void>();
+const undoListeners = new Set<(clientEventId: string) => void>();
 let expiryTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Fires after a held knock is deleted, before anything could have reached Postgres. */
+export function onUndo(listener: (clientEventId: string) => void): () => void {
+  undoListeners.add(listener);
+  return () => {
+    undoListeners.delete(listener);
+  };
+}
 
 function emit() {
   for (const listener of listeners) listener();
@@ -61,6 +70,9 @@ export async function takeUndo(): Promise<boolean> {
   if (!current) return false;
   const undone = await cancelHeld(current.clientEventId);
   dismissUndo();
+  if (undone) {
+    for (const listener of undoListeners) listener(current.clientEventId);
+  }
   return undone;
 }
 

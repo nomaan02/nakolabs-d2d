@@ -17,6 +17,7 @@ import {
   rememberCanvasser,
 } from "@/lib/field/cache";
 import { useCursor, type Cursor } from "@/lib/field/cursor";
+import { useTeam, type TeamApi } from "@/lib/field/use-team";
 import type { CachedAddress } from "@/lib/field/db";
 import { ensureAddresses, readLabels, type DoorLabels } from "@/lib/field/labels";
 import { useLocalOutcomes, type LocalOutcomes } from "@/lib/field/local-outcomes";
@@ -88,6 +89,8 @@ type FieldData = {
   mapCameraNonce: number;
   selectDoorOnMap: (uprn: number | null) => void;
   showDoorOnMap: (uprn: number) => void;
+  /** Next door, claims and teammate lines. One channel for every tab. */
+  team: TeamApi;
 };
 
 const FieldDataContext = createContext<FieldData | null>(null);
@@ -242,6 +245,13 @@ export function FieldDataProvider({
 
   const outcomes = useLocalOutcomes(assignmentId);
   const cursor = useCursor(sequence);
+  const localKnocked = useMemo(() => new Set(outcomes.keys()), [outcomes]);
+  const team = useTeam({
+    assignmentId,
+    canvasserId,
+    sequence,
+    localKnocked,
+  });
 
   const routeModel = useMemo(() => fieldRoutePaintModel(route), [route]);
 
@@ -297,6 +307,7 @@ export function FieldDataProvider({
       mapCameraNonce,
       selectDoorOnMap,
       showDoorOnMap,
+      team,
     }),
     [
       phase,
@@ -319,6 +330,7 @@ export function FieldDataProvider({
       mapCameraNonce,
       selectDoorOnMap,
       showDoorOnMap,
+      team,
     ],
   );
 

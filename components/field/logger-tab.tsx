@@ -10,7 +10,10 @@ import {
 } from "@/components/field/field-data-provider";
 import { HouseNumberSheet, NotesSheet, OtherOutcomeSheet } from "@/components/field/door-sheets";
 import { LeadSheet } from "@/components/field/lead-sheet";
+import { NextDoorCard } from "@/components/field/next-door-card";
 import { OutcomeButtons } from "@/components/field/outcome-buttons";
+import { SharedKnockNotice } from "@/components/field/shared-knock-notice";
+import { TeammateLines } from "@/components/field/teammate-lines";
 import { pulse, useInputLock } from "@/lib/field/feedback";
 import { doorPlate } from "@/lib/field/labels";
 import { logHouseNumber, logOutcome } from "@/lib/field/log-outcome";
@@ -18,18 +21,17 @@ import { outcomeSpec, type OtherOutcome, type PrimaryOutcome } from "@/lib/field
 import { autoAdvanceEnabled } from "@/lib/field/position";
 import type { InstructionCard } from "@/lib/field/route-display";
 import { getCurrentStreetLabel, sequenceIsRouteDerived } from "@/lib/field/sequence";
+import { nextOpenIndex } from "@/lib/field/cursor";
 import { offerUndo } from "@/lib/field/undo";
 import { newClientEventId } from "@/lib/sync/ops";
 
 /**
  * The sequence cursor: one door at a time, five outcome buttons, one tap
- * logs and advances. No confirmation step.
+ * logs and advances to the next door that is neither knocked nor claimed.
  *
- * The cursor is MANUAL. It moves on by exactly one place after a log, and it
- * never jumps to "the next unlogged door" — that needs Stage 10's claims, and
- * without them every member of a duo would be sent to the same doorstep.
- * Free scroll and Skip let the canvasser go anywhere in the sequence without
- * logging, and Back returns to the previous door so a correction is possible.
+ * Take on the next-door card claims that door and points the cursor at it,
+ * which is the outcome sheet. Back, Skip and a different row in the strip
+ * release the claim. A log broadcasts knocked.
  *
  * A correction is a NEW knock event with a NEW client_event_id.
  * `v_latest_knock` resolves which one counts. Nothing is ever updated or
@@ -57,6 +59,8 @@ export function LoggerTab() {
     noteDrafts,
     setNoteDraft,
     showDoorOnMap,
+    sequence,
+    team,
   } = useFieldData();
 
   const router = useRouter();
@@ -102,11 +106,15 @@ export function LoggerTab() {
     });
 
     pulse(40);
+    if (result.queued) team.markKnocked(door, result.clientEventId);
     offerUndo(result.clientEventId, `${outcomeSpec(outcome).logged} · ${plate}${street ? ` ${street}` : ""}`);
     setNoteDraft(door.uprn, "");
     setLeadDraft(door.uprn, null);
     setSheet({ kind: "none" });
-    cursor.next();
+    const blocked = new Set(team.blockedUprns);
+    blocked.add(door.uprn);
+    const index = nextOpenIndex(sequence, blocked);
+    if (index >= 0) cursor.goTo(index);
   };
 
   const startLead = () => {
@@ -126,8 +134,33 @@ export function LoggerTab() {
 
   const leadDraft = leadDrafts.get(door.uprn);
 
+  const leaveSheet = () => {
+    if (door && team.sheetUprn === door.uprn) team.releaseDoor(door.uprn);
+  };
+
+  const nextDoor = team.nextDoor;
+  const nextIndex = nextDoor ? sequence.findIndex((item) => item.uprn === nextDoor.uprn) : -1;
+  const nextLabel = nextDoor ? labelFor(nextDoor.uprn) : undefined;
+  const nextView = nextIndex >= 0 ? routeProgress.doors[nextIndex] : undefined;
+  const nextStreet = nextDoor
+    ? getCurrentStreetLabel(nextLabel, nextView?.routeStreet, routed)
+    : null;
+
   return (
     <div className="flex h-full flex-col" data-testid="logger-tab">
+      <div className="shrink-0 border-b border-ink/15 bg-paper px-3 pb-3 pt-3">
+        <NextDoorCard
+          door={nextDoor}
+          plate={nextDoor ? doorPlate(nextLabel) : ""}
+          street={nextStreet}
+          onTake={() => {
+            if (!nextDoor) return;
+            team.claimDoor(nextDoor);
+            cursor.goTo(nextDoor.position);
+          }}
+        />
+        <TeammateLines rows={team.teammates} labelFor={labelFor} />
+      </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <header className="border-b border-ink/15 bg-paper px-4 pb-3 pt-3">
           <p className="font-data text-xs uppercase tracking-wide text-ink-soft" data-testid="logger-position">
@@ -136,13 +169,14 @@ export function LoggerTab() {
 
           {/* Spur, transfer and crossing text. Empty when this prop has no route. */}
           <HeaderInstruction cards={view?.cards ?? []} />
-          {/* SEAM (Stage 10): the teammate line lands here. */}
-          <TeammateLine />
 
           <div className="mt-3 grid grid-cols-3 gap-2">
             <button
               type="button"
-              onClick={cursor.previous}
+              onClick={() => {
+                leaveSheet();
+                cursor.previous();
+              }}
               disabled={cursor.atStart}
               className="min-h-11 rounded-md border-2 border-ink/25 bg-paper text-sm font-medium disabled:opacity-40"
               data-testid="cursor-back"
@@ -159,7 +193,10 @@ export function LoggerTab() {
             </button>
             <button
               type="button"
-              onClick={cursor.next}
+              onClick={() => {
+                leaveSheet();
+                cursor.next();
+              }}
               disabled={cursor.atEnd}
               className="min-h-11 rounded-md border-2 border-ink/25 bg-paper text-sm font-medium disabled:opacity-40"
               data-testid="cursor-skip"
@@ -241,6 +278,8 @@ export function LoggerTab() {
 
         <SequenceStrip />
       </div>
+
+      <SharedKnockNotice assignmentId={assignmentId} />
 
       <OutcomeButtons
         onPrimary={(outcome) => {
@@ -400,14 +439,6 @@ function InstructionCardView({ card }: { card: InstructionCard }) {
   );
 }
 
-/**
- * SEAM (Stage 10). Renders nothing in Stage 8. Becomes the teammate's
- * position on the shared route, broadcast over Realtime and never stored.
- */
-function TeammateLine() {
-  return null;
-}
-
 function PhaseNotice({ phase }: { phase: FieldPhase }) {
   if (phase.kind === "loading") {
     return <p className="px-4 pt-8 text-sm text-ink-soft">Loading today&apos;s prop…</p>;
@@ -435,7 +466,7 @@ function PhaseNotice({ phase }: { phase: FieldPhase }) {
  * only, and nothing here is counted, ranked or grouped by street.
  */
 function SequenceStrip() {
-  const { sequence, cursor, outcomes, labelFor, routeProgress } = useFieldData();
+  const { sequence, cursor, outcomes, labelFor, routeProgress, team } = useFieldData();
   const routed = sequenceIsRouteDerived(routeProgress.hasRoute);
 
   return (
@@ -450,7 +481,12 @@ function SequenceStrip() {
           <li key={door.uprn}>
             <button
               type="button"
-              onClick={() => cursor.goTo(index)}
+              onClick={() => {
+                if (team.sheetUprn !== null && team.sheetUprn !== door.uprn) {
+                  team.releaseDoor(team.sheetUprn);
+                }
+                cursor.goTo(index);
+              }}
               className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-md px-2 text-left ${
                 current ? "bg-ink text-paper" : ""
               }`}

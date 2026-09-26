@@ -11,11 +11,9 @@ import type { SequenceDoor } from "@/lib/field/sequence";
  * by something the canvasser did — a log, Back, Skip, a free scroll, or a tap
  * on the map.
  *
- * It is deliberately MANUAL. Advancing to "the next unlogged door" is not a
- * convenience this stage can add: without Stage 10's claim mechanism every
- * member of a duo or trio would be sent to the same doorstep at the same
- * moment. Stage 10 wraps claims around this hook and only then does
- * next-unlogged become safe.
+ * It stays manual. Stage 10 does not move this index on its own. After a log
+ * the Logger asks `nextOpenIndex` for the next door that is neither knocked
+ * nor claimed, then `goTo` lands there. Claims live on the Realtime channel.
  */
 
 export type Cursor = {
@@ -32,6 +30,11 @@ export type Cursor = {
   next: () => void;
   previous: () => void;
 };
+
+/** Lowest sequence index that is not in `blocked`. -1 when every door is blocked. */
+export function nextOpenIndex(sequence: SequenceDoor[], blocked: ReadonlySet<number>): number {
+  return sequence.findIndex((door) => !blocked.has(door.uprn));
+}
 
 export function useCursor(sequence: SequenceDoor[]): Cursor {
   const [index, setIndex] = useState(0);

@@ -90,6 +90,11 @@ export type OutboxRow = {
   created_at: string;
   synced_at: string | null;
   last_error: OutboxError | null;
+  /**
+   * Set after sync when another canvasser has a knock on the same UPRN.
+   * Absent on older rows. Coverage still counts the door once.
+   */
+  shared_door?: boolean;
 };
 
 /**

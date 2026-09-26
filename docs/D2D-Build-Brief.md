@@ -1777,6 +1777,17 @@ That last case is the one that matters at the drop-off. Before anyone has knocke
 > precisely so a whole team does not advance onto the same door before claims
 > exist.
 
+> **Amended 2026-09-26.** Shipped. Claims stay ephemeral: migration
+> `023_stage_10_realtime_auth` only adds Realtime `broadcast` policies on
+> `assignment:<id>` and a teammate `profiles` read. No claims table.
+> `route_position_m` / `route_position_at` are read and not written. While
+> Stage 16 is off, a null position is an empty teammate line. A connected
+> canvasser reserves the next free door so a trio does not all display the
+> same one; Take re-claims it and opens the outcome sheet; backing out
+> releases it. A claim expires three minutes after `at` and is not taken
+> again by itself. `nextOpenIndex` in `lib/field/cursor.ts` is what the
+> logger advances to after a log.
+
 ---
 
 ### Stage 11 — Amenity cache (toilet locator)
