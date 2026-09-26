@@ -824,6 +824,18 @@ The snapshot is frozen at allocation. If the prop polygon is edited later, the a
 > assignments both wrongly at visit 1, allocated a test visit as **3**; the
 > two existing rows were left as they are (existing data is not rewritten).
 > The allocate page's "next visit" now counts assignments the same way.
+
+> **Built 2026-09-26 (Stage 5c-a).** Migration `021`. An admin can remove an
+> unworked assignment (the row is deleted; members and route steps cascade)
+> or end a worked one early (`closed_at`, `closed_reason = reallocated`).
+> Whether that early end counts for the next `visit_number` is
+> `worked / snapshot doors` strictly above `app_settings` key `rotation`,
+> field `visit_threshold_pct` (50 when the value is missing or unusable).
+> Removing the last active member closes the assignment and does not delete
+> it. `allocate_prop` refuses a canvasser who already has an open membership
+> on that date on another prop, and numbers the visit from the highest
+> `visit_number` that still counts. `todays_assignment` skips a closed
+> assignment and a member who has left. No field or admin UI in this stage.
 ---
 
 ### Stage 5b — Route generation

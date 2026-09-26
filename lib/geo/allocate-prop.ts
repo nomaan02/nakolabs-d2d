@@ -24,6 +24,7 @@ export type AllocateFailureCode =
   | "already_allocated"
   | "duplicate_member"
   | "team_too_large"
+  | "canvasser_double_booked"
   | "unavailable";
 
 export type AllocateResult =
@@ -42,6 +43,7 @@ const SERVER_HINTS = new Set<string>([
   "already_allocated",
   "duplicate_member",
   "team_too_large",
+  "canvasser_double_booked",
 ]);
 
 function isSweep(value: string): value is SweepDirection {

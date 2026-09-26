@@ -63,22 +63,54 @@ export type Database = {
           },
         ]
       }
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assignment_members: {
         Row: {
           assignment_id: string
           canvasser_id: string
+          left_at: string | null
           route_position_at: string | null
           route_position_m: number | null
         }
         Insert: {
           assignment_id: string
           canvasser_id: string
+          left_at?: string | null
           route_position_at?: string | null
           route_position_m?: number | null
         }
         Update: {
           assignment_id?: string
           canvasser_id?: string
+          left_at?: string | null
           route_position_at?: string | null
           route_position_m?: number | null
         }
@@ -109,6 +141,8 @@ export type Database = {
       assignments: {
         Row: {
           closed_at: string | null
+          closed_reason: string | null
+          counts_for_rotation: boolean
           created_at: string
           created_by: string | null
           entry_vertex_index: number
@@ -128,6 +162,8 @@ export type Database = {
         }
         Insert: {
           closed_at?: string | null
+          closed_reason?: string | null
+          counts_for_rotation?: boolean
           created_at?: string
           created_by?: string | null
           entry_vertex_index: number
@@ -147,6 +183,8 @@ export type Database = {
         }
         Update: {
           closed_at?: string | null
+          closed_reason?: string | null
+          counts_for_rotation?: boolean
           created_at?: string
           created_by?: string | null
           entry_vertex_index?: number
@@ -1206,6 +1244,15 @@ export type Database = {
       app_role: { Args: never; Returns: string }
       apply_nccz_flags: { Args: never; Returns: number }
       assert_prop_polygon: { Args: { poly: unknown }; Returns: undefined }
+      assignment_close_early: {
+        Args: { p_assignment_id: string }
+        Returns: Json
+      }
+      assignment_member_remove: {
+        Args: { p_assignment_id: string; p_canvasser_id: string }
+        Returns: Json
+      }
+      assignment_remove: { Args: { p_assignment_id: string }; Returns: Json }
       assignment_route_freeze: {
         Args: { p_assignment_id: string; p_variant_key?: string }
         Returns: Json
