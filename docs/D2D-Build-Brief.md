@@ -1170,6 +1170,19 @@ create table route_steps (
 > "Design change — open paths". No migration. The migration 020 comment on
 > `rank_cost_m` ("including the return leg") is stale and was left as it is.
 
+> **Amended 2026-09-27 (UI item 4).** The field route line shows progress.
+> The current street and the next street are full strength. Later streets
+> are lighter solid tints of the same colour. Steps already walked are grey
+> and thinner, with no chevrons. The highlight follows the next door, not
+> a GPS position.
+>
+> Start and finish are START and END badges, not squares. Crossing dots
+> are not drawn; the U-turn arc is the cross. Admin maps use the same
+> line, chevrons and badges, with no progress shading.
+>
+> This supersedes the "green square / burgundy square" and "crossing
+> markers" sentences in the 2026-09-25 open-paths note above. No migration.
+
 ---
 
 ### Stage 6 — Field prop view and offline cache

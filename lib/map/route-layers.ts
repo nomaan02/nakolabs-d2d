@@ -1,18 +1,22 @@
 /**
- * Stage 5b-R3 — one route renderer for the draw page and the frozen
+ * One route renderer for the field map, the draw page and the frozen
  * assignment view.
  *
  * The line is the walkline (pavement), never `centreline`, `geom` or
  * `route_geom`. MapLibre's `line-offset` moves a line but not the symbols
- * placed along it, so chevrons would sit on the road centre if we drew the
- * centreline and offset it.
+ * placed along it.
  *
  * `["zoom"]` is only ever the top-level input of `interpolate`. Nesting it
  * inside `case` or `match` throws and the layer paints nothing.
  *
- * Feature-state (`active`) is applied by `paintRouteLayers`, which callers
- * run from `style.load` and from the React effect. An effect that returns
- * early while the style is loading leaves every feature inactive.
+ * Line colour and width come from feature-state `tier`. Chevrons are the
+ * exception: one merged line per leg-run, rebuilt with setData when the
+ * current step moves, with `tier` as a feature property. A stable per-leg
+ * feature cannot show chevrons on only the undone part of the current leg.
+ *
+ * Feature-state is applied by `paintRouteLayers` and `applyRouteProgress`,
+ * which callers run from `style.load` and from the React effect. State does
+ * not survive `setData`.
  */
 
 import type {
@@ -23,24 +27,69 @@ import type {
 } from "maplibre-gl";
 
 import type { WalkResult } from "@/lib/geo/walk/types";
+import { legRuns, type RouteTiers } from "@/lib/map/route-progress";
 
 export const ROUTE_LINE_SOURCE = "route-walk-lines";
 export const ROUTE_POINT_SOURCE = "route-walk-points";
-const CHEVRON_IMAGE = "route-walk-chevron";
-const SQUARE_IMAGE = "route-walk-square";
+const CHEVRON_SOURCE = "route-walk-chevron-runs";
+
+const CHEVRON_IMAGE = "route-chevron";
+const BADGE_START = "route-badge-start";
+const BADGE_END = "route-badge-end";
 
 const LINE_WORK = "route-walk-work";
 const LINE_OTHER = "route-walk-other";
 const LINE_CHEVRONS = "route-walk-chevrons";
-const POINT_CROSS = "route-walk-cross";
 const POINT_END = "route-walk-end";
 const POINT_START = "route-walk-start";
 
-const WORK_COLOUR = "#1b4aa6";
-const OTHER_COLOUR = "#4a5259";
-const START_COLOUR = "#1e6b3a";
-const MARKER_COLOUR = "#7a2b33";
-const HALO = "#fbfaf8";
+/** Dataset order for the field map. Paint order is separate. */
+export const ROUTE_LAYER_IDS = [
+  LINE_WORK,
+  LINE_OTHER,
+  LINE_CHEVRONS,
+  POINT_START,
+  POINT_END,
+] as const;
+
+const FOCUS = "#c2410c";
+const PAPER = "#fbfaf8";
+const NEAR_MIX = 0.55;
+const FAR_MIX = 0.35;
+const DONE = "#a3a9ae";
+const INK = "#1c2226";
+const START_FILL = "#1e6b3a";
+const END_FILL = "#7a2b33";
+
+/** Owner tunes these. Near and far are solid mixes, drawn at opacity 1. */
+function hexChannels(hex: string): [number, number, number] {
+  const value = hex.replace("#", "");
+  return [
+    Number.parseInt(value.slice(0, 2), 16),
+    Number.parseInt(value.slice(2, 4), 16),
+    Number.parseInt(value.slice(4, 6), 16),
+  ];
+}
+
+function mixHex(focus: string, paper: string, amount: number): string {
+  const from = hexChannels(focus);
+  const into = hexChannels(paper);
+  const channel = (index: number) => Math.round(from[index]! * amount + into[index]! * (1 - amount));
+  return `#${[0, 1, 2].map((index) => channel(index).toString(16).padStart(2, "0")).join("")}`;
+}
+
+const NEAR = mixHex(FOCUS, PAPER, NEAR_MIX);
+const FAR = mixHex(FOCUS, PAPER, FAR_MIX);
+
+export const ROUTE_TIER_COLOURS = {
+  focus: FOCUS,
+  near: NEAR,
+  far: FAR,
+  done: DONE,
+} as const;
+
+/** Joints closer than this become one vertex so a chevron is not planted on the join. */
+const JOINT_M = 0.1;
 
 const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
 
@@ -53,14 +102,20 @@ export type RoutePaintStep = {
   stepIndex: number;
   kind: RouteKind;
   walk: [number, number][];
+  street?: string | null;
+  firstSeq?: number;
+  lastSeq?: number;
 };
+
+export type BadgeAnchor = "top" | "bottom";
 
 export type RoutePaintPoint = {
   fid: string;
   variantKey: string;
-  role: "start" | "end" | "cross";
+  role: "start" | "end";
   lon: number;
   lat: number;
+  anchor: BadgeAnchor;
 };
 
 export type RoutePaintModel = {
@@ -72,7 +127,8 @@ export type RoutePaintModel = {
  * A row from `territory_route_steps` (`walkline`) or `route_steps`
  * (`walk_geom`), or a `WalkStep` (`walkline` as coordinate pairs). The
  * adapter reads one of those two fields and nothing else — callers do not
- * reshape the row first.
+ * reshape the row first. Street and sequence are optional and only used
+ * to merge legs.
  */
 export type RouteStepInput = {
   step_index: number;
@@ -80,6 +136,9 @@ export type RouteStepInput = {
   walkline?: unknown;
   walk_geom?: unknown;
   variant_key?: string | null;
+  street_name?: string | null;
+  first_seq?: number | null;
+  last_seq?: number | null;
 };
 
 export type RouteEndpointInput = {
@@ -87,6 +146,12 @@ export type RouteEndpointInput = {
   start: unknown;
   end: unknown;
 };
+
+type ChevronRef = { fid: string; variantKey: string };
+
+const chevronRefs = new WeakMap<MapLibreMap, ChevronRef[]>();
+const chevronSignature = new WeakMap<GeoJSONSource, string>();
+const activeKeyByMap = new WeakMap<MapLibreMap, string>();
 
 export function emptyRouteModel(): RoutePaintModel {
   return { steps: [], points: [] };
@@ -139,6 +204,9 @@ export function walkResultToPaintInput(result: WalkResult): {
         kind: step.kind,
         walkline: step.walkline,
         variant_key: variant.key,
+        street_name: step.street_name,
+        first_seq: step.first_seq,
+        last_seq: step.last_seq,
       });
     });
   }
@@ -148,6 +216,12 @@ export function walkResultToPaintInput(result: WalkResult): {
 function asKind(value: string | null | undefined): RouteKind | null {
   if (value === "work" || value === "cross" || value === "walk") return value;
   return null;
+}
+
+function optionalCount(value: number | null | undefined): number | undefined {
+  if (value === null || value === undefined) return undefined;
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : undefined;
 }
 
 function pair(value: unknown): [number, number] | null {
@@ -216,8 +290,19 @@ function stepWalk(step: RouteStepInput): [number, number][] | null {
 }
 
 /**
- * One model for both tables and for the in-memory generator. Working legs,
- * crossings and the return walk all come from the pavement line.
+ * The further-north endpoint keeps its badge above the point. On a tie,
+ * START sits below and END sits above.
+ */
+function badgeAnchors(startLat: number, endLat: number): { start: BadgeAnchor; end: BadgeAnchor } {
+  if (endLat > startLat) return { start: "top", end: "bottom" };
+  if (startLat > endLat) return { start: "bottom", end: "top" };
+  return { start: "top", end: "bottom" };
+}
+
+/**
+ * One model for both tables and for the in-memory generator. Working legs
+ * and the connectors between them all come from the pavement line. Cross
+ * steps stay in the line; they are not drawn as dots.
  */
 export function toRoutePaintModel(input: {
   steps: readonly RouteStepInput[];
@@ -236,6 +321,9 @@ export function toRoutePaintModel(input: {
       stepIndex: step.step_index,
       kind,
       walk,
+      street: step.street_name ?? null,
+      firstSeq: optionalCount(step.first_seq),
+      lastSeq: optionalCount(step.last_seq),
     };
     const list = byVariant.get(variantKey);
     if (list) list.push(painted);
@@ -249,30 +337,34 @@ export function toRoutePaintModel(input: {
   for (const [variantKey, list] of byVariant) {
     list.sort((a, b) => a.stepIndex - b.stepIndex);
     steps.push(...list);
-    const first = list[0];
-    const last = list[list.length - 1];
+    const first = list[0]!;
+    const last = list[list.length - 1]!;
     const ends = endpointByKey.get(variantKey);
     const start = (ends ? pointFromGeom(ends.start) : null) ?? {
-      lon: first.walk[0][0],
-      lat: first.walk[0][1],
+      lon: first.walk[0]![0],
+      lat: first.walk[0]![1],
     };
-    const lastCoord = last.walk[last.walk.length - 1];
+    const lastCoord = last.walk[last.walk.length - 1]!;
     const end = (ends ? pointFromGeom(ends.end) : null) ?? { lon: lastCoord[0], lat: lastCoord[1] };
+    const anchors = badgeAnchors(start.lat, end.lat);
     points.push(
-      { fid: `point:${variantKey}:start`, variantKey, role: "start", lon: start.lon, lat: start.lat },
-      { fid: `point:${variantKey}:end`, variantKey, role: "end", lon: end.lon, lat: end.lat },
-    );
-    for (const step of list) {
-      if (step.kind !== "cross") continue;
-      const at = step.walk[Math.floor((step.walk.length - 1) / 2)];
-      points.push({
-        fid: `point:${variantKey}:cross:${step.stepIndex}`,
+      {
+        fid: `point:${variantKey}:start`,
         variantKey,
-        role: "cross",
-        lon: at[0],
-        lat: at[1],
-      });
-    }
+        role: "start",
+        lon: start.lon,
+        lat: start.lat,
+        anchor: anchors.start,
+      },
+      {
+        fid: `point:${variantKey}:end`,
+        variantKey,
+        role: "end",
+        lon: end.lon,
+        lat: end.lat,
+        anchor: anchors.end,
+      },
+    );
   }
 
   return { steps, points };
@@ -329,9 +421,9 @@ function linesGeoJson(model: RoutePaintModel): GeoJSON.FeatureCollection {
   return {
     type: "FeatureCollection",
     features: model.steps.map((step) => ({
-      type: "Feature",
+      type: "Feature" as const,
       properties: { fid: step.fid, kind: step.kind, variantKey: step.variantKey },
-      geometry: { type: "LineString", coordinates: step.walk },
+      geometry: { type: "LineString" as const, coordinates: step.walk },
     })),
   };
 }
@@ -340,11 +432,70 @@ function pointsGeoJson(model: RoutePaintModel): GeoJSON.FeatureCollection {
   return {
     type: "FeatureCollection",
     features: model.points.map((point) => ({
-      type: "Feature",
-      properties: { fid: point.fid, role: point.role, variantKey: point.variantKey },
-      geometry: { type: "Point", coordinates: [point.lon, point.lat] },
+      type: "Feature" as const,
+      properties: {
+        fid: point.fid,
+        role: point.role,
+        variantKey: point.variantKey,
+        anchor: point.anchor,
+      },
+      geometry: { type: "Point" as const, coordinates: [point.lon, point.lat] },
     })),
   };
+}
+
+function equirectangularMetres(a: [number, number], b: [number, number]): number {
+  const radius = 6_371_000;
+  const lat = ((a[1] + b[1]) / 2) * (Math.PI / 180);
+  const x = ((b[0] - a[0]) * Math.PI) / 180 * Math.cos(lat) * radius;
+  const y = ((b[1] - a[1]) * Math.PI) / 180 * radius;
+  return Math.hypot(x, y);
+}
+
+function appendWalk(out: [number, number][], walk: readonly [number, number][]): void {
+  for (let index = 0; index < walk.length; index += 1) {
+    const coord = walk[index]!;
+    const prev = out[out.length - 1];
+    if (index === 0 && prev && equirectangularMetres(prev, coord) < JOINT_M) continue;
+    out.push(coord);
+  }
+}
+
+function stepsByVariant(model: RoutePaintModel): Map<string, RoutePaintStep[]> {
+  const grouped = new Map<string, RoutePaintStep[]>();
+  for (const step of model.steps) {
+    const list = grouped.get(step.variantKey);
+    if (list) list.push(step);
+    else grouped.set(step.variantKey, [step]);
+  }
+  for (const list of grouped.values()) list.sort((a, b) => a.stepIndex - b.stepIndex);
+  return grouped;
+}
+
+function chevronsGeoJson(
+  model: RoutePaintModel,
+  tiers: RouteTiers | null,
+): { collection: GeoJSON.FeatureCollection; refs: ChevronRef[] } {
+  const features: GeoJSON.Feature[] = [];
+  const refs: ChevronRef[] = [];
+  for (const [variantKey, steps] of stepsByVariant(model)) {
+    for (const run of legRuns(steps, tiers)) {
+      const coordinates: [number, number][] = [];
+      for (const stepIndex of run.stepIndexes) {
+        const step = steps.find((row) => row.stepIndex === stepIndex);
+        if (step) appendWalk(coordinates, step.walk);
+      }
+      if (coordinates.length < 2) continue;
+      const fid = `chev:${variantKey}:${run.leg}:${run.firstStep}`;
+      features.push({
+        type: "Feature",
+        properties: { fid, tier: run.tier, variantKey },
+        geometry: { type: "LineString", coordinates },
+      });
+      refs.push({ fid, variantKey });
+    }
+  }
+  return { collection: { type: "FeatureCollection", features }, refs };
 }
 
 function setRouteData(map: MapLibreMap, model: RoutePaintModel): void {
@@ -354,9 +505,36 @@ function setRouteData(map: MapLibreMap, model: RoutePaintModel): void {
   points?.setData(model.points.length > 0 ? pointsGeoJson(model) : EMPTY);
 }
 
+/**
+ * Rebuilds the chevron source when the run signature changes. Skips setData
+ * when it has not, so a tier repaint does not wipe feature-state for nothing.
+ * The signature map is keyed by the source object, so a style reload starts clean.
+ */
+function syncChevrons(map: MapLibreMap, model: RoutePaintModel, tiers: RouteTiers | null): void {
+  const source = map.getSource(CHEVRON_SOURCE) as GeoJSONSource | undefined;
+  if (!source) return;
+  const { collection, refs } = chevronsGeoJson(model, tiers);
+  chevronRefs.set(map, refs);
+  const signature = JSON.stringify(collection);
+  if (chevronSignature.get(source) === signature) return;
+  source.setData(collection.features.length > 0 ? collection : EMPTY);
+  chevronSignature.set(source, signature);
+}
+
+function applyChevronActive(map: MapLibreMap, activeKey: string): void {
+  if (!map.getSource(CHEVRON_SOURCE)) return;
+  for (const ref of chevronRefs.get(map) ?? []) {
+    map.setFeatureState(
+      { source: CHEVRON_SOURCE, id: ref.fid },
+      { active: ref.variantKey === activeKey },
+    );
+  }
+}
+
 /** Highlights one variant. Every other variant stays on the map, dimmed. */
 export function applyRouteActive(map: MapLibreMap, model: RoutePaintModel, activeKey: string): void {
   if (!map.getSource(ROUTE_LINE_SOURCE) || !map.getSource(ROUTE_POINT_SOURCE)) return;
+  activeKeyByMap.set(map, activeKey);
   for (const step of model.steps) {
     map.setFeatureState(
       { source: ROUTE_LINE_SOURCE, id: step.fid },
@@ -369,96 +547,160 @@ export function applyRouteActive(map: MapLibreMap, model: RoutePaintModel, activ
       { active: point.variantKey === activeKey },
     );
   }
+  applyChevronActive(map, activeKey);
 }
 
 const ACTIVE: ExpressionSpecification = ["boolean", ["feature-state", "active"], false];
+const TIER: ExpressionSpecification = ["coalesce", ["feature-state", "tier"], "focus"];
+const LINE_COLOUR: ExpressionSpecification = ["match", TIER, "near", NEAR, "far", FAR, "done", DONE, FOCUS];
+const LINE_WIDTH: ExpressionSpecification = [
+  "interpolate",
+  ["linear"],
+  ["zoom"],
+  12,
+  ["match", TIER, "near", 1.75, "far", 1.5, "done", 1, 2.25],
+  16,
+  ["match", TIER, "near", 3, "far", 2.5, "done", 1.75, 4.5],
+  19,
+  ["match", TIER, "near", 4.5, "far", 3.5, "done", 2.5, 7],
+];
+const LINE_OPACITY: ExpressionSpecification = ["case", ACTIVE, 1, 0.18];
+const CHEVRON_TIER: ExpressionSpecification = ["get", "tier"];
 
-const LINE_OPACITY: ExpressionSpecification = ["case", ACTIVE, 0.95, 0.18];
-const MARKER_OPACITY: ExpressionSpecification = ["case", ACTIVE, 1, 0];
-
-const LINE_WIDTH: ExpressionSpecification = ["interpolate", ["linear"], ["zoom"], 12, 2, 16, 3.5, 19, 5.5];
-const ICON_SIZE: ExpressionSpecification = ["interpolate", ["linear"], ["zoom"], 12, 0.45, 16, 0.7, 19, 0.95];
-
-function circleRadius(small: number, mid: number, large: number): ExpressionSpecification {
-  return ["interpolate", ["linear"], ["zoom"], 12, small, 16, mid, 19, large];
+function chevronOpacityAt(near: number, far: number): ExpressionSpecification {
+  return ["case", ACTIVE, ["match", CHEVRON_TIER, "focus", 1, "near", near, "far", far, 0], 0];
 }
 
+const CHEVRON_OPACITY: ExpressionSpecification = [
+  "interpolate",
+  ["linear"],
+  ["zoom"],
+  16,
+  chevronOpacityAt(0, 0),
+  17.5,
+  chevronOpacityAt(0.5, 0.35),
+];
+const CHEVRON_SIZE: ExpressionSpecification = [
+  "interpolate",
+  ["linear"],
+  ["zoom"],
+  14,
+  0.4,
+  16,
+  0.55,
+  19,
+  0.75,
+];
+const BADGE_OPACITY: ExpressionSpecification = ["case", ACTIVE, 1, 0];
+const BADGE_ANCHOR: ExpressionSpecification = ["match", ["get", "anchor"], "top", "top", "bottom"];
+const BADGE_OFFSET: ExpressionSpecification = [
+  "match",
+  ["get", "anchor"],
+  "top",
+  ["literal", [0, 5]],
+  ["literal", [0, -5]],
+];
+
+function distToSegment(
+  px: number,
+  py: number,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+): number {
+  const abx = bx - ax;
+  const aby = by - ay;
+  const len2 = abx * abx + aby * aby;
+  if (len2 === 0) return Math.hypot(px - ax, py - ay);
+  const t = Math.max(0, Math.min(1, ((px - ax) * abx + (py - ay) * aby) / len2));
+  return Math.hypot(px - (ax + t * abx), py - (ay + t * aby));
+}
+
+/**
+ * Open ">" as a true distance field. Edge at alpha 0.75, one eighth per
+ * pixel, which is MapLibre's SDF scale. No DOM.
+ */
 function ensureChevron(map: MapLibreMap): void {
   if (map.hasImage(CHEVRON_IMAGE)) return;
-  const size = 24;
+  const size = 64;
   const data = new Uint8ClampedArray(size * size * 4);
+  const ax = 24;
+  const ay = 14;
+  const bx = 40;
+  const by = 32;
+  const cx = 24;
+  const cy = 50;
+  const radius = 4;
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
-      const nx = x / (size - 1);
-      const ny = y / (size - 1);
-      const shaft = nx >= 0.08 && nx <= 0.58 && Math.abs(ny - 0.5) <= 0.12;
-      const along = (nx - 0.48) / 0.44;
-      const head = nx >= 0.48 && nx <= 0.92 && Math.abs(ny - 0.5) <= 0.34 * (1 - along);
-      if (!shaft && !head) continue;
+      const px = x + 0.5;
+      const py = y + 0.5;
+      const d =
+        Math.min(distToSegment(px, py, ax, ay, bx, by), distToSegment(px, py, bx, by, cx, cy)) - radius;
+      const alpha = Math.round(255 * Math.max(0, Math.min(1, 0.75 - d / 8)));
       const index = (y * size + x) * 4;
       data[index] = 255;
       data[index + 1] = 255;
       data[index + 2] = 255;
-      data[index + 3] = 255;
+      data[index + 3] = alpha;
     }
   }
-  map.addImage(CHEVRON_IMAGE, { width: size, height: size, data }, { sdf: true });
+  map.addImage(CHEVRON_IMAGE, { width: size, height: size, data }, { pixelRatio: 2, sdf: true });
 }
 
-/**
- * Start and finish are squares, not circles: a round burgundy dot already
- * means Rented/Council on the door layer. The image is a distance field
- * (edge at 0.75, 1/8 per pixel, MapLibre's SDF scale) so `icon-halo-*`
- * draws the pale outline.
- */
-function ensureSquare(map: MapLibreMap): void {
-  if (map.hasImage(SQUARE_IMAGE)) return;
-  const size = 32;
-  const half = 10;
-  const centre = (size - 1) / 2;
-  const data = new Uint8ClampedArray(size * size * 4);
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) {
-      const outside = Math.max(Math.abs(x - centre), Math.abs(y - centre)) - half;
-      const index = (y * size + x) * 4;
-      data[index] = 255;
-      data[index + 1] = 255;
-      data[index + 2] = 255;
-      data[index + 3] = Math.round(255 * Math.max(0, Math.min(1, (6 - outside) / 8)));
-    }
-  }
-  map.addImage(SQUARE_IMAGE, { width: size, height: size, data }, { sdf: true });
+const BADGE_FONT = '700 10px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+
+/** Raster pill with the word baked in. Null outside a browser, or with no 2D context. */
+function drawBadge(text: string, fill: string): ImageData | null {
+  if (typeof document === "undefined") return null;
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.font = BADGE_FONT;
+  const logicalW = Math.ceil(ctx.measureText(text).width) + 12;
+  const logicalH = 16;
+  canvas.width = logicalW * 2;
+  canvas.height = logicalH * 2;
+  ctx.setTransform(2, 0, 0, 2, 0, 0);
+  ctx.font = BADGE_FONT;
+  ctx.beginPath();
+  const inset = 0.75;
+  const x = inset;
+  const y = inset;
+  const width = logicalW - inset * 2;
+  const height = logicalH - inset * 2;
+  const r = height / 2;
+  ctx.arc(x + r, y + height / 2, r, Math.PI / 2, (Math.PI * 3) / 2);
+  ctx.arc(x + width - r, y + height / 2, r, (Math.PI * 3) / 2, Math.PI / 2);
+  ctx.closePath();
+  ctx.fillStyle = fill;
+  ctx.fill();
+  ctx.strokeStyle = PAPER;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, logicalW / 2, logicalH / 2);
+  return ctx.getImageData(0, 0, canvas.width, canvas.height);
 }
 
-function squareSize(small: number, mid: number, large: number): ExpressionSpecification {
-  return ["interpolate", ["linear"], ["zoom"], 12, small, 16, mid, 19, large];
+function ensureBadge(map: MapLibreMap, id: string, text: string, fill: string): boolean {
+  if (map.hasImage(id)) return true;
+  const image = drawBadge(text, fill);
+  if (!image) return false;
+  map.addImage(id, image, { pixelRatio: 2 });
+  return map.hasImage(id);
 }
 
-function addBefore(map: MapLibreMap, layer: Parameters<MapLibreMap["addLayer"]>[0], beforeId?: string): void {
-  if (map.getLayer(layer.id)) return;
-  if (beforeId && map.getLayer(beforeId)) map.addLayer(layer, beforeId);
-  else map.addLayer(layer);
-}
+type RouteLayer = Parameters<MapLibreMap["addLayer"]>[0];
 
-/**
- * Registers the route sources and layers. `beforeId` is the door-circle
- * layer so the route paints underneath the dots. Idempotent.
- */
-export function ensureRouteLayers(map: MapLibreMap, beforeId?: string): void {
-  ensureChevron(map);
-  ensureSquare(map);
-  if (!map.getSource(ROUTE_LINE_SOURCE)) {
-    map.addSource(ROUTE_LINE_SOURCE, { type: "geojson", data: EMPTY, promoteId: "fid" });
-  }
-  if (!map.getSource(ROUTE_POINT_SOURCE)) {
-    map.addSource(ROUTE_POINT_SOURCE, { type: "geojson", data: EMPTY, promoteId: "fid" });
-  }
-
+function routeLayerList(includeBadges: boolean): RouteLayer[] {
   const workFilter: FilterSpecification = ["==", ["get", "kind"], "work"];
   const otherFilter: FilterSpecification = ["!=", ["get", "kind"], "work"];
-
-  addBefore(
-    map,
+  const doneFilter: FilterSpecification = ["!=", ["get", "tier"], "done"];
+  const layers: RouteLayer[] = [
     {
       id: LINE_OTHER,
       type: "line",
@@ -466,16 +708,12 @@ export function ensureRouteLayers(map: MapLibreMap, beforeId?: string): void {
       filter: otherFilter,
       layout: { "line-cap": "butt", "line-join": "round" },
       paint: {
-        "line-color": OTHER_COLOUR,
+        "line-color": LINE_COLOUR,
         "line-width": LINE_WIDTH,
         "line-opacity": LINE_OPACITY,
         "line-dasharray": [1.4, 1.3],
       },
     },
-    beforeId,
-  );
-  addBefore(
-    map,
     {
       id: LINE_WORK,
       type: "line",
@@ -483,114 +721,162 @@ export function ensureRouteLayers(map: MapLibreMap, beforeId?: string): void {
       filter: workFilter,
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
-        "line-color": WORK_COLOUR,
+        "line-color": LINE_COLOUR,
         "line-width": LINE_WIDTH,
         "line-opacity": LINE_OPACITY,
       },
     },
-    beforeId,
-  );
-  addBefore(
-    map,
     {
       id: LINE_CHEVRONS,
       type: "symbol",
-      source: ROUTE_LINE_SOURCE,
+      source: CHEVRON_SOURCE,
+      filter: doneFilter,
       layout: {
         "symbol-placement": "line",
-        "symbol-spacing": 70,
+        "symbol-spacing": 120,
         "icon-image": CHEVRON_IMAGE,
-        "icon-size": ICON_SIZE,
+        "icon-size": CHEVRON_SIZE,
         "icon-allow-overlap": true,
         "icon-ignore-placement": true,
         "icon-rotation-alignment": "map",
         "icon-pitch-alignment": "map",
       },
       paint: {
-        "icon-color": "#1c2226",
-        "icon-opacity": MARKER_OPACITY,
+        "icon-color": INK,
+        "icon-halo-color": PAPER,
+        "icon-halo-width": 1,
+        "icon-opacity": CHEVRON_OPACITY,
       },
     },
-    beforeId,
-  );
-  addBefore(
-    map,
-    {
-      id: POINT_CROSS,
-      type: "circle",
-      source: ROUTE_POINT_SOURCE,
-      filter: ["==", ["get", "role"], "cross"],
-      paint: {
-        "circle-radius": circleRadius(3, 4, 5),
-        "circle-color": MARKER_COLOUR,
-        "circle-stroke-width": 1.5,
-        "circle-stroke-color": HALO,
-        "circle-opacity": MARKER_OPACITY,
-        "circle-stroke-opacity": MARKER_OPACITY,
-      },
-    },
-    beforeId,
-  );
-  addBefore(
-    map,
+  ];
+  if (!includeBadges) return layers;
+  layers.push(
     {
       id: POINT_END,
       type: "symbol",
       source: ROUTE_POINT_SOURCE,
       filter: ["==", ["get", "role"], "end"],
       layout: {
-        "icon-image": SQUARE_IMAGE,
-        "icon-size": squareSize(0.4, 0.55, 0.7),
+        "icon-image": BADGE_END,
+        "icon-size": 1,
+        "icon-anchor": BADGE_ANCHOR,
+        "icon-offset": BADGE_OFFSET,
         "icon-allow-overlap": true,
         "icon-ignore-placement": true,
         "icon-rotation-alignment": "viewport",
         "icon-pitch-alignment": "viewport",
       },
-      paint: {
-        "icon-color": MARKER_COLOUR,
-        "icon-halo-color": HALO,
-        "icon-halo-width": 2,
-        "icon-opacity": MARKER_OPACITY,
-      },
+      paint: { "icon-opacity": BADGE_OPACITY },
     },
-    beforeId,
-  );
-  addBefore(
-    map,
     {
       id: POINT_START,
       type: "symbol",
       source: ROUTE_POINT_SOURCE,
       filter: ["==", ["get", "role"], "start"],
       layout: {
-        "icon-image": SQUARE_IMAGE,
-        "icon-size": squareSize(0.5, 0.7, 0.9),
+        "icon-image": BADGE_START,
+        "icon-size": 1,
+        "icon-anchor": BADGE_ANCHOR,
+        "icon-offset": BADGE_OFFSET,
         "icon-allow-overlap": true,
         "icon-ignore-placement": true,
         "icon-rotation-alignment": "viewport",
         "icon-pitch-alignment": "viewport",
       },
-      paint: {
-        "icon-color": START_COLOUR,
-        "icon-halo-color": HALO,
-        "icon-halo-width": 2,
-        "icon-opacity": MARKER_OPACITY,
-      },
+      paint: { "icon-opacity": BADGE_OPACITY },
     },
-    beforeId,
   );
+  return layers;
+}
+
+function addBefore(map: MapLibreMap, layer: RouteLayer, beforeId?: string): void {
+  if (map.getLayer(layer.id)) return;
+  if (beforeId && map.getLayer(beforeId)) map.addLayer(layer, beforeId);
+  else map.addLayer(layer);
+}
+
+/**
+ * The layer specs the acceptance script validates. Badge layers are included
+ * so their expressions are checked; images are registered at runtime.
+ */
+export function routeValidationStyle(): {
+  version: 8;
+  sources: Record<string, { type: "geojson"; data: GeoJSON.FeatureCollection }>;
+  layers: RouteLayer[];
+} {
+  const source = { type: "geojson" as const, data: EMPTY };
+  return {
+    version: 8,
+    sources: {
+      [ROUTE_LINE_SOURCE]: source,
+      [ROUTE_POINT_SOURCE]: source,
+      [CHEVRON_SOURCE]: source,
+    },
+    layers: routeLayerList(true),
+  };
+}
+
+/**
+ * Registers the route sources and layers. `beforeId` is the door-circle
+ * layer so the route paints underneath the dots. Idempotent, including
+ * after a style reload, which drops images.
+ */
+export function ensureRouteLayers(map: MapLibreMap, beforeId?: string): void {
+  ensureChevron(map);
+  const badges = ensureBadge(map, BADGE_START, "START", START_FILL) && ensureBadge(map, BADGE_END, "END", END_FILL);
+  if (!map.getSource(ROUTE_LINE_SOURCE)) {
+    map.addSource(ROUTE_LINE_SOURCE, { type: "geojson", data: EMPTY, promoteId: "fid" });
+  }
+  if (!map.getSource(ROUTE_POINT_SOURCE)) {
+    map.addSource(ROUTE_POINT_SOURCE, { type: "geojson", data: EMPTY, promoteId: "fid" });
+  }
+  if (!map.getSource(CHEVRON_SOURCE)) {
+    map.addSource(CHEVRON_SOURCE, { type: "geojson", data: EMPTY, promoteId: "fid" });
+  }
+  for (const layer of routeLayerList(badges)) addBefore(map, layer, beforeId);
+}
+
+/**
+ * Sets `tier` on every line. Missing tiers paint as focus, which is the
+ * admin path. Rebuilds chevrons when the runs changed and puts `active`
+ * back on them, because setData clears feature-state.
+ */
+export function applyRouteProgress(
+  map: MapLibreMap,
+  model: RoutePaintModel,
+  tiers?: RouteTiers | null,
+): void {
+  if (!map.getSource(ROUTE_LINE_SOURCE)) return;
+  const resolved = tiers ?? null;
+  for (const step of model.steps) {
+    map.setFeatureState(
+      { source: ROUTE_LINE_SOURCE, id: step.fid },
+      { tier: resolved?.get(step.stepIndex) ?? "focus" },
+    );
+  }
+  syncChevrons(map, model, resolved);
+  const activeKey = activeKeyByMap.get(map);
+  if (activeKey !== undefined) applyChevronActive(map, activeKey);
 }
 
 /**
  * Writes the model and highlights `activeKey`. Call this from `style.load`
  * and from the effect that watches the model — either one alone leaves the
- * highlight unset after a style reload.
+ * highlight unset after a style reload. `tiers` is omitted on admin maps.
  */
-export function paintRouteLayers(map: MapLibreMap, model: RoutePaintModel, activeKey: string, beforeId?: string): void {
+export function paintRouteLayers(
+  map: MapLibreMap,
+  model: RoutePaintModel,
+  activeKey: string,
+  beforeId?: string,
+  tiers?: RouteTiers | null,
+): void {
   // Do not consult `isStyleLoaded()` here. It is still false inside the
   // `style.load` handler, and bailing there is how the highlight gets lost.
   if (!map.getStyle()) return;
   ensureRouteLayers(map, beforeId);
   setRouteData(map, model);
+  syncChevrons(map, model, tiers ?? null);
   applyRouteActive(map, model, activeKey);
+  applyRouteProgress(map, model, tiers ?? null);
 }

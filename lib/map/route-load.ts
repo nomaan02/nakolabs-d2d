@@ -52,7 +52,7 @@ export async function loadTerritoryRouteModel(
   const loaded = await pages(async (from, to) => {
     const result = await supabase
       .from("territory_route_steps")
-      .select("route_id, step_index, kind, walkline")
+      .select("route_id, step_index, kind, walkline, street_name, first_seq, last_seq")
       .in("route_id", [...keyByRoute.keys()])
       .order("step_index", { ascending: true })
       .range(from, to);
@@ -69,6 +69,9 @@ export async function loadTerritoryRouteModel(
         kind: row.kind,
         walkline: row.walkline,
         variant_key: variantKey,
+        street_name: row.street_name,
+        first_seq: row.first_seq,
+        last_seq: row.last_seq,
       },
     ];
   });
@@ -90,7 +93,7 @@ export async function loadAssignmentRouteModel(
   const loaded = await pages(async (from, to) => {
     const result = await supabase
       .from("route_steps")
-      .select("step_index, kind, walk_geom")
+      .select("step_index, kind, walk_geom, street_name, first_seq, last_seq")
       .eq("assignment_id", assignmentId)
       .order("step_index", { ascending: true })
       .range(from, to);
@@ -103,6 +106,9 @@ export async function loadAssignmentRouteModel(
     kind: row.kind,
     walk_geom: row.walk_geom,
     variant_key: variantKey,
+    street_name: row.street_name,
+    first_seq: row.first_seq,
+    last_seq: row.last_seq,
   }));
   const model = toRoutePaintModel({ steps, variantKey });
   return { ok: true, model, variants: 1, steps: model.steps.length };

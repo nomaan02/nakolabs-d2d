@@ -28,6 +28,7 @@
     "verify:stage14b": "tsx scripts/verify-stage-14b.ts",
     "verify:stage9": "tsx scripts/verify-stage-9.ts",
     "verify:stage10": "tsx scripts/verify-stage-10.ts",
+    "verify:ui4": "tsx scripts/verify-ui-4-route-focus.ts",
     "verify:stage5cb": "tsx scripts/verify-stage-5c-b.ts"
   },
   "dependencies": {

@@ -1,0 +1,44 @@
+---
+description: Keep the Claude handoff log current after major changes
+alwaysApply: true
+---
+
+After every major change, append an entry to docs/CLAUDE-HANDOFF.md and
+rewrite its "Current state" section. Also do this after a plan is approved,
+before implementation starts. Keep appending to docs/BUILD-LOG.md as
+before; this file is additional, not a replacement.
+
+A major change is any of:
+- a commit
+- a migration, or any schema, RLS, grant or function change
+- a new dependency
+- a new screen, route or component, or a removed one
+- any change to a shared module: lib/map/route-layers.ts, lib/sync/queue.ts,
+  lib/geo/walk/*, lib/field/*, lib/supabase/*
+- a change to an external setting: MapTiler style or key, Supabase dashboard
+  setting, Vercel env var
+- a decision by the owner that changes intended behaviour
+- a plan approved in Plan mode
+
+Entry template:
+### <YYYY-MM-DD> — <short title> (<commit hash, or "uncommitted">)
+- **Item:** which of the 5 UI items (or "other")
+- **What changed:** plain terms, 2–4 lines
+- **Files:** changed / new / deleted
+- **Database:** migration number and what it does, or "none"
+- **Shared modules touched:** which and why, or "none"
+- **Decided by:** owner / agent — list each decision and who made it.
+  Never record an agent suggestion as an owner decision.
+- **Deviations from plan or brief:** or "none"
+- **Invariants:** confirm no GPS/coordinates, no quality scoring in /field,
+  field writes via queue.ts only — or say exactly which was touched and why
+- **Verified:** what was actually tested, and how (browser, phone, query)
+- **Not verified:** stated plainly
+- **External settings:** what changed where, or "none"
+- **Open questions for Claude:** anything the owner should raise
+
+Rules for the log:
+- Facts, not summaries. Counts, file paths, commit hashes, migration numbers.
+- Say "NOT VERIFIED" rather than implying something works.
+- Never delete or rewrite past entries. Corrections go in a new entry.
+- Plain British English, short lines, no long paragraphs.

@@ -15,7 +15,14 @@ import { mapLabel } from "@/lib/field/labels";
 import type { LocalOutcomes } from "@/lib/field/local-outcomes";
 import { ATTRIBUTION_LINES, fieldMapStyle } from "@/lib/field/map-style";
 import type { DoorCollection } from "@/lib/geo/todays-assignment";
-import { paintRouteLayers, type RoutePaintModel } from "@/lib/map/route-layers";
+import {
+  applyRouteProgress,
+  paintRouteLayers,
+  ROUTE_LAYER_IDS,
+  ROUTE_LINE_SOURCE,
+  type RoutePaintModel,
+} from "@/lib/map/route-layers";
+import { formatTierCounts, type RouteTiers } from "@/lib/map/route-progress";
 
 const BRISTOL: [number, number] = [-2.5879, 51.4545];
 const DOORS_SOURCE = "field-doors";
@@ -213,11 +220,11 @@ function withLabels(doors: DoorCollection, labels: DoorLabels): DoorCollection {
   };
 }
 
-function applyRoute(instance: MapLibreMap, model: RoutePaintModel) {
+function applyRoute(instance: MapLibreMap, model: RoutePaintModel, tiers: RouteTiers | null) {
   const source = instance.getSource(ROUTE_SOURCE) as GeoJSONSource | undefined;
   source?.setData(EMPTY);
   const key = model.steps[0]?.variantKey || "route";
-  paintRouteLayers(instance, model, key, FOCUS_LAYER);
+  paintRouteLayers(instance, model, key, FOCUS_LAYER, tiers);
 }
 
 const FIELD_LAYER_ORDER = [
@@ -229,22 +236,19 @@ const FIELD_LAYER_ORDER = [
   POSITION_LAYER,
 ];
 
-function recordLayerOrder(instance: MapLibreMap, container: HTMLElement, model: RoutePaintModel) {
+function recordLayerOrder(
+  instance: MapLibreMap,
+  container: HTMLElement,
+  model: RoutePaintModel,
+  tiers: RouteTiers | null,
+) {
   const ids = new Set(instance.getStyle()?.layers?.map((layer) => layer.id) ?? []);
   container.dataset.layerOrder = FIELD_LAYER_ORDER.filter((id) => ids.has(id)).join(",");
   container.dataset.routeVertices = String(model.steps.length);
-  container.dataset.routeCrossings = String(model.points.filter((point) => point.role === "cross").length);
+  container.dataset.routeCrossings = String(model.steps.filter((step) => step.kind === "cross").length);
+  container.dataset.routeTiers = formatTierCounts(tiers, model.steps.length);
   const present = (instance.getStyle()?.layers ?? []).map((layer) => layer.id);
-  container.dataset.routeLayers = [
-    "route-walk-work",
-    "route-walk-other",
-    "route-walk-chevrons",
-    "route-walk-cross",
-    "route-walk-start",
-    "route-walk-end",
-  ]
-    .filter((id) => present.includes(id))
-    .join(",");
+  container.dataset.routeLayers = ROUTE_LAYER_IDS.filter((id) => present.includes(id)).join(",");
 }
 function applyOutcomeState(
   instance: MapLibreMap,
@@ -266,6 +270,7 @@ export function FieldMap({
   labels,
   outcomes,
   routeModel,
+  routeTiers,
   selectedUprn,
   cameraNonce,
   onSelectUprn,
@@ -275,6 +280,7 @@ export function FieldMap({
   labels: DoorLabels;
   outcomes: LocalOutcomes;
   routeModel: RoutePaintModel;
+  routeTiers: RouteTiers | null;
   selectedUprn: number | null;
   cameraNonce: number;
   onSelectUprn: (uprn: number) => void;
@@ -288,12 +294,14 @@ export function FieldMap({
   const outcomesRef = useRef(outcomes);
   const selectedRef = useRef(selectedUprn);
   const routeRef = useRef(routeModel);
+  const tiersRef = useRef(routeTiers);
   onSelect.current = onSelectUprn;
   doorsRef.current = doors;
   labelsRef.current = labels;
   outcomesRef.current = outcomes;
   selectedRef.current = selectedUprn;
   routeRef.current = routeModel;
+  tiersRef.current = routeTiers;
 
   useEffect(() => {
     if (!container.current || map.current) return;
@@ -438,11 +446,11 @@ export function FieldMap({
         // remount still colours, and jump to a focused door instead of
         // fitting the whole prop — "Show on map" asked for this door.
         applyOutcomeState(instance, outcomesRef.current, selectedRef.current);
-        applyRoute(instance, routeRef.current);
-        if (container.current) recordLayerOrder(instance, container.current, routeRef.current);
+        applyRoute(instance, routeRef.current, tiersRef.current);
+        if (container.current) recordLayerOrder(instance, container.current, routeRef.current, tiersRef.current);
         instance.on("style.load", () => {
-          applyRoute(instance, routeRef.current);
-          if (container.current) recordLayerOrder(instance, container.current, routeRef.current);
+          applyRoute(instance, routeRef.current, tiersRef.current);
+          if (container.current) recordLayerOrder(instance, container.current, routeRef.current, tiersRef.current);
         });
         if (!flyToDoor(instance, current, selectedRef.current, "jump")) {
           fitDoors(instance, current);
@@ -483,9 +491,21 @@ export function FieldMap({
     const instance = map.current;
     const node = container.current;
     if (!instance?.getStyle() || !instance.getSource(ROUTE_SOURCE) || !node) return;
-    applyRoute(instance, routeModel);
-    recordLayerOrder(instance, node, routeModel);
+    applyRoute(instance, routeModel, tiersRef.current);
+    recordLayerOrder(instance, node, routeModel, tiersRef.current);
   }, [routeModel]);
+
+  // Tiers move as the next door moves. This must not setData on the line
+  // source: only the chevron runs are rebuilt, inside applyRouteProgress.
+  // Bail until the line source exists, so an early run does not publish an
+  // empty layer list over the one style.load writes.
+  useEffect(() => {
+    const instance = map.current;
+    const node = container.current;
+    if (!instance?.getStyle() || !node || !instance.getSource(ROUTE_LINE_SOURCE)) return;
+    applyRouteProgress(instance, routeRef.current, routeTiers);
+    recordLayerOrder(instance, node, routeRef.current, routeTiers);
+  }, [routeTiers]);
 
   // Outcome colour, current assignment only, applied as feature state.
   useEffect(() => {

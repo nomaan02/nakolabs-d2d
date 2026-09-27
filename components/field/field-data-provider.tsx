@@ -28,6 +28,7 @@ import {
   type RouteDescription,
 } from "@/lib/field/route-display";
 import type { RoutePaintModel } from "@/lib/map/route-layers";
+import { computeRouteTiers, type RouteTiers } from "@/lib/map/route-progress";
 import { getSequence, type SequenceDoor } from "@/lib/field/sequence";
 import {
   fetchTodaysAssignment,
@@ -69,6 +70,11 @@ type FieldData = {
   routeProgress: RouteDescription;
   /** Pavement-line model for a new-engine route. Empty for an old-engine route. */
   routeModel: RoutePaintModel;
+  /**
+   * Progress tiers for the route line. Null until the sequence and the route
+   * are ready, so the map does not flash "all done" while loading.
+   */
+  routeTiers: RouteTiers | null;
   labels: DoorLabels;
   outcomes: LocalOutcomes;
   cursor: Cursor;
@@ -254,6 +260,13 @@ export function FieldDataProvider({
   });
 
   const routeModel = useMemo(() => fieldRoutePaintModel(route), [route]);
+  const nextPosition = team.nextDoor?.position ?? null;
+  const progressPosition =
+    phase.kind === "ready" && routeReady && sequence.length > 0 ? nextPosition : undefined;
+  const routeTiers = useMemo(
+    () => computeRouteTiers(routeModel.steps, progressPosition),
+    [routeModel, progressPosition],
+  );
 
   const labelFor = useCallback((uprn: number) => labels.get(uprn), [labels]);
   const refreshLabels = useCallback(() => setLabelEpoch((n) => n + 1), []);
@@ -294,6 +307,7 @@ export function FieldDataProvider({
       sequence,
       routeProgress,
       routeModel,
+      routeTiers,
       labels,
       outcomes,
       cursor,
@@ -317,6 +331,7 @@ export function FieldDataProvider({
       sequence,
       routeProgress,
       routeModel,
+      routeTiers,
       labels,
       outcomes,
       cursor,

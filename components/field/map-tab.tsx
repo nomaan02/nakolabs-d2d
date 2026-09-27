@@ -16,6 +16,7 @@ import { outcomeSpec, type OtherOutcome, type PrimaryOutcome } from "@/lib/field
 import { getCurrentStreetLabel, sequenceIsRouteDerived } from "@/lib/field/sequence";
 import { offerUndo } from "@/lib/field/undo";
 import { formatFieldHeader } from "@/lib/field/route-display";
+import { ROUTE_TIER_COLOURS } from "@/lib/map/route-layers";
 
 /**
  * The map is the SECONDARY logging path and the recovery route: when the
@@ -36,6 +37,7 @@ export function MapTab() {
     labelFor,
     routeProgress,
     routeModel,
+    routeTiers,
     mapSelectedUprn,
     mapCameraNonce,
     selectDoorOnMap,
@@ -144,6 +146,7 @@ export function MapTab() {
           labels={labels}
           outcomes={outcomes}
           routeModel={routeModel}
+          routeTiers={routeTiers}
           selectedUprn={selectedUprn}
           cameraNonce={mapCameraNonce}
           onSelectUprn={(uprn) => {
@@ -222,27 +225,31 @@ export function MapTab() {
  * Outcomes shown are this assignment's only. Nothing here is a count, a rate
  * or a ranking.
  *
- * Start and Finish are squares because green and burgundy dots already mean
- * Lead and Rented/Council.
+ * Start and finish are START and END badges, because a green dot is Lead
+ * and a burgundy dot is Rented/Council. The route rows name the street in
+ * focus, the later streets and the steps already walked. They show only
+ * when a route is painted.
  */
 function Legend() {
   const { routeModel } = useFieldData();
   const hasEnds =
     routeModel.points.some((point) => point.role === "start") &&
     routeModel.points.some((point) => point.role === "end");
+  const hasRoute = routeModel.steps.length > 0;
   const items = [
     { label: "Not yet logged", className: "rounded-full h-3 w-3 bg-ink-soft" },
     { label: "No answer", className: "rounded-full h-3 w-3 bg-worksheet-deep ring-1 ring-ink" },
     { label: "Contact", className: "rounded-full h-3.5 w-3.5 bg-prop ring-2 ring-inset ring-paper" },
     { label: "Rented/Council", className: "rounded-full h-2 w-2 bg-oxide" },
     { label: "Lead", className: "rounded-full h-5 w-5 bg-lead ring-2 ring-inset ring-paper" },
-    ...(hasEnds
-      ? [
-          { label: "Start", className: "h-3.5 w-3.5 bg-lead" },
-          { label: "Finish", className: "h-3 w-3 bg-oxide" },
-        ]
-      : []),
   ];
+  const routeRows = hasRoute
+    ? [
+        { label: "Now & next", className: "h-1.5 w-6", colour: ROUTE_TIER_COLOURS.focus },
+        { label: "Later", className: "h-1 w-6", colour: ROUTE_TIER_COLOURS.far },
+        { label: "Done", className: "h-0.5 w-6", colour: ROUTE_TIER_COLOURS.done },
+      ]
+    : [];
 
   return (
     <ul
@@ -253,6 +260,28 @@ function Legend() {
         <li key={item.label} className="flex items-center gap-2 py-0.5 text-[11px] leading-none">
           <span className={`inline-block shrink-0 ${item.className}`} />
           {item.label}
+        </li>
+      ))}
+      {hasEnds ? (
+        <>
+          <li className="flex items-center gap-2 py-0.5 text-[11px] leading-none">
+            <span className="inline-flex shrink-0 items-center rounded-full bg-lead px-1 text-[9px] font-bold text-white ring-1 ring-paper">
+              START
+            </span>
+            First door
+          </li>
+          <li className="flex items-center gap-2 py-0.5 text-[11px] leading-none">
+            <span className="inline-flex shrink-0 items-center rounded-full bg-oxide px-1 text-[9px] font-bold text-white ring-1 ring-paper">
+              END
+            </span>
+            Last door
+          </li>
+        </>
+      ) : null}
+      {routeRows.map((row) => (
+        <li key={row.label} className="flex items-center gap-2 py-0.5 text-[11px] leading-none">
+          <span className={`inline-block shrink-0 ${row.className}`} style={{ backgroundColor: row.colour }} />
+          {row.label}
         </li>
       ))}
     </ul>

@@ -65,3 +65,4 @@ no_opportunity = rented, council or HMO — "we cannot do the job here".
 - Supabase types generated to `lib/supabase/types.ts`; regenerate after every migration.
 - No component library. Tailwind only.
 - Field UI targets one-handed phone use: minimum 44px tap targets, bottom-anchored actions.
+- After a major change, update `docs/CLAUDE-HANDOFF.md` as `.cursor/rules/10-claude-handoff.mdc` requires.

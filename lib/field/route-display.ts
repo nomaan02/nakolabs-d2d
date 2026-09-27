@@ -1,5 +1,6 @@
 import type { SequenceDoor } from "@/lib/field/sequence";
 import { emptyRouteModel, toRoutePaintModel, type RoutePaintModel } from "@/lib/map/route-layers";
+import { plateStreet } from "@/lib/map/street-name";
 import type { DoorCollection, TodaysAssignment } from "@/lib/geo/todays-assignment";
 
 /**
@@ -69,8 +70,6 @@ export type RouteDescription = {
   doors: DoorRouteView[];
 };
 
-const NOT_A_STREET = new Set(["service road", "unnamed road"]);
-
 const EMPTY_DOOR: DoorRouteView = {
   stranded: false,
   stepIndex: null,
@@ -88,13 +87,6 @@ const COMPASS = [
   "west",
   "north-west",
 ] as const;
-
-export function plateStreet(name: string | null | undefined): string | null {
-  const trimmed = name?.trim();
-  if (!trimmed) return null;
-  if (NOT_A_STREET.has(trimmed.toLowerCase())) return null;
-  return trimmed;
-}
 
 /** A new-engine freeze has `kind` on its steps. An old freeze does not. */
 export function routeIsNewEngine(route: FieldRoute | null | undefined): boolean {
@@ -290,6 +282,9 @@ export function fieldRoutePaintModel(route: FieldRoute | null): RoutePaintModel 
       kind: step.kind,
       walk_geom: step.walk ? { type: "LineString", coordinates: step.walk } : null,
       variant_key: key,
+      street_name: step.street_name,
+      first_seq: step.first_seq,
+      last_seq: step.last_seq,
     })),
   });
 }
