@@ -87,6 +87,34 @@ export type WalkVariant = {
    * only by steps whose chain descends from its own.
    */
   tree: { step_chain: number[]; chain_parent: number[] };
+  /**
+   * Verification aid, not for display (2026-09-27, adaptive offset amended
+   * 2026-09-27 Session A2): per step, what `offsetCore` was actually
+   * called with (`offset_m`, the first rung of the fixed ladder whose
+   * run-local check passed, or the run's base if none did — owner decision
+   * 2026-09-27, Session A3) and the ladder's own starting rung for that run
+   * (`offset_base_m`: 4 for a normal run, 2 for a walk-back strip), so a
+   * reduction can be counted. `offset_ladder_passed` is false when no rung
+   * passed and the base was kept; `offset_run` numbers the offset runs of
+   * the variant, so consecutive steps of one run can be grouped.
+   * `head_arc_points` / `tail_arc_points` are exact vertex counts, not
+   * booleans: a uTurnArc splice rewrites `ARC_POINTS - 1` vertices from
+   * that end (the splice's own last point is the strip's real offset
+   * point, so it is still checked); a connector push/unshift rewrites
+   * exactly 1. `offset_m` / `offset_base_m` / `offset_side` /
+   * `offset_ladder_passed` / `offset_run` are null on a cross (every one of
+   * its vertices is arc). `variantForStorage` strips this whole field, same
+   * as `tree`.
+   */
+  walk_meta: {
+    offset_m: number | null;
+    offset_base_m: number | null;
+    offset_side: Hand | null;
+    offset_ladder_passed: boolean | null;
+    offset_run: number | null;
+    head_arc_points: number;
+    tail_arc_points: number;
+  }[];
 };
 
 export type CandidateSummary = {

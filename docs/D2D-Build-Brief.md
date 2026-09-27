@@ -1183,6 +1183,8 @@ create table route_steps (
 > This supersedes the "green square / burgundy square" and "crossing
 > markers" sentences in the 2026-09-25 open-paths note above. No migration.
 
+> **Amended 2026-09-27 (walkline offset).** A run of steps is offset as one line. An inside corner is where the two offset edges meet. An offset edge that would run backwards is removed and its neighbours re-joined, so a short OSM edge at a junction no longer breaks the corner. Outside corners are mitred up to twice the offset, then clamped. Neighbouring steps share one exact point. A step whose line collapses is stored as a zero-length line at the corner; its doors, seq range, kind, side and length are unchanged. Generate and Save run a geometry check (continuity, no self-crossing, no crossing the next step, 4–8 m from the centreline, the right side) and show the issue count. Save warns and never blocks. The field app re-fetches a route whose steps were replaced, online only. This clears the "162 walkline corner gaps from `offsetRun`" follow-up from the 2026-09-25 note. No migration.
+
 ---
 
 ### Stage 6 — Field prop view and offline cache

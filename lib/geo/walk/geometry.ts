@@ -168,142 +168,291 @@ function normal(dx: number, dy: number, side: Hand): XY {
 }
 
 /**
+ * Robust walkline offset (2026-09-27). Replaces the old mitre-with-refusal
+ * scheme: `offsetRun` / `offsetPolyline` are now thin wrappers over
+ * `offsetCore`, which removes an offset edge that would run backwards
+ * (an inside corner too tight for the offset) and re-joins its neighbours,
+ * repeating until nothing is left to remove, before ever falling back to a
+ * bridge. See docs/CLAUDE-HANDOFF.md "plan approved" entry for the design.
+ */
+
+/** A numerical guard for a near-zero cross product, not a tuning knob. */
+const EPS_SIN = 1e-9;
+
+type CoreEdge = {
+  /** Index into the (deduped) source point array: this edge runs p[i] → p[i+1]. */
+  i: number;
+  /** Unit direction p[i] → p[i+1]. */
+  u: XY;
+  /** Unit normal on `side`. */
+  nUnit: XY;
+  len: number;
+  /** The offset line's own start point: p[i] + nUnit·d. */
+  a: XY;
+};
+
+type CoreKept = {
+  edge: CoreEdge;
+  /** Kept span of the offset line, as a parameter along `edge.u` from `edge.a`, in metres. */
+  s: number;
+  e: number;
+  /** The point(s) this entry's start was joined to the previous kept entry by. Empty for the first. */
+  jointIn: XY[];
+};
+
+type CoreJoin = {
+  kind: "collinear" | "antiParallel" | "inside" | "outside" | "bridge";
+  pts: XY[];
+  tE: number;
+  sS: number;
+};
+
+/** Signed parameter of `p` along the infinite line through `edge.a` in direction `edge.u`, in metres. */
+function paramAlongEdge(edge: CoreEdge, p: XY): number {
+  return (p.x - edge.a.x) * edge.u.x + (p.y - edge.a.y) * edge.u.y;
+}
+
+function pointAtParam(edge: CoreEdge, t: number): XY {
+  return { x: edge.a.x + edge.u.x * t, y: edge.a.y + edge.u.y * t };
+}
+
+function dist(a: XY, b: XY): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+/**
+ * The join of two consecutive offset lines, as an unbounded line
+ * intersection. `kind` records the turn as seen from the offset side:
+ * `inside` (the path bends towards it, offsetting pulls the lines together
+ * sooner), `outside` (bends away, mitred or clamped), `collinear` (one
+ * point, the midpoint) or `antiParallel` (no intersection exists).
+ */
+function coreJoin(top: CoreKept, seg: CoreKept, pts: XY[], d: number, side: Hand): CoreJoin {
+  const tu = top.edge.u;
+  const su = seg.edge.u;
+  const cross = tu.x * su.y - tu.y * su.x;
+  const dot = tu.x * su.x + tu.y * su.y;
+  if (Math.abs(cross) <= EPS_SIN) {
+    if (dot > 0) {
+      const topEnd = pointAtParam(top.edge, top.edge.len);
+      const m = { x: (topEnd.x + seg.edge.a.x) / 2, y: (topEnd.y + seg.edge.a.y) / 2 };
+      return { kind: "collinear", pts: [m], tE: paramAlongEdge(top.edge, m), sS: paramAlongEdge(seg.edge, m) };
+    }
+    return { kind: "antiParallel", pts: [], tE: NaN, sS: NaN };
+  }
+  const signedTurn = side === "left" ? cross : -cross;
+  const rhs = { x: seg.edge.a.x - top.edge.a.x, y: seg.edge.a.y - top.edge.a.y };
+  const t = (rhs.x * su.y - rhs.y * su.x) / cross;
+  const s = (rhs.x * tu.y - rhs.y * tu.x) / cross;
+  const m = pointAtParam(top.edge, t);
+  if (signedTurn > EPS_SIN) {
+    return { kind: "inside", pts: [m], tE: t, sS: s };
+  }
+  // Outside: mitre if within the limit, otherwise clamp on the bisector of
+  // the two unit normals, 2d from the shared centreline vertex p[seg.edge.i].
+  const v = pts[seg.edge.i];
+  if (dist(m, v) <= 2 * d + VERTEX_EPS_M) {
+    return { kind: "outside", pts: [m], tE: t, sS: s };
+  }
+  const sum = { x: top.edge.nUnit.x + seg.edge.nUnit.x, y: top.edge.nUnit.y + seg.edge.nUnit.y };
+  const sumLen = Math.hypot(sum.x, sum.y);
+  const bisector = sumLen > EPS_SIN ? { x: sum.x / sumLen, y: sum.y / sumLen } : top.edge.nUnit;
+  const clamped = { x: v.x + bisector.x * 2 * d, y: v.y + bisector.y * 2 * d };
+  return { kind: "outside", pts: [clamped], tE: paramAlongEdge(top.edge, clamped), sS: paramAlongEdge(seg.edge, clamped) };
+}
+
+/**
+ * Fallback when no valid inside joint exists (anti-parallel, or a narrow
+ * U/V whose inside joint lies too far from the vertex it replaces): top
+ * keeps its own untrimmed end, seg keeps its own untrimmed start, and the
+ * two are left unjoined — a straight bridge between them.
+ */
+function coreBridge(top: CoreKept, seg: CoreKept): CoreJoin {
+  return { kind: "bridge", pts: [pointAtParam(top.edge, top.edge.len), seg.edge.a], tE: top.edge.len, sS: 0 };
+}
+
+/** Nearest, in metres, of `m` to any source vertex the removal cascade between `top` and `seg` swallowed. */
+function nearestReplacedVertexM(m: XY, top: CoreKept, seg: CoreKept, pts: XY[]): number {
+  let best = Infinity;
+  for (let k = top.edge.i + 1; k <= seg.edge.i; k += 1) best = Math.min(best, dist(m, pts[k]));
+  return best;
+}
+
+/**
+ * `P`, capped to at most `2d` from `v`: the point on `edge`'s line nearest
+ * `P` at exactly that distance, or `P` itself if already within the limit.
+ * General circle/line intersection: `v` is not assumed to lie on `edge`.
+ */
+function capAtMitreLimit(p: XY, v: XY, edge: CoreEdge, d: number): XY {
+  if (dist(p, v) <= 2 * d + VERTEX_EPS_M) return p;
+  const w = { x: edge.a.x - v.x, y: edge.a.y - v.y };
+  const wu = w.x * edge.u.x + w.y * edge.u.y;
+  const disc = wu * wu - (w.x * w.x + w.y * w.y - 4 * d * d);
+  const tP = paramAlongEdge(edge, p);
+  if (disc < 0) return pointAtParam(edge, -wu);
+  const root = Math.sqrt(disc);
+  const t1 = -wu + root;
+  const t2 = -wu - root;
+  const t = Math.abs(t1 - tP) <= Math.abs(t2 - tP) ? t1 : t2;
+  return pointAtParam(edge, t);
+}
+
+/**
+ * Collapse-aware offset of one polyline (already deduped) by `d` onto
+ * `side`. Removal runs before any bridge: an offset segment that would end
+ * up reversed or ≤ 0 long is removed and its neighbours re-joined, repeated
+ * until nothing is left to remove — handling several short edges in a row
+ * (a rounded kerb, a chamfer). The bridge is only the fallback when no
+ * intersection exists (anti-parallel) or the inside joint would lie more
+ * than 2d from the nearest vertex the cascade replaced (a narrow U/V).
+ * A cascade reaching the free start or the free end caps at the mitre
+ * limit instead of running off unbounded. Returns the offset line and,
+ * for every source vertex index, the index into that line it maps to.
+ */
+export function offsetCore(pts: XY[], d: number, side: Hand): { out: XY[]; at: number[] } {
+  const n = pts.length;
+  const edges: CoreEdge[] = [];
+  for (let i = 0; i < n - 1; i += 1) {
+    const dx = pts[i + 1].x - pts[i].x;
+    const dy = pts[i + 1].y - pts[i].y;
+    const len = Math.hypot(dx, dy);
+    if (len <= VERTEX_EPS_M) continue;
+    const u = { x: dx / len, y: dy / len };
+    const nUnit = normal(dx, dy, side);
+    edges.push({ i, u, nUnit, len, a: { x: pts[i].x + nUnit.x * d, y: pts[i].y + nUnit.y * d } });
+  }
+  if (edges.length === 0) {
+    const p0 = pts[0] ?? { x: 0, y: 0 };
+    return { out: [{ ...p0 }, { ...p0 }], at: new Array(n).fill(0) };
+  }
+
+  const stack: CoreKept[] = [];
+  let start: XY = edges[0].a;
+
+  for (const E of edges) {
+    const seg: CoreKept = { edge: E, s: 0, e: E.len, jointIn: [] };
+    for (;;) {
+      if (stack.length === 0) {
+        stack.push(seg);
+        break;
+      }
+      const top = stack[stack.length - 1];
+      top.e = top.edge.len; // untrimmed again before every re-join attempt
+      let j = coreJoin(top, seg, pts, d, side);
+      if (j.kind === "antiParallel") {
+        j = coreBridge(top, seg);
+      } else if (j.tE <= top.s + VERTEX_EPS_M) {
+        if (stack.length === 1) {
+          start = capAtMitreLimit(j.pts[0], pts[seg.edge.i], seg.edge, d);
+          stack.pop();
+          seg.s = paramAlongEdge(seg.edge, start);
+          stack.push(seg);
+          break;
+        }
+        stack.pop();
+        continue; // re-join seg with the new top
+      } else if (j.kind === "inside" && nearestReplacedVertexM(j.pts[0], top, seg, pts) > 2 * d + VERTEX_EPS_M) {
+        j = coreBridge(top, seg);
+      }
+      top.e = j.tE;
+      seg.s = j.sS;
+      seg.jointIn = j.pts;
+      stack.push(seg);
+      break;
+    }
+  }
+
+  let end: XY | null = null;
+  while (stack.length > 1 && stack[stack.length - 1].e <= stack[stack.length - 1].s + VERTEX_EPS_M) {
+    const last = stack[stack.length - 1];
+    const below = stack[stack.length - 2];
+    end = capAtMitreLimit(last.jointIn[0], pts[last.edge.i], below.edge, d);
+    stack.pop();
+    below.e = paramAlongEdge(below.edge, end);
+  }
+  if (end === null) {
+    const last = stack[stack.length - 1];
+    end = pointAtParam(last.edge, last.e);
+  }
+
+  const out: XY[] = [start];
+  const jointStart: number[] = new Array(stack.length).fill(0);
+  for (let k = 1; k < stack.length; k += 1) {
+    jointStart[k] = out.length;
+    out.push(...stack[k].jointIn);
+  }
+  const endIndex = out.length;
+  out.push(end);
+
+  const at = new Array(n).fill(0);
+  const lastEntry = stack[stack.length - 1];
+  for (let i = 0; i < n; i += 1) {
+    if (i <= stack[0].edge.i) {
+      at[i] = 0;
+    } else if (i > lastEntry.edge.i) {
+      at[i] = endIndex;
+    } else {
+      let k = 1;
+      while (k < stack.length && stack[k].edge.i < i) k += 1;
+      at[i] = jointStart[k];
+    }
+  }
+  return { out, at };
+}
+
+/**
  * Offsets a polyline by `offsetM` onto `side` of its direction of travel.
- * Interior vertices use the mitre of the adjacent edge normals, capped at
- * twice the offset so a hairpin cannot throw the line across the road.
+ * See `offsetCore`.
  */
 export function offsetPolyline(ptsIn: XY[], offsetM: number, side: Hand): XY[] {
-  const pts = dedupeXY(ptsIn);
-  if (pts.length < 2) return pts.map((p) => ({ x: p.x, y: p.y }));
-  const out: XY[] = [];
-  for (let i = 0; i < pts.length; i += 1) {
-    let nx: number;
-    let ny: number;
-    if (i === 0) {
-      const n = normal(pts[1].x - pts[0].x, pts[1].y - pts[0].y, side);
-      nx = n.x * offsetM;
-      ny = n.y * offsetM;
-    } else if (i === pts.length - 1) {
-      const n = normal(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y, side);
-      nx = n.x * offsetM;
-      ny = n.y * offsetM;
-    } else {
-      const a = normal(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y, side);
-      const b = normal(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y, side);
-      const mx = a.x + b.x;
-      const my = a.y + b.y;
-      const mlen = Math.hypot(mx, my);
-      if (mlen < 1e-9) {
-        nx = a.x * offsetM;
-        ny = a.y * offsetM;
-      } else {
-        // Mitre length = offset / cos(θ/2) = 2·offset / |a + b|, capped at 2× offset.
-        const scale = Math.min(2 * offsetM / mlen, 2 * offsetM);
-        nx = (mx / mlen) * scale;
-        ny = (my / mlen) * scale;
-      }
-    }
-    out.push({ x: pts[i].x + nx, y: pts[i].y + ny });
-  }
-  return out;
+  return offsetCore(dedupeXY(ptsIn), offsetM, side).out;
 }
 
-/** Along-track parameter of `point` on the line through `from` → `to`. 0 at `from`, 1 at `to`. */
-function along(from: XY, to: XY, point: XY): number {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const lenSq = dx * dx + dy * dy;
-  if (lenSq === 0) return 0;
-  return ((point.x - from.x) * dx + (point.y - from.y) * dy) / lenSq;
+function samePoint(a: XY, b: XY): boolean {
+  return a.x === b.x && a.y === b.y;
 }
 
 /**
- * The mitre `offsetPolyline` would place at the shared vertex of two parts.
- * Reuses that function on the two neighbouring edges so the mitre maths stays
- * in one place.
- */
-function cornerMitre(prev: XY[], next: XY[], offsetM: number, side: Hand): XY {
-  const p = prev[prev.length - 2];
-  const v = prev[prev.length - 1];
-  const q = next[1];
-  return offsetPolyline([p, v, q], offsetM, side)[1];
-}
-
-/**
- * True when the mitre at this join falls past the far end of either
- * neighbouring edge. Joining there would fold the walkline back on itself.
- */
-function joinOvershoots(prev: XY[], next: XY[], offsetM: number, side: Hand): boolean {
-  const v = prev[prev.length - 1];
-  const w = next[0];
-  if (v.x !== w.x || v.y !== w.y) return true;
-  const p = prev[prev.length - 2];
-  const q = next[1];
-  if ((p.x === v.x && p.y === v.y) || (q.x === v.x && q.y === v.y)) return true;
-  const m = cornerMitre(prev, next, offsetM, side);
-  return along(p, v, m) < 0 || along(v, q, m) > 1;
-}
-
-/**
- * Offsets each part of a continuous run as one polyline, so a shared vertex
- * gets a single mitred point instead of two independent square ends.
- * A join whose mitre would land beyond the far end of either neighbouring
- * edge — or that would reverse that edge once the other end is mitred too —
- * is left as two independent square ends.
+ * Offsets a whole run of parts as one merged polyline, so neighbouring
+ * parts share the exact same boundary point by construction — continuity
+ * comes from the join, not from a later equality patch. When a part's
+ * first point equals the previous part's last point the boundary is
+ * shared; otherwise both points are kept and the tiny edge between them is
+ * an ordinary offset edge. A one-point result is emitted as `[P, P]`
+ * because the stored geometry needs at least two points.
  */
 export function offsetRun(partsIn: XY[][], offsetM: number, side: Hand): XY[][] {
-  const parts = partsIn.map((p) => dedupeXY(p));
+  const parts = partsIn;
   const n = parts.length;
   if (n === 0) return [];
-  const join = new Array<boolean>(n - 1).fill(true);
-  for (let i = 0; i < n - 1; i += 1) {
-    if (parts[i].length < 2 || parts[i + 1].length < 2 || joinOvershoots(parts[i], parts[i + 1], offsetM, side)) {
-      join[i] = false;
-    }
-  }
-  for (let i = 0; i < n; i += 1) {
-    const part = parts[i];
-    if (part.length < 2) continue;
-    const own = offsetPolyline(part, offsetM, side);
-    for (let e = 0; e < part.length - 1; e += 1) {
-      const startIsJoin = e === 0 && i > 0 && join[i - 1];
-      const endIsJoin = e === part.length - 2 && i < n - 1 && join[i];
-      if (!startIsJoin && !endIsJoin) continue;
-      const startPt = startIsJoin ? cornerMitre(parts[i - 1], part, offsetM, side) : own[e];
-      const endPt = endIsJoin ? cornerMitre(part, parts[i + 1], offsetM, side) : own[e + 1];
-      if (along(part[e], part[e + 1], endPt) <= along(part[e], part[e + 1], startPt)) {
-        if (startIsJoin) join[i - 1] = false;
-        if (endIsJoin) join[i] = false;
-      }
-    }
-  }
-
-  const out: XY[][] = new Array(n);
-  let i = 0;
-  while (i < n) {
-    let j = i;
-    while (j < n - 1 && join[j]) j += 1;
-    const group = parts.slice(i, j + 1);
-    const offset = offsetGroup(group, offsetM, side);
-    for (let k = 0; k < offset.length; k += 1) out[i + k] = offset[k];
-    i = j + 1;
-  }
-  return out;
-}
-
-/** Concatenates parts that share their join vertex, offsets once, splits back. */
-function offsetGroup(parts: XY[][], offsetM: number, side: Hand): XY[][] {
-  if (parts.length === 1) return [offsetPolyline(parts[0], offsetM, side)];
   const merged: XY[] = [];
-  const ranges: [number, number][] = [];
-  for (const part of parts) {
-    const start = merged.length === 0 ? 0 : merged.length - 1;
-    if (merged.length === 0) merged.push(...part);
-    else merged.push(...part.slice(1));
-    ranges.push([start, merged.length]);
+  const firstMergedIndex: number[] = new Array(n).fill(0);
+  for (let p = 0; p < n; p += 1) {
+    const part = parts[p];
+    if (part.length === 0) {
+      firstMergedIndex[p] = Math.max(0, merged.length - 1);
+      continue;
+    }
+    if (merged.length === 0) {
+      firstMergedIndex[p] = 0;
+      merged.push(...part);
+    } else if (samePoint(merged[merged.length - 1], part[0])) {
+      firstMergedIndex[p] = merged.length - 1;
+      merged.push(...part.slice(1));
+    } else {
+      firstMergedIndex[p] = merged.length;
+      merged.push(...part);
+    }
   }
-  const offset = offsetPolyline(merged, offsetM, side);
-  return ranges.map(([a, b]) => offset.slice(a, b));
+  const { out, at } = offsetCore(merged, offsetM, side);
+  const result: XY[][] = [];
+  for (let p = 0; p < n; p += 1) {
+    const startOut = at[firstMergedIndex[p]];
+    const endOut = p === n - 1 ? out.length - 1 : at[firstMergedIndex[p + 1]];
+    const slice = out.slice(startOut, endOut + 1);
+    result.push(slice.length >= 2 ? slice : [out[startOut], out[startOut]]);
+  }
+  return result;
 }
 
 /**

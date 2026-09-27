@@ -23,6 +23,7 @@ import {
   makeUnproject,
   offsetRun,
   pointAlong,
+  polylineLengthXY,
   round2,
   roundCoord,
   sliceAlong,
@@ -30,7 +31,17 @@ import {
 } from "@/lib/geo/walk/geometry";
 import { STRAIGHT_RAD, type Rec, type Traversal } from "@/lib/geo/walk/traverse";
 import { findTurns, keepIntervals, keptLengthM, type Interval, type Turn } from "@/lib/geo/walk/trim";
-import type { Hand, VariantKey, WalkStep, WalkVariant } from "@/lib/geo/walk/types";
+import type { Hand, StepKind, VariantKey, WalkStep, WalkVariant } from "@/lib/geo/walk/types";
+import {
+  COLLAPSE_M,
+  FIDELITY_TOL_M,
+  TOL_M,
+  dist as ptDist,
+  distToPolylineXY,
+  isZeroLength,
+  segIntersection,
+  selfCrosses,
+} from "@/lib/geo/walk/validate";
 
 // ---------------------------------------------------------------------------
 // Door order
@@ -155,9 +166,6 @@ export function buildInstructions(graph: RouteGraph, records: Rec[], hand: Hand)
 // Geometry and assembly
 // ---------------------------------------------------------------------------
 
-/** A mitre is meaningless once the turn is this close to a U-turn. */
-const RUN_BREAK_RAD = (170 * Math.PI) / 180;
-
 type Centre = { xy: XY[]; lonLat: LonLat[] };
 
 /** The walked part of a road record's centreline, in walking direction. Null on a cross. */
@@ -175,13 +183,20 @@ function stepCentre(graph: RouteGraph, r: Rec, interval: Interval | null): Centr
   return h.dir === 1 ? cut : { xy: cut.xy.reverse(), lonLat: cut.lonLat.reverse() };
 }
 
-/** Consecutive road steps share a mitre while they meet at a node and do not reverse. */
+/**
+ * Consecutive road steps share an offset run while they meet at a node and
+ * do not reverse onto the same segment's opposite half-edge (a genuine
+ * U-turn there is joined by an arc, not by the offset). There is no turn-
+ * angle break any more (2026-09-27): `offsetCore`'s removal-then-bridge
+ * join handles an inside hairpin by removing short edges first, and an
+ * outside hairpin by clamping, so a near-180° corner no longer needs a
+ * square-ended escape hatch.
+ */
 function continuesRun(graph: RouteGraph, prev: Rec, next: Rec): boolean {
   if (prev.kind === "cross" || next.kind === "cross") return false;
   if (prev.toNode !== next.fromNode) return false;
   if (prev.half !== -1 && next.half !== -1 && next.half === graph.halfEdges[prev.half].reverse) return false;
-  const turn = wrapTurn(departureBearing(graph, next) - arrivalBearing(graph, prev));
-  return Math.abs(turn) <= RUN_BREAK_RAD;
+  return true;
 }
 
 /**
@@ -226,14 +241,106 @@ function walkBackStrips(records: Rec[], turns: Turn[]): Uint8Array {
 }
 
 /**
+ * Adaptive offset ladder (2026-09-27, Session A2). A fixed list of rungs,
+ * not a tuned search: a normal run tries 4, 3, 2, 1 m; a walk-back strip
+ * tries 2, 1.5, 1, 0.5 m (the strip's own base, `PAVEMENT_OFFSET_M -
+ * WALK_BACK_INSET_M`, first). `PAVEMENT_OFFSET_M` and `WALK_BACK_INSET_M`
+ * are unchanged; these are the literal rungs the owner specified.
+ */
+const NORMAL_OFFSET_LADDER_M: readonly number[] = [PAVEMENT_OFFSET_M, 3, 2, 1];
+const WALK_BACK_OFFSET_LADDER_M: readonly number[] = [PAVEMENT_OFFSET_M - WALK_BACK_INSET_M, 1.5, 1, 0.5];
+
+/**
+ * Run-local V2 / V3 / V4 / V6, at the offset `d` just tried, using the same
+ * helpers `lib/geo/walk/validate.ts` exports (not a duplicate implementation).
+ * No arc has been spliced in yet at this point in `buildVariant` — every
+ * vertex of every part is checked, i.e. `nonArcRange`'s exclusion (0, 0).
+ * V1 and V5 are not checked here: V1 (continuity) holds by `offsetRun`'s
+ * own construction of a shared boundary point; V5 (declared side) holds by
+ * construction of which side `offsetRun` was called on.
+ */
+function offsetRunLocalOk(offsetParts: XY[][], centreParts: XY[][], kinds: StepKind[], d: number): boolean {
+  // V2: no part's own offset walkline crosses itself.
+  for (const part of offsetParts) {
+    if (!isZeroLength(part) && selfCrosses(part)) return false;
+  }
+  // V3: consecutive non-degenerate parts inside the run do not cross other
+  // than within TOL_M of their shared point (mirrors validate.ts's V3).
+  const anchors: number[] = [];
+  for (let k = 0; k < offsetParts.length; k += 1) if (!isZeroLength(offsetParts[k])) anchors.push(k);
+  for (let a = 0; a + 1 < anchors.length; a += 1) {
+    const lineI = offsetParts[anchors[a]];
+    const lineJ = offsetParts[anchors[a + 1]];
+    const shared = lineI[lineI.length - 1];
+    for (let p = 0; p + 1 < lineI.length; p += 1) {
+      for (let q = 0; q + 1 < lineJ.length; q += 1) {
+        const m = segIntersection(lineI[p], lineI[p + 1], lineJ[q], lineJ[q + 1]);
+        if (m && ptDist(m, shared) > TOL_M) return false;
+      }
+    }
+  }
+  // V4: every vertex of every part is within [d - 0.05, 2d + 0.05] of its own centreline.
+  for (let k = 0; k < offsetParts.length; k += 1) {
+    for (const p of offsetParts[k]) {
+      const dc = distToPolylineXY(centreParts[k], p);
+      if (dc < d - FIDELITY_TOL_M || dc > 2 * d + FIDELITY_TOL_M) return false;
+    }
+  }
+  // V6: a WORK part's centreline longer than 2d must not collapse to a point.
+  for (let k = 0; k < offsetParts.length; k += 1) {
+    if (kinds[k] !== "work") continue;
+    if (polylineLengthXY(centreParts[k]) > 2 * d && polylineLengthXY(offsetParts[k]) < COLLAPSE_M) return false;
+  }
+  return true;
+}
+
+export type AdaptiveOffsetResult = { offsets: XY[][]; offsetUsed: number; offsetBaseM: number; ladderPassed: boolean };
+
+/**
+ * Tries each rung of the fixed ladder in turn (the run's own base first)
+ * and keeps the FIRST whose run-local check passes. If none passes, keeps
+ * the run's BASE offset (owner decision 2026-09-27, Session A3: a spot no
+ * rung can fix must not drag a whole run down to the smallest rung) and
+ * lets the global validator report it — this function never throws or
+ * refuses.
+ */
+export function offsetRunAdaptive(parts: XY[][], kinds: StepKind[], isStrip: boolean, side: Hand): AdaptiveOffsetResult {
+  const ladder = isStrip ? WALK_BACK_OFFSET_LADDER_M : NORMAL_OFFSET_LADDER_M;
+  let base: XY[][] | null = null;
+  for (const d of ladder) {
+    const offsets = offsetRun(parts, d, side);
+    if (base === null) base = offsets;
+    if (offsetRunLocalOk(offsets, parts, kinds, d)) {
+      return { offsets, offsetUsed: d, offsetBaseM: ladder[0], ladderPassed: true };
+    }
+  }
+  return { offsets: base as XY[][], offsetUsed: ladder[0], offsetBaseM: ladder[0], ladderPassed: false };
+}
+
+/**
  * Walkline of every non-cross record, in planar metres. Records in one run
  * are offset together so the shared vertex is a single mitred point. A
  * walk-back strip is its own run, offset onto the knocked pavement (the
- * other side of travel) and inset towards the road.
+ * other side of travel) and inset towards the road. Each run's offset is
+ * chosen by `offsetRunAdaptive`'s ladder (2026-09-27, Session A2); `offsetUsed`
+ * / `offsetBaseM` / `ladderPassed` / `runIndex` carry, per record, what was
+ * actually used, the run's own ladder base (4 or 2), whether any rung
+ * passed, and which run it belongs to, for `walk_meta`.
  */
-function walklinesXY(graph: RouteGraph, records: Rec[], centres: (Centre | null)[], inStrip: Uint8Array, hand: Hand): (XY[] | null)[] {
+function walklinesXY(
+  graph: RouteGraph,
+  records: Rec[],
+  centres: (Centre | null)[],
+  inStrip: Uint8Array,
+  hand: Hand,
+): { xy: (XY[] | null)[]; offsetUsed: Float64Array; offsetBaseM: Float64Array; ladderPassed: Uint8Array; runIndex: Int32Array } {
   const out: (XY[] | null)[] = new Array(records.length).fill(null);
+  const offsetUsed = new Float64Array(records.length);
+  const offsetBaseM = new Float64Array(records.length);
+  const ladderPassed = new Uint8Array(records.length);
+  const runIndex = new Int32Array(records.length).fill(-1);
   const other: Hand = hand === "left" ? "right" : "left";
+  let run = 0;
   let i = 0;
   while (i < records.length) {
     if (records[i].kind === "cross") {
@@ -243,14 +350,24 @@ function walklinesXY(graph: RouteGraph, records: Rec[], centres: (Centre | null)
     let j = i;
     while (j + 1 < records.length && inStrip[j + 1] === inStrip[i] && continuesRun(graph, records[j], records[j + 1])) j += 1;
     const parts: XY[][] = [];
-    for (let k = i; k <= j; k += 1) parts.push((centres[k] as Centre).xy);
-    const offset = inStrip[i]
-      ? offsetRun(parts, PAVEMENT_OFFSET_M - WALK_BACK_INSET_M, other)
-      : offsetRun(parts, PAVEMENT_OFFSET_M, hand);
-    for (let k = i; k <= j; k += 1) out[k] = offset[k - i];
+    const kinds: StepKind[] = [];
+    for (let k = i; k <= j; k += 1) {
+      parts.push((centres[k] as Centre).xy);
+      kinds.push(records[k].kind);
+    }
+    const side = inStrip[i] ? other : hand;
+    const { offsets, offsetUsed: d, offsetBaseM: base, ladderPassed: passed } = offsetRunAdaptive(parts, kinds, inStrip[i] === 1, side);
+    for (let k = i; k <= j; k += 1) {
+      out[k] = offsets[k - i];
+      offsetUsed[k] = d;
+      offsetBaseM[k] = base;
+      ladderPassed[k] = passed ? 1 : 0;
+      runIndex[k] = run;
+    }
+    run += 1;
     i = j + 1;
   }
-  return out;
+  return { xy: out, offsetUsed, offsetBaseM, ladderPassed, runIndex };
 }
 
 function samePoint(a: XY, b: XY): boolean {
@@ -302,13 +419,22 @@ export function buildVariant(
   const keep = keepIntervals(graph, demand, records, turns);
   const centres = records.map((r, i) => stepCentre(graph, r, keep[i]));
   const inStrip = walkBackStrips(records, turns);
-  const walkXY = walklinesXY(graph, records, centres, inStrip, t.hand);
+  const { xy: walkXY, offsetUsed, offsetBaseM, ladderPassed, runIndex } = walklinesXY(graph, records, centres, inStrip, t.hand);
   const originalXY = walkXY.map((w) => (w ? [...w] : null));
 
   // U-turns: every arc runs between the walkline ends either side of the
   // turn, bulging forward, and is built in one canonical direction so the
   // reversed variant gets the exact reverse.
   const arcXY: (XY[] | null)[] = new Array(records.length).fill(null);
+  // walk_meta (verification aid, stripped before storage): the EXACT count
+  // of vertices at each end rewritten by an arc splice (ARC_POINTS - 1;
+  // the splice's own last point is the strip's real offset point, kept
+  // checkable) or a connector push/unshift (1) — not a boolean (2026-09-27,
+  // Session A2; see lib/geo/walk/validate.ts's `nonArcRange`).
+  const ARC_SPLICE_POINTS = ARC_POINTS - 1;
+  const CONNECTOR_POINTS = 1;
+  const headArcPoints = new Uint8Array(records.length);
+  const tailArcPoints = new Uint8Array(records.length);
   for (const turn of turns) {
     const intoXY = originalXY[turn.into] as XY[];
     const outXY = originalXY[turn.outOf] as XY[];
@@ -333,9 +459,11 @@ export function buildVariant(
     } else if (inStrip[turn.outOf]) {
       // From the work line to the walk back.
       (walkXY[turn.outOf] as XY[]).splice(0, 1, ...uTurnArc(a, b, u, reachM));
+      headArcPoints[turn.outOf] = ARC_SPLICE_POINTS;
     } else if (inStrip[turn.into]) {
       const w = walkXY[turn.into] as XY[];
       w.splice(w.length - 1, 1, ...uTurnArc(b, a, u, reachM).reverse());
+      tailArcPoints[turn.into] = ARC_SPLICE_POINTS;
     }
   }
   // Where the line it returns beside bends in towards the road at a junction,
@@ -369,9 +497,38 @@ export function buildVariant(
     if (samePoint(end, start)) continue;
     const segOf = (k: number) => graph.segments[graph.halfEdges[records[k].half].segment].id;
     const intoEarlier = inStrip[i] && (!inStrip[i + 1] || segOf(i) <= segOf(i + 1));
-    if (intoEarlier) (walkXY[i] as XY[]).push(start);
-    else (walkXY[i + 1] as XY[]).unshift(end);
+    if (intoEarlier) {
+      (walkXY[i] as XY[]).push(start);
+      tailArcPoints[i] = CONNECTOR_POINTS;
+    } else {
+      (walkXY[i + 1] as XY[]).unshift(end);
+      headArcPoints[i + 1] = CONNECTOR_POINTS;
+    }
   }
+
+  const other: Hand = t.hand === "left" ? "right" : "left";
+  const walk_meta: WalkVariant["walk_meta"] = records.map((r, i) => {
+    if (r.kind === "cross") {
+      return {
+        offset_m: null,
+        offset_base_m: null,
+        offset_side: null,
+        offset_ladder_passed: null,
+        offset_run: null,
+        head_arc_points: 0,
+        tail_arc_points: 0,
+      };
+    }
+    return {
+      offset_m: offsetUsed[i],
+      offset_base_m: offsetBaseM[i],
+      offset_side: inStrip[i] ? other : t.hand,
+      offset_ladder_passed: ladderPassed[i] === 1,
+      offset_run: runIndex[i],
+      head_arc_points: headArcPoints[i],
+      tail_arc_points: tailArcPoints[i],
+    };
+  });
 
   const steps: WalkStep[] = records.map((r, i) => {
     const range = doorOrder.ranges[i];
@@ -471,5 +628,6 @@ export function buildVariant(
     steps,
     warnings: [...t.warnings],
     tree: { step_chain: records.map((r) => r.chain), chain_parent: [...t.chainParent] },
+    walk_meta,
   };
 }

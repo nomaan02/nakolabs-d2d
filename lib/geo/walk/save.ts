@@ -19,6 +19,11 @@ import type { Database, Json } from "@/lib/supabase/types";
 import { generateWalk } from "@/lib/geo/walk/generate";
 import { fetchWalkInputs } from "@/lib/geo/walk/inputs";
 import type { WalkResult, WalkVariant } from "@/lib/geo/walk/types";
+import {
+  describeGeometryIssues,
+  validateWalkResult,
+  type GeometryIssue,
+} from "@/lib/geo/walk/validate";
 
 export type SaveRoutesFailureCode =
   | "not_admin"
@@ -39,12 +44,12 @@ export type SaveRoutesSummary = {
 };
 
 export type SaveRoutesResult =
-  | { ok: true; summary: SaveRoutesSummary; result: WalkResult }
+  | { ok: true; summary: SaveRoutesSummary; result: WalkResult; issues: GeometryIssue[] }
   | { ok: false; code: SaveRoutesFailureCode; message: string; detail?: string };
 
 /** Preview is the same read-and-generate path as save, with no `territory_routes_save` call. */
 export type PreviewRoutesResult =
-  | { ok: true; result: WalkResult }
+  | { ok: true; result: WalkResult; issues: GeometryIssue[] }
   | { ok: false; code: SaveRoutesFailureCode; message: string; detail?: string };
 
 const NO_ROUTE = "No road near this prop has a door on it, so no route could be drawn.";
@@ -72,10 +77,11 @@ function mapRpcError(error: PostgrestError): Extract<SaveRoutesResult, { ok: fal
   return { ok: false, code: "unavailable", message: "The routes could not be saved.", detail: describe(error) };
 }
 
-/** The document `territory_routes_save` stores: the variant without its verification tree. */
+/** The document `territory_routes_save` stores: the variant without its verification aids (`tree`, `walk_meta`). */
 export function variantForStorage(v: WalkVariant): Json {
-  const { tree: _tree, ...rest } = v;
+  const { tree: _tree, walk_meta: _walk_meta, ...rest } = v;
   void _tree;
+  void _walk_meta;
   return rest as unknown as Json;
 }
 
@@ -94,7 +100,7 @@ async function generateForTerritory(
 
     const result = generateWalk(fetched.inputs);
     if (result.variants.length === 0) return { ok: false, code: "no_route", message: NO_ROUTE };
-    return { ok: true, result };
+    return { ok: true, result, issues: validateWalkResult(result) };
   } catch (err) {
     return {
       ok: false,
@@ -127,6 +133,10 @@ export async function saveTerritoryRoutes(
   const preview = await generateForTerritory(supabase, territoryId, "The routes could not be saved.");
   if (!preview.ok) return preview;
 
+  if (preview.issues.length > 0) {
+    console.warn(`[route geometry] ${territoryId}: ${describeGeometryIssues(preview.issues)}`);
+  }
+
   try {
     const result = preview.result;
     const { data, error } = await supabase.rpc("territory_routes_save", {
@@ -140,6 +150,7 @@ export async function saveTerritoryRoutes(
     return {
       ok: true,
       result,
+      issues: preview.issues,
       summary: {
         territoryId,
         variants: saved.variants ?? result.variants.length,

@@ -135,14 +135,18 @@ export type CachedRouteStep = {
 };
 
 /**
- * `addresses_for:<id>` and `route_for:<id>` record that the one-shot fetch
- * for that assignment has already run. Reopening does not repeat it.
+ * `addresses_for:<id>` and `route_for:<id>` record that a fetch for that
+ * assignment has already run. `route_fp:<id>` is the route fingerprint
+ * from that fetch (`steps:<min id>` or `steps:none`). Reopening offline
+ * does not repeat the fetch. No Dexie version bump: this is a new key in
+ * the existing `sync_meta` store.
  */
 export type SyncMetaKey =
   | "last_sync_at"
   | "last_canvasser_id"
   | `addresses_for:${string}`
-  | `route_for:${string}`;
+  | `route_for:${string}`
+  | `route_fp:${string}`;
 
 export type SyncMetaRow = {
   key: SyncMetaKey;

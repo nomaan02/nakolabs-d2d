@@ -6,7 +6,7 @@
  * OTP, as seed-demo.ts does — no users are created), and checks migration
  * 020's acceptance list against real query results. Every row it creates is
  * a throwaway on a prop with no assignments (default "REF - Speedwell"), plus
- * ONE allocation of redland to prove visit_number = 3, and all of them are
+ * ONE allocation of redland to prove visit_number follows Stage 5c-a, and all of them are
  * deleted in `finally`. redland_test and the DEMO props are never written.
  *
  * What it leaves behind, deliberately: the saved variant set of the test
@@ -238,8 +238,12 @@ async function main(): Promise<void> {
     }
     const existing = await assignmentIds(testTid);
     if (existing.length > 0) throw new Error(`"${TEST_PROP}" already has ${existing.length} assignments; this harness needs a prop with none.`);
-    const redlandBefore = must("redland assignments", await service.from("assignments").select("id, work_date, visit_number").eq("territory_id", redlandTid).order("work_date"));
-    console.log(`  ${TEST_PROP}: 0 assignments. redland: ${redlandBefore.length} assignments, visit numbers ${redlandBefore.map((r) => r.visit_number).join(",")}`);
+    const redlandBefore = must("redland assignments", await service.from("assignments").select("id, work_date, visit_number, counts_for_rotation").eq("territory_id", redlandTid).order("work_date"));
+    // Stage 5c-a (migration 021): allocate_prop sets visit_number to
+    // 1 + the highest visit_number with counts_for_rotation. It is not 1 + the row count.
+    const countingVisits = redlandBefore.filter((row) => row.counts_for_rotation).map((row) => row.visit_number);
+    const expectedRedlandVisit = (countingVisits.length > 0 ? Math.max(...countingVisits) : 0) + 1;
+    console.log(`  ${TEST_PROP}: 0 assignments. redland: ${redlandBefore.length} assignments, visit numbers ${redlandBefore.map((r) => r.visit_number).join(",")}; Stage 5c-a expects the next visit to be ${expectedRedlandVisit}`);
 
     heading("Baseline route_steps per frozen prop");
     baseline = await routeStepsByProp();
@@ -426,19 +430,21 @@ async function main(): Promise<void> {
     );
 
     // -----------------------------------------------------------------------
-    heading("5. redland visit_number = 3 from history");
+    heading("5. redland visit_number from Stage 5c-a");
     const r3 = await allocate(admin.client, redlandTid, DATES.redland, team);
     created.assignments.add(r3.id);
     const r3row = await assignmentRow(r3.id);
     const redlandAfter = must("redland assignments", await service.from("assignments").select("id, work_date, visit_number").eq("territory_id", redlandTid).order("work_date"));
     const untouched = redlandBefore.every((before) => redlandAfter.some((after) => after.id === before.id && after.visit_number === before.visit_number && after.work_date === before.work_date));
-    const ok5 = r3row.visit_number === 3 && r3row.route_variant_key === null && untouched;
+    // Stage 5c-a: the expected number is derived above from counts_for_rotation, not hard-coded.
+    const ok5 = r3row.visit_number === expectedRedlandVisit && r3row.route_variant_key === null && untouched;
     record(
-      "redland visit_number bug fixed: a new allocation gets visit_number = 3",
+      "redland visit_number follows Stage 5c-a: a new allocation gets 1 + the highest counting visit",
       ok5 ? "PASS" : "FAIL",
-      `redland before: ${redlandBefore.map((r) => `${r.work_date} v${r.visit_number}`).join(", ")}. ` +
+      `redland before: ${redlandBefore.map((r) => `${r.work_date} v${r.visit_number} counts=${r.counts_for_rotation}`).join(", ")}. ` +
+        `Stage 5c-a expects ${expectedRedlandVisit}. ` +
         `allocate_prop(redland, ${DATES.redland}) → assignment ${r3.id.slice(0, 8)}…, visit_number ${r3row.visit_number} (re-queried), ${r3.knockable_doors} doors, not frozen (route_variant_key ${r3row.route_variant_key}). ` +
-        `Existing two rows unchanged: ${untouched}. The test allocation is deleted in cleanup below; the two real rows keep visit_number 1 (existing data is not rewritten).`,
+        `Existing rows unchanged: ${untouched}. The test allocation is deleted in cleanup below; existing rows are not rewritten.`,
     );
 
     // -----------------------------------------------------------------------

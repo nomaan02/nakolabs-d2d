@@ -21,6 +21,7 @@ import { SignOutButton } from "@/components/auth/sign-out-button";
 import { countKnockable, type KnockableCount } from "@/lib/geo/count-knockable";
 import { type Ring } from "@/lib/geo/prop-polygon";
 import { previewTerritoryRoutes, saveTerritoryRoutes } from "@/lib/geo/walk/save";
+import { describeGeometryIssues } from "@/lib/geo/walk/validate";
 import { loadTerritoryRouteModel } from "@/lib/map/route-load";
 import {
   applyRouteActive,
@@ -501,6 +502,7 @@ export function PropDrawer({
           steps: variant.steps.length,
         })),
       });
+      setRouteNotice(describeGeometryIssues(preview.issues));
       setRouteBusy(null);
     })();
   };
@@ -530,12 +532,10 @@ export function PropDrawer({
           model: loaded.ok && loaded.steps > 0 ? loaded.model : current.model,
         };
       });
+      const savedLine = `Saved ${savedRoutes.summary.variants.toLocaleString("en-GB")} variants, ${savedRoutes.summary.steps.toLocaleString("en-GB")} steps. ${describeGeometryIssues(savedRoutes.issues)}`;
+      setRouteNotice(savedLine);
       if (!loaded.ok) {
         setRouteError(loaded.message);
-      } else {
-        setRouteNotice(
-          `Saved ${savedRoutes.summary.variants.toLocaleString("en-GB")} variants, ${savedRoutes.summary.steps.toLocaleString("en-GB")} steps.`,
-        );
       }
       setRouteBusy(null);
     })();

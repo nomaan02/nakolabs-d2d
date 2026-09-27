@@ -453,10 +453,11 @@ function equirectangularMetres(a: [number, number], b: [number, number]): number
 }
 
 function appendWalk(out: [number, number][], walk: readonly [number, number][]): void {
-  for (let index = 0; index < walk.length; index += 1) {
-    const coord = walk[index]!;
+  for (const coord of walk) {
     const prev = out[out.length - 1];
-    if (index === 0 && prev && equirectangularMetres(prev, coord) < JOINT_M) continue;
+    // Any vertex within JOINT_M of the previous one, not only the first.
+    // A collapsed step stored as [J, J] then adds no duplicate vertex.
+    if (prev && equirectangularMetres(prev, coord) < JOINT_M) continue;
     out.push(coord);
   }
 }
