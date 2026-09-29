@@ -1,14 +1,27 @@
 import { setWorkerUrl, type StyleSpecification } from "maplibre-gl";
 
 /**
- * Shared basemap setup for the field Map tab. There is one MapLibre instance
- * in the field app — the Logger does not mount a second map.
+ * Shared basemap setup for the field Map tab and the Logger's compact mini
+ * map (`components/field/mini-map.tsx`, `components/field/field-map.tsx`'s
+ * `variant="compact"`).
  *
  * MapTiler tiles, never a public OSM tile server. Four licences are in play
  * and every one requires attribution: OS Open UPRN (Crown / OGL), the OGL
  * line itself, the EPC extract (Crown copyright held by MHCLG), and
- * OpenStreetMap (ODbL) through the basemap. Compact ⓘ on the Map tab;
- * permanent full text on the Profile tab. Do not drop a line to tidy the UI.
+ * OpenStreetMap (ODbL) through the basemap. Compact ⓘ on the Map tab (and on
+ * the mini map); permanent full text on the Profile tab. Do not drop a line
+ * to tidy the UI.
+ *
+ * Dated note, 2026-09-29 (UI item 1, Session C, owner decision 7). This
+ * comment used to read "there is one MapLibre instance in the field app —
+ * the Logger does not mount a second map." That is no longer true: the
+ * Logger now mounts its OWN compact `FieldMap` (the mini map). What still
+ * holds, and is the actual invariant (amendment 6): there is only ever ONE
+ * MapLibre instance MOUNTED AT A TIME, because the Map tab and the Logger
+ * are separate routes under the same layout, never rendered together, and
+ * `FieldMap` calls `map.remove()` on unmount either way. Verified by
+ * counting `.maplibregl-map` in the DOM while switching
+ * Map → Logger → Map → Logger (see the Session C BUILD-LOG entry).
  */
 
 setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");

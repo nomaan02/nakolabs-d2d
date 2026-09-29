@@ -1,9 +1,11 @@
 /**
  * Stage 10 acceptance harness.
  *
- * Pure next-door / claim / teammate checks, then three real Realtime
- * sessions on one trio assignment, a canvasser who is not on it, and two
- * knocks of the same UPRN. Service role is fixtures and counts only.
+ * Amended 2026-09-28 (owner, UI item 1). Claims, Take and reserve are
+ * removed (reversing the 2026-09-26 deviation). Pure A1/B1/C1/heartbeat
+ * checks, then three real Realtime sessions on one trio assignment, a
+ * canvasser who is not on it, and two knocks of the same UPRN. Service role
+ * is fixtures and counts only.
  *
  *   npm run verify:stage10
  *   npx tsx scripts/verify-stage-10.ts --cleanup
@@ -16,19 +18,19 @@ import { londonDate } from "../lib/field/london-date";
 import {
   applyPerson,
   assignmentTopic,
-  claimIsLive,
   DOOR_EVENT,
   doorSignal,
   emptyPeople,
   formatTeammateLine,
+  HEARTBEAT_STALE_MS,
+  hereSignal,
   parseDoorSignal,
-  reserveDecision,
-  shownDoor,
+  teammateKnocks,
   teammateRows,
-  winningHolds,
   type DoorSignal,
   type PersonState,
 } from "../lib/field/door-signals";
+import { nextOpenIndex } from "../lib/field/cursor";
 import type { SequenceDoor } from "../lib/field/sequence";
 import { sharedKnockMessage, uprnsSharedWithTeammate } from "../lib/field/shared-knock";
 import { newClientEventId, newRowId, type KnockEventOp, type KnockEventWrite } from "../lib/sync/ops";
@@ -42,7 +44,6 @@ const SERVICE = requiredEnv("SUPABASE_SERVICE_ROLE_KEY");
 const PASSWORD = "stage10-harness-pw-9k24";
 const CLEANUP_ONLY = process.argv.includes("--cleanup");
 const KEEP = process.argv.includes("--keep");
-const FAST = process.argv.includes("--fast");
 const TERRITORY_NAME = "STAGE 10 TEST PROP — DELETE ME";
 const SOLO_NAME = "STAGE 10 SOLO PROP — DELETE ME";
 const EMAIL_PREFIX = "stage10-";
@@ -61,6 +62,9 @@ const service: Client = createClient<Database>(URL_, SERVICE, {
 });
 
 let failures = 0;
+/** Raw payload types seen on the wire, across every channel opened below. Must stay 0/0. */
+let claimSeen = 0;
+let releaseSeen = 0;
 
 function line(text = "") {
   console.log(text);
@@ -82,6 +86,13 @@ function sleep(ms: number) {
 
 function door(uprn: number, position: number): SequenceDoor {
   return { uprn, position, lngLat: [0, 0] };
+}
+
+/** Every channel's raw broadcast listener runs this first, before parseDoorSignal. */
+function noteRawType(payload: unknown) {
+  const raw = payload as { type?: unknown } | null;
+  if (raw?.type === "claim") claimSeen += 1;
+  if (raw?.type === "release") releaseSeen += 1;
 }
 
 type HarnessUser = {
@@ -154,35 +165,47 @@ async function cleanupAll() {
 }
 
 function pureChecks() {
-  heading("next door, claims, teammate lines");
-  const sequence = [door(100, 0), door(101, 1), door(102, 2)];
-  const me = "00000000-0000-4000-8000-000000000001";
+  heading("A1: forward-wrap next open door");
+  const sequence = [door(100, 0), door(101, 1), door(102, 2), door(103, 3), door(104, 4)];
+
+  check("lands on the next open door after the cursor", nextOpenIndex(sequence, new Set(), 1) === 2);
+  check(
+    "skips a door already knocked, lands on 3",
+    nextOpenIndex(sequence, new Set([102]), 1) === 3,
+  );
+  check(
+    "wraps to the lowest open door when nothing is open ahead",
+    nextOpenIndex(sequence, new Set([102, 103, 104]), 3) === 0,
+  );
+  check(
+    "-1 when every door is knocked",
+    nextOpenIndex(sequence, new Set([100, 101, 102, 103, 104]), 2) === -1,
+  );
+  check(
+    "skips a door known only from a server knock (no broadcast needed)",
+    nextOpenIndex(sequence, new Set([103]), 2) === 4,
+  );
+  check(
+    "offline, nothing knocked: first snapshot door (no realtime needed)",
+    nextOpenIndex(sequence, new Set(), -1) === 0,
+  );
+  check(
+    "offline, Dexie knock on the first door: the next one",
+    nextOpenIndex(sequence, new Set([100]), -1) === 1,
+  );
+
+  heading("teammate lines: knocked/unknocked only, first names");
   const ada = "00000000-0000-4000-8000-00000000000a";
-  const ben = "00000000-0000-4000-8000-00000000000b";
+  const tom = "00000000-0000-4000-8000-00000000000b";
   const cid = "00000000-0000-4000-8000-00000000000c";
   const now = Date.now();
 
-  const offline = shownDoor(sequence, new Set(), emptyPeople(), me, now, false);
-  check("offline, nothing knocked: first snapshot door", offline?.uprn === 100 && offline.position === 0);
-
-  const afterLocal = shownDoor(sequence, new Set([100]), emptyPeople(), me, now, false);
-  check("offline, Dexie knock on the first door: the next one", afterLocal?.uprn === 101);
-
-  const blocked = applyPerson(
-    emptyPeople(),
-    doorSignal("claim", ada, 100, 0, new Date(now).toISOString()),
-  );
-  const ignoresClaim = shownDoor(sequence, new Set(), blocked, me, now, false);
-  check("offline ignores a teammate claim", ignoresClaim?.uprn === 100);
-
-  const liveSkip = shownDoor(sequence, new Set(), blocked, me, now, true);
-  check("live skips a door a teammate holds", liveSkip?.uprn === 101);
-
   const members = [
-    { canvasser_id: ada, full_name: "Ada", route_position_m: null, route_position_at: null },
-    { canvasser_id: ben, full_name: "Ben", route_position_m: null, route_position_at: null },
-    { canvasser_id: cid, full_name: "Cid", route_position_m: null, route_position_at: null },
+    { canvasser_id: ada, full_name: "Ada Lane", route_position_m: null, route_position_at: null },
+    { canvasser_id: tom, full_name: "Tom Holt", route_position_m: null, route_position_at: null },
+    { canvasser_id: cid, full_name: "Cid Moss", route_position_m: null, route_position_at: null },
   ];
+
   const emptyTrio = teammateRows({
     selfId: ada,
     members,
@@ -193,13 +216,14 @@ function pureChecks() {
   });
   check("trio is two lines", emptyTrio.length === 2, `count ${emptyTrio.length}`);
   check(
-    "nothing knocked and no claim is an empty line",
-    emptyTrio.every((row) => row.empty) &&
+    "nothing knocked and not stale is an empty line",
+    emptyTrio.every((row) => row.empty && !row.stale) &&
       emptyTrio.every((row) => formatTeammateLine(row, undefined, now).endsWith("no door yet")),
   );
   check(
-    "names are Ben and Cid",
-    emptyTrio.map((row) => row.name).join(",") === "Ben,Cid",
+    "first names only, alphabetical: Cid then Tom",
+    emptyTrio.map((row) => row.name).join(",") === "Cid,Tom",
+    emptyTrio.map((row) => row.name).join(","),
   );
 
   const solo = teammateRows({
@@ -212,74 +236,97 @@ function pureChecks() {
   });
   check("solo has no teammate line", solo.length === 0);
 
-  const labelled = formatTeammateLine(
-    {
-      canvasserId: ben,
-      name: "Ben",
-      uprn: 101,
-      sequencePosition: 15,
-      at: new Date(now).toISOString(),
-      stale: false,
-      empty: false,
-    },
-    { house_number: "9", building_name: null, street_name: "Small Street" },
-    now,
-  );
-  check("address ladder before the hash", labelled === "Ben · 9 Small Street", labelled);
-
-  const hashed = formatTeammateLine(
-    {
-      canvasserId: ben,
-      name: "Ben",
-      uprn: 101,
-      sequencePosition: 15,
-      at: new Date(now).toISOString(),
-      stale: false,
-      empty: false,
-    },
-    undefined,
-    now,
-  );
-  check("no label falls back to on #16", hashed === "Ben · on #16", hashed);
-
-  const staleRow = teammateRows({
+  heading("C1: #N is the plate, else the door's own number");
+  const plateAt = new Date(now).toISOString();
+  const withPlate = teammateRows({
     selfId: ada,
     members,
-    people: applyPerson(emptyPeople(), doorSignal("claim", ben, 102, 2, new Date(now).toISOString())),
+    people: applyPerson(emptyPeople(), doorSignal("knocked", tom, 5099080, 79, plateAt)),
     serverKnocks: [],
     now,
-    connectionLive: false,
-  }).find((row) => row.canvasserId === ben);
-  const staleText = staleRow ? formatTeammateLine(staleRow, undefined, now) : "";
-  check("stale claim is marked stale", staleRow?.stale === true && staleRow.empty === false);
-  check("stale claim says when it was heard", staleText.includes("last heard"), staleText);
+    connectionLive: true,
+  }).find((row) => row.canvasserId === tom)!;
+  const plateLine = formatTeammateLine(
+    withPlate,
+    { house_number: "80", building_name: null, street_name: "Filton Road" },
+    now,
+  );
+  check('plate known: "Tom · last knocked #80"', plateLine === "Tom · last knocked #80", plateLine);
 
-  const fresh = doorSignal("claim", ada, 100, 0, new Date(now).toISOString());
-  check("a new claim is live", claimIsLive(fresh, now + 1_000));
-  check("still live at 2 min 59 sec", claimIsLive(fresh, now + 179_000));
-  check("expired at 3 min 1 sec", !claimIsLive(fresh, now + 181_000));
-  const expiredPeople = applyPerson(emptyPeople(), fresh);
+  const noPlateRow = teammateRows({
+    selfId: ada,
+    members,
+    people: applyPerson(emptyPeople(), doorSignal("knocked", tom, 999, 11, plateAt)),
+    serverKnocks: [],
+    now,
+    connectionLive: true,
+  }).find((row) => row.canvasserId === tom)!;
+  const noPlateLine = formatTeammateLine(noPlateRow, undefined, now);
   check(
-    "expired claim is not a hold",
-    winningHolds(expiredPeople, now + 181_000).length === 0,
+    'no plate: falls back to the door number, "Tom · last knocked #12"',
+    noPlateLine === "Tom · last knocked #12",
+    noPlateLine,
+  );
+
+  heading("heartbeat: 15 s / 45 s (agent proposal, owner ACCEPTED)");
+  const silent44 = teammateRows({
+    selfId: ada,
+    members,
+    people: applyPerson(emptyPeople(), hereSignal(tom, new Date(now - 44_000).toISOString())),
+    serverKnocks: [],
+    now,
+    connectionLive: true,
+  }).find((row) => row.canvasserId === tom)!;
+  check("silent 44s is not stale", silent44.stale === false);
+
+  const silent46 = teammateRows({
+    selfId: ada,
+    members,
+    people: applyPerson(emptyPeople(), hereSignal(tom, new Date(now - HEARTBEAT_STALE_MS - 1_000).toISOString())),
+    serverKnocks: [],
+    now,
+    connectionLive: true,
+  }).find((row) => row.canvasserId === tom)!;
+  check("silent 46s is stale", silent46.stale === true);
+
+  const minuteAgo = new Date(now - 61_000).toISOString();
+  const minuteRow = teammateRows({
+    selfId: ada,
+    members,
+    people: applyPerson(emptyPeople(), hereSignal(tom, minuteAgo)),
+    serverKnocks: [],
+    now,
+    connectionLive: true,
+  }).find((row) => row.canvasserId === tom)!;
+  const minuteText = formatTeammateLine(minuteRow, undefined, now);
+  check('reads "last heard 1 min"', minuteText === "Tom · last heard 1 min", minuteText);
+
+  const here = hereSignal(ada, new Date(now).toISOString());
+  check(
+    'the "here" payload keys are exactly type, canvasser_id, at',
+    Object.keys(here).sort().join(",") === "at,canvasser_id,type",
+    Object.keys(here).sort().join(","),
+  );
+
+  heading("parseDoorSignal rejects claim and release");
+  check(
+    "claim payload rejected",
+    parseDoorSignal({ type: "claim", canvasser_id: ada, uprn: 1, sequence_position: 0, at: new Date().toISOString() }) ===
+      null,
+  );
+  check(
+    "release payload rejected",
+    parseDoorSignal({ type: "release", canvasser_id: ada, uprn: 1, sequence_position: 0, at: new Date().toISOString() }) ===
+      null,
+  );
+  check(
+    "knocked payload accepted",
+    parseDoorSignal(doorSignal("knocked", ada, 1, 0)) !== null,
   );
 
   check(
     "one shared door",
-    sharedKnockMessage(1, "door 4") ===
-      "You and a teammate both logged door 4. It still counts once.",
-  );
-  check(
-    "back out does not reserve again",
-    reserveDecision({
-      wantReserve: false,
-      connectionLive: true,
-      sequence,
-      knocked: new Set(),
-      people: emptyPeople(),
-      selfId: me,
-      now,
-    }).action === "none",
+    sharedKnockMessage(1, "door 4") === "You and a teammate both logged door 4. It still counts once.",
   );
 }
 
@@ -287,53 +334,15 @@ type Actor = {
   user: HarnessUser;
   channel: RealtimeChannel;
   people: Map<string, PersonState>;
-  wantReserve: boolean;
-  heard: Set<string>;
-  sequence: SequenceDoor[];
-  knocked: Set<number>;
-  lastSent: number | null;
 };
 
-function step(actor: Actor) {
-  const now = Date.now();
-  const latest = actor.people.get(actor.user.id)?.latest ?? null;
-  const holds = winningHolds(actor.people, now).filter((hold) => !actor.knocked.has(hold.uprn));
-  if (!holds.some((hold) => hold.canvasser_id === actor.user.id)) {
-    if (latest?.type === "claim" && claimIsLive(latest, now)) actor.wantReserve = true;
-  }
-  const decision = reserveDecision({
-    wantReserve: actor.wantReserve,
-    connectionLive: true,
-    sequence: actor.sequence,
-    knocked: actor.knocked,
-    people: actor.people,
-    selfId: actor.user.id,
-    now,
+function listen(actor: Actor) {
+  actor.channel.on("broadcast", { event: DOOR_EVENT }, (message) => {
+    noteRawType(message.payload);
+    const signal = parseDoorSignal(message.payload);
+    if (!signal || signal.canvasser_id === actor.user.id) return;
+    actor.people = applyPerson(actor.people, signal);
   });
-  if (decision.action === "hold") {
-    actor.wantReserve = false;
-    return;
-  }
-  if (decision.action !== "claim") return;
-  if (actor.lastSent === decision.uprn && latest?.type === "claim" && latest.uprn === decision.uprn) {
-    return;
-  }
-  actor.lastSent = decision.uprn;
-  const signal = doorSignal("claim", actor.user.id, decision.uprn, decision.sequence_position);
-  actor.people = applyPerson(actor.people, signal);
-  void actor.channel.send({ type: "broadcast", event: DOOR_EVENT, payload: signal });
-}
-
-function onSignal(actor: Actor, signal: DoorSignal) {
-  actor.people = applyPerson(actor.people, signal);
-  if (!actor.heard.has(signal.canvasser_id)) {
-    actor.heard.add(signal.canvasser_id);
-    const mine = winningHolds(actor.people, Date.now()).find(
-      (hold) => hold.canvasser_id === actor.user.id,
-    );
-    if (mine) void actor.channel.send({ type: "broadcast", event: DOOR_EVENT, payload: mine });
-  }
-  step(actor);
 }
 
 function subscribe(channel: RealtimeChannel, ms = 10_000): Promise<string> {
@@ -349,15 +358,15 @@ function subscribe(channel: RealtimeChannel, ms = 10_000): Promise<string> {
   });
 }
 
+function send(channel: RealtimeChannel, signal: DoorSignal) {
+  return channel.send({ type: "broadcast", event: DOOR_EVENT, payload: signal });
+}
+
 async function main() {
   if (CLEANUP_ONLY) {
     await cleanupAll();
     return;
   }
-
-  const timedAt = Date.now();
-  const timedClaim = doorSignal("claim", "timer", 1, 0, new Date(timedAt).toISOString());
-  const timedPeople = applyPerson(emptyPeople(), timedClaim);
 
   pureChecks();
 
@@ -386,11 +395,11 @@ async function main() {
   if (adminSignIn) throw new Error(adminSignIn.message);
 
   const ada = await createUser("ada", "Ada Lane");
-  const ben = await createUser("ben", "Ben Holt");
+  const tom = await createUser("tom", "Tom Holt");
   const cid = await createUser("cid", "Cid Moss");
   const outsider = await createUser("out", "Out Rider");
   const sol = await createUser("sol", "Sol Page");
-  line(`  trio ${ada.name}, ${ben.name}, ${cid.name}; outsider is a different canvasser`);
+  line(`  trio ${ada.name}, ${tom.name}, ${cid.name}; outsider is a different canvasser`);
 
   const { error: terrError } = await service.from("territories").insert({
     name: TERRITORY_NAME,
@@ -404,7 +413,7 @@ async function main() {
   const allocated = await allocateProp(adminClient, {
     territoryId: territory.id,
     workDate: londonDate(),
-    canvasserIds: [ada.id, ben.id, cid.id],
+    canvasserIds: [ada.id, tom.id, cid.id],
   });
   if (!allocated.ok) throw new Error(`${allocated.code} ${allocated.message}`);
   const assignmentId = allocated.allocation.id;
@@ -417,12 +426,11 @@ async function main() {
     .single();
   const uprns = snapshot?.uprn_snapshot ?? [];
   const sequence = uprns.map((uprn, position) => door(uprn, position));
-  check("snapshot order has a first door", sequence.length >= 3, `first UPRN ${sequence[0]?.uprn ?? "none"}`);
+  check("snapshot order has a first door", sequence.length >= 5, `first UPRN ${sequence[0]?.uprn ?? "none"}`);
 
-  const offlineSnapshot = shownDoor(sequence, new Set(), emptyPeople(), ada.id, Date.now(), false);
   check(
-    "offline next door is snapshot position 0",
-    offlineSnapshot?.uprn === sequence[0]?.uprn && offlineSnapshot?.position === 0,
+    "offline (no realtime yet): next door is snapshot position 0",
+    nextOpenIndex(sequence, new Set(), -1) === 0,
   );
 
   const { error: soloTerrError } = await service.from("territories").insert({
@@ -441,14 +449,14 @@ async function main() {
   check("solo allocated", soloAlloc.ok, soloAlloc.ok ? "" : soloAlloc.message);
 
   heading("teammate names and route position");
-  const { data: benProfile } = await ada.client.from("profiles").select("full_name").eq("id", ben.id).maybeSingle();
-  check("Ada can read Ben's name", benProfile?.full_name === "Ben Holt", benProfile?.full_name ?? "none");
+  const { data: tomProfile } = await ada.client.from("profiles").select("full_name").eq("id", tom.id).maybeSingle();
+  check("Ada can read Tom's name", tomProfile?.full_name === "Tom Holt", tomProfile?.full_name ?? "none");
   const { data: hidden } = await outsider.client
     .from("profiles")
     .select("full_name")
-    .eq("id", ben.id)
+    .eq("id", tom.id)
     .maybeSingle();
-  check("outsider cannot read Ben's name", hidden === null);
+  check("outsider cannot read Tom's name", hidden === null);
 
   const { data: positions } = await service
     .from("assignment_members")
@@ -459,68 +467,124 @@ async function main() {
   ).length;
   check("route_position_m and route_position_at are null", positionCount === 0, `non-null ${positionCount}`);
 
-  heading("three connected sessions");
-  const actors: Actor[] = [];
-  for (const user of [ada, ben, cid]) {
-    const channel = user.client.channel(assignmentTopic(assignmentId), {
+  heading("three connected sessions: knocked/unknocked, no claims");
+  const actors: Actor[] = [ada, tom, cid].map((user) => ({
+    user,
+    channel: user.client.channel(assignmentTopic(assignmentId), {
       config: { private: true, broadcast: { self: false } },
-    });
-    const actor: Actor = {
-      user,
-      channel,
-      people: emptyPeople(),
-      wantReserve: true,
-      heard: new Set(),
-      sequence,
-      knocked: new Set(),
-      lastSent: null,
-    };
-    channel.on("broadcast", { event: DOOR_EVENT }, (message) => {
-      const signal = parseDoorSignal(message.payload);
-      if (!signal || signal.canvasser_id === user.id) return;
-      onSignal(actor, signal);
-    });
-    actors.push(actor);
-  }
+    }),
+    people: emptyPeople(),
+  }));
+  for (const actor of actors) listen(actor);
 
   const joined = await Promise.all(actors.map((actor) => subscribe(actor.channel)));
   joined.forEach((status, index) => {
     check(`${actors[index].user.name} subscribed`, status === "SUBSCRIBED", status);
   });
-  for (const actor of actors) step(actor);
 
-  let distinct = 0;
-  let example = 0;
-  const deadline = Date.now() + 12_000;
-  while (Date.now() < deadline) {
-    const shown = actors.map((actor) => shownDoor(actor.sequence, actor.knocked, actor.people, actor.user.id, Date.now(), true));
-    const ids = shown.map((item) => item?.uprn ?? 0);
-    distinct = new Set(ids.filter((id) => id !== 0)).size;
-    example = ids.find((id) => id !== 0) ?? 0;
-    if (distinct === 3 && shown.every((item) => item !== null)) break;
-    await sleep(200);
+  const [adaActor, tomActor, cidActor] = actors;
+  await Promise.all(actors.map((actor) => send(actor.channel, hereSignal(actor.user.id))));
+
+  const d0 = sequence[0]!;
+  const d1 = sequence[1]!;
+  await send(adaActor.channel, doorSignal("knocked", ada.id, d0.uprn, d0.position));
+  await send(cidActor.channel, doorSignal("knocked", cid.id, d1.uprn, d1.position));
+
+  let seenBoth = false;
+  const deadline1 = Date.now() + 5_000;
+  while (Date.now() < deadline1) {
+    seenBoth =
+      (tomActor.people.get(ada.id)?.knocks.has(d0.uprn) ?? false) &&
+      (tomActor.people.get(cid.id)?.knocks.has(d1.uprn) ?? false);
+    if (seenBoth) break;
+    await sleep(100);
   }
-  check("three sessions show three different next doors", distinct === 3, `distinct ${distinct}, example UPRN ${example}`);
+  check("live: Tom sees both knocks within 5s", seenBoth);
+
+  const membersReal = [ada, tom, cid].map((user) => ({
+    canvasser_id: user.id,
+    full_name: user.name,
+    route_position_m: null,
+    route_position_at: null,
+  }));
+
+  const tomKnocked = new Set<number>([
+    ...(tomActor.people.get(ada.id)?.knocks.keys() ?? []),
+    ...(tomActor.people.get(cid.id)?.knocks.keys() ?? []),
+  ]);
+  const tomIndex = nextOpenIndex(sequence, tomKnocked, -1);
+  check("A1: Tom's next open door skips both, lands on the third", tomIndex === 2, `index ${tomIndex}`);
+
+  const knockedByForTom = teammateKnocks(tomActor.people, [], tom.id, membersReal);
+  check(
+    "B1: the door Ada knocked is tagged Ada",
+    knockedByForTom.get(d0.uprn)?.firstName === "Ada",
+    knockedByForTom.get(d0.uprn)?.firstName ?? "none",
+  );
+
+  const rowsForTom = teammateRows({
+    selfId: tom.id,
+    members: membersReal,
+    people: tomActor.people,
+    serverKnocks: [],
+    now: Date.now(),
+    connectionLive: true,
+  });
+  const adaRow = rowsForTom.find((row) => row.canvasserId === ada.id)!;
+  const c1Line = formatTeammateLine(adaRow, undefined, Date.now());
+  const expectedC1Line = `Ada · last knocked #${d0.position + 1}`;
+  check("C1: Tom's line for Ada", c1Line === expectedC1Line, c1Line);
+
+  await send(adaActor.channel, doorSignal("unknocked", ada.id, d0.uprn, d0.position));
+  let reopened = false;
+  const deadline2 = Date.now() + 5_000;
+  while (Date.now() < deadline2) {
+    reopened = !(tomActor.people.get(ada.id)?.knocks.has(d0.uprn) ?? false);
+    if (reopened) break;
+    await sleep(100);
+  }
+  check("undo: unknocked removes it from Tom's record", reopened);
+  const tomKnockedAfterUndo = new Set<number>(tomActor.people.get(cid.id)?.knocks.keys() ?? []);
+  const tomIndexAfterUndo = nextOpenIndex(sequence, tomKnockedAfterUndo, -1);
+  check("the door reopens: Tom's next open door is d0 again", tomIndexAfterUndo === 0, `index ${tomIndexAfterUndo}`);
+
+  const heardAt = tomActor.people.get(ada.id)?.lastHeardAt ?? null;
+  check("heartbeats arrive: Tom recorded when Ada was last heard", heardAt !== null, heardAt ?? "none");
+  if (heardAt) {
+    const staleRows = teammateRows({
+      selfId: tom.id,
+      members: membersReal,
+      people: tomActor.people,
+      serverKnocks: [],
+      now: Date.parse(heardAt) + HEARTBEAT_STALE_MS + 1_000,
+      connectionLive: true,
+    });
+    const staleAda = staleRows.find((row) => row.canvasserId === ada.id);
+    check("a stopped actor goes stale 46s after its last signal", staleAda?.stale === true);
+  }
+
+  for (const actor of actors) {
+    await actor.user.client.removeChannel(actor.channel);
+  }
 
   heading("canvasser not on the assignment");
   let outsiderMessages = 0;
   const outsiderChannel = outsider.client.channel(assignmentTopic(assignmentId), {
     config: { private: true, broadcast: { self: false } },
   });
-  outsiderChannel.on("broadcast", { event: DOOR_EVENT }, () => {
+  outsiderChannel.on("broadcast", { event: DOOR_EVENT }, (message) => {
+    noteRawType(message.payload);
     outsiderMessages += 1;
   });
   const outsiderStatus = await subscribe(outsiderChannel);
-  const probe = doorSignal("claim", ada.id, sequence[0].uprn, 0);
-  await actors[0].channel.send({ type: "broadcast", event: DOOR_EVENT, payload: probe });
+  const insiderChannel = ada.client.channel(assignmentTopic(assignmentId), {
+    config: { private: true, broadcast: { self: false } },
+  });
+  await subscribe(insiderChannel);
+  await send(insiderChannel, doorSignal("knocked", ada.id, sequence[0]!.uprn, 0));
   await sleep(2_000);
-  check(
-    "outsider did not subscribe",
-    outsiderStatus !== "SUBSCRIBED",
-    outsiderStatus,
-  );
-  check("outsider received no claim", outsiderMessages === 0, `messages ${outsiderMessages}`);
-
+  check("outsider did not subscribe", outsiderStatus !== "SUBSCRIBED", outsiderStatus);
+  check("outsider received no message", outsiderMessages === 0, `messages ${outsiderMessages}`);
   await outsider.client.removeChannel(outsiderChannel);
 
   let publicMessages = 0;
@@ -534,20 +598,23 @@ async function main() {
   if (publicSignIn || !publicSession.session) throw new Error(publicSignIn?.message ?? "public sign-in");
   publicClient.realtime.setAuth(publicSession.session.access_token);
   const publicChannel = publicClient.channel(assignmentTopic(assignmentId));
-  publicChannel.on("broadcast", { event: DOOR_EVENT }, () => {
+  publicChannel.on("broadcast", { event: DOOR_EVENT }, (message) => {
+    noteRawType(message.payload);
     publicMessages += 1;
   });
   const publicStatus = await subscribe(publicChannel, 8_000);
-  await actors[0].channel.send({ type: "broadcast", event: DOOR_EVENT, payload: probe });
+  await send(insiderChannel, doorSignal("knocked", ada.id, sequence[0]!.uprn, 0));
   await sleep(2_000);
   check(
     "public join is not a way in",
     publicStatus !== "SUBSCRIBED" || publicMessages === 0,
     `${publicStatus}, messages ${publicMessages}`,
   );
+  await ada.client.removeChannel(insiderChannel);
+  await publicClient.removeChannel(publicChannel);
 
   heading("two offline knocks, one covered door");
-  const uprn = sequence[0].uprn;
+  const uprn = sequence[0]!.uprn;
   const knock = (user: HarnessUser, when: string): KnockEventOp => {
     const clientEventId = newClientEventId();
     const row: KnockEventWrite = {
@@ -570,7 +637,7 @@ async function main() {
     };
   };
   const first = await sendOp(ada.client, knock(ada, new Date().toISOString()));
-  const second = await sendOp(ben.client, knock(ben, new Date(Date.now() + 1_000).toISOString()));
+  const second = await sendOp(tom.client, knock(tom, new Date(Date.now() + 1_000).toISOString()));
   check("both knocks inserted", first.outcome === "ok" && second.outcome === "ok", `${first.outcome} ${second.outcome}`);
 
   const { data: knockRows } = await service
@@ -589,7 +656,7 @@ async function main() {
     .eq("uprn", uprn);
   check("coverage view has one row for that door", latestCount === 1, `v_latest_knock ${latestCount ?? "null"}`);
 
-  const shared = await uprnsSharedWithTeammate(ben.client, assignmentId, [uprn], ben.id);
+  const shared = await uprnsSharedWithTeammate(tom.client, assignmentId, [uprn], tom.id);
   check("resync flags the shared door", shared.has(uprn));
 
   const { data: positionsAfter } = await service
@@ -599,26 +666,10 @@ async function main() {
   const written = (positionsAfter ?? []).filter(
     (row) => row.route_position_m !== null || row.route_position_at !== null,
   ).length;
-  check("route position still unread-only null", written === 0, `non-null ${written}`);
+  check("route position still read-only null", written === 0, `non-null ${written}`);
 
-  for (const actor of actors) {
-    await actor.user.client.removeChannel(actor.channel);
-  }
-  await outsider.client.removeChannel(outsiderChannel);
-  await publicClient.removeChannel(publicChannel);
-
-  if (!FAST) {
-    heading("claim left open for three minutes");
-    const remain = timedAt + 181_000 - Date.now();
-    if (remain > 0) {
-      line(`  waiting ${Math.ceil(remain / 1000)}s`);
-      await sleep(remain);
-    }
-    const age = Date.now() - timedAt;
-    check("waited past three minutes", age > 180_000, `${age}ms`);
-    check("that claim is no longer live", !claimIsLive(timedClaim, Date.now()));
-    check("the door is not held", winningHolds(timedPeople, Date.now()).length === 0);
-  }
+  check("claim received during the run: 0", claimSeen === 0, `claim ${claimSeen}`);
+  check("release received during the run: 0", releaseSeen === 0, `release ${releaseSeen}`);
 
   if (KEEP) {
     line();

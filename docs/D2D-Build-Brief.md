@@ -126,6 +126,25 @@ Seven rules. Every one of them exists because breaking it costs more later.
 > Colour is never the sole carrier of meaning. Every coloured state pairs with
 > an icon or fill shape.
 
+> **Amended 2026-09-29 (UI item 1, Logger rebuild, owner decision 6).**
+> The Logger's "Today's stats" row is COUNTS ONLY, for this canvasser, this
+> assignment, today (Europe/London): doors logged, bookable contacts
+> (`outcome = 'answered'` only — see the field Contacts note below), and
+> leads. No rate, no rank, and nothing about another canvasser is ever
+> shown. "Confirmed" is a placeholder until the CRM sync (Stage 12) exists:
+> it renders "—", never a fabricated number.
+>
+> **Field "Contacts" definition (owner, 2026-09-28).** In this business a
+> "Contact" is a BOOKABLE ANSWER: `outcome = 'answered'` only. `lead` is
+> its own stat and is never folded in; `no_opportunity` (Rented/Council)
+> is not a contact even though someone answered; `no_answer` (Not In) is
+> not a contact; `refused` / `do_not_call` / `inaccessible` / `callback`
+> are not contacts. This is deliberately NOT the outcome-mapping skill's
+> "answered" rule (`outcome NOT IN ('no_answer','inaccessible')`), which
+> stays unchanged for every admin surface — flag for the admin rebuild:
+> admin shows a broader "answered" figure under a similar name, and the
+> two labels must be reconciled then.
+
 3. **Canvasser observations outrank all public data.** Highest confidence tier.
 
 4. **Offline-first and idempotent.** Every write carries a `client_event_id`. Re-syncing the same event twice must be a no-op.
@@ -264,6 +283,17 @@ match_confidence = exact | inferred | spatial_approx | street_only
 - Supabase types generated to `lib/supabase/types.ts`; regenerate after every migration.
 - No component library. Tailwind only.
 - Field UI targets one-handed phone use: minimum 44px tap targets, bottom-anchored actions.
+- **Field font (added 2026-09-29, UI item 1, owner decision 9 / P1).** Sora
+  is the font for `/field` ONLY — including the data font, not just display
+  and body. Scoped via `Sora({variable:"--font-sora"})` in
+  `app/(field)/layout.tsx`, applied to `<main>` there and nowhere else, so
+  the variable exists only inside that DOM subtree. `.field-root` in
+  `app/globals.css` re-points `--font-display`/`--font-body`/`--font-data`
+  straight to `var(--font-sora), ui-sans-serif, system-ui, sans-serif` — a
+  plain, unlayered rule, not a Tailwind `@theme` variable (an earlier
+  `@theme inline` attempt never actually emitted a working custom
+  property; see the Session C BUILD-LOG entry). Admin's fonts
+  (bricolage/instrument/martian) are untouched outside `.field-root`.
 ```
 
 ---
@@ -1715,6 +1745,36 @@ satisfied. See Section 6, Stages 5b and 16.
 > service worker Cache Storage. Logging is unaffected — the snapshot and labels
 > are in Dexie. Proper tile caching is Track B service-worker work, not a patch.
 
+> **Amended 2026-09-29 (UI item 1, Logger rebuild — owner decisions,
+> 2026-09-27/28).** The Logger is re-skinned to the Figma page "Logger —
+> clean build" and the frequency-driven button ladder above is superseded
+> outright:
+>
+> - **Order and sizes:** top to bottom, Lead / Contact / Rented-Council /
+>   Not In, each the same 84px circle (`--spacing-outcome`). This replaces
+>   the old bottom-up 96/80/72/72 frequency ladder and the "Lead buffered
+>   from Contact" reach guard — Contact now sits directly under Lead.
+>   "No Answer" is relabelled "Not In" everywhere, including the Map
+>   legend. "Rented/Council" wraps as one word pair, not "Rented / Council".
+> - **Other** is a 5th, smaller button, LAST in the column (bottom), not
+>   first: hold (~350 ms) opens a menu; slide to an option and release to
+>   log; release elsewhere cancels; a quick tap opens the same options as
+>   ordinary buttons. "Do not call again" is one slide away, never nested.
+> - **The horizontal door scroll replaces Back, Skip and the free-scroll
+>   list strip.** ‹ › step exactly one door; a fling can cross many (a
+>   known ~8-door limit, accepted by the owner); the scroll only moves the
+>   cursor, never auto-advances.
+> - **The pencil (✎) is removed.** `IdChip` shows the signed-in username,
+>   display only; the house number is typed via the door scroll's own
+>   "+ Add house number" affordance instead.
+> - **Tap logs; the confirm is a light slide** (circle +24px and back,
+>   ~180 ms) plus the existing `navigator.vibrate(40)` — not a new pulse.
+> - The mini map is back, compact (Figma 8:14) — the 2026-09-18 removal
+>   above is superseded. It is not interactive, does not fight a scroll
+>   gesture (it is a separate component, not embedded in the scrolling
+>   page), and its own attribution is a second, visible ⓘ alongside the
+>   Map tab's. The dot is the CURRENT DOOR, never GPS (invariant 7).
+
 ---
 
 ### Stage 9 — Prop completion
@@ -1802,6 +1862,38 @@ That last case is the one that matters at the drop-off. Before anyone has knocke
 > releases it. A claim expires three minutes after `at` and is not taken
 > again by itself. `nextOpenIndex` in `lib/field/cursor.ts` is what the
 > logger advances to after a log.
+
+> **Amended 2026-09-29 (UI item 1, Logger rebuild, owner decision 10).**
+> Claims, Take and reserve are REMOVED, reversing the "connected canvasser
+> reserves on subscribe" deviation above. There is no claims table, no
+> claim/release broadcast, and no door is ever blocked for anyone.
+> `NextDoorCard` is deleted from both the Logger and the Map tab.
+>
+> Kept: the private Realtime channel (`assignment:<id>`, migration 023,
+> unchanged), live knock sharing, teammate lines, and the post-sync
+> double-knock flag. Added: a `here` heartbeat, every 15 s, stale after
+> 45 s of silence.
+>
+> - **A1** — after a log, the cursor lands on the next door that NOBODY has
+>   knocked (local outbox + every teammate's live broadcast + server
+>   knocks), forward from where the cursor is, wrapping to the lowest open
+>   door if none is open ahead. A teammate's knock never moves this index
+>   by itself.
+> - **B1** — a door a teammate has knocked stays in the door scroll,
+>   greyed, with a "✓ &lt;first name&gt;" tag. It is never removed and
+>   never blocks a further log.
+> - **C1** — the teammate line reads `"<name> · last knocked #N"` (`N` is
+>   the plate — the house number if known, else the door's own position),
+>   or `"<name> · last heard <age>"` once the heartbeat has gone stale
+>   (stale takes priority over door information), or `"<name> · no door
+>   yet"`. Shown only with 2+ active members.
+> - The UI-4 route highlight follows the CURSOR door (`cursor.door?.position`
+>   in `field-data-provider.tsx`), not a claimed "next door". Offline, it
+>   behaves exactly as online, minus teammates' live knocks.
+> - The "three distinct next doors never collide" and "a claim expires
+>   after three minutes" acceptance items above are superseded — there is
+>   nothing left to collide or expire. `scripts/verify-stage-10.ts` now
+>   proves A1/B1/C1/heartbeat instead.
 
 ---
 

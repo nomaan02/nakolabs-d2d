@@ -309,30 +309,86 @@ function doorCentroid(doors: DoorCollection): [number, number] | null {
 }
 
 /**
- * Header for the Map tab. A new-engine route contributes only facts the
- * freeze recorded: reversed or not, the start street, the hand, the door
- * count. An old or unrouted assignment keeps visit, slot and door count.
+ * The pieces `formatFieldHeader` (Map tab) and `formatLoggerAreaLine`
+ * (Logger, owner change 2026-09-28) both build from — one source, so the two
+ * surfaces can never disagree about the hand or the door count.
  */
-export function formatFieldHeader(assignment: TodaysAssignment, route: RouteDescription): string {
+export type FieldHeaderParts = {
+  visit: string;
+  /** "reversed" | "alternative 2" | null. Only set on a new-engine route. */
+  variant: string | null;
+  /** "start Ventnor Road (north)" | "start Ventnor Road" | null. */
+  start: string | null;
+  hand: "left" | "right" | null;
+  /** Only set when the route is not painted — an old-engine or unrouted assignment. */
+  slot: string | null;
+  doors: string;
+};
+
+export function fieldHeaderParts(
+  assignment: TodaysAssignment,
+  route: RouteDescription,
+): FieldHeaderParts {
   const doors = `${assignment.door_count.toLocaleString("en-GB")} doors`;
+  const visit = `Visit ${assignment.visit_number}`;
+
   if (!route.paintRoute) {
-    return [`Visit ${assignment.visit_number}`, assignment.slot, doors].join(" · ");
+    return { visit, variant: null, start: null, hand: null, slot: assignment.slot, doors };
   }
 
-  const parts = [`Visit ${assignment.visit_number}`];
-  if (route.variantKey === "best_reversed") parts.push("reversed");
+  let variant: string | null = null;
+  if (route.variantKey === "best_reversed") variant = "reversed";
   else if (route.variantKey) {
     const alt = /^alt_(\d+)$/.exec(route.variantKey);
-    if (alt) parts.push(`alternative ${alt[1]}`);
+    if (alt) variant = `alternative ${alt[1]}`;
   }
+
+  let start: string | null = null;
   if (route.startStreet) {
     const centroid = route.startPoint ? doorCentroid(assignment.doors) : null;
     const compass =
       centroid && route.startPoint ? compassBetween(centroid, route.startPoint) : null;
-    parts.push(compass ? `start ${route.startStreet} (${compass})` : `start ${route.startStreet}`);
+    start = compass ? `start ${route.startStreet} (${compass})` : `start ${route.startStreet}`;
   }
-  if (route.hand === "left") parts.push("doors on your left");
-  else if (route.hand === "right") parts.push("doors on your right");
-  parts.push(doors);
-  return parts.join(" · ");
+
+  return { visit, variant, start, hand: route.hand, slot: null, doors };
+}
+
+/**
+ * Header for the Map tab. A new-engine route contributes only facts the
+ * freeze recorded: reversed or not, the start street, the hand, the door
+ * count. An old or unrouted assignment keeps visit, slot and door count.
+ *
+ * Joins `fieldHeaderParts` exactly as before this function was split out —
+ * the Map tab's output is byte-identical for every fixture checked.
+ */
+export function formatFieldHeader(assignment: TodaysAssignment, route: RouteDescription): string {
+  const parts = fieldHeaderParts(assignment, route);
+  if (parts.slot !== null) {
+    // Only the unrouted branch of fieldHeaderParts sets `slot`.
+    return [parts.visit, parts.slot, parts.doors].join(" · ");
+  }
+
+  const out = [parts.visit];
+  if (parts.variant) out.push(parts.variant);
+  if (parts.start) out.push(parts.start);
+  if (parts.hand === "left") out.push("doors on your left");
+  else if (parts.hand === "right") out.push("doors on your right");
+  out.push(parts.doors);
+  return out.join(" · ");
+}
+
+/**
+ * Owner change, 2026-09-28: the Logger's Area line is this short single-line
+ * form, not the Map tab's full header. Built from the same parts as
+ * `formatFieldHeader` — not duplicated — so the two never disagree. The
+ * start street and compass stay Map-tab-only; this carries only the hand
+ * phrase and the door count, because that is what fits on one line.
+ *
+ *   "Visit 3 · doors on your right · 182 doors"
+ *   "Visit 3 · 182 doors"   (no hand — unrouted)
+ */
+export function formatLoggerAreaLine(parts: FieldHeaderParts): string {
+  const hand = parts.hand === "left" ? "doors on your left" : parts.hand === "right" ? "doors on your right" : null;
+  return hand ? `${parts.visit} · ${hand} · ${parts.doors}` : `${parts.visit} · ${parts.doors}`;
 }

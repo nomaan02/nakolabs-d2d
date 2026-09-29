@@ -12,8 +12,14 @@ import type { SequenceDoor } from "@/lib/field/sequence";
  * on the map.
  *
  * It stays manual. Stage 10 does not move this index on its own. After a log
- * the Logger asks `nextOpenIndex` for the next door that is neither knocked
- * nor claimed, then `goTo` lands there. Claims live on the Realtime channel.
+ * the Logger asks `nextOpenIndex` for the next open door, forward from where
+ * it is now.
+ *
+ * Amended 2026-09-28 (agent proposal, owner ACCEPTED — A1). Claims are
+ * removed. `nextOpenIndex` now wraps: the first open door AFTER the given
+ * index, or the lowest open door if none is open ahead, or -1 if every door
+ * is knocked. A teammate's knock never moves this index by itself — only
+ * this canvasser's own log, or an explicit action, calls `goTo`.
  */
 
 export type Cursor = {
@@ -31,9 +37,24 @@ export type Cursor = {
   previous: () => void;
 };
 
-/** Lowest sequence index that is not in `blocked`. -1 when every door is blocked. */
-export function nextOpenIndex(sequence: SequenceDoor[], blocked: ReadonlySet<number>): number {
-  return sequence.findIndex((door) => !blocked.has(door.uprn));
+/**
+ * The first open (not in `blocked`) door strictly after `fromIndex`, wrapping
+ * around to the lowest open door if none is found ahead. -1 only when every
+ * door in `sequence` is blocked. `fromIndex` defaults to -1, so calling this
+ * with no starting point is the same as asking for the lowest open door.
+ */
+export function nextOpenIndex(
+  sequence: SequenceDoor[],
+  blocked: ReadonlySet<number>,
+  fromIndex: number = -1,
+): number {
+  const total = sequence.length;
+  if (total === 0) return -1;
+  for (let step = 1; step <= total; step += 1) {
+    const index = (((fromIndex + step) % total) + total) % total;
+    if (!blocked.has(sequence[index]!.uprn)) return index;
+  }
+  return -1;
 }
 
 export function useCursor(sequence: SequenceDoor[]): Cursor {

@@ -363,7 +363,11 @@ async function main(): Promise<void> {
   heading("Gates before any write");
   const gateFailures: string[] = [];
   for (const banned of NEVER_REFREEZE) {
-    if (REFREEZE.some((target) => target.id === banned)) {
+    // Widened to `string`: the two allow-lists are disjoint literal unions,
+    // so TS flags the comparison itself as unintentional. The runtime check
+    // is exactly the point — it must compile the same if someone ever adds
+    // an id to both lists by mistake.
+    if (REFREEZE.some((target) => (target.id as string) === (banned as string))) {
       gateFailures.push(`${banned} is on the never-re-freeze list`);
     }
   }

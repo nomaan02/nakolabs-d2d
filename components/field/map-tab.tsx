@@ -6,14 +6,12 @@ import { useState } from "react";
 import { OtherOutcomeSheet } from "@/components/field/door-sheets";
 import { FieldMap } from "@/components/field/field-map";
 import { useFieldData } from "@/components/field/field-data-provider";
-import { NextDoorCard } from "@/components/field/next-door-card";
 import { OutcomeButtons } from "@/components/field/outcome-buttons";
 import { TeammateLines } from "@/components/field/teammate-lines";
 import { pulse } from "@/lib/field/feedback";
 import { doorPlate, mapLabel } from "@/lib/field/labels";
 import { logOutcome } from "@/lib/field/log-outcome";
 import { outcomeSpec, type OtherOutcome, type PrimaryOutcome } from "@/lib/field/outcomes";
-import { getCurrentStreetLabel, sequenceIsRouteDerived } from "@/lib/field/sequence";
 import { offerUndo } from "@/lib/field/undo";
 import { formatFieldHeader } from "@/lib/field/route-display";
 import { ROUTE_TIER_COLOURS } from "@/lib/map/route-layers";
@@ -26,6 +24,10 @@ import { ROUTE_TIER_COLOURS } from "@/lib/map/route-layers";
  *
  * Selecting a dot also moves the Logger's cursor to it, so the two surfaces
  * never disagree about which door is current.
+ *
+ * Amended 2026-09-28 (owner, UI item 1). Claims, Take and the old next-door
+ * card are removed. Tapping a door just selects it and moves the cursor
+ * there — there is nothing left to claim.
  */
 export function MapTab() {
   const {
@@ -98,18 +100,6 @@ export function MapTab() {
     selectDoorOnMap(null);
   };
 
-  const routed = sequenceIsRouteDerived(routeProgress.hasRoute);
-  const nextDoor = team.nextDoor;
-  const nextIndex = nextDoor ? sequence.findIndex((item) => item.uprn === nextDoor.uprn) : -1;
-  const nextLabel = nextDoor ? labelFor(nextDoor.uprn) : undefined;
-  const nextStreet = nextDoor
-    ? getCurrentStreetLabel(
-        nextLabel,
-        nextIndex >= 0 ? routeProgress.doors[nextIndex]?.routeStreet : null,
-        routed,
-      )
-    : null;
-
   return (
     <div className="relative flex h-full flex-col" data-testid="map-tab">
       <header className="z-10 border-b border-ink/15 bg-paper px-3 pb-3 pt-3">
@@ -125,17 +115,6 @@ export function MapTab() {
           </p>
         ) : null}
         <div className="mt-2">
-          <NextDoorCard
-            door={nextDoor}
-            plate={nextDoor ? doorPlate(nextLabel) : ""}
-            street={nextStreet}
-            onTake={() => {
-              if (!nextDoor) return;
-              team.claimDoor(nextDoor);
-              cursor.goTo(nextDoor.position);
-              selectDoorOnMap(nextDoor.uprn);
-            }}
-          />
           <TeammateLines rows={team.teammates} labelFor={labelFor} />
         </div>
       </header>
@@ -152,8 +131,6 @@ export function MapTab() {
           onSelectUprn={(uprn) => {
             selectDoorOnMap(uprn);
             cursor.goToUprn(uprn);
-            const picked = sequence.find((item) => item.uprn === uprn);
-            if (picked && !outcomes.has(uprn)) team.claimDoor(picked);
           }}
           active
         />
@@ -181,10 +158,7 @@ export function MapTab() {
             </div>
             <button
               type="button"
-              onClick={() => {
-                if (selectedUprn !== null) team.releaseDoor(selectedUprn);
-                selectDoorOnMap(null);
-              }}
+              onClick={() => selectDoorOnMap(null)}
               className="min-h-11 shrink-0 rounded-md border border-ink/25 px-4 text-sm font-medium"
             >
               Close
@@ -236,12 +210,14 @@ function Legend() {
     routeModel.points.some((point) => point.role === "start") &&
     routeModel.points.some((point) => point.role === "end");
   const hasRoute = routeModel.steps.length > 0;
+  // P10: labels read from outcomeSpec, so "No Answer" → "Not In" (and any
+  // future wording change) never has to be edited in two places.
   const items = [
     { label: "Not yet logged", className: "rounded-full h-3 w-3 bg-ink-soft" },
-    { label: "No answer", className: "rounded-full h-3 w-3 bg-worksheet-deep ring-1 ring-ink" },
-    { label: "Contact", className: "rounded-full h-3.5 w-3.5 bg-prop ring-2 ring-inset ring-paper" },
-    { label: "Rented/Council", className: "rounded-full h-2 w-2 bg-oxide" },
-    { label: "Lead", className: "rounded-full h-5 w-5 bg-lead ring-2 ring-inset ring-paper" },
+    { label: outcomeSpec("no_answer").label, className: "rounded-full h-3 w-3 bg-worksheet-deep ring-1 ring-ink" },
+    { label: outcomeSpec("answered").label, className: "rounded-full h-3.5 w-3.5 bg-prop ring-2 ring-inset ring-paper" },
+    { label: outcomeSpec("no_opportunity").label, className: "rounded-full h-2 w-2 bg-oxide" },
+    { label: outcomeSpec("lead").label, className: "rounded-full h-5 w-5 bg-lead ring-2 ring-inset ring-paper" },
   ];
   const routeRows = hasRoute
     ? [

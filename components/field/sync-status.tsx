@@ -38,7 +38,12 @@ export function formatSyncLine(status: Status): string {
   return parts.join(" · ");
 }
 
-function rowLabel(row: OutboxRow): string {
+/**
+ * Exported (UI item 1, Session C, 2026-09-29): the Logger's Sync failed
+ * banner (amendment 4) names the same door this row-level label already
+ * does, so the two surfaces never describe a failed row differently.
+ */
+export function rowLabel(row: OutboxRow): string {
   if (row.kind === "knock_event") {
     const payload = row.payload as { knock: { uprn: number; sequence_position: number | null } };
     const door =

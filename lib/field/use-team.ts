@@ -6,19 +6,19 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import {
   applyPerson,
   assignmentTopic,
-  claimIsLive,
   DOOR_EVENT,
   doorSignal,
   emptyPeople,
+  HEARTBEAT_INTERVAL_MS,
+  hereSignal,
   knockedUprns,
   parseDoorSignal,
-  reserveDecision,
-  shownDoor,
+  teammateKnocks,
   teammateRows,
-  winningHolds,
   type DoorSignal,
   type PersonState,
   type ServerKnock,
+  type TeamKnock,
   type TeamMember,
   type TeammateRow,
 } from "@/lib/field/door-signals";
@@ -28,53 +28,45 @@ import { createClient } from "@/lib/supabase/client";
 
 /**
  * One private Realtime channel per assignment, shared by every field tab.
- * Claims are applied in memory and broadcast. They are never inserted.
+ *
+ * Amended 2026-09-28 (owner, UI item 1). Claims, Take and reserve are
+ * removed. A log broadcasts `knocked`; an undo broadcasts `unknocked`; every
+ * connected session sends a `here` heartbeat on subscribe and every 15 s, so
+ * a dropped session shows as stale (45 s of silence) rather than as a false
+ * "still with us". There is no "next door" or "blocked door" concept here
+ * any more — `lib/field/cursor.ts` decides where to go next, on this
+ * canvasser's own action only.
  */
 
 export type TeamConnection = "off" | "live" | "stale";
 
 export type TeamApi = {
   connection: TeamConnection;
-  nextDoor: SequenceDoor | null;
+  /** One row per other active member (a trio is two rows). Empty when solo. */
   teammates: TeammateRow[];
-  /** Knocked doors plus other people's live claims. Offline, claims are left out. */
-  blockedUprns: ReadonlySet<number>;
-  /** UPRN whose outcome sheet is open, if the canvasser took one. */
-  sheetUprn: number | null;
-  claimDoor: (door: SequenceDoor) => void;
-  releaseDoor: (uprn: number) => void;
+  /** Server-known knocks, this device's own local knocks, and every live broadcast. */
+  knockedUprns: ReadonlySet<number>;
+  /** Latest-wins: which teammate last knocked each door, and when. Never this canvasser. */
+  knockedBy: ReadonlyMap<number, TeamKnock>;
   markKnocked: (door: SequenceDoor, clientEventId: string) => void;
 };
 
 export function useTeam(input: {
   assignmentId: string | null;
   canvasserId: string | null;
-  sequence: SequenceDoor[];
   localKnocked: ReadonlySet<number>;
 }): TeamApi {
-  const { assignmentId, canvasserId, sequence, localKnocked } = input;
+  const { assignmentId, canvasserId, localKnocked } = input;
   const [people, setPeople] = useState<Map<string, PersonState>>(emptyPeople);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [serverKnocks, setServerKnocks] = useState<ServerKnock[]>([]);
   const [serverUprns, setServerUprns] = useState<Set<number>>(() => new Set());
   const [connection, setConnection] = useState<TeamConnection>("off");
   const [now, setNow] = useState(() => Date.now());
-  const [reserveGen, setReserveGen] = useState(0);
-  const [sheetUprn, setSheetUprn] = useState<number | null>(null);
 
-  const peopleRef = useRef(people);
-  peopleRef.current = people;
-  const sequenceRef = useRef(sequence);
-  sequenceRef.current = sequence;
   const channelRef = useRef<RealtimeChannel | null>(null);
-  const wantReserve = useRef(true);
-  const sheetRef = useRef<number | null>(null);
-  const pendingClaim = useRef<number | null>(null);
+  /** clientEventId -> the door it knocked, so an undo can broadcast exactly that unknocked. */
   const knocksByEvent = useRef(new Map<string, { uprn: number; sequence_position: number }>());
-  const heardFrom = useRef(new Set<string>());
-  const lastAnnounce = useRef(0);
-
-  const bump = useCallback(() => setReserveGen((n) => n + 1), []);
 
   const publish = useCallback((signal: DoorSignal) => {
     setPeople((current) => applyPerson(current, signal));
@@ -83,37 +75,6 @@ export function useTeam(input: {
     void channel.send({ type: "broadcast", event: DOOR_EVENT, payload: signal });
   }, []);
 
-  const claimDoor = useCallback(
-    (door: SequenceDoor) => {
-      if (!canvasserId) return;
-      sheetRef.current = door.uprn;
-      setSheetUprn(door.uprn);
-      wantReserve.current = true;
-      pendingClaim.current = door.uprn;
-      publish(doorSignal("claim", canvasserId, door.uprn, door.position));
-      bump();
-    },
-    [bump, canvasserId, publish],
-  );
-
-  const releaseDoor = useCallback(
-    (uprn: number) => {
-      if (!canvasserId || sheetRef.current !== uprn) return;
-      sheetRef.current = null;
-      setSheetUprn(null);
-      wantReserve.current = false;
-      pendingClaim.current = null;
-      const person = peopleRef.current.get(canvasserId);
-      const position =
-        person?.latest?.uprn === uprn
-          ? person.latest.sequence_position
-          : (sequenceRef.current.find((door) => door.uprn === uprn)?.position ?? 0);
-      publish(doorSignal("release", canvasserId, uprn, position));
-      bump();
-    },
-    [bump, canvasserId, publish],
-  );
-
   const markKnocked = useCallback(
     (door: SequenceDoor, clientEventId: string) => {
       if (!canvasserId) return;
@@ -121,33 +82,31 @@ export function useTeam(input: {
         uprn: door.uprn,
         sequence_position: door.position,
       });
-      if (sheetRef.current === door.uprn) {
-        sheetRef.current = null;
-        setSheetUprn(null);
-      }
-      wantReserve.current = true;
-      pendingClaim.current = null;
       publish(doorSignal("knocked", canvasserId, door.uprn, door.position));
-      bump();
     },
-    [bump, canvasserId, publish],
+    [canvasserId, publish],
   );
 
+  // P2: undo broadcasts `unknocked`, replacing the old `release`.
   useEffect(() => {
     return onUndo((clientEventId) => {
       if (!canvasserId) return;
       const door = knocksByEvent.current.get(clientEventId);
       knocksByEvent.current.delete(clientEventId);
       if (!door) return;
-      publish(doorSignal("release", canvasserId, door.uprn, door.sequence_position));
+      publish(doorSignal("unknocked", canvasserId, door.uprn, door.sequence_position));
     });
   }, [canvasserId, publish]);
 
+  // Drives `stale` for every teammate row, every second.
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, []);
 
+  // Members and server knocks: once on mount, and again whenever the device
+  // comes back online (a stale membership list would otherwise hide a
+  // teammate who joined while this device had no signal).
   useEffect(() => {
     if (!assignmentId) {
       setMembers([]);
@@ -200,15 +159,13 @@ export function useTeam(input: {
     };
   }, [assignmentId]);
 
+  // The channel itself: subscribe, receive knocked/unknocked/here, heartbeat.
   useEffect(() => {
     if (!assignmentId || !canvasserId) {
       setConnection("off");
       return;
     }
 
-    wantReserve.current = true;
-    pendingClaim.current = null;
-    heardFrom.current = new Set();
     setPeople(emptyPeople());
     setConnection("off");
 
@@ -220,27 +177,11 @@ export function useTeam(input: {
     channelRef.current = channel;
     let cancelled = false;
 
-    const announce = () => {
-      if (Date.now() - lastAnnounce.current < 2000) return;
-      const latest = peopleRef.current.get(canvasserId)?.latest;
-      if (!latest || !claimIsLive(latest, Date.now())) return;
-      const holds = winningHolds(peopleRef.current, Date.now());
-      if (!holds.some((hold) => hold.canvasser_id === canvasserId && hold.uprn === latest.uprn)) {
-        return;
-      }
-      lastAnnounce.current = Date.now();
-      void channel.send({ type: "broadcast", event: DOOR_EVENT, payload: latest });
-    };
-
     channel.on("broadcast", { event: DOOR_EVENT }, (message) => {
       if (cancelled) return;
       const signal = parseDoorSignal(message.payload);
       if (!signal || signal.canvasser_id === canvasserId) return;
       setPeople((current) => applyPerson(current, signal));
-      if (!heardFrom.current.has(signal.canvasser_id)) {
-        heardFrom.current.add(signal.canvasser_id);
-        announce();
-      }
       if (signal.type === "knocked") {
         setServerUprns((current) => {
           if (current.has(signal.uprn)) return current;
@@ -249,18 +190,13 @@ export function useTeam(input: {
           return next;
         });
       }
-      bump();
     });
 
     channel.subscribe((status) => {
       if (cancelled) return;
       if (status === "SUBSCRIBED") {
         setConnection("live");
-        const latest = peopleRef.current.get(canvasserId)?.latest;
-        if (latest && claimIsLive(latest, Date.now())) {
-          void channel.send({ type: "broadcast", event: DOOR_EVENT, payload: latest });
-        }
-        bump();
+        void channel.send({ type: "broadcast", event: DOOR_EVENT, payload: hereSignal(canvasserId) });
         return;
       }
       if (status === "CLOSED" || status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
@@ -268,65 +204,25 @@ export function useTeam(input: {
       }
     });
 
+    const heartbeat = window.setInterval(() => {
+      void channel.send({ type: "broadcast", event: DOOR_EVENT, payload: hereSignal(canvasserId) });
+    }, HEARTBEAT_INTERVAL_MS);
+
     const onOffline = () => setConnection("stale");
     window.addEventListener("offline", onOffline);
-
-    const heartbeat = window.setInterval(announce, 8000);
 
     return () => {
       cancelled = true;
       window.removeEventListener("offline", onOffline);
       window.clearInterval(heartbeat);
-      const latest = peopleRef.current.get(canvasserId)?.latest;
-      if (latest?.type === "claim" && claimIsLive(latest, Date.now())) {
-        const release = doorSignal("release", canvasserId, latest.uprn, latest.sequence_position);
-        void channel.send({ type: "broadcast", event: DOOR_EVENT, payload: release });
-      }
       channelRef.current = null;
       void supabase.removeChannel(channel);
     };
-  }, [assignmentId, bump, canvasserId]);
+  }, [assignmentId, canvasserId]);
 
   const knocked = useMemo(
     () => knockedUprns(people, serverUprns, localKnocked),
     [people, serverUprns, localKnocked],
-  );
-
-  const live = connection === "live";
-
-  useEffect(() => {
-    if (!canvasserId || !live) return;
-    const latest = people.get(canvasserId)?.latest ?? null;
-    const holds = winningHolds(people, now).filter((hold) => !knocked.has(hold.uprn));
-    const mine = holds.some((hold) => hold.canvasser_id === canvasserId);
-    if (!mine && latest?.type === "claim" && claimIsLive(latest, now)) {
-      wantReserve.current = true;
-    }
-
-    const decision = reserveDecision({
-      wantReserve: wantReserve.current,
-      connectionLive: true,
-      sequence,
-      knocked,
-      people,
-      selfId: canvasserId,
-      now,
-    });
-
-    if (decision.action === "hold") {
-      wantReserve.current = false;
-      pendingClaim.current = null;
-      return;
-    }
-    if (decision.action !== "claim") return;
-    if (pendingClaim.current === decision.uprn) return;
-    pendingClaim.current = decision.uprn;
-    publish(doorSignal("claim", canvasserId, decision.uprn, decision.sequence_position));
-  }, [canvasserId, knocked, live, now, people, publish, reserveGen, sequence]);
-
-  const nextDoor = useMemo(
-    () => shownDoor(sequence, knocked, people, canvasserId ?? "", now, live),
-    [sequence, knocked, people, canvasserId, now, live],
   );
 
   const teammates = useMemo(() => {
@@ -337,30 +233,17 @@ export function useTeam(input: {
       people,
       serverKnocks,
       now,
-      connectionLive: live,
+      connectionLive: connection === "live",
     });
-  }, [canvasserId, members, people, serverKnocks, now, live]);
+  }, [canvasserId, members, people, serverKnocks, now, connection]);
 
-  const blockedUprns = useMemo(() => {
-    const blocked = new Set(knocked);
-    if (!live || !canvasserId) return blocked;
-    for (const hold of winningHolds(people, now)) {
-      if (hold.canvasser_id !== canvasserId) blocked.add(hold.uprn);
-    }
-    return blocked;
-  }, [knocked, live, canvasserId, people, now]);
+  const knockedBy = useMemo(() => {
+    if (!canvasserId) return new Map<number, TeamKnock>();
+    return teammateKnocks(people, serverKnocks, canvasserId, members);
+  }, [canvasserId, people, serverKnocks, members]);
 
   return useMemo(
-    () => ({
-      connection,
-      nextDoor,
-      teammates,
-      blockedUprns,
-      sheetUprn,
-      claimDoor,
-      releaseDoor,
-      markKnocked,
-    }),
-    [connection, nextDoor, teammates, blockedUprns, sheetUprn, claimDoor, releaseDoor, markKnocked],
+    () => ({ connection, teammates, knockedUprns: knocked, knockedBy, markKnocked }),
+    [connection, teammates, knocked, knockedBy, markKnocked],
   );
 }

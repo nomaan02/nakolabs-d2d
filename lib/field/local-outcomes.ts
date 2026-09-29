@@ -32,6 +32,12 @@ export type LocalOutcome = {
   undoable: boolean;
   bookedFor: string | null;
   isLead: boolean;
+  /**
+   * From the outbox row's own `canvasser_id`, not the payload. Stats are
+   * this canvasser only (invariant 2) — a shared device could otherwise fold
+   * a previous signed-in canvasser's rows into the current one's count.
+   */
+  canvasserId: string;
 };
 
 export type LocalOutcomes = Map<number, LocalOutcome>;
@@ -68,6 +74,7 @@ export function foldOutcomes(rows: OutboxRow[]): LocalOutcomes {
       undoable: row.status === "held_undo",
       bookedFor: payload.lead?.booked_for ?? null,
       isLead: payload.knock.outcome === "lead",
+      canvasserId: row.canvasser_id,
     });
   }
   return map;

@@ -26,6 +26,128 @@
   --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
   --font-body: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
   --font-data: var(--font-martian), ui-monospace, monospace;
+
+  /* --- Field app tokens (UI item 1, Logger rebuild, Session B1, 2026-09-28) ---
+     Admin's tokens above (ink, ink-soft, paper, prop, lead, oxide, worksheet,
+     ochre, prop-soft) keep their names and values; the field surfaces reuse
+     them. Everything below is new, and is only used under app/(field). */
+  --color-field-bg: #f4f5f7;
+  --color-surface: #ffffff;
+  --color-line: #e7e9ee;
+  --color-ink-muted: #6a7078;
+  --color-ink-faint: #a5abb3;
+
+  /* Outcome fills and their on-white/on-fill text colours. `--color-lead` above
+     is unchanged (used elsewhere); `outcome-lead-ink` is a separate, darker
+     token so the Lead label/icon clears 7:1 on white (8.25:1) without
+     touching the existing `lead` token's other uses. */
+  --color-outcome-lead: #63b989;
+  --color-outcome-lead-ink: #185a30;
+  --color-outcome-contact: #6094e6;
+  --color-outcome-rented: #f9f2e6;
+  --color-outcome-rented-edge: #d98a1f;
+  /* Session B1, 2026-09-28: the owner supplied #7a4507 (7.83:1 on white,
+     7.04:1 on outcome-rented) as the final contrast-checked value for this
+     session, superseding the plan's P16 value of #7b4507 (7.79:1 / 7.09:1
+     on warn-bg). Both clear 7:1 everywhere the token is used; the owner's
+     later figure is used here. Flagged in the Session B1 report. */
+  --color-outcome-rented-ink: #7a4507;
+  --color-outcome-notin: #969ba4;
+  --color-outcome-on-pill: #ffffff;
+
+  --color-warn-bg: #fdf3e3;
+  --color-error-bg: #f8e9ea;
+  --color-scrim: #1c2226;
+
+  --radius-field-sm: 8px;
+  --radius-field-md: 12px;
+  --radius-field-lg: 16px;
+
+  --spacing-tap-min: 44px;
+  --spacing-outcome: 84px;
+
+  /* Text styles: field/*, all in Sora (decision 9 / P1). Tailwind v4 turns
+     each `--text-*` pair into a `text-*` utility carrying font-size and
+     line-height together; the `--text-*--*` companions add weight and
+     tracking via arbitrary utilities where the component needs them. */
+  --text-field-eyebrow: 11px;
+  --text-field-eyebrow--line-height: 16px;
+  --text-field-eyebrow--letter-spacing: 0.12em;
+  --text-field-eyebrow--font-weight: 600;
+
+  --text-field-title: 24px;
+  --text-field-title--line-height: 30px;
+  --text-field-title--letter-spacing: -0.01em;
+  --text-field-title--font-weight: 700;
+
+  --text-field-body: 13px;
+  --text-field-body--line-height: 18px;
+  --text-field-body--font-weight: 400;
+
+  --text-field-body-strong: 13px;
+  --text-field-body-strong--line-height: 18px;
+  --text-field-body-strong--font-weight: 600;
+
+  --text-field-door-current: 112px;
+  --text-field-door-current--line-height: 112px;
+  --text-field-door-current--letter-spacing: -0.03em;
+  --text-field-door-current--font-weight: 400;
+
+  --text-field-door-neighbour: 40px;
+  --text-field-door-neighbour--line-height: 44px;
+  --text-field-door-neighbour--letter-spacing: -0.02em;
+  --text-field-door-neighbour--font-weight: 400;
+
+  --text-field-stat-number: 24px;
+  --text-field-stat-number--line-height: 28px;
+  --text-field-stat-number--font-weight: 400;
+
+  --text-field-stat-label: 12px;
+  --text-field-stat-label--line-height: 16px;
+  --text-field-stat-label--letter-spacing: 0.12em;
+  --text-field-stat-label--font-weight: 600;
+
+  --text-field-button-label: 12px;
+  --text-field-button-label--line-height: 14px;
+  --text-field-button-label--font-weight: 600;
+
+  --text-field-tab-label: 11px;
+  --text-field-tab-label--line-height: 14px;
+  --text-field-tab-label--font-weight: 600;
+
+  --drop-shadow-field-pill: 0 5px 5.5px rgb(0 0 0 / 0.1);
+  --shadow-field-knob: 0 5px 11px 0 rgb(0 0 0 / 0.1);
+  --shadow-field-menu: 0 8px 12px rgb(0 0 0 / 0.16);
+  --shadow-field-toast: 0 8px 10px rgb(0 0 0 / 0.2);
+}
+
+/* Re-point the three admin font roles to Sora, but only inside the field
+   root (decision 9 / P1). `--font-sora` is declared on `<main>` in
+   app/(field)/layout.tsx via next/font, so it only exists inside that DOM
+   subtree — admin's own <html> className (bricolage/instrument/martian) is
+   untouched, and this rule cannot reach outside .field-root.
+   Dated correction, 2026-09-29 (UI item 1, Session C). This used to go
+   through an extra `--font-field` theme variable (`@theme inline
+   { --font-field: var(--font-sora), ...; }`), with a comment claiming
+   `inline` was "required... because --font-sora is a runtime value, not a
+   value Tailwind can see at build time." That reasoning is backwards —
+   `inline` tells Tailwind to resolve and bake the literal value into
+   generated utility CSS AT BUILD TIME, which needs a build-time constant;
+   `var(--font-sora)` is the opposite. Confirmed live in a browser: with
+   `inline`, `getComputedStyle(main).getPropertyValue('--font-field')` was
+   an empty string, and the WHOLE field app had been rendering in
+   Instrument Sans (admin's body font) since Session B1, not Sora — this
+   was not caught because no session checked a rendered `font-family`
+   before now. Dropping the `@theme` indirection altogether (Tailwind's
+   theme-variable pipeline kept producing an empty `--font-field` even
+   without `inline`, for reasons not fully diagnosed under this session's
+   time-box) and referencing `--font-sora` directly here — a plain,
+   unlayered CSS rule with a lazy `var()` reference resolved at `<main>`,
+   where `--font-sora` is actually set — is what verifiably works. */
+.field-root {
+  --font-display: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
+  --font-data: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
 }
 
 /* MapLibre's own furniture, brought into the palette. Compact ⓘ on the field

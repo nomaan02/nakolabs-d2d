@@ -2,17 +2,17 @@
 
 ## Current state
 
-- Last updated: 2026-09-27 (Session B2), last commit: af0d7a5 (HEAD). Session B2 is uncommitted on top of Sessions A, A2, A3, A4, B and UI item 4.
-- Session B2 re-saved REF - Speedwell, TEST - dry run and Northville, and re-froze two open zero-knock assignments. `c14aa0d1` (TEST - dry run, 28 Sept, visit 1, `best`): `route_steps` 29, min id 6439 → 6949. `3cdbb911` (Northville, 27 Sept, visit 2, `best_reversed`): 396, min id 6468 → 6978. Territory row counts stayed 6/106, 5/178 and 6/2450.
-- Not re-frozen: `0de4d001` (REF - Speedwell, 49 knocks, closed reallocated, min id 6422, 17 steps) and `0c32a933` (TEST - dry run, 0 knocks, closed reallocated, min id 6393, 29 steps).
-- The 22 r1 Turns problems are an accepted pinned limit (Lower Redland Mews and Fourth Avenue). r1 was not edited. r2's redland visit check now derives the next visit from Stage 5c-a. On this data that is 2, and the new allocation got 2. The test row was deleted.
-- G1 PASS. G2 live exit 1 is still only the pinned Northville 6. r1, r2, r3, 5bb and ui4 all exited 0.
-- Browser: CanvasserX, online, assignment `c14aa0d1`. Before the write, `route_fp` was `steps:6439` and `route_for` was `2026-09-27T18:20:01.568Z`. After the re-freeze, `route_fp` was `steps:6949`, `route_for` was `2026-09-27T18:22:07.614Z`, and the full step query ran. `/field` was not used: London today is 27 Sept, and that assignment is 28 Sept. Offline reopen was not run.
-- Pinned known issue, still not fixed: Filton Road / Eden Grove `chain: -1` transfer. The 22 turn-end problems are now a separate accepted limit for the route-planner edge-cases item.
-- Open questions for Claude (UI item 4, carried): Realtime "Allow public access" is still on. The six agent decisions for that item are not yet accepted or rejected.
-- Unverified: G6 zoom-19 corner; draw-page "Loading the map…" check; offline reopen of `c14aa0d1` on a phone after deploy. UI item 4's carried unverified items remain.
-- Changed shared modules since handover: `lib/geo/walk/*` (A–A3, plus `save.ts` in Session B). This session did not change `geometry.ts`, `steps.ts`, `validate.ts`, `types.ts` or `scripts/verify-route-geom.ts`. `lib/sync/queue.ts` and `lib/supabase/*` were not changed.
-- External settings changed since handover: none. Password, profile and role were not changed. Sessions created this session were signed out locally.
+- Last updated: 2026-09-29 (UI item 1, Session C — the Logger rebuild is now feature-complete and assembled). Last commit: cc30407 (HEAD). Everything on top of HEAD is still uncommitted: the route-geometry work (A–B2, A4 reverted), UI item 4, and all four UI item 1 sessions (plan approval, A, B1, B2, C). **The owner commits after review — this session did not commit.**
+- **UI item 1, Session C (this session) assembled the whole Logger.** `logger-tab.tsx` is now the full composer built from every earlier session's pieces: header (eyebrow, territory name, `IdChip`, the short Area line), `TeamStrip`, a compact live `MiniMap` with a single banner slot (`computeBanner`, priority Failed > Instruction > Offline/Pending > Info), the real `DoorScroll` + new `OutcomeColumn` (Lead/Contact/Rented-Council/Not In then Other, confirmed top-to-bottom against the Figma screenshot), Today's stats, an "Already logged" pill, an `allDone` end-of-prop state, and `NoteBar`. New files: `components/field/mini-map.tsx` (wraps `FieldMap` with a new `variant="compact"` — no Nav/Scale control, not interactive, `jumpTo` at a new `COMPACT_ZOOM` 17.5, a prop-blue halo on the existing `selected` state, a tap button that opens the Map tab) and `components/field/outcome-column.tsx`.
+- **Two bugs found and fixed during assembly** (full reasoning in the BUILD-LOG entry): (1) Sora had never actually applied anywhere in `/field` since Session B1 — `app/globals.css`'s `@theme inline { --font-field: ...; }` never emitted a working `:root` custom property (confirmed live: empty string), so every field screen was rendering in Instrument Sans. Fixed by dropping the indirection — `.field-root` now sets the three font roles directly to `var(--font-sora), ...`. (2) Once Sora's real (wider) glyph metrics applied, `DoorScroll`'s current-door digits clipped to an ellipsis once assembled next to the pills — the pills' reserved flex width was cut from 140px to 92px (a fixed slot for the 84px circle only, with the tail overflowing on purpose, matching Figma's own "clipped at the screen edge" description), and `door-scroll.tsx`'s current item now renders at natural width instead of `max-w-full`+`truncate` (neighbours keep the truncate safety net).
+- **Full acceptance list, all PASS** (evidence and exact numbers in the BUILD-LOG entry): `tsc`/`eslint` exit 0; `verify:stage8b`/`verify:stage10`/`verify:ui4`/`verify:ui1` all exit 0; screenshots vs Figma at 390/375/430 plus the two sanity sizes; a live two-throwaway-canvasser (Ada, Tom) team test proving A1 (forward-wrap), B1 (greyed + "✓ name" tag) and C1 (`"Ada · last knocked #43"`, live, no reload) end to end through the real rebuilt UI; a second-session Realtime listener showing `claim=0`/`release=0`; an offline log→queue→sync test giving exactly 1 `knock_events` row; the amendment 4 Sync failed trigger proved BOTH at the script level (delete a member's `assignment_members` row, `sendOp` returns `permanent`/`42501`, 0 rows) AND live in the browser (the banner, IdChip red, the row excluded from stats); `document.querySelectorAll('.maplibregl-map').length` staying at 1 through Map→Logger→Map→Logger; a temporary 2,000-door page proving ≤17 `DoorScroll` nodes and exactly 1 `jumpTo` per settle; and a React `Profiler` check (temporary, removed after) proving `DoorScroll`/`MiniMap` cost under 1ms per commit despite `use-team.ts`'s 1s tick still firing — one real memoisation bug (an inline `onAddHouseNumber` arrow) was found and fixed as part of that check.
+- **Not done / deferred by Session C, explicitly:** the map-band scroll-shrink height ladder (P11, 124px→72px) — the band is a static 124px; `EndOfProp`'s exact copy/layout is this session's own reading of the plan text, no Figma screenshot spent on it; the Turn instruction banner's exact wording was not exercised against a real routed fixture (the throwaway test prop had no frozen route); `prefers-reduced-motion`/screen-reader/keyboard-only checks at the composed-screen level (all unit-tested inside their own components in Session B2, not re-tested here). **No phone was used anywhere in this session** — every check ran in desktop Chrome with CDP device-metrics emulation, which the field-ergonomics skill is explicit is not equivalent evidence.
+- All UI item 1 sessions' throwaway data (auth users, profiles, territories, knock_events) confirmed deleted after every verify run and after this session's own two extra fixtures (a duo + a solo canvasser), checked directly against the live project. `realtime.messages` for the test topic: `0` (broadcast messages are not persisted to that table — consistent with UI item 4's own finding). Nothing was ever deleted from `realtime.*`.
+- Carried from the route-geometry work (unrelated to UI item 1): the 22 r1 Turns problems are an accepted pinned limit (Lower Redland Mews and Fourth Avenue); the Filton Road / Eden Grove `chain: -1` transfer is a separate, still-unfixed traversal item; REF - Speedwell / TEST - dry run / Northville were re-saved and two open zero-knock assignments (`c14aa0d1`, `3cdbb911`) re-frozen in Session B2, with `0de4d001` and `0c32a933` left un-refrozen.
+- Carried from UI item 4: Realtime "Allow public access" is still on; its six agent decisions are not yet accepted or rejected; G6 zoom-19 corner, the draw-page "Loading the map…" check, and an offline reopen on a phone after deploy remain unverified.
+- Changed shared modules since HEAD: `lib/field/door-signals.ts`, `lib/field/use-team.ts`, `lib/field/cursor.ts` (Session A, claims removal); `lib/field/other-gesture.ts`, `lib/field/door-window.ts` (Session B2, pure, no I/O, unchanged since); `components/field/field-map.tsx` (Session C, added the `variant` prop and a `dataset.cameraJumps` counter — the existing "full" behaviour is byte-for-byte unchanged, only new `compact` branches were added); `app/globals.css` (Session C, the Sora fix — additive/corrective only, no admin token name or value changed). `lib/sync/queue.ts` and `lib/supabase/*` are unchanged throughout every UI item 1 session. `lib/geo/walk/*` and `lib/map/route-layers.ts` are unchanged (last touched by the route-geometry work above).
+- Open questions for the owner: whether the map-band scroll-shrink ladder (P11) is worth building given no acceptance item tests it; whether `EndOfProp` should be checked against Figma directly; the admin-Contacts label reconciliation (Session A) is still open for the admin rebuild; the ~8-door-per-scroll fling limit (Session B2) is still unanswered; **the whole Logger rebuild needs an on-device pass (sun, one hand, wet thumb, haptics) before it can be called field-ergonomics-verified — none of that ran this session.**
+- External settings changed since handover: none. Every throwaway session created by a verify run or by this session's manual browser testing was deleted (not merely signed out) by its own script's cleanup, confirmed against the live project.
 
 ## Log
 
@@ -328,3 +328,512 @@
   - r3: admin magic link for the same first active admin, signed out locally. The script did not print `expires_at`.
 - **Known issues follow-up:** The 22 turn-end problems are accepted and move to the route-planner edge-cases item. Traversal: chain -1 transfer at Filton Road / Eden Grove remains its own item.
 - **Open questions for Claude:** none from this session. G6, the draw page, and the offline phone reopen are for the owner.
+
+### 2026-09-28 — UI item 1 Logger rebuild plan approved (uncommitted)
+
+- **Item:** 1 — Logger rebuild
+- **What changed:** The owner approved the "UI 1 Logger rebuild" plan
+  (`ui_1_logger_rebuild_a5feb2ee.plan.md`): re-skin the field Logger to the
+  Figma page "Logger — clean build" (Sora, new tokens, horizontal door
+  scroll, hold-and-slide Other, compact live map, 12 states), and remove
+  claims and Take from the Realtime team layer, keeping live knock sharing
+  (A1/B1/C1) and adding a heartbeat. No migration. `lib/sync/queue.ts` is not
+  modified. Implementation had not started at the point this entry was
+  written. Split across three sessions: A (Sonnet 5, Extra — team logic and
+  claims removal), B (Opus 5.5 — visual system and the hard components), C
+  (Sonnet 5 — assembly, states and verification).
+- **Files:** none yet.
+- **Database:** none planned.
+- **Shared modules touched:** none yet. Planned: `lib/field/door-signals.ts`
+  and `lib/field/use-team.ts` (claims removal — reverses the 2026-09-26
+  Stage 10 deviation recorded above).
+- **Decided by:**
+  - **Owner, 2026-09-27/28** — decisions 1 to 11 from the brief: outcome
+    order; Other hold; tap plus slide confirm; horizontal scroll; tab
+    labels; own-count stats with Confirmed as "—"; mini map dot = current
+    door; pencil removed and IdChip username; Sora on the field app only;
+    claims and Take removed with A1/B1/C1; "Tom" as the fixture name.
+  - **Owner** — the plan is approved with amendments 1 to 8 of 2026-09-28.
+  - **Owner definition, Contacts (2026-09-28):** a "Contact" is a BOOKABLE
+    ANSWER. Contacts = count of `outcome = 'answered'` (the Contact button)
+    ONLY. `lead` is its own stat and is never folded in; `no_opportunity`
+    is not a contact even though someone answered; `no_answer` is not a
+    contact; `refused` / `do_not_call` / `inaccessible` / `callback` are
+    not contacts. This is deliberately NOT the outcome-mapping skill's
+    "answered" rule, which is unchanged for admin. The skill, admin
+    queries and every verify script's use of that rule are not touched.
+  - **Owner change, Area line:** the short form
+    `Visit {n} · {hand phrase} · {door_count} doors`, single line,
+    truncated, built from `formatFieldHeader`'s own pieces, not duplicated.
+    The start street and compass stay in the turn banner and on the Map tab.
+  - **Owner contrast rule:** 7:1 for text a canvasser must read, overriding
+    the Figma values below it; the street row and teammate lines use
+    ink-soft; new token `outcome-lead-ink`; `rented-ink` darkened;
+    ink-muted only for eyebrows and secondary labels repeated elsewhere.
+  - **Owner:** icons are inline currentColor SVG components; Sync failed
+    needs a real server rejection or it is NOT VERIFIED with injected data;
+    `git grep`, not `rg` (PowerShell has no `rg`); one MapLibre instance,
+    with evidence; model split A Sonnet 5 Extra / B Opus 5.5 / C Sonnet 5.
+  - **Agent proposal, owner ACCEPTED 2026-09-28:** A1 forward-wrap; C1
+    N = plate (`#80`, else `#12`); a quick tap on Other opens tap mode;
+    heartbeat `here` every 15 s, stale after 45 s; the throwaway-canvasser
+    team test (CanvasserX is not used). Also P1 (Sora on all of `/field`,
+    including the data font), P2–P13 as listed in the plan, and P14–P18
+    from this amendment (Lead sheet fill token, toast countdown token,
+    rented-ink value, FieldMap compact/MiniMap moved into Session B, the
+    Sync failed trigger candidate).
+  - **Agent proposal, recorded as agent, NOT an owner decision:** Contacts
+    = `answered` only (superseded by the owner's definition above); Area
+    line = full `formatFieldHeader` (replaced by the owner's short form
+    above). The original plan draft had wrongly recorded both as owner
+    decisions; amendment 1 of the 2026-09-28 review corrected this.
+- **Deviations from plan or brief:** none (approval only; no code yet).
+- **Invariants:** no GPS, no coordinates, no quality scoring in `/field`,
+  field writes via `lib/sync/queue.ts` only. Not applicable yet (no code).
+- **Verified:** not applicable.
+- **Not verified:** the whole item.
+- **External settings:** none.
+- **Open questions for Claude:** P14–P18 above; whether the stat labels
+  count as must-read (ink-soft vs ink-muted); the admin-Contacts label
+  reconciliation flagged for the admin rebuild.
+
+### 2026-09-28 — UI item 1 Logger rebuild, Session A (uncommitted)
+
+- **Item:** 1 — Logger rebuild
+- **What changed:** Claims, Take and reserve are removed from the Realtime
+  team layer, reversing the 2026-09-26 Stage 10 deviation. Live knock
+  sharing (A1 forward-wrap next door, B1 which teammate last knocked a door,
+  C1 the teammate line) stays, plus a new `here` heartbeat (15 s, stale
+  after 45 s). Outcome button order and the "Not In" relabel (owner
+  decision 1, P10) are in. New `lib/field/today-stats.ts` implements the
+  owner's Contacts definition (`outcome = 'answered'` only). Both
+  `map-tab.tsx` and `logger-tab.tsx` are interim — Session C's Figma
+  rebuild replaces the visuals; this session only removed claims and wired
+  the new order/labels/stats so the app keeps working.
+- **Files:**
+  - Changed: `lib/field/door-signals.ts`, `lib/field/use-team.ts`,
+    `lib/field/cursor.ts`, `lib/field/local-outcomes.ts`,
+    `lib/field/route-display.ts`, `lib/field/outcomes.ts`,
+    `components/field/field-data-provider.tsx`, `components/field/map-tab.tsx`,
+    `components/field/logger-tab.tsx`, `components/field/outcome-buttons.tsx`,
+    `scripts/verify-stage-10.ts`, `scripts/verify-stage-8b.ts`,
+    `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`.
+  - New: `lib/field/today-stats.ts`.
+  - Deleted: `components/field/next-door-card.tsx`.
+  - Also changed, out of scope, owner-approved: `scripts/route-geom-apply.ts`
+    (one line — see Deviations).
+  - Not changed: `lib/sync/queue.ts`, `lib/supabase/*`, `lib/map/route-layers.ts`,
+    `lib/geo/walk/*`, `components/field/field-map.tsx`,
+    `components/field/teammate-lines.tsx`, `components/field/shared-knock*.ts(x)`.
+- **Database:** none. No migration.
+- **Shared modules touched:** `lib/field/door-signals.ts`, `lib/field/use-team.ts`
+  and `lib/field/cursor.ts` — the claims-removal rewrite this item's plan
+  calls for. `lib/sync/queue.ts` was not read or written.
+- **Decided by:**
+  - owner (recorded in the Step 0 entry above) — A1 forward-wrap; C1
+    N = plate; heartbeat 15 s / 45 s; the Contacts definition
+    (`outcome = 'answered'` ONLY); the Area line short form; outcome order
+    1 (Lead, Contact, Rented/Council, Not In) and P9/P10 (flat 72px,
+    "Not In" relabel).
+  - owner, this session — asked whether to fix one pre-existing, unrelated
+    `tsc` error in `scripts/route-geom-apply.ts` (confirmed present on a
+    clean checkout, from the "Robust walkline offset" work, nothing to do
+    with the Logger) or report the `tsc` gate as NOT MET. Owner chose:
+    fix it.
+  - agent — `formatTeammateLine`'s stale branch takes priority over door
+    info when both could apply (the plan's four C1 examples do not state
+    an order). Flagged below for Session C to re-check against Figma.
+  - agent — `useTeam` drops its `sequence` parameter; nothing left inside
+    it needs the sequence once claims (and `reserveDecision`/`shownDoor`)
+    are gone.
+- **Deviations from plan or brief:**
+  - Fixed `scripts/route-geom-apply.ts(366)` (a `target.id === banned`
+    comparison across two disjoint literal-string unions, which TS
+    flags as always-false) by widening both sides to `string` in the
+    comparison only — no behaviour change, owner-approved this session,
+    unrelated to the Logger rebuild.
+  - `verify-stage-10.ts`'s `--fast` flag is removed: the rewritten script
+    has no long wait left to skip (the old 3-minute claim-TTL wait is
+    gone; the "stopped actor goes stale" check now reasons from a real
+    captured heartbeat timestamp plus a computed offset, not a wall-clock
+    wait).
+  - `formatTeammateLine`'s stale-vs-door priority (agent decision above).
+- **Invariants:** no GPS, no coordinates — confirmed unchanged. No quality
+  scoring in `/field` — confirmed unchanged; Contacts/Leads/Doors are own
+  counts only, today, Europe/London (invariant 2). Field writes still go
+  through `lib/sync/queue.ts` only — confirmed by `git diff --quiet --
+  lib/sync/queue.ts` (exit 0); that file was not opened this session.
+- **Verified:** `npx tsc --noEmit` exit 0 (after the one out-of-scope fix).
+  `npx eslint components/field lib/field "app/(field)" scripts/verify-stage-10.ts
+  scripts/verify-stage-8b.ts scripts/route-geom-apply.ts` exit 0.
+  `npm run verify:stage10` exit 0, "OK" — every pure and live check PASS,
+  including the live trio (Ada/Tom/Cid) proving A1 skip → index 2, B1
+  tagging Ada, C1 `"Ada · last knocked #1"`, undo → `unknocked` → reopen,
+  heartbeats recorded, and staleness computed from a real captured
+  timestamp. `npm run verify:stage8b` exit 0, "ALL CHECKS PASSED",
+  including the new stats section (8 outcomes → Contacts 1, Leads 1,
+  Doors 8, and 0 for a different canvasser's rows). `npm run verify:ui4`
+  exit 0, unaffected. `git grep -n --untracked -E
+  '"claim"|"release"|claimDoor|releaseDoor|reserveDecision|NextDoorCard'
+  -- components lib app` — 0 lines. Cleanup: `auth.users`, joined
+  `auth.sessions`, `profiles` and `territories` matching this session's
+  harness names/prefixes are all 0, checked directly against the live
+  project after both verify runs.
+- **Not verified:** everything Session B/C owns — tokens, Sora, icons,
+  DoorScroll, the pills, Other's hold-slide gesture, the 12 states, the
+  height ladder. B1's grey-plus-tag is not wired into `FieldMap` itself
+  (`field-map.tsx` is outside this session's file list). No on-device,
+  sun, one-handed or wet-thumb checks — no phone used.
+- **External settings:** none.
+- **Open questions for Claude:** whether the "stale beats door info" C1
+  reading (agent decision above) matches the Figma TeamStrip states —
+  Session C should check this when it builds that component. The
+  admin-Contacts label reconciliation (owner decision, Step 0 entry)
+  is still open for the admin rebuild.
+
+### 2026-09-28 — UI item 1 Logger rebuild, Session B1 (uncommitted)
+
+- **Item:** 1 — Logger rebuild
+- **What changed:** Only the plan's `b-tokens-font` and `b-primitives`
+  todos, restricted further to exclude OutcomeButton, OtherButton,
+  OtherMenu and DoorScroll (those are Session B2). `app/globals.css`
+  gained the field token set (`field-bg`, `surface`, `line`, `ink-muted`,
+  `ink-faint`, `outcome-*`, `warn-bg`, `error-bg`, `scrim`, `radius-field-*`,
+  `spacing-tap-min`/`spacing-outcome`, the `field/*` text styles, and the
+  `shadow-field-*`/`drop-shadow-field-pill` shadows). Sora is scoped to
+  `app/(field)/layout.tsx` only, via `next/font` plus a `.field-root` rule
+  that re-points `--font-display`/`--font-body`/`--font-data` to Sora
+  inside that subtree — admin's `<html>` className is untouched. New
+  `components/field/icons.tsx` (6 inline `currentColor` SVG icons plus a
+  drawn `StatusDot`). New `components/field/ui/{stat-row,id-chip,note-bar,
+  button,status-banner,team-strip}.tsx`. `components/field/tab-bar.tsx`
+  (TabItem) and `components/field/undo-toast.tsx` (UndoToast) were
+  restyled with the new tokens/icons in place, logic unchanged; the
+  "Profile" tab label is now "You" (decision 5), route unchanged. Nothing
+  is wired into `logger-tab.tsx` — that is Session C.
+- **Files:**
+  - Changed: `app/globals.css`, `app/(field)/layout.tsx`,
+    `components/field/tab-bar.tsx`, `components/field/undo-toast.tsx`.
+  - New: `components/field/icons.tsx`,
+    `components/field/ui/stat-row.tsx`, `components/field/ui/id-chip.tsx`,
+    `components/field/ui/note-bar.tsx`, `components/field/ui/button.tsx`,
+    `components/field/ui/status-banner.tsx`,
+    `components/field/ui/team-strip.tsx`.
+  - Not changed: everything Session A touched; `logger-tab.tsx`,
+    `map-tab.tsx`, `outcome-buttons.tsx`, `lib/sync/queue.ts`,
+    `lib/supabase/*`, `lib/field/door-signals.ts`, `lib/field/use-team.ts`.
+- **Database:** none. No migration.
+- **Shared modules touched:** none of the data-flow shared modules
+  (`lib/sync/queue.ts`, `lib/field/*`, `lib/map/route-layers.ts`,
+  `lib/geo/walk/*`, `lib/supabase/*`). `app/globals.css` and
+  `app/(field)/layout.tsx` are shared by every field route, but this
+  session only added tokens/font scoping additively — no existing
+  admin-token name or value changed.
+- **Decided by:**
+  - owner, this session — the exact contrast table to use (superseding
+    the plan's P16 rented-ink figure where the two differ; see
+    Deviations).
+  - agent — `TeamStrip` takes pre-formatted `{id, initial, label, stale}`
+    rows rather than `TeammateRow`/`labelFor` as the plan sketched, to
+    keep the primitive presentational (Figma's own component takes plain
+    strings too). Flagged for Session C to confirm when it wires the
+    real data.
+  - agent — UndoToast's title uses `surface` (white, 16.08:1) rather than
+    `paper` (15.41:1, what the raw Figma code referenced), because the
+    owner's table for this session explicitly labels "white on ink
+    (toast)" at 16.08, which only matches `surface`.
+  - agent — sync-state dot colours reuse existing tokens
+    (`outcome-lead`/`outcome-rented-ink`/`ink-faint`/`oxide`) instead of
+    adding new `--color-sync-*` tokens, since each state already had a
+    close existing match.
+  - agent — `<main>`'s background switched from `bg-worksheet` to the new
+    `bg-field-bg` token, since the field root should use its own new
+    token rather than the admin-toned placeholder Session A left it on.
+- **Deviations from plan or brief:**
+  - rented-ink is `#7a4507` (the owner's table this session), not the
+    plan's `#7b4507` (P16). Both clear 7:1 everywhere used; the later,
+    session-specific figure was used per this session's explicit "use
+    these values, do not iterate" instruction.
+  - `get_variable_defs` on node `5:2` (the one call in this session's
+    Figma budget) returned "You currently have nothing selected" — this
+    Figma MCP tool needs an active desktop selection, not just a node ID.
+    Not retried (budget was fixed at one call). Token values came from
+    the plan's own text (itself sourced from a working Figma read during
+    planning) plus the owner's contrast table.
+  - House, HouseOutline, Chevron, Star, Speech (the remaining amendment-3
+    icon names) were not added — they belong to DoorScroll/OtherMenu
+    (Session B2) and adding them now would mean unused exports.
+- **Invariants:** confirmed unchanged — no GPS/coordinates, no quality
+  scoring, no field write path touched (this session has no data-flow
+  code at all). `git diff --quiet -- lib/sync/queue.ts` still exits 0.
+- **Verified:** `npx tsc --noEmit` exit 0. `npx eslint components/field
+  lib/field "app/(field)"` exit 0. `git grep -n -E
+  '#[0-9a-fA-F]{3,8}\b' -- components/field/ui` and the same with
+  `--untracked` (the directory is new and untracked, so the plain form
+  alone would have passed trivially): both 0 lines. `git grep -n -i sora
+  -- "app/(admin)" components/admin` (and with `--untracked`): 0 lines.
+  `npm run verify:stage8b` exit 0, "ALL CHECKS PASSED". `npm run
+  verify:ui4` exit 0, "OK". Tailwind v4's `--text-*--letter-spacing`/
+  `--text-*--font-weight` companion syntax was confirmed against the
+  official theme-variables doc before relying on it. The full computed
+  contrast table is in the BUILD-LOG entry. Browser: a throwaway page
+  (`app/ui1-b1-check/page.tsx`, outside `app/(field)` so it needs no
+  Supabase auth) rendered all 8 primitives and the icon set; 3
+  screenshots at a confirmed ~390.6px CSS visual viewport (CDP
+  `Page.getLayoutMetrics`); device override cleared; the page and the
+  `%TEMP%\ui1-icons\` folder deleted before finishing;
+  `git status --short` confirmed clean of both afterwards.
+- **Not verified:** pixel-fidelity vs the actual Figma render (Session
+  C's acceptance item). On-device sun/wet-thumb/haptic checks — no phone
+  used, and most of the field-ergonomics checklist needs a live
+  interaction flow that does not exist yet (this session built
+  presentational primitives only, nothing tappable end-to-end).
+- **External settings:** none.
+- **Open questions for Claude:** whether `#7a4507` vs the plan's
+  `#7b4507` for rented-ink is a deliberate final correction (standardise
+  on `#7a4507` going forward) or a rounding slip; what "ink on warn-bg
+  14.63" in the owner's table is for, since no primitive built this
+  session had a slot for it — StatusBanner's own Offline text uses
+  rented-ink, not ink, matching the Figma default.
+
+### 2026-09-29 — UI item 1 Logger rebuild, Session B2 (uncommitted)
+
+- **Item:** 1 — Logger rebuild
+- **What changed:** Built DoorScroll, OutcomeButton (`OutcomePill`),
+  and OtherButton with OtherMenu. The Other gesture is a pure state
+  machine; the scroll windowing is a pure module; both are checked by a
+  new browser-free script, `verify:ui1`. Nothing is wired into
+  `logger-tab.tsx`. The MiniMap is not touched.
+- **Files:**
+  - New: `lib/field/other-gesture.ts`, `lib/field/door-window.ts`,
+    `components/field/ui/door-scroll.tsx`,
+    `components/field/ui/outcome-pill.tsx`,
+    `components/field/ui/other-button.tsx`,
+    `scripts/verify-ui-1-logger.ts`.
+  - Changed: `components/field/icons.tsx` (5 icons appended),
+    `package.json` (`verify:ui1`), `docs/BUILD-LOG.md`,
+    `docs/CLAUDE-HANDOFF.md`.
+  - Created and deleted: `app/ui1-b2-check/page.tsx` (temporary).
+  - Not changed: `logger-tab.tsx`, `outcome-buttons.tsx`,
+    `lib/sync/queue.ts`, `lib/supabase/*`, `app/globals.css`, the B1
+    primitives, and every Session A file.
+- **Database:** none. No migration.
+- **Shared modules touched:** `lib/field/*`, two new files only
+  (`other-gesture.ts`, `door-window.ts`). They are pure, with no I/O and
+  no writes. No existing `lib/field` file changed.
+- **Decided by:**
+  - agent — kept scroll-snap after fix attempt 1: snap is switched off
+    for an instant external jump, then restored. The pointer-carousel
+    fallback was not needed.
+  - agent — accepted, and did not tune, the limit that one scroll travels
+    at most about 8 doors (see the open questions).
+  - agent — Lead label and icon use `outcome-lead-ink`, not Figma's
+    `lead`, which is 6.5:1 on white, below 7:1.
+  - agent — kept the 40 ms haptic in the Logger's log path, not
+    Figma's 30 ms. The components add no confirm pulse of their own.
+  - agent — the OtherMenu sits to the left of the button, top-aligned.
+    Figma 9:148 was not read (outside the Figma budget).
+  - agent — the Rented label keeps "Rented/Council" from `outcomes.ts`,
+    with a zero-width break, rather than Figma's "Rented / Council".
+  - agent — added optional props `OtherButton.onOpenChange` and
+    `DoorScroll.onAddHouseNumber`. The item shape is `DoorScrollItem`
+    `{uprn, label, position, knockedBy}`.
+  - owner — none this session.
+- **Deviations from plan or brief:**
+  - `icons.tsx` (a B1 file) was edited additively: 5 icons appended, and
+    the header note replaced.
+  - OutcomeColumn (frame 8:44) was not built; it is not in this
+    session's list.
+  - Snap is switched off during instant jumps; the plan has snap on
+    throughout.
+  - Otherwise as in BUILD-LOG.
+- **Invariants:** no GPS or coordinates. No quality scoring in
+  `/field`. No field write path touched: the components only raise
+  callbacks, and `lib/sync/queue.ts` was not opened.
+- **Verified:**
+  - `npx tsc --noEmit` exit 0. The scoped `eslint` exit 0.
+  - `npm run verify:ui1` exit 0: 36 checks, all PASS.
+  - Hex `git grep --untracked` on the new files: 0 lines.
+  - `npm run verify:stage8b` exit 0; `npm run verify:ui4` exit 0.
+  - Browser at 2,000 doors, 390 px:
+    - ‹ 192 ms, › 205 ms;
+    - +500 in 16 ms, to 1,000 in 14 ms, to the end in 14 ms, all exact,
+      with 0 stray settles;
+    - nodes 9 / 17 / 9;
+    - an off-centre scroll snaps to exactly one door, with 1 settle;
+    - idle is stable.
+  - One touch-emulation pass, with script-dispatched touch
+    `PointerEvent`s:
+    - hold-slide-release on `do_not_call` logged +1;
+    - release off the menu +0; a tap +0 (tap mode opened);
+    - pointercancel on a row +0; pointercancel at 150 ms +0;
+    - a Lead pill tap +1, and a double tap still +1.
+  - 1 screenshot. Temporary page deleted; `git status --short` is clean
+    of it.
+- **Not verified:**
+  - Trusted touch input: no real `setPointerCapture` routing, and no
+    real momentum fling.
+  - iOS Safari (the `scrollend` debounce fallback).
+  - The `prefers-reduced-motion` skip.
+  - Keyboard, blur and visibility handling in a browser.
+  - A screen reader.
+  - Any phone: sun, wet thumb, haptic.
+  - Figma fidelity (Session C).
+- **External settings:** none.
+- **Open questions for Claude:**
+  - Is one scroll travelling at most about 8 doors acceptable? The plan
+    says "a fling can cross many doors". Fixing it would mean a JS
+    end-snap or the pointer-carousel fallback.
+  - Should the OtherMenu anchor be checked against Figma 9:148 in
+    Session C?
+  - Confirm 40 ms (plan) over 30 ms (Figma 6:58 description) for the
+    confirm haptic.
+
+### 2026-09-29 — UI item 1 Logger rebuild, Session C (assembly, states, map, verification, docs) (uncommitted)
+
+- **Item:** 1 — Logger rebuild
+- **What changed:** `logger-tab.tsx` rebuilt as the full composer from
+  every earlier session's pieces (header, `TeamStrip`, compact live
+  `MiniMap` with a single priority banner slot, `DoorScroll` + new
+  `OutcomeColumn`, Today's stats, an "Already logged" pill, an `allDone`
+  end-of-prop state, `NoteBar`). New `components/field/mini-map.tsx` and
+  `components/field/outcome-column.tsx`. Two bugs found and fixed during
+  assembly: Sora had never actually applied anywhere in `/field` since
+  Session B1 (an `@theme inline` custom property that never resolved —
+  fixed by pointing `.field-root`'s three font roles at `var(--font-sora)`
+  directly); and, once Sora's real glyph metrics applied, `DoorScroll`'s
+  current-door digits clipped once assembled next to the pills (fixed by
+  narrowing the composer's reserved slot to the pill's 84px circle, with
+  the tail overflowing on purpose, and letting the current item's plate
+  render at natural, unclipped width). Full acceptance list passed live:
+  screenshots vs Figma, a two-throwaway-canvasser team test proving
+  A1/B1/C1 through the real UI, a claim/release listener at 0/0, an
+  offline log→queue→sync giving exactly 1 row, the amendment 4 Sync
+  failed trigger proved both at the script level and live in the browser,
+  one MapLibre instance confirmed through four tab switches, a 2,000-door
+  timing check, and a React Profiler re-render check (which found and fixed
+  one more memoisation bug, an inline `onAddHouseNumber` arrow).
+- **Files:**
+  - New: `components/field/mini-map.tsx`, `components/field/outcome-column.tsx`.
+  - Changed: `components/field/logger-tab.tsx`, `components/field/field-map.tsx`,
+    `components/field/ui/door-scroll.tsx`, `components/field/shared-knock-notice.tsx`,
+    `components/field/sync-status.tsx`, `app/globals.css`, `lib/field/map-style.ts`,
+    `docs/D2D-Build-Brief.md`, `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`.
+  - Deleted: none kept. Temporary, created and deleted this session:
+    `app/ui1c-2000-check/page.tsx` and seven `scripts/_ui1c-*.ts` scratch
+    scripts (fixture creation, DB checks, contrast, the solo re-render
+    check).
+  - Not changed: `lib/sync/queue.ts`, `lib/supabase/*`, `lib/field/door-signals.ts`,
+    `lib/field/use-team.ts`, `lib/field/cursor.ts`, `lib/field/other-gesture.ts`,
+    `lib/field/door-window.ts` (formulas/constants), `components/field/ui/outcome-pill.tsx`,
+    `components/field/ui/other-button.tsx`, every other Session A/B1/B2 file.
+- **Database:** none. No migration. All reads/writes this session were
+  against throwaway fixtures (a duo — Ada Lane, Tom Holt, plus a
+  third-member-only Sam Reeve for the amendment 4 proof — and a separate
+  solo canvasser for the Profiler check), fully cleaned up.
+- **Shared modules touched:** `components/field/field-map.tsx` (additive —
+  new `variant` prop and a `dataset.cameraJumps` counter; the existing
+  "full" behaviour path is unchanged). `app/globals.css` (the Sora fix —
+  corrective, no admin token name or value changed). `lib/sync/queue.ts`,
+  `lib/geo/walk/*`, `lib/map/route-layers.ts`, `lib/supabase/*` not
+  touched.
+- **Decided by:**
+  - owner (already recorded in the plan-approved entry) — decisions 1–11
+    and amendments 1–8, including amendment 4 (the Sync failed trigger
+    must be a real rejection), amendment 5 (`git grep`, not `rg`), and
+    amendment 6 (one MapLibre instance at a time, plus the 2,000-door
+    compact-map timing).
+  - agent — the Sora `@theme inline` fix and the `DoorScroll`
+    natural-width fix (both above). Neither is a Session A file,
+    `lib/sync/queue.ts`, the database or Figma, so neither required a
+    stop-and-ask; both are documented, reasoned fixes to Session B1/B2
+    output discovered during assembly, not new design decisions.
+  - agent — `OutcomeColumn`'s composer slot is 92px (the pill's circle),
+    not the pill's full 140px, so `DoorScroll` gets the width it needs.
+  - agent — the map-band scroll-shrink ladder (P11) was not built; no
+    acceptance item tests it and it was time-boxed out in favour of the
+    functional items above. Flagged for the owner.
+  - agent — `EndOfProp`'s copy and layout are this session's own reading
+    of the plan's text description; no Figma screenshot was spent on it.
+  - agent — the Info banner's instruction text does not append a
+    hand-phrase suffix; it is `route-display.ts`'s existing card text,
+    unchanged, joined with " · " when there is more than one card.
+- **Deviations from plan or brief:** the two bug fixes above (Sora,
+  DoorScroll width); the map-band height ladder not built; `EndOfProp`
+  not screenshotted; the instruction banner's exact wording not checked
+  against a real routed fixture (the throwaway prop had no frozen route,
+  so `view?.cards` was empty throughout the live test).
+- **Invariants:** no GPS, no coordinates — confirmed unchanged. No
+  quality scoring in `/field` — Today's stats are still own-counts-only,
+  Confirmed still "—". Field writes still go through
+  `lib/sync/queue.ts` only; that file was not opened this session
+  (`git diff --quiet -- lib/sync/queue.ts` exit 0). No migration.
+- **Verified:** `npx tsc --noEmit` exit 0. `npx eslint components/field
+  lib/field "app/(field)"` exit 0. `npm run verify:stage8b` exit 0
+  ("ALL CHECKS PASSED"). `npm run verify:stage10` exit 0 ("OK", including
+  the live A1/B1/C1/heartbeat sections). `npm run verify:ui4` exit 0
+  ("OK"). `npm run verify:ui1` exit 0 ("OK", 36 checks). Figma read-only:
+  `get_screenshot` on 8:2, 13:141, 13:652, 13:356, 13:608, 13:703, 13:793
+  (each once); `get_design_context` on 9:148 (once — no positioning data
+  returned in isolation, so the existing OtherMenu anchor was left
+  unchanged, one attempt as instructed). Browser: 390×844, 375×812,
+  430×932, and sanity 375×667 / 844×390 landscape, all screenshotted and
+  compared against the Figma renders above; `Page.getLayoutMetrics`
+  confirmed each CSS viewport size directly (not inferred from the
+  screenshot tool). Live two-canvasser test (`localhost` / `127.0.0.1`,
+  separate origins for separate sessions): A1 confirmed (Ada logs, Tom's
+  next-open-door and teammate line update live); B1 confirmed (Tom's
+  `DoorScroll` shows Ada's door greyed with "✓ Ada", aria-live says
+  "knocked by Ada"); C1 confirmed (`"Ada · last knocked #43"`, live, no
+  reload); the P6 Info banner appeared live with a working "OK" dismiss.
+  A second Realtime session (signed in as Tom again) listened for the
+  live portion of the test: `{"here":19,"knocked":1}`, `claim=0`,
+  `release=0`, `unparsed=0`. Offline test (Ada, CDP `Network.setBlockedURLs`
+  on the Supabase host): logged while blocked (UI updated immediately,
+  IdChip amber, banner "N to send · retrying shortly"), unblocked, flush
+  confirmed (IdChip green); `knock_events` for that UPRN: exactly 1 row,
+  checked directly. Amendment 4 script-level proof: deleted a third
+  member's (`Sam Reeve`) `assignment_members` row, `sendOp` as that
+  member returned `outcome: "permanent"`, `error.code: "42501"`, 0
+  `knock_events` rows for that `client_event_id`. Amendment 4 browser
+  proof: Tom offline, logged a door, his `assignment_members` row
+  deleted (service role), back online — the Sync failed banner appeared
+  exactly as Figma 13:608 ("! 1 knock couldn't be sent · door 1", Retry,
+  red), IdChip red, the row excluded from Today's stats. One-instance
+  check: `document.querySelectorAll('.maplibregl-map').length` was 1 on
+  the Logger, 1 on the Map tab, and 1 again after Map→Logger→Map→Logger.
+  2,000-door check (temporary page, deleted after): node count 9 at
+  index 0, 17 at index 1000, 9 at index 1999 (≤17 throughout); exactly 1
+  `jumpTo` per settle for a 0→500, 500→1999, 1999→0 jump and a
+  single-step `›`; frame-time p50/p95 in the 33–44ms range (jumps are
+  instant, so little to sample) on this development machine's Chrome —
+  NOT a phone. React `Profiler` re-render check (temporary, removed
+  after): over 30s idle on a live signed-in session, `DoorScroll`/`MiniMap`
+  committed roughly every 700ms–1s (matching `use-team.ts`'s tick, as
+  expected — the parent re-renders) but `actualDuration` stayed under 1ms
+  for every commit (many exactly 0ms), confirming `React.memo` bails out;
+  one real prop-stability bug found and fixed in the process (`onAddHouseNumber`
+  was a fresh arrow function every render). Contrast table recomputed
+  with a fresh WCAG script (temporary, deleted after) against the current
+  token values — unchanged from Session B1's figures, since no colour
+  token changed this session. `realtime.messages` for the throwaway
+  topic: 0 (reported only, nothing deleted from `realtime.*`). Cleanup:
+  `knock_events`/`assignments`/`territories`/`auth.users`/`profiles`
+  counts scoped to every harness name used this session are all 0 after
+  cleanup, checked directly against the live project.
+- **Not verified:** on-device sun, one-handed grip, wet-thumb and haptic
+  checks — no phone was used anywhere in this session; every check above
+  ran in desktop Chrome with CDP device-metrics emulation. `EndOfProp`'s
+  screen and the map-band scroll-shrink ladder (not built). The Turn
+  instruction banner's exact wording against a real routed fixture.
+  `prefers-reduced-motion`, screen-reader use, and keyboard-only
+  navigation of the assembled (composed) screen — all were unit-tested
+  inside their own components in Session B2, not re-tested here at the
+  composed-screen level.
+- **External settings:** none changed.
+- **Open questions for Claude:** whether the map-band scroll-shrink
+  ladder (P11) is worth building; whether `EndOfProp` should be checked
+  against Figma directly; the admin-Contacts label reconciliation
+  (Session A) is still open for the admin rebuild; the ~8-door-per-scroll
+  fling limit (Session B2) is still unanswered; the whole Logger rebuild
+  needs an on-device pass before it can be called field-ergonomics-verified.

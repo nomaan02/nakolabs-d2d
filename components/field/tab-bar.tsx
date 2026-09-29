@@ -3,17 +3,26 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-/**
- * Four real routes under one layout. Bottom-anchored, inside the safe area,
- * with the active tab carried by a solid fill and a label rather than by a
- * tint — an outline or a pastel highlight disappears in direct sun.
- */
+import { LeadsIcon, LoggerIcon, MapIcon, YouIcon } from "@/components/field/icons";
 
+/**
+ * TabItem — Figma node 7:80.
+ *
+ * "Bottom tab. Tabs: Map (was Home — owner decision 2026-09-27; the
+ * existing Map tab), Logger, Leads, You (the existing Profile tab). Active
+ * = prop colour + label; inactive = ink-muted (not opacity, for
+ * sunlight). Whole cell is the tap target (≥44px)."
+ *
+ * Four real routes under one layout, bottom-anchored, inside the safe
+ * area. The active tab is carried by a solid icon-plus-label colour, never
+ * a tint or an opacity change — either disappears in direct sun (owner
+ * decision 5 relabels "Profile" to "You"; the route is unchanged).
+ */
 const TABS = [
-  { href: "/field", label: "Map", glyph: "◉" },
-  { href: "/field/logger", label: "Logger", glyph: "▤" },
-  { href: "/field/leads", label: "Leads", glyph: "★" },
-  { href: "/field/profile", label: "Profile", glyph: "☖" },
+  { href: "/field", label: "Map", Icon: MapIcon },
+  { href: "/field/logger", label: "Logger", Icon: LoggerIcon },
+  { href: "/field/leads", label: "Leads", Icon: LeadsIcon },
+  { href: "/field/profile", label: "You", Icon: YouIcon },
 ] as const;
 
 export function TabBar() {
@@ -21,26 +30,25 @@ export function TabBar() {
 
   return (
     <nav
-      className="z-20 grid grid-cols-4 border-t border-ink/15 bg-paper pb-[env(safe-area-inset-bottom)]"
+      className="z-20 grid grid-cols-4 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)]"
       aria-label="Field sections"
       data-testid="field-tabs"
     >
-      {TABS.map((tab) => {
-        const active = tab.href === "/field" ? pathname === "/field" : pathname.startsWith(tab.href);
+      {TABS.map(({ href, label, Icon }) => {
+        const active = href === "/field" ? pathname === "/field" : pathname.startsWith(href);
         return (
           <Link
-            key={tab.href}
-            href={tab.href}
+            key={href}
+            href={href}
             prefetch
             aria-current={active ? "page" : undefined}
-            className={`flex min-h-[56px] flex-col items-center justify-center gap-0.5 text-xs font-medium ${
-              active ? "bg-ink text-paper" : "text-ink"
+            className={`flex min-h-14 flex-col items-center justify-center gap-1 text-field-tab-label ${
+              active ? "text-prop" : "text-ink-muted"
             }`}
+            data-testid={`field-tab-${label.toLowerCase()}`}
           >
-            <span aria-hidden className="text-base leading-none">
-              {tab.glyph}
-            </span>
-            {tab.label}
+            <Icon className="size-6" />
+            {label}
           </Link>
         );
       })}

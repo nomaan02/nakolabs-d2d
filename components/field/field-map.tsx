@@ -31,6 +31,8 @@ const FOCUS_LAYER = "field-doors-focus";
 const LABELS_LAYER = "field-door-labels";
 /** Logger "Show on map" and a map tap both land here. Terrace dots need 19. */
 const FOCUS_ZOOM = 19;
+/** UI item 1, Session C (2026-09-29): the compact Logger mini map's own focus zoom (plan decision 7). */
+const COMPACT_ZOOM = 17.5;
 
 /** SEAM (Stage 5b). Registered now, fed by `route_geom` then. Renders nothing. */
 const ROUTE_SOURCE = "field-route";
@@ -188,15 +190,16 @@ function flyToDoor(
   doors: DoorCollection,
   uprn: number | null,
   mode: "jump" | "ease",
+  zoom: number = FOCUS_ZOOM,
 ): boolean {
   if (uprn === null) return false;
   const feature = doors.features.find((f) => f.properties.uprn === uprn);
   if (!feature) return false;
   const center = feature.geometry.coordinates as [number, number];
   if (mode === "jump") {
-    map.jumpTo({ center, zoom: FOCUS_ZOOM });
+    map.jumpTo({ center, zoom });
   } else {
-    map.easeTo({ center, zoom: FOCUS_ZOOM, duration: 400 });
+    map.easeTo({ center, zoom, duration: 400 });
   }
   return true;
 }
@@ -275,6 +278,7 @@ export function FieldMap({
   cameraNonce,
   onSelectUprn,
   active,
+  variant = "full",
 }: {
   doors: DoorCollection;
   labels: DoorLabels;
@@ -285,6 +289,16 @@ export function FieldMap({
   cameraNonce: number;
   onSelectUprn: (uprn: number) => void;
   active: boolean;
+  /**
+   * UI item 1, Session C (2026-09-29, owner decision 7): "compact" is the
+   * Logger's own mini map — no Navigation/Scale control, not interactive,
+   * jumps (never eases) to the current door at `COMPACT_ZOOM`, and marks
+   * that door with a prop-blue halo on the SAME `selected` feature-state the
+   * full map already uses for a tapped door. Still one MapLibre instance at
+   * a time: the Map tab and the Logger are separate routes, and this
+   * component `remove()`s on unmount either way (see `lib/field/map-style.ts`).
+   */
+  variant?: "full" | "compact";
 }) {
   const container = useRef<HTMLDivElement | null>(null);
   const map = useRef<MapLibreMap | null>(null);
@@ -295,6 +309,11 @@ export function FieldMap({
   const selectedRef = useRef(selectedUprn);
   const routeRef = useRef(routeModel);
   const tiersRef = useRef(routeTiers);
+  // Read-once: `variant` never changes for a mounted instance (a route
+  // never toggles compact/full), but the mount effect below intentionally
+  // has an empty dependency array, so it is captured the same way every
+  // other prop that effect reads is — via a ref, not a render-time closure.
+  const variantRef = useRef(variant);
   onSelect.current = onSelectUprn;
   doorsRef.current = doors;
   labelsRef.current = labels;
@@ -306,6 +325,7 @@ export function FieldMap({
   useEffect(() => {
     if (!container.current || map.current) return;
     let cancelled = false;
+    const mapVariant = variantRef.current;
 
     void (async () => {
       const style = await fieldMapStyle();
@@ -316,12 +336,17 @@ export function FieldMap({
         style,
         center: BRISTOL,
         zoom: 12.4,
+        interactive: mapVariant !== "compact",
         attributionControl: { compact: true, customAttribution: [...ATTRIBUTION_LINES] },
       });
       map.current = instance;
 
-      instance.addControl(new NavigationControl({ showCompass: false }), "bottom-left");
-      instance.addControl(new ScaleControl({ unit: "metric" }), "bottom-left");
+      // The compact Logger mini map has no Navigation or Scale control
+      // (owner decision 7) — it is a live preview, not a working surface.
+      if (mapVariant === "full") {
+        instance.addControl(new NavigationControl({ showCompass: false }), "bottom-left");
+        instance.addControl(new ScaleControl({ unit: "metric" }), "bottom-left");
+      }
 
       instance.on("load", () => {
         const attrib = instance.getContainer().querySelector(".maplibregl-ctrl-attrib");
@@ -353,13 +378,16 @@ export function FieldMap({
 
         // Focus halo sits under the dots so a selected door reads as a ring,
         // not a colour change. Unselected radius is 0 — cheap at 2,000 points.
+        // Compact (the Logger's mini map) marks the CURRENT door with a
+        // prop-blue halo on this same `selected` state (owner decision 7);
+        // full (the Map tab) keeps the dark halo for a tapped door's panel.
         instance.addLayer({
           id: FOCUS_LAYER,
           type: "circle",
           source: DOORS_SOURCE,
           paint: {
             "circle-radius": FOCUS_HALO_RADIUS,
-            "circle-color": "#1c2226",
+            "circle-color": mapVariant === "compact" ? "#1b4aa6" : "#1c2226",
             "circle-opacity": 0.9,
           },
         });
@@ -452,7 +480,13 @@ export function FieldMap({
           applyRoute(instance, routeRef.current, tiersRef.current);
           if (container.current) recordLayerOrder(instance, container.current, routeRef.current, tiersRef.current);
         });
-        if (!flyToDoor(instance, current, selectedRef.current, "jump")) {
+        const initialZoom = mapVariant === "compact" ? COMPACT_ZOOM : FOCUS_ZOOM;
+        if (flyToDoor(instance, current, selectedRef.current, "jump", initialZoom)) {
+          if (mapVariant === "compact" && container.current) {
+            const node = container.current;
+            node.dataset.cameraJumps = String((Number(node.dataset.cameraJumps) || 0) + 1);
+          }
+        } else {
           fitDoors(instance, current);
         }
 
@@ -518,11 +552,24 @@ export function FieldMap({
     if (active) map.current?.resize();
   }, [active]);
 
+  // The full map EASES to a tapped door (a deliberate camera move on top of
+  // whatever the canvasser was looking at). The compact mini map JUMPs
+  // instead — no animation budget worth spending on an 84px preview — once
+  // per cursor settle, at COMPACT_ZOOM, counted in `dataset.cameraJumps` for
+  // the 2,000-door evidence (amendment 6).
   useEffect(() => {
     const instance = map.current;
+    const node = container.current;
     if (!instance?.isStyleLoaded() || selectedUprn === null) return;
-    flyToDoor(instance, doors, selectedUprn, "ease");
-  }, [selectedUprn, doors, cameraNonce]);
+    if (variant === "compact") {
+      const jumped = flyToDoor(instance, doors, selectedUprn, "jump", COMPACT_ZOOM);
+      if (jumped && node) {
+        node.dataset.cameraJumps = String((Number(node.dataset.cameraJumps) || 0) + 1);
+      }
+      return;
+    }
+    flyToDoor(instance, doors, selectedUprn, "ease", FOCUS_ZOOM);
+  }, [selectedUprn, doors, cameraNonce, variant]);
 
   return <div ref={container} className="h-full w-full" data-testid="field-map" />;
 }

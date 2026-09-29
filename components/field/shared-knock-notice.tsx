@@ -24,7 +24,14 @@ function exampleLabel(rows: OutboxRow[]): string | null {
   return best === null ? null : `door ${best}`;
 }
 
-function useSharedDoors(assignmentId: string | null): SharedDoor {
+/**
+ * Exported (UI item 1, Session C, 2026-09-29): the Logger's single banner
+ * slot (P3/P6) needs this count and example to decide whether the Info
+ * banner is the highest-priority one showing, without rendering a second
+ * copy of this component. `SharedKnockNotice` below is unchanged and still
+ * usable standalone.
+ */
+export function useSharedDoors(assignmentId: string | null): SharedDoor {
   const [value, setValue] = useState<SharedDoor>({ count: 0, example: null });
 
   useEffect(() => {

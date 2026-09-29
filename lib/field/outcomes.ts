@@ -9,7 +9,7 @@ import type { KnockOutcome } from "@/lib/sync/ops";
  * |-----------------|------------------|--------------------------------------|
  * | Lead            | lead             | `leads` row                          |
  * | Contact         | answered         | —                                    |
- * | No Answer       | no_answer        | —                                    |
+ * | Not In          | no_answer        | —                                    |
  * | Rented/Council  | no_opportunity   | `property_observations`, tenure       |
  * | Other →         | refused · do_not_call · inaccessible · callback |        |
  *
@@ -20,9 +20,18 @@ import type { KnockOutcome } from "@/lib/sync/ops";
  * `not_interested` exists in the CHECK constraint but has no button: Stage 8
  * routes that conversation to `refused`. Kept out of the UI rather than out
  * of the enum, because older rows may carry it.
+ *
+ * Amended 2026-09-28 (owner, UI item 1 decision 1 — outcome order; P10 —
+ * relabel). "No Answer" is "Not In" everywhere, including the Map legend.
+ * The button order is now top to bottom Lead, Contact, Rented/Council, Not
+ * In, each a flat 72px (P9) — this replaces the old bottom-up frequency
+ * ladder (96/80/72/72) and the "Lead buffered from Contact by
+ * Rented/Council" reach guard, which no longer applies now that Contact
+ * sits directly under Lead. The full visual rebuild (pills, tokens, sizing)
+ * is Session B/C's; this session only reorders and relabels.
  */
 
-export type PrimaryOutcome = "no_answer" | "answered" | "no_opportunity" | "lead";
+export type PrimaryOutcome = "lead" | "answered" | "no_opportunity" | "no_answer";
 export type OtherOutcome = "refused" | "do_not_call" | "inaccessible" | "callback";
 
 export type OutcomeSpec = {
@@ -36,22 +45,16 @@ export type OutcomeSpec = {
 };
 
 /**
- * Bottom-to-top. Frequency-driven, and it is not a style choice: No Answer is
- * roughly six taps in ten and sits lowest and largest where a one-handed
- * thumb rests. Lead is buffered from Contact by Rented/Council because a lead
- * is the one outcome a canvasser cannot undo once flushed — only the office
- * can cancel one — so its harder reach is a deliberate guard against a
- * mis-tap.
- *
- * Heights come straight from the brief's Stage 8b diagram and are not to be
- * re-derived: 96, 80, 72, 72, then Other at 56.
+ * Top to bottom, per owner decision 1 (2026-09-28): Lead, Contact,
+ * Rented/Council, Not In. `heightPx` is a flat 72 for every button (P9)
+ * until Session B/C's Figma rebuild replaces this component outright.
  */
 export const PRIMARY_OUTCOMES: (OutcomeSpec & {
   key: PrimaryOutcome;
   heightPx: number;
 })[] = [
-  { key: "no_answer", outcome: "no_answer", label: "No Answer", glyph: "○", logged: "No answer", heightPx: 96 },
-  { key: "answered", outcome: "answered", label: "Contact", glyph: "☺", logged: "Contact", heightPx: 80 },
+  { key: "lead", outcome: "lead", label: "Lead", glyph: "★", logged: "Lead", heightPx: 72 },
+  { key: "answered", outcome: "answered", label: "Contact", glyph: "☺", logged: "Contact", heightPx: 72 },
   {
     key: "no_opportunity",
     outcome: "no_opportunity",
@@ -60,7 +63,7 @@ export const PRIMARY_OUTCOMES: (OutcomeSpec & {
     logged: "Rented/Council",
     heightPx: 72,
   },
-  { key: "lead", outcome: "lead", label: "Lead", glyph: "★", logged: "Lead", heightPx: 72 },
+  { key: "no_answer", outcome: "no_answer", label: "Not In", glyph: "○", logged: "Not In", heightPx: 72 },
 ];
 
 export const OTHER_OUTCOMES: (OutcomeSpec & { key: OtherOutcome })[] = [

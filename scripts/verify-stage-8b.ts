@@ -27,6 +27,8 @@ import { ringToEwkt, type Ring } from "../lib/geo/prop-polygon";
 import { londonDate, londonInstant } from "../lib/field/london-date";
 import { doorPlate, listLabel, mapLabel } from "../lib/field/labels";
 import { PRIMARY_OUTCOMES, outcomeSpec, tenureFor } from "../lib/field/outcomes";
+import { countBookableContacts, countDoorsLogged, countLeads } from "../lib/field/today-stats";
+import type { LocalOutcome, LocalOutcomes } from "../lib/field/local-outcomes";
 import {
   newClientEventId,
   newRowId,
@@ -307,7 +309,7 @@ function unitChecks() {
   const mapping: Array<[string, string]> = [
     ["Lead", "lead"],
     ["Contact", "answered"],
-    ["No Answer", "no_answer"],
+    ["Not In", "no_answer"],
     ["Rented/Council", "no_opportunity"],
   ];
   for (const [button, outcome] of mapping) {
@@ -325,16 +327,25 @@ function unitChecks() {
       outcomeSpec("no_opportunity").logged === "Rented/Council",
   );
   check(
+    "Not In wording is the same on the button, sequence list and legend (P10)",
+    outcomeSpec("no_answer").label === "Not In" && outcomeSpec("no_answer").logged === "Not In",
+  );
+  check(
     "do_not_call is a real enum value, not free text",
     KNOCK_OUTCOMES.includes("do_not_call") && outcomeSpec("do_not_call").label.length > 0,
   );
 
-  heading("B. button order and sizes — the brief's diagram");
-  const order = PRIMARY_OUTCOMES.map((s) => `${s.key}:${s.heightPx}`).join(" ");
+  heading("B. button order — owner decision 1, 2026-09-28");
+  const order = PRIMARY_OUTCOMES.map((s) => s.key).join(" ");
   check(
-    "bottom-up order is No Answer 96, Contact 80, Rented/Council 72, Lead 72",
-    order === "no_answer:96 answered:80 no_opportunity:72 lead:72",
+    "top-down order is Lead, Contact, Rented/Council, Not In",
+    order === "lead answered no_opportunity no_answer",
     order,
+  );
+  check(
+    "every primary button is a flat 72px (P9) pending the Session B/C rebuild",
+    PRIMARY_OUTCOMES.every((s) => s.heightPx === 72),
+    PRIMARY_OUTCOMES.map((s) => s.heightPx).join(","),
   );
 
   heading("C. validateOp — the payload traps");
@@ -446,6 +457,48 @@ function unitChecks() {
     "Tomorrow AM is the next London day",
     londonDate(new Date(tomorrowAm)) !== londonDate(),
     londonDate(new Date(tomorrowAm)),
+  );
+
+  heading("F. today-stats — the owner's Contacts definition, 2026-09-28");
+  const buttonOutcomes = KNOCK_OUTCOMES.filter((outcome) => outcome !== "not_interested");
+  check(
+    "8 outcomes have a button (not_interested has none)",
+    buttonOutcomes.length === 8,
+    buttonOutcomes.join(","),
+  );
+
+  const statsCanvasser = newRowId();
+  const otherCanvasser = newRowId();
+  const nowStats = Date.now();
+  const statsOutcomes: LocalOutcomes = new Map();
+  buttonOutcomes.forEach((outcome, index) => {
+    const entry: LocalOutcome = {
+      uprn: 9_000_000 + index,
+      outcome,
+      clientEventId: newClientEventId(),
+      occurredAt: new Date(nowStats).toISOString(),
+      notes: null,
+      undoable: false,
+      bookedFor: null,
+      isLead: outcome === "lead",
+      canvasserId: statsCanvasser,
+    };
+    statsOutcomes.set(entry.uprn, entry);
+  });
+
+  const contacts = countBookableContacts(statsOutcomes, statsCanvasser, nowStats);
+  const leads = countLeads(statsOutcomes, statsCanvasser, nowStats);
+  const doors = countDoorsLogged(statsOutcomes, statsCanvasser, nowStats);
+  check(
+    "Contacts = 1 — outcome = 'answered' ONLY, never lead/no_opportunity/no_answer/other",
+    contacts === 1,
+    String(contacts),
+  );
+  check("Leads = 1 — its own stat, never folded into Contacts", leads === 1, String(leads));
+  check("Doors = 8 — one knock of each of the 8 outcomes, distinct UPRNs", doors === 8, String(doors));
+  check(
+    "own counts only — a different canvasser's rows are not counted",
+    countDoorsLogged(statsOutcomes, otherCanvasser, nowStats) === 0,
   );
 }
 

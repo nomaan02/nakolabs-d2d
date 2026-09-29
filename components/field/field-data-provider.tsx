@@ -255,14 +255,15 @@ export function FieldDataProvider({
   const team = useTeam({
     assignmentId,
     canvasserId,
-    sequence,
     localKnocked,
   });
 
   const routeModel = useMemo(() => fieldRoutePaintModel(route), [route]);
-  const nextPosition = team.nextDoor?.position ?? null;
+  // Amended 2026-09-28: the highlight follows the cursor, not a claimed
+  // "next door" — claims are gone, and the cursor already behaves the same
+  // online and offline.
   const progressPosition =
-    phase.kind === "ready" && routeReady && sequence.length > 0 ? nextPosition : undefined;
+    phase.kind === "ready" && routeReady && sequence.length > 0 ? cursor.door?.position ?? null : undefined;
   const routeTiers = useMemo(
     () => computeRouteTiers(routeModel.steps, progressPosition),
     [routeModel, progressPosition],

@@ -4,17 +4,12 @@ import { useInputLock } from "@/lib/field/feedback";
 import { PRIMARY_OUTCOMES, type PrimaryOutcome } from "@/lib/field/outcomes";
 
 /**
- * The five outcome controls, bottom-anchored, in the brief's exact order and
- * at its exact heights.
- *
- * Reading UP from the bottom: No Answer 96px, Contact 80px, Rented/Council
- * 72px, Lead 72px, Other 56px. The order is tap frequency, inverted from the
- * usual primary-at-the-top convention because that convention assumes two
- * hands and a seated user. No Answer is roughly six taps in ten and sits
- * where a one-handed thumb already rests. Lead is buffered from Contact by
- * Rented/Council and takes a deliberate reach: it is the one outcome a
- * canvasser cannot undo once flushed, since only the office can cancel a
- * lead.
+ * The four outcome controls, bottom-anchored, top to bottom: Lead, Contact,
+ * Rented/Council, Not In (owner decision 1, 2026-09-28), each a flat 72px
+ * (P9). This is an interim component: Session B/C's Figma rebuild replaces
+ * it with `OutcomePill`/`OutcomeColumn` and the height ladder that comes
+ * with the new visual system. Until then this keeps the app working with
+ * the new order and label.
  *
  * Every fill is solid and every colour is paired with a glyph. In direct sun
  * an outline vanishes and hue discrimination degrades before shape
@@ -22,10 +17,10 @@ import { PRIMARY_OUTCOMES, type PrimaryOutcome } from "@/lib/field/outcomes";
  */
 
 const FILL: Record<PrimaryOutcome, string> = {
-  no_answer: "bg-ink text-paper",
+  lead: "bg-lead text-paper",
   answered: "bg-prop text-paper",
   no_opportunity: "bg-oxide text-paper",
-  lead: "bg-lead text-paper",
+  no_answer: "bg-ink text-paper",
 };
 
 export function OutcomeButtons({
@@ -55,10 +50,7 @@ export function OutcomeButtons({
         Other
       </button>
 
-      {/* Reversed so the array reads bottom-up (No Answer first) while the
-          DOM and the screen read top-down. The array order is the frequency
-          order and is the thing to preserve. */}
-      {[...PRIMARY_OUTCOMES].reverse().map((spec) => (
+      {PRIMARY_OUTCOMES.map((spec) => (
         <button
           key={spec.key}
           type="button"
