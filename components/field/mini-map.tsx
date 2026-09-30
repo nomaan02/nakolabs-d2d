@@ -1,6 +1,7 @@
 "use client";
 
 import { FieldMap } from "@/components/field/field-map";
+import { MapIcon } from "@/components/field/icons";
 import type { DoorLabels } from "@/lib/field/labels";
 import type { LocalOutcomes } from "@/lib/field/local-outcomes";
 import type { DoorCollection } from "@/lib/geo/todays-assignment";
@@ -20,10 +21,9 @@ import type { RouteTiers } from "@/lib/map/route-progress";
  * the Map tab and the Logger are separate routes (see the dated note in
  * `lib/field/map-style.ts`).
  *
- * The tap target is a transparent button laid OVER the map at a lower
- * z-index than MapLibre's own attribution control (`z-index: 2` in
- * maplibre-gl.css), so the attribution corner stays clickable while every
- * other pixel opens the full map.
+ * 2026-09-30 owner E6: the map itself pans and pinches. A 44px round
+ * button at the bottom-left opens the full map, centred on this door.
+ * Attribution stays tappable.
  */
 export function MiniMap({
   doors,
@@ -60,10 +60,12 @@ export function MiniMap({
       <button
         type="button"
         onClick={onOpenMap}
-        aria-label="Open the map, centred on the current door"
-        className="absolute inset-0 z-[1]"
-        data-testid="mini-map-tap"
-      />
+        aria-label="Open the full map, centred on this door"
+        className="absolute left-2 bottom-2 z-[2] flex size-11 items-center justify-center rounded-full border border-line bg-surface text-ink shadow-field-knob"
+        data-testid="mini-map-open"
+      >
+        <MapIcon className="size-5" />
+      </button>
     </div>
   );
 }

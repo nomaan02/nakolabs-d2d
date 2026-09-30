@@ -1496,3 +1496,84 @@ Five `knock_events` rows synced when the Logger was reloaded online. They were a
 - `3ff38c7f-7a36-4216-ab1c-d3c091c7ad20` — `no_opportunity` — UPRN 77095 — occurred 2026-09-30 19:46:57.104+00
 - `f6a3ff71-03bb-4d6b-a73b-889931d7303d` — `no_opportunity` — UPRN 77111 — occurred 2026-09-30 19:46:58.976+00
 
+---
+
+### UI item 1c — Door panel, Session H1
+- **Date:** 2026-09-30
+- **Model:** Grok 4.7
+- **Built:** The Logger door panel. Outcome circles 76px. Plate ladder 88/32, 72/26, 58/22, 44/18. Header without "Quick Logger", title 20px. Outcome slot 140px. Neighbour plates hidden. One 32px info row for the logged pill and "+ Add house number". Stat numbers 20px, `min-w-8`. Other sits `top-2` on the 76px Not In circle. The confirm tick is `left-[24px]`. No migration. No sync change. H2 was not started.
+- **Acceptance:**
+  - EDIT 1 DONE. `app/globals.css`: `--spacing-outcome` 76px. `--text-field-door-current` 88px / 88px. `--text-field-stat-number` 20px / 24px. Added `--text-field-title-sm` 20px / 24px / −0.01em / 700. Comment `2026-09-30 owner E3/E5`.
+  - EDIT 2 DONE. `PLATE_PX` xl 88/32, lg 72/26, md 58/22, sm 44/18. The ladder comment matches. `plateSize()` was not edited.
+  - EDIT 3 DONE. `STAGE_PX` 96. Neighbour items have `opacity-0`. The paint loop sets every non-current item's opacity to 0 and does not run the fade on it. The "+ Add house number" block and `onAddHouseNumber` are gone from `DoorScroll` and from `logger-tab.tsx`. Root `gap-0`. ‹ › stay `size-tap-min`.
+  - EDIT 4 DONE. `stat-row.tsx` value `min-w-8`. The G4 breakpoints are unchanged.
+  - EDIT 5 DONE. `outcome-column-slot` is `w-[140px] shrink-0`. OutcomeColumn comment dated 2026-09-30. Other slot `top-2`. Tick `left-[24px]`.
+  - EDIT 6 DONE. "Quick Logger" removed. `h1` is `text-field-title-sm`. Header `pt-2 pb-1.5`.
+  - EDIT 7 DONE. UndoButton unchanged. "Current door" stays left. Number through the info row is in `flex w-full flex-col items-center`. Info row `h-8`, test id `door-info-row`. Logged pill `h-7 px-2.5 text-field-button-label`. Placeholder button is the specified classes, test id `add-house-number`. Empty row still renders. Rule `mt-1.5 mb-1.5`. Stats `mt-1` and `gap-1`. No padding on the door column.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - `npx eslint components/field lib/field`: **PASS** — exit 0.
+  - `npm run verify:ui1`: **PASS** — exit 0, once. No `PLATE_PX` expectation was changed. The script checks size names, not pixels.
+  - `npm run verify:stage8b`: **PASS** — exit 0, once. Throwaway prop and two users created and deleted (`territories left named "STAGE 8B TEST PROP — DELETE ME": 0`).
+  - Panel heights equal, 358.77. 390×763 (`innerWidth` 391): "11" unlogged, "#3" unlogged, "1" logged, "#2" logged. 375×600 and 430×850 (`innerWidth` 431): the first three, also 358.77. "#2" logged was measured at 390 only.
+  - Plate centre versus the midpoint of door-column left and Lead left. 390: −3.96, −4.19, −3.83. 375: −4.31, −3.67, −4.12. 430: −3.91, −3.90, −3.91. Outside ±2. The plate is centred in the column. The Lead pill starts 8px to the right of the column.
+  - Neighbour computed opacity 0 at rest on those passes.
+  - Map band at 390×763: **169.64**. Target was ≥ 170.
+  - Not In bottom to note-bar top: 11.99 at 390 and 430. At 375×600 the gap is −93.59 and the rects intersect.
+  - Contact slide, width 391. At 251 ms circle left 399.57. At 421 ms left 399.6. At 1,064 ms left 234.6, transform `none`.
+  - #2 Contact undone on the ring. Outbox open rows 0. Logged pill gone. `knock_events` select for the four local ids: 0 rows.
+  - Screenshots: 3. `h1-390-numbered.png`, `h1-375.png`, `h1-390-placeholder-logged.png`.
+- **Deviations from brief:**
+  - The scroll track is `h-[110px]`, not the old 132. A 96px plate inside 132px left 36px of empty track, so the street was not under the number and the map was 147.64. 110px is the plate plus the 14px teammate line.
+  - The centring wrapper is `w-full`. Without it, `items-center` shrank the scroller to the track and `clientWidth` became 28,678,998.
+  - One local Contact (`ec23b8aa-e60a-4bd8-8798-3acbf4bca57e`, UPRN 77326) reached `pending` in Dexie. It was removed from the device outbox while offline. It is not in `knock_events`.
+- **Not done / deferred:** H2. The 4px centre miss. The map at 169.64. The 375×600 overlap. The logged-placeholder info row, where the pill and "+ Add house number" draw on top of each other. Real phone, sun, wet thumb and on-device haptic: **NOT VERIFIED**. Did not commit.
+- **Follow-ups:** whether the 8px panel gap should be inside the centred box. Whether the info row should stay one line when both controls are present. H2 is a separate session.
+
+Four local Contact `client_event_id`s. None are in `knock_events`:
+
+- `1d9f9e05-5c2e-4a34-9ef6-0effd1778ad6` — undone on the ring
+- `70c906ef-e8ec-4569-a66d-d20012354dbe` — undone on the ring
+- `ec23b8aa-e60a-4bd8-8798-3acbf4bca57e` — removed from Dexie while `pending`, offline
+- `8fa41c66-e925-4d63-8bbe-098b28d5d4ef` — `#2`, undone on the ring
+
+---
+
+### UI item 1c — Interactive mini map, Session H2
+- **Date:** 2026-09-30
+- **Model:** Grok 4.7
+- **Built:** The Logger mini map pans and pinches. Rotate, pitch and the keyboard are off. It eases back to the current door in 300 ms, and the camera move no longer waits for the style to finish loading. The full-cover tap is a 44px round map button. Attribution is unchanged. No Navigation or Scale control on the compact map. No migration. No sync change.
+- **Acceptance:**
+  - EDIT 1 DONE. The camera effect returns only when the instance is missing or `selectedUprn` is null. Dated comment: camera moves do not need the style; the old `isStyleLoaded()` guard skipped the move while a source was updating. Compact calls `flyToDoor(..., "ease", COMPACT_ZOOM, 300)`. `durationMs` defaults to 400. `dataset.cameraJumps` still increments.
+  - EDIT 2 DONE. `interactive: true`. Compact, right after creation: `dragRotate.disable()`, `touchPitch.disable()`, `touchZoomRotate.disableRotation()`, `keyboard.disable()`. No Navigation or Scale control on compact. Attribution control unchanged. Variant comment includes `2026-09-30 owner E6: pan and pinch allowed, no rotate or pitch; re-centres on every door change`.
+  - EDIT 3 DONE. The full-cover `mini-map-tap` button is gone. `mini-map-open` is the 44px round button, `MapIcon`, aria-label "Open the full map, centred on this door". Doc comment dated 2026-09-30.
+  - EDIT 4 DONE. `lib/field/map-style.ts` one-instance comment has the line `2026-09-30: the Logger's compact map is interactive (pan/pinch); still one instance per route.`
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - `npx eslint components/field lib/field`: **PASS** — exit 0.
+  - `npm run verify:ui1`: **PASS** — exit 0, once.
+  - `npm run verify:ui4`: **PASS** — exit 0, once. The script's own header is read-only asserts. No throwaway users in its output.
+  - Chrome, CanvasserX, `/field/logger`, REF - Speedwell, visit 3, 182 doors. Emulation 390×763, `innerWidth` 391, `innerHeight` 763. Offline for the logs: `navigator.onLine` false and `fetch /health` threw `TypeError`.
+  - After a reload onto the new map instance: drag-rotate off, touch-pitch off, pinch-rotate off (`_rotationDisabled` true), keyboard off, drag-pan on, pinch-zoom on, no zoom control, no scale control, attribution present, `touch-action: none`.
+  - 12 Not In logs, each undone on the ring straight after. The door the cursor moved to, `map.project`: every point was x 195.5, y 85. Mini map client size 391×170. Min x 195.5, max x 195.5, min y 85, max y 85. All 12 inside. 12 distinct UPRNs. `cameraJumps` rose by 1 each log. Outbox after the run: `synced` 54, open 0.
+  - Scripted touch drag of 80px on the canvas: centre lng changed by −0.000303, lat by 0. `logger-body` `scrollTop` stayed 0. All 8 `touchmove` events had `defaultPrevented`.
+  - One › after that drag: UPRN 76061 projected to x 195.5, y 85, inside. `cameraJumps` 15.
+  - `mini-map-open` while offline, twice: the tab left for `chrome-error://chromewebdata/`. `next dev` has no service worker, so the route change became a full load. **NOT VERIFIED** offline.
+  - Same button online: URL `/field`, selected UPRN 77876, plate `1`, panel "1 Selby Road". Map count on that first paint was 0 (the panel arrived before the canvas). After Logger, then Map: 1 map each time. Samples during the switches: 72, maximum 1.
+  - `knock_events` for CanvasserX with `occurred_at` on or after 2026-09-30 22:10 UTC: **0 rows**.
+  - Screenshots: 2. Logger with the round map button and the current door's halo. Map tab on 1 Selby Road, zoom and scale present, attribution present.
+  - Point count exercised: 182, on this assignment. Not 2,000. Device: desktop Chrome with device-metrics emulation, not a phone.
+- **Deviations from brief:**
+  - The first 12-log pass ran on a hot-reloaded page whose MapLibre instance was still the old non-interactive one. The follow still centred. Those 12 were undone. The numbers above are from a full reload, then the same 12 offline.
+  - The load handler still `jumpTo`s the first door. The numbered edit only changed the camera effect. Both paths increment `cameraJumps`, so a fresh compact map starts at 2.
+  - Open-map and the Map → Logger → Map count were checked online, after the offline logs. The outbox was already clear.
+- **Not done / deferred:** Real phone, sun, wet thumb and on-device haptic: **NOT VERIFIED**. A 2,000-door pass of the interactive mini map: **NOT VERIFIED**. Offline open-map and tab switches: **NOT VERIFIED**. Did not commit.
+- **Follow-ups:** whether a production service worker would keep the open-map route change on the device when the radio is off. H1's plate gap, the 169.64 map band, the 375×600 overlap, and the logged-placeholder info row are unchanged. The five G4 knocks were not removed.
+
+---
+
+### UI item 1c — Logged pill and house number, Session H3
+- **Date:** 2026-09-30
+- **Model:** Grok 4.7
+
+UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill drops the word "Logged", keeps the outcome and the time, and does not wrap (`shrink-0`, `whitespace-nowrap`). On a logged door with no house number the control reads "+ Add no." and keeps `aria-label="Add house number"`; an unlogged door still reads "+ Add house number". No other source file. No migration. No field write path. `npx tsc --noEmit` and `npx eslint components/field` both exit 0. `git diff --ignore-cr-at-eol --stat -- components/field/logger-tab.tsx` is 38 insertions and 31 deletions, because that file was already dirty from earlier uncommitted Logger work; this session changed the pill class, the pill text, the button class, the aria-label, and the button label. Chrome, CanvasserX, REF - Speedwell, visit 3, door #2 Ventnor Road. Offline: `navigator.onLine` false and `fetch /health` threw `TypeError`. Not In logged at 23:34, then ‹ from door 34 (the log had moved the cursor 32 doors). At 390×763 (`innerWidth` 391) the pill was x 24, y 467.59, 113.37×27.99 and "+ Add no." was x 145.37, y 459.59, 73.24×43.99; the door column was x 16, y 295.61, 210.6×342.79; no intersection; both inside. At 375×667 (`innerWidth` 375) the pill was x 16.31, y 409.94, 113.37×27.99 and the button was x 137.67, y 401.94, 73.24×43.99; the column was x 16, y 237.95, 195.22×342.79; no intersection; both inside. The undo ring showed 17 seconds left when the 390 rects were taken, and the button was gone before the click, because walking back took the rest of the 60s window. Local outbox row `2aed786e-748f-4750-b311-fdc3e9d71d33` was `knock_event`, `pending`, 0 attempts; it was removed from Dexie while offline. A select of that id, and of CanvasserX knocks with `occurred_at` on or after 2026-09-30 22:30 UTC, returned 0 rows, including after the browser was back online with no open outbox rows. Screenshot is 390×763. No phone. Did not commit.
+
+

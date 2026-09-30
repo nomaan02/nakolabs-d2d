@@ -22,6 +22,7 @@ import { setWorkerUrl, type StyleSpecification } from "maplibre-gl";
  * `FieldMap` calls `map.remove()` on unmount either way. Verified by
  * counting `.maplibregl-map` in the DOM while switching
  * Map → Logger → Map → Logger (see the Session C BUILD-LOG entry).
+ * 2026-09-30: the Logger's compact map is interactive (pan/pinch); still one instance per route.
  */
 
 setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");

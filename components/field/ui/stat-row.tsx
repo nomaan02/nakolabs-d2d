@@ -16,7 +16,7 @@ export function StatRow({ label, value }: { label: string; value: number | null 
 
   return (
     <div className="flex items-baseline gap-2 min-[390px]:gap-3" data-testid="stat-row">
-      <p className="min-w-9 text-field-stat-number text-ink" data-testid="stat-value">
+      <p className="min-w-8 text-field-stat-number text-ink" data-testid="stat-value">
         {display}
       </p>
       <p className="whitespace-nowrap text-field-stat-label text-ink-muted uppercase tracking-[0.08em] min-[390px]:tracking-[0.12em]" data-testid="stat-label">

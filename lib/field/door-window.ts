@@ -98,8 +98,8 @@ export function distanceFromCentre(index: number, scrollLeft: number, slot: numb
 export type PlateSize = "xl" | "lg" | "md" | "sm";
 
 /**
- * The plate ladder: 112/40 for 2 characters or fewer, 80/28 for 3,
- * 64/24 for 4, 48/20 with an ellipsis for 5 or more (current/neighbour px).
+ * The plate ladder: 88/32 for 2 characters or fewer, 72/26 for 3,
+ * 58/22 for 4, 44/18 with an ellipsis for 5 or more (current/neighbour px).
  */
 export function plateSize(plate: string): PlateSize {
   const n = [...plate].length;
@@ -110,10 +110,10 @@ export function plateSize(plate: string): PlateSize {
 }
 
 export const PLATE_PX: Record<PlateSize, { current: number; neighbour: number }> = {
-  xl: { current: 112, neighbour: 40 },
-  lg: { current: 80, neighbour: 28 },
-  md: { current: 64, neighbour: 24 },
-  sm: { current: 48, neighbour: 20 },
+  xl: { current: 88, neighbour: 32 },
+  lg: { current: 72, neighbour: 26 },
+  md: { current: 58, neighbour: 22 },
+  sm: { current: 44, neighbour: 18 },
 };
 
 /** The displayed plate. `doorPlate`'s "—" placeholder becomes the route position. */

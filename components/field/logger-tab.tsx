@@ -348,11 +348,10 @@ export function LoggerTab() {
 
   return (
     <div className="flex h-full flex-col bg-field-bg" data-testid="logger-tab">
-      <header className="shrink-0 px-4 pt-3 pb-2" data-testid="logger-header">
+      <header className="shrink-0 px-4 pt-2 pb-1.5" data-testid="logger-header">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-field-eyebrow uppercase text-ink-muted">Quick Logger</p>
-            <h1 className="truncate text-field-title text-ink" data-testid="logger-territory">
+            <h1 className="truncate text-field-title-sm text-ink" data-testid="logger-territory">
               {assignment.territory_name}
             </h1>
           </div>
@@ -398,33 +397,45 @@ export function LoggerTab() {
             ) : (
               <>
                 <p className="text-field-eyebrow uppercase text-ink-muted">Current door</p>
-                <div inert={otherOpen || undefined}>
-                  <MemoDoorScroll
-                    doors={doorItems}
-                    index={cursor.index}
-                    street={street}
-                    onSettle={handleSettle}
-                    onAddHouseNumber={openHouseNumberSheet}
-                  />
+                <div className="flex w-full flex-col items-center">
+                  <div className="w-full" inert={otherOpen || undefined}>
+                    <MemoDoorScroll
+                      doors={doorItems}
+                      index={cursor.index}
+                      street={street}
+                      onSettle={handleSettle}
+                    />
+                  </div>
+                  <div className="flex h-8 items-center justify-center gap-2" data-testid="door-info-row">
+                    {logged ? (
+                      <span
+                        className="inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-prop px-2.5 text-field-button-label text-ink"
+                        data-testid="already-logged"
+                      >
+                        {"✓"} {outcomeSpec(logged.outcome).logged} {"·"}{" "}
+                        {LOGGED_TIME.format(new Date(logged.occurredAt))}
+                      </span>
+                    ) : null}
+                    {scrollPlate(plate, door.position).placeholder ? (
+                      <button
+                        type="button"
+                        onClick={openHouseNumberSheet}
+                        className="-my-1.5 flex h-11 shrink-0 items-center whitespace-nowrap px-2 text-field-button-label text-prop underline underline-offset-2"
+                        data-testid="add-house-number"
+                        aria-label="Add house number"
+                      >
+                        {logged ? "+ Add no." : "+ Add house number"}
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
-                {logged ? (
-                  <p className="mt-1 flex justify-center">
-                    <span
-                      className="inline-flex items-center gap-1.5 rounded-full border border-prop px-3 py-1 text-field-body-strong text-ink"
-                      data-testid="already-logged"
-                    >
-                      {"\u2713"} Logged {"\u00b7"} {outcomeSpec(logged.outcome).logged} {"\u00b7"}{" "}
-                      {LOGGED_TIME.format(new Date(logged.occurredAt))}
-                    </span>
-                  </p>
-                ) : null}
               </>
             )}
 
-            <hr className="mt-3 mb-2 border-line" />
+            <hr className="mt-1.5 mb-1.5 border-line" />
 
             <p className="text-field-eyebrow uppercase text-ink-muted">Today&apos;s stats</p>
-            <div className="mt-2 flex w-fit flex-col gap-2" data-testid="today-stats">
+            <div className="mt-1 flex w-fit flex-col gap-1" data-testid="today-stats">
               <StatRow label="Doors" value={countDoorsLogged(outcomes, canvasserId)} />
               <StatRow label="Contacts" value={countBookableContacts(outcomes, canvasserId)} />
               <StatRow label="Leads" value={countLeads(outcomes, canvasserId)} />
@@ -445,13 +456,9 @@ export function LoggerTab() {
               </Button>
             </div>
           ) : (
-            // A fixed, NARROW slot (matching the pill's 84px circle, not its
-            // full 140px) — see OutcomeColumn's own doc comment. This is
-            // what gives DoorScroll the width it needs; the pills overflow
-            // this box on purpose, clipped by this scroller's own
-            // `overflow-x-hidden`, at the actual screen edge (matching
-            // Figma's "clipped at the screen edge" pill).
-            <div className="w-[92px] shrink-0" data-testid="outcome-column-slot">
+            // 2026-09-30 owner E3/E5: the slot is the pill's real 140px
+            // width, so the tail no longer spills left into the door column.
+            <div className="w-[140px] shrink-0" data-testid="outcome-column-slot">
               <OutcomeColumn
                 onPrimary={(outcome) => {
                   if (outcome === "lead") {

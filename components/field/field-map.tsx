@@ -191,6 +191,7 @@ function flyToDoor(
   uprn: number | null,
   mode: "jump" | "ease",
   zoom: number = FOCUS_ZOOM,
+  durationMs: number = 400,
 ): boolean {
   if (uprn === null) return false;
   const feature = doors.features.find((f) => f.properties.uprn === uprn);
@@ -199,7 +200,7 @@ function flyToDoor(
   if (mode === "jump") {
     map.jumpTo({ center, zoom });
   } else {
-    map.easeTo({ center, zoom, duration: 400 });
+    map.easeTo({ center, zoom, duration: durationMs });
   }
   return true;
 }
@@ -291,12 +292,12 @@ export function FieldMap({
   active: boolean;
   /**
    * UI item 1, Session C (2026-09-29, owner decision 7): "compact" is the
-   * Logger's own mini map — no Navigation/Scale control, not interactive,
-   * jumps (never eases) to the current door at `COMPACT_ZOOM`, and marks
-   * that door with a prop-blue halo on the SAME `selected` feature-state the
+   * Logger's own mini map — no Navigation/Scale control, and marks that
+   * door with a prop-blue halo on the SAME `selected` feature-state the
    * full map already uses for a tapped door. Still one MapLibre instance at
    * a time: the Map tab and the Logger are separate routes, and this
    * component `remove()`s on unmount either way (see `lib/field/map-style.ts`).
+   * 2026-09-30 owner E6: pan and pinch allowed, no rotate or pitch; re-centres on every door change.
    */
   variant?: "full" | "compact";
 }) {
@@ -336,13 +337,20 @@ export function FieldMap({
         style,
         center: BRISTOL,
         zoom: 12.4,
-        interactive: mapVariant !== "compact",
+        interactive: true,
         attributionControl: { compact: true, customAttribution: [...ATTRIBUTION_LINES] },
       });
       map.current = instance;
 
-      // The compact Logger mini map has no Navigation or Scale control
-      // (owner decision 7) — it is a live preview, not a working surface.
+      // Compact only (2026-09-30 owner E6): pan and pinch stay on.
+      // Rotate, pitch and keyboard do not. No Navigation or Scale control
+      // (owner decision 7). Attribution is unchanged.
+      if (mapVariant === "compact") {
+        instance.dragRotate.disable();
+        instance.touchPitch.disable();
+        instance.touchZoomRotate.disableRotation();
+        instance.keyboard.disable();
+      }
       if (mapVariant === "full") {
         instance.addControl(new NavigationControl({ showCompass: false }), "bottom-left");
         instance.addControl(new ScaleControl({ unit: "metric" }), "bottom-left");
@@ -552,18 +560,21 @@ export function FieldMap({
     if (active) map.current?.resize();
   }, [active]);
 
-  // The full map EASES to a tapped door (a deliberate camera move on top of
-  // whatever the canvasser was looking at). The compact mini map JUMPs
-  // instead — no animation budget worth spending on an 84px preview — once
-  // per cursor settle, at COMPACT_ZOOM, counted in `dataset.cameraJumps` for
-  // the 2,000-door evidence (amendment 6).
+  // The full map eases to a tapped door (a deliberate camera move on top of
+  // whatever the canvasser was looking at), 400 ms. The compact mini map
+  // eases too, 300 ms, once per cursor settle, at COMPACT_ZOOM. The move is
+  // still counted in `dataset.cameraJumps` for the 2,000-door evidence
+  // (amendment 6).
   useEffect(() => {
     const instance = map.current;
     const node = container.current;
-    if (!instance?.isStyleLoaded() || selectedUprn === null) return;
+    // 2026-09-30: camera moves do not need the style. The old
+    // `isStyleLoaded()` guard skipped the move whenever a source was
+    // updating, e.g. right after a log.
+    if (!instance || selectedUprn === null) return;
     if (variant === "compact") {
-      const jumped = flyToDoor(instance, doors, selectedUprn, "jump", COMPACT_ZOOM);
-      if (jumped && node) {
+      const moved = flyToDoor(instance, doors, selectedUprn, "ease", COMPACT_ZOOM, 300);
+      if (moved && node) {
         node.dataset.cameraJumps = String((Number(node.dataset.cameraJumps) || 0) + 1);
       }
       return;

@@ -45,20 +45,18 @@ export type DoorScrollItem = {
 
 const SUPPORTS_SCROLLEND = typeof window !== "undefined" && "onscrollend" in window;
 const FADE_TO = 0.35;
-const STAGE_PX = 112;
+const STAGE_PX = 96;
 
 export function DoorScroll({
   doors,
   index,
   street,
   onSettle,
-  onAddHouseNumber,
 }: {
   doors: DoorScrollItem[];
   index: number;
   street: string | null;
   onSettle: (index: number) => void;
-  onAddHouseNumber?: () => void;
 }) {
   const total = doors.length;
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -67,6 +65,8 @@ export function DoorScroll({
   const [centre, setCentre] = useState(index);
   const centreRef = useRef(index);
   const indexRef = useRef(index);
+  const paintIndexRef = useRef(index);
+  paintIndexRef.current = index;
   const settledByScroll = useRef<number | null>(null);
   const pendingJump = useRef<number | null>(null);
   const frame = useRef<number | null>(null);
@@ -81,6 +81,10 @@ export function DoorScroll({
     if (!el) return;
     const left = el.scrollLeft;
     for (const [i, node] of itemRefs.current) {
+      if (i !== paintIndexRef.current) {
+        node.style.opacity = "0";
+        continue;
+      }
       const d = distanceFromCentre(i, left, slot);
       const px = PLATE_PX[plateSize(node.dataset.plate ?? "")];
       const scale = 1 - (1 - px.neighbour / px.current) * d;
@@ -173,7 +177,7 @@ export function DoorScroll({
   useLayoutEffect(() => {
     if (pendingJump.current !== null) runJump();
     paint();
-  }, [centre, doors, paint, runJump]);
+  }, [centre, doors, index, paint, runJump]);
 
   useEffect(
     () => () => {
@@ -212,7 +216,7 @@ export function DoorScroll({
     : "";
 
   return (
-    <div className="flex min-w-0 flex-col items-center gap-1 overflow-hidden" data-testid="door-scroll">
+    <div className="flex min-w-0 flex-col items-center gap-0 overflow-hidden" data-testid="door-scroll">
       <div
         ref={scrollerRef}
         tabIndex={0}
@@ -231,7 +235,7 @@ export function DoorScroll({
         data-centre={centre}
         data-slot={slot}
       >
-        <div className="relative h-[132px]" style={{ width: trackWidth }}>
+        <div className="relative h-[110px]" style={{ width: trackWidth }}>
           {viewport > 0 &&
             windowIndices(centre, total).map((i) => {
               const door = doors[i];
@@ -249,7 +253,9 @@ export function DoorScroll({
                   aria-hidden
                   data-door-item={i}
                   data-plate={plate.text}
-                  className="absolute top-0 flex snap-center flex-col items-center [scroll-snap-stop:normal]"
+                  className={`absolute top-0 flex snap-center flex-col items-center [scroll-snap-stop:normal]${
+                    isCurrent ? "" : " opacity-0"
+                  }`}
                   style={{ left: pad + i * slot, width: slot }}
                 >
                   <span
@@ -287,19 +293,6 @@ export function DoorScroll({
             })}
         </div>
       </div>
-
-      {currentPlate?.placeholder &&
-        (onAddHouseNumber ? (
-          <button
-            type="button"
-            onClick={onAddHouseNumber}
-            className="min-h-tap-min px-3 text-field-body-strong text-prop"
-          >
-            + Add house number
-          </button>
-        ) : (
-          <span className="text-field-body-strong text-ink-muted">+ Add house number</span>
-        ))}
 
       <div className="flex items-center gap-2 text-field-body text-ink-soft">
         <button

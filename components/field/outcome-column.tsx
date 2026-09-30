@@ -12,21 +12,13 @@ import { PRIMARY_OUTCOMES, type OtherOutcome, type PrimaryOutcome } from "@/lib/
  * Figma Default screenshot (8:2): Lead, Contact, Rented/Council, Not In,
  * then Other last — smallest, at the bottom, not first. That is NOT the old
  * Stage 8 frequency ladder (owner decision 1 supersedes it outright): every
- * pill is the same 84px (`size-outcome`), and Other's position here is
- * simply where Figma draws it, not a re-derived ergonomics call.
+ * pill is `size-outcome`, and Other's position here is simply where Figma
+ * draws it, not a re-derived ergonomics call.
  *
- * Each pill is 140px wide but only its 84px circle is "real" width for
- * layout: the tail (the chevron end) is meant to overflow the SCREEN edge
- * ("a 140px pill clipped at the screen edge, with the 84px circle"), not
- * this component's own box. The composer (`logger-tab.tsx`) is responsible
- * for giving this component a narrow (circle-width) slot to sit in — NOT
- * the full 140px — so the door scroll beside it gets the rest of the
- * width. Found in Session C assembly: reserving the full 140px here starved
- * `DoorScroll` down to ~211px at 390px, which clipped the current door's
- * own digits. This component therefore does NOT clip or size itself to fit
- * its widest child; the composer's wrapper is a fixed, narrower box, and
- * the pills overflow it on purpose. The `<main>` root (or the composer's
- * own scroll container) clips that overflow at the actual screen edge.
+ * 2026-09-30 owner E3/E5 (UI item 1c, Session H1): the composer reserves
+ * the pill's real width (`w-[140px] shrink-0`). The tail no longer spills
+ * left into the door column. Other's slot is `top-2` (8px), centred on
+ * the 76px circle: (76 - 60) / 2.
  *
  * 2026-09-29 owner D3: Other inline left of Not In.
  */
@@ -85,7 +77,7 @@ export function OutcomeColumn({
               disabled={disabled}
             />
           </div>
-          <div className="absolute right-full top-3 mr-2" data-testid="outcome-other-slot">
+          <div className="absolute right-full top-2 mr-2" data-testid="outcome-other-slot">
             <OtherButton onPick={onOther} disabled={disabled} onOpenChange={onOtherOpenChange} />
           </div>
         </div>

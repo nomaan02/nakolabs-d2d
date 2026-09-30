@@ -233,7 +233,7 @@ export function OutcomePill({
         ref={tickRef}
         aria-hidden
         viewBox="0 0 24 24"
-        className={`pointer-events-none absolute left-[28px] top-1/2 size-7 -translate-y-1/2 opacity-0 ${style.chevron}`}
+        className={`pointer-events-none absolute left-[24px] top-1/2 size-7 -translate-y-1/2 opacity-0 ${style.chevron}`}
         fill="none"
         stroke="currentColor"
         strokeWidth={3}

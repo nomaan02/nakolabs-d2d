@@ -64,7 +64,8 @@
   --radius-field-lg: 16px;
 
   --spacing-tap-min: 44px;
-  --spacing-outcome: 84px;
+  /* 2026-09-30 owner E3/E5 */
+  --spacing-outcome: 76px;
 
   /* Text styles: field/*, all in Sora (decision 9 / P1). Tailwind v4 turns
      each `--text-*` pair into a `text-*` utility carrying font-size and
@@ -80,6 +81,11 @@
   --text-field-title--letter-spacing: -0.01em;
   --text-field-title--font-weight: 700;
 
+  --text-field-title-sm: 20px;
+  --text-field-title-sm--line-height: 24px;
+  --text-field-title-sm--letter-spacing: -0.01em;
+  --text-field-title-sm--font-weight: 700;
+
   --text-field-body: 13px;
   --text-field-body--line-height: 18px;
   --text-field-body--font-weight: 400;
@@ -88,8 +94,8 @@
   --text-field-body-strong--line-height: 18px;
   --text-field-body-strong--font-weight: 600;
 
-  --text-field-door-current: 112px;
-  --text-field-door-current--line-height: 112px;
+  --text-field-door-current: 88px;
+  --text-field-door-current--line-height: 88px;
   --text-field-door-current--letter-spacing: -0.03em;
   --text-field-door-current--font-weight: 400;
 
@@ -98,8 +104,8 @@
   --text-field-door-neighbour--letter-spacing: -0.02em;
   --text-field-door-neighbour--font-weight: 400;
 
-  --text-field-stat-number: 24px;
-  --text-field-stat-number--line-height: 28px;
+  --text-field-stat-number: 20px;
+  --text-field-stat-number--line-height: 24px;
   --text-field-stat-number--font-weight: 400;
 
   --text-field-stat-label: 12px;
