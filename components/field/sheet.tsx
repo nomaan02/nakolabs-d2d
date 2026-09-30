@@ -38,7 +38,7 @@ export function Sheet({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="relative max-h-[85%] overflow-y-auto rounded-t-xl border-t-2 border-ink bg-paper pb-[env(safe-area-inset-bottom)]"
+        className="relative max-h-[85%] overflow-y-auto rounded-t-xl border-t-2 border-ink bg-paper"
       >
         <header className="flex items-center justify-between gap-3 border-b border-ink/15 px-4 py-3">
           <h2 className="font-display text-lg tracking-tight">{title}</h2>

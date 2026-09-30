@@ -12,7 +12,7 @@ import { pulse } from "@/lib/field/feedback";
 import { doorPlate, mapLabel } from "@/lib/field/labels";
 import { logOutcome } from "@/lib/field/log-outcome";
 import { outcomeSpec, type OtherOutcome, type PrimaryOutcome } from "@/lib/field/outcomes";
-import { offerUndo } from "@/lib/field/undo";
+import { offerUndo, useUndoTarget } from "@/lib/field/undo";
 import { formatFieldHeader } from "@/lib/field/route-display";
 import { ROUTE_TIER_COLOURS } from "@/lib/map/route-layers";
 
@@ -48,6 +48,7 @@ export function MapTab() {
   } = useFieldData();
   const router = useRouter();
   const [otherOpen, setOtherOpen] = useState(false);
+  const undoTarget = useUndoTarget();
 
   if (phase.kind === "loading") {
     return <p className="px-4 pt-8 text-sm text-ink-soft">Loading today&apos;s prop…</p>;
@@ -102,7 +103,7 @@ export function MapTab() {
 
   return (
     <div className="relative flex h-full flex-col" data-testid="map-tab">
-      <header className="z-10 border-b border-ink/15 bg-paper px-3 pb-3 pt-3">
+      <header className={`z-10 border-b border-ink/15 bg-paper px-3 pb-3 pt-3 ${undoTarget ? "pr-14" : ""}`}>
         <h1 className="px-1 font-display text-lg leading-snug tracking-tight">
           {assignment.territory_name}
         </h1>
@@ -139,7 +140,7 @@ export function MapTab() {
 
       {selectedUprn !== null ? (
         <section
-          className="z-10 border-t-2 border-ink bg-paper pb-[env(safe-area-inset-bottom)]"
+          className="z-10 border-t-2 border-ink bg-paper"
           data-testid="map-door-panel"
         >
           <div className="flex items-start justify-between gap-3 px-4 pt-3">

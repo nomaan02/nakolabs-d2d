@@ -4,7 +4,7 @@ import { Sora } from "next/font/google";
 import { FieldDataProvider } from "@/components/field/field-data-provider";
 import { SyncProvider } from "@/components/field/sync-provider";
 import { TabBar } from "@/components/field/tab-bar";
-import { UndoToast } from "@/components/field/undo-toast";
+import { FloatingUndo } from "@/components/field/undo-toast";
 import { RegisterServiceWorker } from "@/components/pwa/register-sw";
 import { getOwnProfile } from "@/lib/auth/profile";
 import { createClient } from "@/lib/supabase/server";
@@ -50,11 +50,11 @@ export default async function FieldLayout({ children }: { children: ReactNode })
         role={profile?.role ?? "canvasser"}
       >
         <main
-          className={`${sora.variable} field-root relative flex h-dvh flex-col overflow-hidden bg-field-bg font-body text-ink`}
+          className={`${sora.variable} field-root relative flex h-dvh flex-col overflow-hidden bg-field-bg pt-[env(safe-area-inset-top)] font-body text-ink`}
         >
           <div className="relative min-h-0 flex-1">
             {children}
-            <UndoToast />
+            <FloatingUndo />
           </div>
           <TabBar />
         </main>

@@ -14,14 +14,16 @@ import type { ReactNode } from "react";
  * character — "i", "!", "◌", "↰" — not an icon asset, so this stays a
  * `ReactNode` rather than a fixed icon per kind). One banner slot, one
  * component: the composer (Session C) decides which kind is showing.
+ *
+ * 2026-09-29 owner D2: slim row under the map, instruction is plain text.
  */
 export type StatusBannerKind = "instruction" | "offline" | "error" | "info";
 
-const KIND_CLASS: Record<StatusBannerKind, { surface: string; text: string; border: string }> = {
-  info: { surface: "border border-line bg-surface", text: "text-ink", border: "border-ink" },
-  offline: { surface: "bg-warn-bg", text: "text-outcome-rented-ink", border: "border-outcome-rented-ink" },
-  error: { surface: "bg-error-bg", text: "text-oxide", border: "border-oxide" },
-  instruction: { surface: "bg-ink", text: "text-paper", border: "border-paper" },
+const KIND_CLASS: Record<StatusBannerKind, { row: string; text: string; message: string }> = {
+  instruction: { row: "px-0", text: "text-ink-soft", message: "text-field-body" },
+  offline: { row: "bg-warn-bg px-3", text: "text-outcome-rented-ink", message: "text-field-body-strong" },
+  error: { row: "bg-error-bg px-3", text: "text-oxide", message: "text-field-body-strong" },
+  info: { row: "border border-line bg-surface px-3", text: "text-ink", message: "text-field-body-strong" },
 };
 
 export function StatusBanner({
@@ -40,22 +42,21 @@ export function StatusBanner({
   return (
     <div
       role={kind === "error" ? "alert" : "status"}
-      className={`flex h-12 items-center gap-2.5 rounded-field-md pr-2.5 pl-3.5 ${style.surface}`}
+      className={`flex h-8 items-center gap-2 rounded-field-sm ${style.row}`}
       data-testid="status-banner"
       data-kind={kind}
     >
-      <span aria-hidden className={`shrink-0 text-field-body-strong ${style.text}`} data-testid="status-banner-glyph">
+      <span aria-hidden className={`shrink-0 ${style.text}`} data-testid="status-banner-glyph">
         {glyph}
       </span>
-      <p className={`min-w-0 flex-1 truncate text-field-body-strong ${style.text}`} data-testid="status-banner-message">
+      <p className={`min-w-0 flex-1 truncate ${style.message} ${style.text}`} data-testid="status-banner-message">
         {message}
       </p>
       {action ? (
         <button
           type="button"
           onClick={action.onPress}
-          style={{ minHeight: 36 }}
-          className={`shrink-0 rounded-field-sm border-[1.5px] px-3 text-field-button-label ${style.text} ${style.border}`}
+          className={`-my-1.5 flex h-11 shrink-0 items-center px-2 text-field-button-label underline underline-offset-2 ${style.text}`}
           data-testid="status-banner-action"
         >
           {action.label}

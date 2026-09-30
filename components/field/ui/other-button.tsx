@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 
 import { slideConfirm } from "@/components/field/ui/outcome-pill";
 import { pulse, useInputLock } from "@/lib/field/feedback";
@@ -24,6 +31,8 @@ import { OTHER_OUTCOMES, type OtherOutcome } from "@/lib/field/outcomes";
  * the door scroll or a pill, and `touch-action: none` stops a pan starting.
  * While the menu is open the caller should make the pills and the scroller
  * `inert` (`onOpenChange`).
+ *
+ * 2026-09-29 owner D4: menu opens up, right-aligned to the gutter, always on screen.
  */
 
 const LABEL: Record<OtherOutcome, string> = Object.fromEntries(
@@ -105,6 +114,23 @@ export function OtherButton({
 
   const open = isMenuOpen(state);
   const active = state.mode !== "idle";
+  const [menuPos, setMenuPos] = useState<{ bottom: number; maxHeight: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setMenuPos(null);
+      return;
+    }
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) {
+      setMenuPos(null);
+      return;
+    }
+    setMenuPos({
+      bottom: window.innerHeight - rect.top + 8,
+      maxHeight: rect.top - 8 - 16,
+    });
+  }, [open]);
 
   useEffect(() => {
     onOpenChange?.(open);
@@ -209,7 +235,12 @@ export function OtherButton({
               dispatch({ type: "key", key: e.key });
             }
           }}
-          className="absolute right-full top-0 z-30 mr-2 flex w-[220px] flex-col gap-1 rounded-field-md border border-line bg-surface p-2 shadow-field-menu"
+          className="fixed right-4 z-30 flex w-[220px] flex-col gap-1 overflow-y-auto rounded-field-md border border-line bg-surface p-2 shadow-field-menu"
+          style={
+            menuPos
+              ? { bottom: menuPos.bottom, maxHeight: menuPos.maxHeight }
+              : { visibility: "hidden" }
+          }
           data-testid="other-menu"
         >
           {OTHER_MENU_OPTIONS.map((key, i) => {

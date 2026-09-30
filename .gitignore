@@ -49,3 +49,5 @@ next-env.d.ts
 /data/*
 !/data/README.md
 nakolabs-data/data/
+
+Claude outputs/

@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -8,6 +8,7 @@ import {
   type FieldPhase,
   type LeadDraft,
 } from "@/components/field/field-data-provider";
+import { TurnIcon } from "@/components/field/icons";
 import { HouseNumberSheet, NotesSheet, OtherOutcomeSheet } from "@/components/field/door-sheets";
 import { LeadSheet } from "@/components/field/lead-sheet";
 import { MiniMap } from "@/components/field/mini-map";
@@ -20,6 +21,7 @@ import { DoorScroll, type DoorScrollItem } from "@/components/field/ui/door-scro
 import { IdChip, type IdChipSync } from "@/components/field/ui/id-chip";
 import { NoteBar } from "@/components/field/ui/note-bar";
 import { StatRow } from "@/components/field/ui/stat-row";
+import { UndoButton } from "@/components/field/ui/undo-button";
 import { StatusBanner, type StatusBannerKind } from "@/components/field/ui/status-banner";
 import { TeamStrip } from "@/components/field/ui/team-strip";
 import { nextOpenIndex } from "@/lib/field/cursor";
@@ -108,7 +110,7 @@ function failedDoorText(row: OutboxRow): string {
 
 type BannerView = {
   kind: StatusBannerKind;
-  glyph: string;
+  glyph: ReactNode;
   message: string;
   action?: { label: string; onPress: () => void };
 };
@@ -138,9 +140,10 @@ function computeBanner(input: {
     };
   }
   if (cards.length > 0) {
+    const first = cards[0]!;
     return {
       kind: "instruction",
-      glyph: instructionGlyph(cards[0]!.kind),
+      glyph: first.kind === "step" ? <TurnIcon className="size-4" /> : instructionGlyph(first.kind),
       message: cards.map((card) => card.text).join(" \u00b7 "),
     };
   }
@@ -317,7 +320,10 @@ export function LoggerTab() {
     if (isPrimaryOutcome(outcome)) {
       setConfirmKeys((current) => ({ ...current, [outcome]: current[outcome] + 1 }));
     }
-    offerUndo(result.clientEventId, `${outcomeSpec(outcome).logged} \u00b7 ${plate}${street ? ` ${street}` : ""}`);
+    offerUndo(
+      result.clientEventId,
+      `${outcomeSpec(outcome).logged} \u00b7 ${scrollPlate(plate, door.position).text}${street ? ` ${street}` : ""}`,
+    );
     setNoteDraft(door.uprn, "");
     setLeadDraft(door.uprn, null);
     setSheet({ kind: "none" });
@@ -363,26 +369,30 @@ export function LoggerTab() {
 
       <TeamStrip rows={teamRows} />
 
-      <div className="relative h-[124px] shrink-0" data-testid="logger-map-band">
-        <MemoMiniMap
-          doors={assignment.doors}
-          labels={labels}
-          outcomes={outcomes}
-          routeModel={routeModel}
-          routeTiers={routeTiers}
-          currentUprn={door.uprn}
-          onOpenMap={handleOpenMap}
-        />
-        {banner ? (
-          <div className="absolute inset-x-3 bottom-2">
-            <StatusBanner kind={banner.kind} glyph={banner.glyph} message={banner.message} action={banner.action} />
+      <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto" data-testid="logger-body">
+        <div className="relative min-h-[112px] flex-1" data-testid="logger-map-band">
+          <div className="absolute inset-0">
+            <MemoMiniMap
+              doors={assignment.doors}
+              labels={labels}
+              outcomes={outcomes}
+              routeModel={routeModel}
+              routeTiers={routeTiers}
+              currentUprn={door.uprn}
+              onOpenMap={handleOpenMap}
+            />
           </div>
-        ) : null}
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-        <div className="flex items-start gap-2 px-4 pt-3">
-          <div className="min-w-0 flex-1">
+        </div>
+        <div className="flex h-11 shrink-0 items-center px-4" data-testid="logger-status-line">
+          {banner ? (
+            <div className="min-w-0 flex-1">
+              <StatusBanner kind={banner.kind} glyph={banner.glyph} message={banner.message} action={banner.action} />
+            </div>
+          ) : null}
+        </div>
+        <div className="flex shrink-0 items-end gap-2 px-4 pt-1 pb-3" data-testid="logger-panel">
+          <div className="relative min-w-0 flex-1" data-testid="logger-door-column">
+            <UndoButton className="absolute -top-3.5 right-2 z-10" />
             {allDone ? (
               <EndOfProp doorCount={assignment.door_count} />
             ) : (
@@ -411,10 +421,10 @@ export function LoggerTab() {
               </>
             )}
 
-            <hr className="my-3 border-line" />
+            <hr className="mt-3 mb-2 border-line" />
 
             <p className="text-field-eyebrow uppercase text-ink-muted">Today&apos;s stats</p>
-            <div className="mt-2 flex flex-col gap-2" data-testid="today-stats">
+            <div className="mt-2 flex w-fit flex-col gap-2" data-testid="today-stats">
               <StatRow label="Doors" value={countDoorsLogged(outcomes, canvasserId)} />
               <StatRow label="Contacts" value={countBookableContacts(outcomes, canvasserId)} />
               <StatRow label="Leads" value={countLeads(outcomes, canvasserId)} />
@@ -491,7 +501,10 @@ export function LoggerTab() {
               }).then((result) => {
                 pulse(25);
                 setNoteDraft(door.uprn, "");
-                offerUndo(result.clientEventId, `Note added \u00b7 ${plate}`);
+                offerUndo(
+                  result.clientEventId,
+                  `Note added \u00b7 ${scrollPlate(plate, door.position).text}`,
+                );
               });
             }
           }}

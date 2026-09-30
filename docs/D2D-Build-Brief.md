@@ -1775,6 +1775,8 @@ satisfied. See Section 6, Stages 5b and 16.
 >   page), and its own attribution is a second, visible ⓘ alongside the
 >   Map tab's. The dot is the CURRENT DOOR, never GPS (invariant 7).
 
+> **2026-09-29 (owner, UI-1b).** Undo is a 44px ring icon, top-right of the Logger door panel, floating top-right elsewhere; the 60 s window and one-target rule are unchanged.
+
 ---
 
 ### Stage 9 — Prop completion

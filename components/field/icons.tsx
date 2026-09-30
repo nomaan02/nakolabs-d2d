@@ -345,3 +345,47 @@ export function ChevronIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+/** Turn instruction on the Logger status line. UI item 1b, 2026-09-29. */
+export function TurnIcon({ className }: IconProps) {
+  return (
+    <svg
+      aria-hidden
+      className={className}
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <polyline points="9 14 4 9 9 4" />
+      <path d="M20 20v-7a4 4 0 0 0-4-4H4" />
+    </svg>
+  );
+}
+
+/** Undo control. Drawn here for Session G2. */
+export function UndoIcon({ className }: IconProps) {
+  return (
+    <svg
+      aria-hidden
+      className={className}
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M3 7v6h6" />
+      <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
+    </svg>
+  );
+}

@@ -1380,3 +1380,119 @@ One entry per stage, appended by the agent at the end of each session.
 - **External settings:** none changed.
 - **Follow-ups:** decide whether the map-band scroll-shrink ladder (P11) is worth building; decide whether `EndOfProp`'s copy/layout should be checked against Figma directly; the admin-Contacts label reconciliation (Session A) is still open for the admin rebuild; the ~8-door-per-scroll fling limit (Session B2) is still an open owner question.
 
+---
+
+### UI item 1b — Logger layout, Session G1
+- **Date:** 2026-09-29
+- **Model:** Grok 4.7
+- **Built:** Logger layout only. The root viewport is `themeColor: "#fbfaf8"` plus `viewportFit: "cover"`. The field `<main>` pads the top safe area. The sheet and the map door panel no longer pad the bottom safe area; the tab bar still does. `TurnIcon` and `UndoIcon` were added (`UndoIcon` is unused until G2). The status banner is a 32px row under the map; instruction is plain text. The Logger body is map (grows), a 44px status line, then the door panel bottom-aligned above the note bar. Other sits inline, left of Not In. No migration. No sync change. G2 was not started.
+- **Acceptance:**
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - `npx eslint components/field "app/(field)" app/layout.tsx`: **PASS** — exit 0, run again after the two class tweaks below, exit 0.
+  - `npm run verify:ui1`: **PASS** — exit 0.
+  - `npm run verify:stage8b`: **PASS** — exit 0. The harness created a throwaway prop and two users, then deleted them (`territories left named "STAGE 8B TEST PROP — DELETE ME": 0`).
+  - `npm run verify:ui4`: **PASS** — exit 0. The script printed "read-only asserts".
+  - `git grep -n "safe-area-inset-bottom" -- components app`: **PASS** — exactly one line, `components/field/tab-bar.tsx:33`.
+  - Viewport meta includes `viewport-fit=cover`: **PASS** — `content="width=device-width, initial-scale=1, viewport-fit=cover"` on `http://localhost:3000/login`.
+  - Four pills share one left edge (±1px): **PASS** — 390: all `234.6`. 375: all `219.22`. 430: all `274.77`.
+  - Not In bottom = NoteBar top − 12 (±2px) at 390 and 430: **PASS** — 390 gap `12`. 430 gap `11.99`. At 375 the body scrolls (`scrollHeight` 597, `clientHeight` 469); the gap is not required there and measured `−116.12` at scroll 0.
+  - Other right = Not In left − 8 (±1), centres match (±1): **PASS** at all three sizes. Gap `8`. Centre delta `0` at 390, `−0.01` at 375 and 430.
+  - Other does not intersect a today-stats row or the door scroll: **NOT MET** at 375. **PASS** at 390 and 430 (door scroll never intersects). At 375, after `w-fit`, the CONFIRMED label box is left `64` right `154.6` top `652.2` bottom `668.2`; Other is left `151.2` right `211.2` top `598.8` bottom `658.8`. They overlap by about 3.4px horizontally and 6.6px vertically. The LEADS and CONFIRMED `stat-row` boxes (right `154.6`) also intersect Other. Stopped. `stat-row.tsx` is outside this session, and Other's `top-3 mr-2` is the specified offset.
+  - Map band height at 390×844 at least 160px: **PASS** on the second measure — `160.82`. The first measure, with `my-3` on the rule, was `156.82`.
+  - Status line is 44px and its top equals the map band bottom: **PASS** — height `43.99`. Top minus map bottom `0` at 375, 390 and 430.
+  - Nothing absolutely positioned in `logger-map-band` except the map wrapper: **PASS** for the band's own children — the only absolute child is the `absolute inset-0` wrapper, and a query for absolute elements outside that wrapper returned `[]`. Inside the wrapper, MapLibre's canvas and control corners and `mini-map-tap` are `position: absolute`. Those files were not edited.
+  - Screenshots: 3. `g1-390-instruction.png` (the default door already shows "Start on service road, doors on your left", so a second 390 frame would have been the same). `g1-375.png` (scrolled to the panel). `g1-430.png` (the capture window is shorter than 932px, so the shot shows the top of that layout; the numbers above are from `getBoundingClientRect`).
+- **Deviations from brief:**
+  - The turn card's kind in code is `step`, not `turn`. `TurnIcon` is used when the first card's kind is `step`. Transfer, spur and stranded still use `instructionGlyph`.
+  - The rule under the door is `mt-3 mb-2` rather than `my-3`, so the map clears 160px on this solo prop (first measure `156.82`).
+  - Today's stats wrapper is `w-fit`, so the row boxes match the text. Without it, stretched rows intersected Other at 390 even though the words did not.
+- **Not done / deferred:** Session G2 (Other menu placement, undo icon). The 375px CONFIRMED/Other overlap, left as NOT MET. Real iPhone safe area: **NOT VERIFIED** — Chrome device emulation, `env(safe-area-inset-top)` computed as 0 on `<main>`. No phone, no sun, no wet thumb, no on-device haptic. Did not commit.
+- **Follow-ups:** the 375px overlap needs an owner call before anyone edits `stat-row.tsx` or Other's offset. G2 is a separate session.
+
+---
+
+### UI item 1b — Other menu and undo icon, Session G2
+- **Date:** 2026-09-30
+- **Model:** Grok 4.7
+- **Built:** Other menu placement and the undo ring. The menu is fixed to the 16px right gutter and opens upward, capped so it stays on screen. `UndoToast` is now `FloatingUndo`: hidden on `/field/logger`, a 44px ring at the top-right everywhere else. The Logger renders `UndoButton` as the first child of the door column, including the end-of-prop state. Undo copy uses `scrollPlate`, so a missing number is `#N`. Stage 8 has a dated note. No migration. No sync change. G3 was not started.
+- **Acceptance:**
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - `npx eslint components/field "app/(field)"`: **PASS** — exit 0.
+  - `git grep -n -E "#[0-9a-fA-F]{3,8}\b" -- components/field/ui`: **PASS** — 0 lines, exit 1.
+  - `git grep -n "UndoToast" -- components app`: **PASS** — 0 lines, exit 1.
+  - `git diff --quiet -- lib/sync lib/field/undo.ts lib/field/other-gesture.ts`: **PASS** — exit 0.
+  - `npm run verify:ui1`: **PASS** — exit 0, once.
+  - `npm run verify:stage8b`: **PASS** — exit 0, once. Throwaway prop and two users created and deleted (`territories left named "STAGE 8B TEST PROP — DELETE ME": 0`).
+  - `npm run verify:ui4`: **PASS** — exit 0, once. The script printed "read-only asserts".
+  - 375×667 quick-tap Other, gesture `tap`: **PASS**. 4 menuitems inside the viewport. Menu right `359.21` versus width − 16 = `359` (delta `0.21`). Menu bottom `462.99` < Other top `470.46`.
+  - 390×844 emulation (`innerWidth` 391) quick-tap, gesture `tap`: **PASS**. 4 menuitems inside. Menu right delta `−0.4`. Menu bottom `640.06` < Other top `647.61`.
+  - Hold-slide onto Call back later, script touch `PointerEvent`s: **PASS**. Outbox `held_undo` 0 → 1, then undo 1 → 0 and the button gone.
+  - After a Contact log: **PASS**. Button `43.99×43.99`. No intersection with the four pills, Other, or the current plate. `undo-toast` count 0. Dash offset `33.88` → `37.73` in 2s. Tap undo removed the held row and the button. Description `Contact · #2 Ventnor Road`.
+  - Map tab, offline: **PASS**. Not In from the door panel. Floating ring top-right, `43.99×43.99`, 179px clear of the territory-name glyphs. Undo removed the held row and the button.
+  - CanvasserX `knock_events` since 2026-09-29 00:00 London, after going back online: **PASS** — count 0.
+  - Screenshots: 4. `g2-375-other-menu.png`, `g2-390-other-menu.png`, `g2-undo-ring.png`, `g2-map-undo.png`.
+- **Deviations from brief:**
+  - `UndoButton` does not emit `relative` when the caller passes `absolute`. Both classes set `position`, and the stylesheet keeps `relative`, so the Logger button stayed in normal flow until `relative` was omitted. The floating button still uses `relative`.
+  - One Contact on REF - Speedwell (occurred 2026-09-29 23:06:48Z) synced after the 60s window because that minute was not actually offline. The row was deleted before the final count. Later logs were undone while `navigator.onLine` was false and `fetch /health` failed.
+- **Not done / deferred:** Session G3. Real phone, sun, wet thumb and on-device haptic: **NOT VERIFIED**. The map visit line's glyphs run under the floating icon (text right `370.45`, button left `334.62`). The G1 375px CONFIRMED/Other overlap is unchanged. Did not commit.
+- **Follow-ups:** whether the visit line under the floating undo icon needs a shorter header or a lower icon. The 375px CONFIRMED overlap is still an owner call.
+
+---
+
+### UI item 1b — Log-confirm animation, Session G3
+- **Date:** 2026-09-30
+- **Model:** Grok 4.7
+- **Built:** The outcome pill's confirm is a 780 ms slide. The white circle travels 124 px, a tick draws where it rested, then the circle returns. Other keeps an exported `slideConfirm`, now a 240 ms scale pop. No migration. No sync change. `confirmKey` was not changed. `logger-tab.tsx`, `outcome-column.tsx` and `lib/*` were not edited.
+- **Acceptance:**
+  - `npx tsc --noEmit`: **PASS** — exit 0, after the reduced-motion edit.
+  - `npx eslint components/field`: **PASS** — exit 0.
+  - `git grep -n -E "#[0-9a-fA-F]{3,8}\b" -- components/field/ui`: **PASS** — 0 lines, exit 1.
+  - `npm run verify:ui1`: **PASS** — exit 0, once.
+  - `npm run verify:stage8b`: **PASS** — exit 0, once. Throwaway prop and two users created and deleted (`territories left named "STAGE 8B TEST PROP — DELETE ME": 0`).
+  - Contact, offline, 390×844 (`innerWidth` 391). Click-to-animation 8 ms. At 134 ms: `translateX` 119.7 (between 20 and 124), tick opacity 1, chevron opacity 0. At 417 ms: `translateX` 124, tick opacity 1, chevron opacity 0, `getAnimations().length` 1. At 1,017 ms: `translateX` 0, tick opacity 0, chevron opacity 1, `getAnimations().length` 0. **PASS**.
+  - Circle fully off-screen (`getBoundingClientRect().left` ≥ viewport width): **NOT MET**. At 417 ms left was 358.6, `innerWidth` 391, so 32.4 px of the circle was still inside the viewport. `elementFromPoint` at the right edge hit the circle span. Resting left is 234.6. `travelPx` stayed 124, as specified. The mid-hold screenshot shows the tick on the blue pill; the geometry does not clear the edge.
+  - Not In twice, 214 ms apart: **NOT MET** for two logs. The second tap did not log. `INPUT_LOCK_MS` is 400 and was not changed. One `held_undo` row. After 1,200 ms every pill was at rest (`translateX` 0, tick opacity 0, `getAnimations().length` 0).
+  - Not In twice, 459 ms apart (after the lock, still inside the 780 ms run): **PASS**. Animation `currentTime` 450 then 17, 30 ms after the second click. Outbox held both `no_answer` rows. After 1,200 ms all four pills were at rest (`translateX` 0, tick opacity 0, animations 0).
+  - Perf, one Contact, 1,100 ms `requestAnimationFrame` loop plus a `longtask` observer: **PASS**. 68 frames, 0 dropped, longest gap 16.9 ms, long tasks 0. None over 50 ms.
+  - Reduced motion (`prefers-reduced-motion: reduce`), offline. At 131 ms and 414 ms: `translateX` 0, circle opacity 0, tick opacity 1, chevron opacity 0. At 1,014 ms: `translateX` 0, circle opacity 1, tick opacity 0, chevron opacity 1, animations 0. The paused screenshot shows the tick on the blue pill and no white circle. **PASS**.
+  - CanvasserX `knock_events` with `occurred_at` on or after 2026-09-30 17:50 UTC, after going back online, and the last 2 hours: **PASS** — both counts 0. The same query before the test had last-2-hours 0.
+  - Screenshots used as evidence: 3. `g3-rest.png` (rest). `page-2026-09-30T17-56-55-765Z.png` (mid-hold). `page-2026-09-30T18-03-19-283Z.png` (reduced motion, paused on the tick). Two earlier captures missed the hold and are not the evidence set.
+- **Deviations from brief:**
+  - `scale-96` is not in Tailwind 4.3.3's scale list (`0, 50, 75, 90, 95, 100, 105, 110, 125, 150, 200`). The press class is `active:scale-[0.96]`. That arbitrary value sets the CSS `scale` property. Computed `transition-property` on the circle is `scale`.
+  - The tick path's stroke ease is `EASE_OUT` on the keyframe at 60/780 as well as the first keyframe, so the 60–240 ms draw eases out.
+  - Reduced motion also fades the circle's opacity and holds the tick path's `strokeDashoffset` at 0. Opacity alone cannot show the tick: the path rests fully offset, and the circle covers it because it does not travel. No `translateX` in that branch.
+  - A second Not In inside 400 ms does not log, because of the existing input lock. The restart check used a 459 ms gap.
+  - The undo button only offers the latest held row. An earlier held row from a pair was deleted from the local outbox while offline, so it could not sync. That was test cleanup, not a product change.
+- **Not done / deferred:** Real phone, sun, wet thumb and on-device haptic: **NOT VERIFIED**. The 32 px remainder is an owner call if 124 px must actually clear the screen. The G1 375 px CONFIRMED overlap and the G2 visit-line overlap are unchanged. Did not commit.
+- **Follow-ups:** whether `travelPx` should grow past 124 so the circle's left clears a 390-wide screen (resting left was 234.6). Whether a second tap at 200 ms should log despite `INPUT_LOCK_MS` 400. That lock was not edited.
+
+---
+
+### UI item 1b — Session G4
+- **Date:** 2026-09-30
+- **Model:** Grok 4.7
+- **Built:** Three edits. Stat rows use `gap-2` below 390px and wider tracking from 390px. The map header takes `pr-14` while `useUndoTarget()` is set. `playLogConfirm` measures travel from the circle's resting left to the viewport edge plus 8px, and keeps 124px as the minimum. No migration. No sync change.
+- **Acceptance:**
+  - EDIT 1 DONE. `stat-row` is `gap-2 min-[390px]:gap-3`. The label has `tracking-[0.08em] min-[390px]:tracking-[0.12em]`. At 375×667 no `[data-testid=stat-row]` intersects `[data-testid=outcome-other-slot]`. Gap (Other left − row right) `5.25`. At 390 the gap is `11.75`. At 430 the gap is `51.63`. None intersect.
+  - EDIT 2 DONE in source. `map-tab.tsx` imports `useUndoTarget`, calls it next to the other hooks, and the header className is a template literal with `${undoTarget ? "pr-14" : ""}`. The Map-tab check was not run.
+  - EDIT 3 DONE. Travel is measured before animations are cancelled. At rest, transform `none` contributes 0. Mid-flight subtracts `DOMMatrixReadOnly` `m41`. `CONFIRM.travelPx` stays the minimum.
+  - Contact, offline, circle `getBoundingClientRect().left` versus `innerWidth`. 375: at 431 ms left `383.51`, width `375`, `translateX` `164`. At 1001 ms left `219.51` (rest delta `0`), animations `0`. Undo removed the ring. 390: at 426 ms left `398.32`, width `390`, `translateX` `164`. At 1001 ms left `234.32`, delta `0`. Undo removed the ring. 430: at 428 ms left `438.21`, width `430`, `translateX` `164`. At 1002 ms left `274.21`, delta `0`. Undo removed the ring.
+  - Through those three logs the outbox stayed `pending` 5, `synced` 47. No `held_undo` after each undo.
+  - `npx tsc --noEmit`: **PASS** — exit 0, after `let travel: number`.
+  - `npx eslint components/field`: **PASS** — exit 0.
+  - `npm run verify:ui1`: **NOT RUN**.
+  - `npm run verify:stage8b`: **NOT RUN**.
+  - Map tab, 390×844, Not In from the door panel, undo versus header text: **NOT RUN**.
+  - Screenshots: 0.
+- **Deviations from brief:** `let travel: number`, because `CONFIRM` is `as const` and `travelPx` is the literal `124`. A transform of `none` is not passed to `DOMMatrixReadOnly`.
+- **Not done / deferred:** The Map check. The two verify scripts. Stopped after five knocks synced. Did not delete or update them. Real phone, sun, wet thumb and on-device haptic: **NOT VERIFIED**. Did not commit.
+- **Follow-ups:** the five synced rows are still in `knock_events`. The Map header padding is untested on the device. `INPUT_LOCK_MS` 400 was not edited.
+
+Five `knock_events` rows synced when the Logger was reloaded online. They were already `pending` in the on-device outbox (created 2026-09-30 19:46 UTC, attempts 0) before this session's Contact logs. Those Contact logs were undone while offline and are not in this list. Not deleted. Not updated.
+
+- `b73f0d67-6fcf-401e-876e-e6fbd19cae35` — `no_answer` — UPRN 76888 — occurred 2026-09-30 19:46:47.855+00
+- `6e2f6979-24d6-4366-b8ff-ee6e2aafdaa3` — `no_opportunity` — UPRN 77069 — occurred 2026-09-30 19:46:49.894+00
+- `26c0d64e-f8f0-43d5-8d43-745f14db2c26` — `no_answer` — UPRN 77070 — occurred 2026-09-30 19:46:55.721+00
+- `3ff38c7f-7a36-4216-ab1c-d3c091c7ad20` — `no_opportunity` — UPRN 77095 — occurred 2026-09-30 19:46:57.104+00
+- `f6a3ff71-03bb-4d6b-a73b-889931d7303d` — `no_opportunity` — UPRN 77111 — occurred 2026-09-30 19:46:58.976+00
+

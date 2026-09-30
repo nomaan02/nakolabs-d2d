@@ -2,16 +2,20 @@
 
 ## Current state
 
-- Last updated: 2026-09-29 (UI item 1, Session C — the Logger rebuild is now feature-complete and assembled). Last commit: cc30407 (HEAD). Everything on top of HEAD is still uncommitted: the route-geometry work (A–B2, A4 reverted), UI item 4, and all four UI item 1 sessions (plan approval, A, B1, B2, C). **The owner commits after review — this session did not commit.**
-- **UI item 1, Session C (this session) assembled the whole Logger.** `logger-tab.tsx` is now the full composer built from every earlier session's pieces: header (eyebrow, territory name, `IdChip`, the short Area line), `TeamStrip`, a compact live `MiniMap` with a single banner slot (`computeBanner`, priority Failed > Instruction > Offline/Pending > Info), the real `DoorScroll` + new `OutcomeColumn` (Lead/Contact/Rented-Council/Not In then Other, confirmed top-to-bottom against the Figma screenshot), Today's stats, an "Already logged" pill, an `allDone` end-of-prop state, and `NoteBar`. New files: `components/field/mini-map.tsx` (wraps `FieldMap` with a new `variant="compact"` — no Nav/Scale control, not interactive, `jumpTo` at a new `COMPACT_ZOOM` 17.5, a prop-blue halo on the existing `selected` state, a tap button that opens the Map tab) and `components/field/outcome-column.tsx`.
+- Last updated: 2026-09-30 (UI item 1b, Session G4 — three small fixes). Last commit: cc30407 (HEAD). Still uncommitted on top of HEAD: the route-geometry work (A–B2, A4 reverted), UI item 4, UI item 1 sessions A–C, G1, G2, G3, and this G4 pass. **The owner commits after review — this session did not commit.**
+- **UI item 1b, Session G4 is three edits.** Stat rows use a tighter gap and tracking below 390px. The map header adds `pr-14` while an undo target is up. The log-confirm travel is measured each run so the circle's left clears the viewport, with 124px kept as the minimum. No migration. `lib/*` was not edited. The Logger rect checks passed offline. The Map check was not run: five knocks that were already `pending` in the on-device outbox synced when the Logger was reloaded online. Their `client_event_id`s are in the log entry below. They were not deleted or updated. `npm run verify:ui1` and `npm run verify:stage8b` were not run.
+- **UI item 1b, Session G3 plays the log-confirm.** Owner D7 (2026-09-29): after a log, the white circle travels, a tick draws where it rested, and the circle returns, 780 ms, restartable. Other's confirm is a 240 ms scale pop. No migration. `confirmKey`, `logger-tab.tsx`, `outcome-column.tsx` and `lib/*` were not edited. G3 left `travelPx` at 124, which left 32.4px of the circle on a 391px-wide logger. G4 measures a longer travel per run. Under reduced motion the circle fades (opacity only) so the tick can show. Evidence is in the log entry below and in `docs/BUILD-LOG.md`.
+- **UI item 1b, Session G2 placed the Other menu and replaced the undo toast.** Owner D4: the menu opens upward, right-aligned to the 16px gutter, and stays on screen. Owner D5: the full-width toast is a 44px ring. On the Logger it sits top-right of the door panel. On every other field route it floats top-right. The 60s window and the one-target rule are unchanged. No migration. `lib/sync/queue.ts`, `lib/field/undo.ts` and `lib/field/other-gesture.ts` were not edited.
+- **UI item 1b, Session G1 laid out the Logger.** Owner D1: `viewportFit: "cover"` so the tab bar's existing safe-area padding can clear the home indicator; the sheet and the map door panel no longer add their own bottom inset. Owner D2: the status line is a slim row under the map; an instruction is plain grey text with `TurnIcon`, and nothing covers the map. Owner D3: Other sits inline, 8px left of Not In, vertically centred on it. Owner D6: the door panel sits at the bottom of the body and the mini map takes the leftover height. Evidence, the 375px overlap, and the two small class deviations are in the log entry below and in `docs/BUILD-LOG.md`.
+- **UI item 1, Session C assembled the whole Logger.** `logger-tab.tsx` is now the full composer built from every earlier session's pieces: header (eyebrow, territory name, `IdChip`, the short Area line), `TeamStrip`, a compact live `MiniMap` with a single banner slot (`computeBanner`, priority Failed > Instruction > Offline/Pending > Info), the real `DoorScroll` + `OutcomeColumn` (Lead, Contact, Rented/Council, Not In; G1 moved Other inline to the left of Not In), Today's stats, an "Already logged" pill, an `allDone` end-of-prop state, and `NoteBar`. New files: `components/field/mini-map.tsx` (wraps `FieldMap` with a new `variant="compact"` — no Nav/Scale control, not interactive, `jumpTo` at a new `COMPACT_ZOOM` 17.5, a prop-blue halo on the existing `selected` state, a tap button that opens the Map tab) and `components/field/outcome-column.tsx`.
 - **Two bugs found and fixed during assembly** (full reasoning in the BUILD-LOG entry): (1) Sora had never actually applied anywhere in `/field` since Session B1 — `app/globals.css`'s `@theme inline { --font-field: ...; }` never emitted a working `:root` custom property (confirmed live: empty string), so every field screen was rendering in Instrument Sans. Fixed by dropping the indirection — `.field-root` now sets the three font roles directly to `var(--font-sora), ...`. (2) Once Sora's real (wider) glyph metrics applied, `DoorScroll`'s current-door digits clipped to an ellipsis once assembled next to the pills — the pills' reserved flex width was cut from 140px to 92px (a fixed slot for the 84px circle only, with the tail overflowing on purpose, matching Figma's own "clipped at the screen edge" description), and `door-scroll.tsx`'s current item now renders at natural width instead of `max-w-full`+`truncate` (neighbours keep the truncate safety net).
 - **Full acceptance list, all PASS** (evidence and exact numbers in the BUILD-LOG entry): `tsc`/`eslint` exit 0; `verify:stage8b`/`verify:stage10`/`verify:ui4`/`verify:ui1` all exit 0; screenshots vs Figma at 390/375/430 plus the two sanity sizes; a live two-throwaway-canvasser (Ada, Tom) team test proving A1 (forward-wrap), B1 (greyed + "✓ name" tag) and C1 (`"Ada · last knocked #43"`, live, no reload) end to end through the real rebuilt UI; a second-session Realtime listener showing `claim=0`/`release=0`; an offline log→queue→sync test giving exactly 1 `knock_events` row; the amendment 4 Sync failed trigger proved BOTH at the script level (delete a member's `assignment_members` row, `sendOp` returns `permanent`/`42501`, 0 rows) AND live in the browser (the banner, IdChip red, the row excluded from stats); `document.querySelectorAll('.maplibregl-map').length` staying at 1 through Map→Logger→Map→Logger; a temporary 2,000-door page proving ≤17 `DoorScroll` nodes and exactly 1 `jumpTo` per settle; and a React `Profiler` check (temporary, removed after) proving `DoorScroll`/`MiniMap` cost under 1ms per commit despite `use-team.ts`'s 1s tick still firing — one real memoisation bug (an inline `onAddHouseNumber` arrow) was found and fixed as part of that check.
-- **Not done / deferred by Session C, explicitly:** the map-band scroll-shrink height ladder (P11, 124px→72px) — the band is a static 124px; `EndOfProp`'s exact copy/layout is this session's own reading of the plan text, no Figma screenshot spent on it; the Turn instruction banner's exact wording was not exercised against a real routed fixture (the throwaway test prop had no frozen route); `prefers-reduced-motion`/screen-reader/keyboard-only checks at the composed-screen level (all unit-tested inside their own components in Session B2, not re-tested here). **No phone was used anywhere in this session** — every check ran in desktop Chrome with CDP device-metrics emulation, which the field-ergonomics skill is explicit is not equivalent evidence.
+- **Not done / deferred by Session C, explicitly:** the map-band scroll-shrink height ladder (P11) — G1 replaced the static 124px band with a growing band (160.82px at 390×844 on this prop); `EndOfProp`'s exact copy/layout is this session's own reading of the plan text, no Figma screenshot spent on it; the Turn instruction banner's exact wording was not exercised against a real routed fixture (the throwaway test prop had no frozen route); `prefers-reduced-motion`/screen-reader/keyboard-only checks at the composed-screen level (all unit-tested inside their own components in Session B2, not re-tested here). **No phone was used anywhere in this session** — every check ran in desktop Chrome with CDP device-metrics emulation, which the field-ergonomics skill is explicit is not equivalent evidence.
 - All UI item 1 sessions' throwaway data (auth users, profiles, territories, knock_events) confirmed deleted after every verify run and after this session's own two extra fixtures (a duo + a solo canvasser), checked directly against the live project. `realtime.messages` for the test topic: `0` (broadcast messages are not persisted to that table — consistent with UI item 4's own finding). Nothing was ever deleted from `realtime.*`.
 - Carried from the route-geometry work (unrelated to UI item 1): the 22 r1 Turns problems are an accepted pinned limit (Lower Redland Mews and Fourth Avenue); the Filton Road / Eden Grove `chain: -1` transfer is a separate, still-unfixed traversal item; REF - Speedwell / TEST - dry run / Northville were re-saved and two open zero-knock assignments (`c14aa0d1`, `3cdbb911`) re-frozen in Session B2, with `0de4d001` and `0c32a933` left un-refrozen.
 - Carried from UI item 4: Realtime "Allow public access" is still on; its six agent decisions are not yet accepted or rejected; G6 zoom-19 corner, the draw-page "Loading the map…" check, and an offline reopen on a phone after deploy remain unverified.
 - Changed shared modules since HEAD: `lib/field/door-signals.ts`, `lib/field/use-team.ts`, `lib/field/cursor.ts` (Session A, claims removal); `lib/field/other-gesture.ts`, `lib/field/door-window.ts` (Session B2, pure, no I/O, unchanged since); `components/field/field-map.tsx` (Session C, added the `variant` prop and a `dataset.cameraJumps` counter — the existing "full" behaviour is byte-for-byte unchanged, only new `compact` branches were added); `app/globals.css` (Session C, the Sora fix — additive/corrective only, no admin token name or value changed). `lib/sync/queue.ts` and `lib/supabase/*` are unchanged throughout every UI item 1 session. `lib/geo/walk/*` and `lib/map/route-layers.ts` are unchanged (last touched by the route-geometry work above).
-- Open questions for the owner: whether the map-band scroll-shrink ladder (P11) is worth building given no acceptance item tests it; whether `EndOfProp` should be checked against Figma directly; the admin-Contacts label reconciliation (Session A) is still open for the admin rebuild; the ~8-door-per-scroll fling limit (Session B2) is still unanswered; **the whole Logger rebuild needs an on-device pass (sun, one hand, wet thumb, haptics) before it can be called field-ergonomics-verified — none of that ran this session.**
+- Open questions for the owner: G4 closed the 375px CONFIRMED/Other overlap (gap 5.25px, no intersection) and the fixed 124px travel (the circle's left cleared the viewport at 375, 390 and 430). The map header `pr-14` is in the source; the Map-tab intersection check was not run, because five outbox knocks synced (ids in the G4 log). A second Not In at 214 ms still does not log because `INPUT_LOCK_MS` is 400, and that lock was not changed. Whether the map-band scroll-shrink ladder (P11) is worth building; whether `EndOfProp` should be checked against Figma directly; the admin-Contacts label reconciliation (Session A) is still open; the ~8-door-per-scroll fling limit (Session B2) is still unanswered; **the Logger still needs an on-device pass (sun, one hand, wet thumb, haptics), and the real iPhone safe area was not verified — Chrome emulation reported inset 0.** The five synced knocks were not removed.
 - External settings changed since handover: none. Every throwaway session created by a verify run or by this session's manual browser testing was deleted (not merely signed out) by its own script's cleanup, confirmed against the live project.
 
 ## Log
@@ -837,3 +841,130 @@
   (Session A) is still open for the admin rebuild; the ~8-door-per-scroll
   fling limit (Session B2) is still unanswered; the whole Logger rebuild
   needs an on-device pass before it can be called field-ergonomics-verified.
+
+### 2026-09-29 — UI item 1b Session G1 (uncommitted)
+
+- **Item:** 1b — Logger layout
+- **What changed:** The Logger map now fills the space above a 44px status line, and the door panel sits on the bottom of that column, just above the note bar. The knocking instruction is plain grey text with a turn icon, and it no longer covers the map. Other sits inline, 8px left of Not In and centred on it. The viewport requests `viewport-fit=cover` so the tab bar's existing home-indicator padding can work; the sheet and the map door panel no longer add a second bottom inset.
+- **Files:**
+  - Changed: `app/layout.tsx`, `app/(field)/layout.tsx`, `components/field/sheet.tsx`, `components/field/map-tab.tsx`, `components/field/icons.tsx`, `components/field/ui/status-banner.tsx`, `components/field/logger-tab.tsx`, `components/field/outcome-column.tsx`, `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: none
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none. `lib/sync/queue.ts`, `lib/field/*` logic, `lib/geo/walk/*`, `lib/map/route-layers.ts` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - owner — D1: the tab bar sits above the iPhone home indicator. `viewportFit: "cover"`; only the tab bar keeps `pb-[env(safe-area-inset-bottom)]`.
+  - owner — D2: the knocking instruction is a plain line of grey text under the map. No black box, and nothing covers the map.
+  - owner — D3: the four pills move down. Not In's bottom sits just above the note bar. Other sits inline, just left of Not In, vertically centred on it.
+  - owner — D6: the door panel moves down with the pills. The mini map takes the freed height.
+  - agent — the turn card's stored kind is `step`, so that case gets `TurnIcon`. Transfer, spur and stranded keep their characters.
+  - agent — the rule under the door is `mt-3 mb-2` (was `my-3`) so the map band clears 160px. First measure was 156.82px.
+  - agent — today's stats wrapper is `w-fit` so the row boxes match the text. Stretched rows intersected Other at 390.
+- **Deviations from plan or brief:** the two agent class changes above. G2 was not started.
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. No field write path was added. `lib/sync/queue.ts` was not changed. No migration.
+- **Verified:**
+  - `npx tsc --noEmit` exit 0. eslint on `components/field`, `app/(field)` and `app/layout.tsx` exit 0 (twice; the second run was after the class tweaks).
+  - `npm run verify:ui1`, `npm run verify:stage8b` and `npm run verify:ui4` each exit 0, once. `verify:stage8b` created a throwaway prop and two users and deleted them. `verify:ui4` was read-only.
+  - `git grep` for `safe-area-inset-bottom` under `components` and `app`: one line, `components/field/tab-bar.tsx:33`.
+  - Viewport meta: `width=device-width, initial-scale=1, viewport-fit=cover`.
+  - One `getBoundingClientRect` script, CanvasserX on `/field/logger`, TEST - dry run, visit 2, 88 doors. Chrome device metrics.
+  - 390×844: pill lefts all `234.6`. Not In to NoteBar gap `12`. Other gap `8`, centre delta `0`. No intersection with stat rows or the door scroll. Map height `160.82`. Status line `43.99` tall, top equal to the map bottom. Only absolute child of the map band is the map wrapper.
+  - 430×932: pill lefts all `274.77`. Gap `11.99`. Other gap `8`, centre delta `−0.01`. No intersections. Map height `248.85`. Status line flush with the map.
+  - 375×667: pill lefts all `219.22`. Other gap `8`, centre delta `−0.01`. Map height `111.99` (the 112px minimum; the body scrolls). Status line flush. Door scroll does not intersect Other.
+- **Not verified:** the real iPhone safe area. In this Chrome emulation `env(safe-area-inset-top)` on `<main>` computed to 0, so D1's home-indicator padding was not seen with a real inset. No phone, no sun, no wet thumb, no on-device haptic.
+- **External settings:** none. Signed the browser in as CanvasserX with a magic link. Password, profile and role were not changed.
+- **Open questions for Claude:** at 375×667 the CONFIRMED label intersects Other (label right `154.6`, Other left `151.2`, about 3.4×6.6px). Stopped rather than edit `stat-row.tsx` or move Other off `top-3 mr-2`. Needs an owner call before G2 or a follow-up.
+
+### 2026-09-30 — UI item 1b Session G2 (uncommitted)
+
+- **Item:** 1b — Other menu and undo icon
+- **What changed:** The Other menu is `fixed` to the right gutter and opens upward from the button, with a max height that keeps it on screen. The full-width undo toast is a 44px ring with a prop-coloured countdown stroke. The Logger draws it at the top-right of the door panel, including the end-of-prop state. Other field routes draw the same button floating top-right. Undo descriptions use the scroll plate, so a door with no number reads `#N` rather than an em dash.
+- **Files:**
+  - Changed: `components/field/ui/other-button.tsx`, `components/field/undo-toast.tsx`, `components/field/logger-tab.tsx`, `app/(field)/layout.tsx`, `docs/D2D-Build-Brief.md`, `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `components/field/ui/undo-button.tsx`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none. `lib/sync/queue.ts` is imported for `UNDO_WINDOW_MS` only. `lib/field/undo.ts`, `lib/field/other-gesture.ts`, `lib/sync/*`, `lib/geo/walk/*`, `lib/map/route-layers.ts` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - owner — D4: the menu opens up, right-aligned to the gutter, always on screen.
+  - owner — D5: the full-width toast is replaced by a 44px ring icon.
+  - agent — the button's base `relative` class is omitted when the caller passes `absolute`. Both utilities set `position`, and this Tailwind build keeps the `relative` rule, so the Logger placement did not apply until `relative` was left off.
+- **Deviations from plan or brief:** the `relative` omission above. No other placement, size, or write-path change.
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. No field write path was added. `lib/sync/queue.ts` was not changed. No migration.
+- **Verified:**
+  - `npx tsc --noEmit` exit 0. `npx eslint components/field "app/(field)"` exit 0.
+  - `git grep` hex under `components/field/ui`: 0 lines (exit 1). `git grep UndoToast` under `components` and `app`: 0 lines (exit 1). `git diff --quiet` on `lib/sync`, `lib/field/undo.ts` and `lib/field/other-gesture.ts`: exit 0.
+  - `npm run verify:ui1`, `npm run verify:stage8b` and `npm run verify:ui4` each exit 0, once. `verify:stage8b` created a throwaway prop and two users and deleted them. `verify:ui4` was read-only.
+  - Chrome device metrics, CanvasserX. Offline for every log that was meant to stay on the device.
+  - 375×667, quick tap, gesture `tap`. All 4 menuitems inside the viewport. Menu right `359.21`, viewport width − 16 = `359`, delta `0.21`. Menu bottom `462.99`, Other top `470.46`.
+  - 390×844 emulation, `innerWidth` `391`, quick tap, gesture `tap`. All 4 inside. Menu right delta `−0.4`. Menu bottom `640.06`, Other top `647.61`.
+  - Hold-slide, script touch `PointerEvent`s, onto Call back later: outbox `held_undo` 0 → 1. Undo: 1 → 0 and the button gone. Description `Call back · 18A Harbury Road`.
+  - After a Contact log: undo button `43.99×43.99`, `position: absolute`, no intersection with Lead, Contact, Rented/Council, Not In, Other, or the current plate. `[data-testid=undo-toast]` count 0. Ring `stroke-dashoffset` `33.88` → `37.73` over 2s. Tap undo: `held_undo` 1 → 0 and the button gone. Description `Contact · #2 Ventnor Road`.
+  - Map tab, offline (`fetch /health` failed, `navigator.onLine` false). Not In from the door panel. Floating button top-right (`right-3 top-3`), `43.99×43.99`. Territory name glyphs right `155.64`, button left `334.62`, gap `179`, no intersection. Undo: `held_undo` 1 → 0 and the button gone.
+  - After going back online: `knock_events` for CanvasserX with `occurred_at` on or after 2026-09-29 00:00 London: **0**.
+- **Not verified:** no phone, no sun, no wet thumb, no on-device haptic. Chrome emulation only. The visit line under the map title does run under the floating icon (text right `370.45`, button left `334.62`). The territory name does not.
+- **External settings:** none. Signed in as CanvasserX with the existing browser session. Password, profile and role were not changed.
+- **Open questions for Claude:** the map visit line passes under the floating undo icon. The G1 375px CONFIRMED/Other overlap is still open. The Logger still needs an on-device pass.
+
+### 2026-09-30 — UI item 1b log-confirm animation, Session G3 (uncommitted)
+
+- **Item:** 1b — Logger layout, the log-confirm animation
+- **What changed:** A successful log plays a 780 ms confirm on that pill. The circle moves 124 px right, the chevron fades, a tick draws in the circle's resting slot, holds, then the circle and chevron return. Tapping the same outcome again cancels the run and starts it from rest. Other's confirm is a 240 ms scale pop, skipped under reduced motion. Under reduced motion the circle does not travel: it fades, and the tick shows, then both return. Pressing a pill scales the circle to 0.96 on the CSS `scale` property.
+- **Files:**
+  - Changed: `components/field/ui/outcome-pill.tsx`, `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: none
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none. `lib/sync/queue.ts`, `lib/field/*`, `lib/geo/walk/*`, `lib/map/route-layers.ts` and `lib/supabase/*` were not edited. `confirmKey` was not changed.
+- **Decided by:**
+  - owner — D7 (2026-09-29): slide-to-confirm (circle off-screen, tick, return, 780 ms, compositor-only, restartable). `travelPx` 124.
+  - agent — `active:scale-[0.96]`, because `scale-96` is not in the Tailwind 4.3.3 scale list. The arbitrary value sets the CSS `scale` property.
+  - agent — under reduced motion the circle fades on opacity, and the tick path is held at `strokeDashoffset` 0. Otherwise the tick is either undrawn or hidden under the circle.
+- **Deviations from plan or brief:** the two reduced-motion additions above. The stroke draw eases with `EASE_OUT` from 60 ms as well as on the first keyframe. A second tap inside 400 ms still does not log (`INPUT_LOCK_MS`, not edited). `travelPx` was not increased when 124 px left 32.4 px of the circle on screen.
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. No field write path was added. `lib/sync/queue.ts` was not changed. No migration. The 40 ms haptic stays the Logger's existing pulse. This component adds no second one.
+- **Verified:**
+  - `npx tsc --noEmit` exit 0. `npx eslint components/field` exit 0.
+  - `git grep` hex under `components/field/ui`: 0 lines (exit 1).
+  - `npm run verify:ui1` and `npm run verify:stage8b` each exit 0, once. `verify:stage8b` created a throwaway prop and two users and deleted them (`territories left named "STAGE 8B TEST PROP — DELETE ME": 0`).
+  - Chrome device metrics 390×844, `innerWidth` 391. CanvasserX on `/field/logger`, REF - Speedwell, visit 3. Offline: `navigator.onLine` false and `fetch /health` threw `TypeError`.
+  - Contact: at 134 ms `translateX` 119.7; at 417 ms `translateX` 124, tick opacity 1, chevron opacity 0; at 1,017 ms `translateX` 0, tick opacity 0, chevron opacity 1, circle animations 0.
+  - At 417 ms the circle's left was 358.6, not ≥ 391. 32.4 px remained. `elementFromPoint` at the right edge hit the circle.
+  - Not In at 214 ms: one log. Not In at 459 ms: animation restarted (`currentTime` 450 → 17) and both rows were `held_undo`. After 1,200 ms every pill was at rest.
+  - One Contact, 1,100 ms: 68 frames, 0 dropped, longest gap 16.9 ms, long tasks 0.
+  - Reduced motion: `translateX` 0 at 131, 414 and 1,014 ms. Tick opacity 1 while the circle opacity was 0. At 1,014 ms the circle was back and the tick was gone.
+  - After each test the latest row was undone on the button. Any earlier held row was deleted from the local outbox while offline. Back online, outbox open rows 0. `knock_events` for CanvasserX with `occurred_at` on or after 2026-09-30 17:50 UTC: 0. Last 2 hours: 0.
+- **Not verified:** no phone, no sun, no wet thumb, no on-device haptic. Chrome emulation only.
+- **External settings:** none. Signed the browser in as CanvasserX with a magic link, then cleared that cookie locally. Password, profile and role were not changed.
+- **Open questions for Claude:** 124 px does not take the circle's left past the viewport on this layout (resting left 234.6). A second tap at about 200 ms is eaten by the 400 ms input lock. Say if either should change.
+
+### 2026-09-30 — UI item 1b Session G4 (uncommitted)
+
+- **Item:** 1b — stat row, map undo padding, log-confirm travel
+- **What changed:** Below 390px the stat row gap is 8px and the label tracking is 0.08em; from 390px both go back to the previous gap and 0.12em tracking. The map header pads on the right while an undo is offered, so the floating ring has 56px clear of the header text. Each log-confirm measures how far the circle must travel to leave the viewport, plus 8px, and never travels less than 124px.
+- **Files:**
+  - Changed: `components/field/ui/stat-row.tsx`, `components/field/map-tab.tsx`, `components/field/ui/outcome-pill.tsx`, `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: none
+  - Deleted: none
+- **Database:** none by this session's edits. Five pre-existing outbox knocks synced on an online reload. Select only afterwards. No delete, no update. Ids below.
+- **Shared modules touched:** none. `lib/sync/queue.ts`, `lib/field/*`, `lib/geo/walk/*`, `lib/map/route-layers.ts` and `lib/supabase/*` were not edited. `useUndoTarget` was only imported.
+- **Decided by:**
+  - owner — G4 prompt: the three class and travel changes, measured per run, 124px kept as the minimum.
+  - agent — `let travel: number`, because `travelPx` is the literal type `124`.
+  - agent — a computed transform of `none` is treated as translate 0, so the first run does not throw.
+- **Deviations from plan or brief:** the type annotation and the `none` guard. The Map check and both verify scripts were not run, because the session stopped when knocks synced.
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. No field write path was added. `lib/sync/queue.ts` was not changed. No migration.
+- **Verified:**
+  - `npx tsc --noEmit` exit 0. `npx eslint components/field` exit 0.
+  - EDIT 1. At 375×667, 390×844 and 430×932, offline, CanvasserX on the Logger, REF - Speedwell. No stat row intersects Other. Gap at 375 is `5.25` (row right `146.26`).
+  - EDIT 3. Contact circle left at about 420 ms: 375 → `383.51` / width `375`; 390 → `398.32` / width `390`; 430 → `438.21` / width `430`. At about 1,000 ms the left matched the resting left and `translateX` was 0. Each undo removed the ring. Outbox after each undo: `pending` 5, `synced` 47.
+- **Not verified:** Map tab at 390. `npm run verify:ui1`. `npm run verify:stage8b`. No phone, no sun, no wet thumb, no on-device haptic.
+- **External settings:** none. The browser session had dropped after an offline navigation. A magic link for the existing CanvasserX account was used to sign in again. Password, profile and role were not changed.
+- **Open questions for Claude:** five knocks synced and were left in place. The map header padding still needs the door-panel check.
+
+Synced `client_event_id`s (select, 2026-09-30):
+
+- `b73f0d67-6fcf-401e-876e-e6fbd19cae35` — `no_answer` — UPRN 76888
+- `6e2f6979-24d6-4366-b8ff-ee6e2aafdaa3` — `no_opportunity` — UPRN 77069
+- `26c0d64e-f8f0-43d5-8d43-745f14db2c26` — `no_answer` — UPRN 77070
+- `3ff38c7f-7a36-4216-ab1c-d3c091c7ad20` — `no_opportunity` — UPRN 77095
+- `f6a3ff71-03bb-4d6b-a73b-889931d7303d` — `no_opportunity` — UPRN 77111

@@ -27,6 +27,8 @@ import { PRIMARY_OUTCOMES, type OtherOutcome, type PrimaryOutcome } from "@/lib/
  * its widest child; the composer's wrapper is a fixed, narrower box, and
  * the pills overflow it on purpose. The `<main>` root (or the composer's
  * own scroll container) clips that overflow at the actual screen edge.
+ *
+ * 2026-09-29 owner D3: Other inline left of Not In.
  */
 export function OutcomeColumn({
   onPrimary,
@@ -57,10 +59,13 @@ export function OutcomeColumn({
   otherOpen?: boolean;
   onOtherOpenChange?: (open: boolean) => void;
 }) {
+  const leading = PRIMARY_OUTCOMES.filter((spec) => spec.key !== "no_answer");
+  const notIn = PRIMARY_OUTCOMES.find((spec) => spec.key === "no_answer");
+
   return (
     <div className="flex flex-col items-end gap-2" data-testid="outcome-column">
       <div className="contents" inert={otherOpen || undefined}>
-        {PRIMARY_OUTCOMES.map((spec) => (
+        {leading.map((spec) => (
           <OutcomePill
             key={spec.key}
             outcome={spec.key}
@@ -70,7 +75,21 @@ export function OutcomeColumn({
           />
         ))}
       </div>
-      <OtherButton onPick={onOther} disabled={disabled} onOpenChange={onOtherOpenChange} />
+      {notIn ? (
+        <div className="relative" data-testid="outcome-notin-row">
+          <div inert={otherOpen || undefined}>
+            <OutcomePill
+              outcome={notIn.key}
+              onPress={onPrimary}
+              confirmKey={confirmKeys[notIn.key]}
+              disabled={disabled}
+            />
+          </div>
+          <div className="absolute right-full top-3 mr-2" data-testid="outcome-other-slot">
+            <OtherButton onPick={onOther} disabled={disabled} onOpenChange={onOtherOpenChange} />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
