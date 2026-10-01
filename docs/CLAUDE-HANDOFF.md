@@ -2,15 +2,17 @@
 
 ## Current state
 
-- Last updated: 2026-10-01 (UI item 2, Session M2 — door dots on the pavement walkline). HEAD: b24f04d. This M2 pass is uncommitted. **The owner commits after review — this session did not commit.**
-- **UI item 2, Session M2** projects each door's display point onto the pavement walkline of the work step that covers its sequence. Minimum gap 2.5 m, 1 m in from each end. Doors with no work step keep their own point. `assignment.doors`, the sequence, the cursor and every write are unchanged. The Map tab and the Logger mini map read `anchoredDoors`. No migration. No field write. Evidence is in the log entry below and in `docs/BUILD-LOG.md`.
-- Owner F3 (walkline anchoring) is in the M2 log entry. M1 already recorded F1, F2, and the smaller-dot half of F3. F4–F6 are not built.
-- CanvasserX today is Whitechurch Lane - Hartcliffe, visit 1, 1,682 doors, 0 route steps. The live dots stay on the property points. REF - Speedwell visit 3 (`629d3ce4-a82a-4678-ab87-389e783da792`, work date 2026-09-30) is the prop the read-only check used: 182 anchored, minimum neighbour gap 2.497 m, move min 2.17 m, median 12.27 m, max 18.57 m.
-- `npx eslint components/field lib/field lib/map scripts` exits 1 on a pre-existing `prefer-const` in `scripts/seed-demo.ts` line 242 (`let leftover`). That file was not edited. This session's files lint clean.
-- A pre-existing outbox row `61cea5a1-d03e-4edb-9294-6bf4045e61e1` is still `failed` (RLS on `knock_events`). It was not retried. It is not in `knock_events`. Knocks for CanvasserX with `occurred_at` on or after 2026-10-01 20:00 UTC: 0.
-- Carried, unchanged: H1 plate about 4px left of the Lead gap; map band 169.64 at 390×763; Not In overlaps the note bar at 375×600; the Logger still needs an on-device pass. Admin coverage still shares `fieldMapStyle()`. Dataviz Light still does not select park or `roadMajorCase`.
-- External settings changed since handover: none. No new magic link. The browser was already signed in as CanvasserX, user `576c4ce7-5fe0-489f-bd7f-42912925951a`. Password, profile and role were not changed. The browser session was left signed in.
-- Shared modules this session: new `lib/map/door-anchors.ts` and `lib/map/anchor-doors-collection.ts`. `lib/map/route-layers.ts`, `lib/sync/queue.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited.
+- Last updated: 2026-10-01 (UI item 2, Session M3 — building outlines and per-door slices). HEAD at the start of M2 was b24f04d. M2 and M3 are uncommitted. **The owner commits after review — this session did not commit.**
+- **UI item 2, Session M3** loads OpenStreetMap building ways into `building_footprints` and cuts `door_footprints` per door. Three territories were ingested. Coverage is above 80% on all three. The map does not draw the slices yet. Evidence is in the log entry below and in `docs/BUILD-LOG.md`.
+- Owner F4 is in the M3 log entry. M1 recorded F1, F2, and the smaller-dot half of F3. M2 recorded the walkline half of F3. F5 and F6 are not built.
+- Coverage: REF - Speedwell 179/182 doors (98.4%). TEST - dry run 85/88 (96.6%). Whitechurch Lane - Hartcliffe 1,578/1,682 (93.8%). Tables after a second identical run: `building_footprints` 3,674, `door_footprints` 1,842. Same counts as the first run.
+- Known limits: multipolygon relations are not loaded. A door more than 3 m from any outline gets no slice.
+- Whitechurch's only assignment `4d735d92-1eaa-4e55-9f21-e0e17f558379` (visit 1, work date 2026-10-01, 1,682 doors) is closed (`closed_at` 2026-10-01 20:38:26+00). CanvasserX's member row has `left_at` set to the same time. This session did not close it. The footprint RPC was still readable on that row: 1,468 single-door features.
+- `npx eslint scripts/ingest-buildings.ts scripts/verify-door-footprints.ts scripts/lib` exits 0. `npx eslint components/field lib/field lib/map scripts` was not re-run. The pre-existing `prefer-const` in `scripts/seed-demo.ts` line 242 is unchanged.
+- This session did not open the field app and did not recheck `knock_events` or the outbox row `61cea5a1-d03e-4edb-9294-6bf4045e61e1`.
+- Carried, unchanged: H1 plate about 4px left of the Lead gap; map band 169.64 at 390×763; Not In overlaps the note bar at 375×600; the Logger still needs an on-device pass. Admin coverage still shares `fieldMapStyle()`. Dataviz Light still does not select park or `roadMajorCase`. Door dots still use the M2 anchors.
+- External settings changed since handover: none. Two magic links for CanvasserX, user `576c4ce7-5fe0-489f-bd7f-42912925951a`, used only inside `verify:footprints`, then signed out locally. `expires_at` 1790892025 and 1790892081. Password, profile and role were not changed. The browser was not opened.
+- Shared modules this session: `lib/supabase/types.ts` regenerated after migration 024. `lib/map/route-layers.ts`, `lib/sync/queue.ts`, `lib/geo/walk/*` and `lib/field/*` were not edited.
 
 ## Log
 
@@ -1090,4 +1092,38 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A pavement row on the live Map tab. Whitechurch has no walkline. A phone. Sun, wet thumb, one-handed use. A radio-off reload.
 - **External settings:** none. No new magic link. Password, profile and role were not changed. The browser was left signed in as CanvasserX.
 - **Open questions for Claude:** Today's prop cannot show F3. Speedwell visit 3 is 2026-09-30, so the field app will not open it. The row needs a today prop that has work steps, or a look at Speedwell another way. `scripts/seed-demo.ts` line 242 fails `prefer-const` and blocks `eslint scripts`.
+
+### 2026-10-01 — UI item 2 building outlines and door slices (uncommitted)
+
+- **Item:** 2 — building outlines and per-door slices (Session M3)
+- **What changed:** OpenStreetMap building ways for three named territories are stored as polygons, then cut into one slice per door position. Flats at the same 0.5 m point share a slice. A terrace is cut by the Voronoi cells of its door positions. The field app does not draw these yet. A second ingest left the row counts unchanged.
+- **Files:**
+  - Changed: `package.json`, `lib/supabase/types.ts`, `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `supabase/migrations/024_door_footprints.sql`, `scripts/ingest-buildings.ts`, `scripts/verify-door-footprints.ts`
+  - Deleted: none
+  - Raw Overpass JSON is under `data/raw/buildings-*.osm.json`. `/data/*` already ignores it. `git status --short --ignored` shows `!! data/raw/`. It is not staged.
+- **Database:** 024 `024_door_footprints.sql`, recorded as version `20261001205042`. Tables `building_footprints` (Polygon, 4326) and `door_footprints` (MultiPolygon, 4326). GiST on both geoms. B-tree on `door_footprints.osm_id`. RLS on, SELECT for `authenticated` only, no write policy. `upsert_building_footprints` and `rebuild_door_footprints` are service role only. `assignment_door_footprints` is executable by `authenticated`.
+- **Shared modules touched:** `lib/supabase/types.ts`, regenerated after 024. No other shared module.
+- **Decided by:**
+  - owner — F4. Building outlines from OpenStreetMap, and a slice per door so a building can be coloured by outcome. The migration text in the session is the schema.
+  - agent — Overpass retries on 429, 502 and 504, and a 3 second pause between territories.
+  - agent — height is parsed from a leading number of metres. `building:levels` is used when that parse fails.
+  - agent — the verify script calls the read RPC as CanvasserX, who is already a member. No throwaway user was created. Whitechurch has no open assignment, so that check used the closed assignment.
+- **Deviations from plan or brief:** The first apply went through the Supabase CLI and was not recorded. Those empty objects were dropped, then `apply_migration` recorded `20261001205042`. New tables still receive the project's default grants (anon and authenticated have table privileges). RLS is what limits them: anon select returned 0 rows; authenticated select worked. Whitechurch's assignment is closed, so it is not an open assignment. The RPC check still matched: 1,468 single-door features. The first Whitechurch rebuild hit the statement timeout twice, then the third attempt wrote 1,578. The re-run wrote 1,578 on the first attempt.
+- **Invariants:** No GPS and no coordinates sent from a device. No quality scoring in `/field`. No field write. `lib/sync/queue.ts` was not used. Ingest is service role, the same class as the road ingest. Address text was not written. `door_footprints.geom` is MultiPolygon because the session SQL says so.
+- **Verified:**
+  - EDIT 1 DONE. `supabase/migrations/024_door_footprints.sql` is the session SQL. Next free number was 024. Applied and recorded as `20261001205042`. `lib/supabase/types.ts` regenerated. `npx tsc --noEmit` exit 0.
+  - RLS, rolled back. As `authenticated`, `select count(*)` on both tables returned 0 with `current_user` authenticated. As `anon`, both counts returned 0. As `authenticated`, `upsert_building_footprints` and `rebuild_door_footprints` raised `42501 permission denied for function`. After those errors, `current_user` was `postgres` again.
+  - EDIT 2 DONE. `scripts/ingest-buildings.ts`. `package.json` has `ingest:buildings`. No arguments prints usage and exits 1. Multipolygon relations are named in the script header. Attribution lines were not edited.
+  - EDIT 3 DONE. Ingested only "REF - Speedwell", "TEST - dry run" and "Whitechurch Lane - Hartcliffe". Sent equals written: 723, 474, 2,477. Rebuild rows: 179, 85, 1,578. Second run: same sent, written and rebuild counts. `building_footprints` 3,674 and `door_footprints` 1,842 both times.
+  - EDIT 4 DONE. `scripts/verify-door-footprints.ts`. `package.json` has `verify:footprints`. Final `npm run verify:footprints` exit 0.
+  - REF - Speedwell: buildings 723, doors 182, with a slice 179 (98.4%), single slices 172, shared slices 3, shared doors 7. Invalid 0. Single-door overlaps over 0.5 m²: 0. Split buildings 1, area failures 0.
+  - TEST - dry run: buildings 474, doors 88, with a slice 85 (96.6%), single 66, shared slices 7, shared doors 19. Invalid 0. Overlaps 0. Split buildings 3, area failures 0.
+  - Whitechurch Lane - Hartcliffe: buildings 2,477, doors 1,682, with a slice 1,578 (93.8%), single 1,468, shared slices 31, shared doors 110. Invalid 0. Overlaps 0. Split buildings 17, area failures 0.
+  - RPC as CanvasserX. REF open assignment `8eaae87b-a77e-4e7b-b653-9a2cd9f03dbc` (2026-10-01): 172 single-door features. TEST open assignment `1e9fe4c5-ffa6-46c7-80d8-9348267e477b` (2026-10-02): 66. Whitechurch closed assignment `4d735d92-1eaa-4e55-9f21-e0e17f558379`: 1,468. Profile after: name CanvasserX, role canvasser, active true.
+  - `npx eslint scripts/ingest-buildings.ts scripts/verify-door-footprints.ts scripts/lib` exit 0.
+  - `git check-ignore` matches `.gitignore` line 49 `/data/*` for the three raw files. `git status --short --ignored` shows `!! data/raw/`.
+- **Not verified:** Drawing the slices on a map. A phone. Doors that are missing because the outline is a multipolygon relation, counted only as the gap below 100%. Authenticated INSERT on the new tables (RLS has no write policy; the session proof asked for select and the two function denials).
+- **External settings:** none. Magic link for CanvasserX, user `576c4ce7-5fe0-489f-bd7f-42912925951a`, `expires_at` 1790892025, used by the first passing verify, then local sign-out. Magic link for the same user, `expires_at` 1790892081, used by the final verify, then local sign-out. Password, profile and role were not changed. The browser was not opened.
+- **Open questions for Claude:** Whitechurch visit 1 is closed. The slice RPC still returns its doors for CanvasserX because the member row remains. Say if a closed assignment should stop returning footprints. The first cold rebuild of Whitechurch exceeded the API statement timeout twice before it finished. A later cold run may need the same retry.
 

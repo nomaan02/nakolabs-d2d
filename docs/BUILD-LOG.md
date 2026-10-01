@@ -1634,4 +1634,30 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not done / deferred:** F4 buildings. A screenshot of one terraced street with the dots in a pavement row: **NOT VERIFIED**. Real phone: **NOT VERIFIED**. Did not commit.
 - **Follow-ups:** a today prop with work steps, so the row can be looked at on the phone. `scripts/seed-demo.ts` line 242 (`let leftover` → `const`) if `eslint scripts` is meant to exit 0.
 
+---
+
+### UI item 2 — Building outlines and per-door slices, Session M3
+- **Date:** 2026-10-01
+- **Model:** Grok 4.7
+- **Built:** OSM building ways for three territories, stored as `building_footprints`, and one slice per door position in `door_footprints`. Flats on the same 0.5 m point share a slice. Terraces are Voronoi cuts. The map does not draw them. F5 was not started.
+- **Acceptance:**
+  - EDIT 1 DONE. `supabase/migrations/024_door_footprints.sql` is the session SQL. Next free number was 024. Recorded as `20261001205042`. `lib/supabase/types.ts` regenerated. `npx tsc --noEmit` exit 0.
+  - RLS, transaction rolled back. `authenticated` select on both tables: counts 0, `current_user` authenticated. `anon` select: both counts 0. `authenticated` `upsert_building_footprints` and `rebuild_door_footprints`: `42501 permission denied for function`.
+  - Policies: `building_footprints_select` and `door_footprints_select`, SELECT to `authenticated`, `using (true)`. No write policy. Execute on the two ingest functions: `service_role` only. Execute on `assignment_door_footprints`: `authenticated`.
+  - EDIT 2 DONE. `scripts/ingest-buildings.ts`. Script `ingest:buildings`. No arguments: usage, exit 1. Header states multipolygon relations are not loaded. `ATTRIBUTION_LINES` unchanged.
+  - EDIT 3 DONE. Only REF - Speedwell, TEST - dry run, and Whitechurch Lane - Hartcliffe. Sent = written: 723, 474, 2,477. Rebuild: 179, 85, 1,578. Re-run: same figures. `building_footprints` 3,674 and `door_footprints` 1,842 both times.
+  - EDIT 4 DONE. `scripts/verify-door-footprints.ts`. Script `verify:footprints`. Final run exit 0.
+  - REF - Speedwell: buildings 723, doors 182, slices 179 (98.4%), single 172, shared slices 3, shared doors 7. Invalid 0. Overlaps over 0.5 m²: 0. Split buildings 1, area outside 1%: 0. Open assignment `8eaae87b-a77e-4e7b-b653-9a2cd9f03dbc`: 172 single-door features.
+  - TEST - dry run: buildings 474, doors 88, slices 85 (96.6%), single 66, shared slices 7, shared doors 19. Invalid 0. Overlaps 0. Split buildings 3, area failures 0. Open assignment `1e9fe4c5-ffa6-46c7-80d8-9348267e477b`: 66 single-door features.
+  - Whitechurch Lane - Hartcliffe: buildings 2,477, doors 1,682, slices 1,578 (93.8%), single 1,468, shared slices 31, shared doors 110. Invalid 0. Overlaps 0. Split buildings 17, area failures 0. No open assignment. Closed assignment `4d735d92-1eaa-4e55-9f21-e0e17f558379`: 1,468 single-door features.
+  - `npx eslint scripts/ingest-buildings.ts scripts/verify-door-footprints.ts scripts/lib`: **PASS** — exit 0.
+  - `git status --short --ignored`: `!! data/raw/`. Not staged. `git check-ignore` hits `.gitignore` `/data/*`.
+- **Deviations from brief:**
+  - CLI apply was not in `schema_migrations`. Empty objects were dropped and `apply_migration` recorded the same SQL once.
+  - Default table grants still include anon and authenticated. Anon select returned 0 rows because there is no anon policy.
+  - Whitechurch rebuild timed out twice on the first run (`canceling statement due to statement timeout`), then wrote 1,578. The re-run did not time out.
+  - CanvasserX was used for the RPC. No throwaway member was added. Whitechurch is closed, so that check is not on an open assignment.
+- **Not done / deferred:** Drawing slices on the map. F5. Phone. Authenticated INSERT was not executed. Did not commit.
+- **Follow-ups:** whether a closed assignment should still return footprints. Whether the Whitechurch rebuild needs a longer statement timeout before a cold run is reliable. Multipolygon relations and doors more than 3 m from an outline stay without a slice.
+
 

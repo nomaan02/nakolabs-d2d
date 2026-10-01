@@ -226,6 +226,82 @@ export type Database = {
           },
         ]
       }
+      building_footprints: {
+        Row: {
+          building: string | null
+          fetched_at: string
+          geom: unknown
+          height_m: number
+          osm_id: number
+        }
+        Insert: {
+          building?: string | null
+          fetched_at?: string
+          geom: unknown
+          height_m: number
+          osm_id: number
+        }
+        Update: {
+          building?: string | null
+          fetched_at?: string
+          geom?: unknown
+          height_m?: number
+          osm_id?: number
+        }
+        Relationships: []
+      }
+      door_footprints: {
+        Row: {
+          computed_at: string
+          doors_at_position: number
+          geom: unknown
+          height_m: number
+          osm_id: number
+          shared: boolean
+          uprn: number
+        }
+        Insert: {
+          computed_at?: string
+          doors_at_position: number
+          geom: unknown
+          height_m: number
+          osm_id: number
+          shared: boolean
+          uprn: number
+        }
+        Update: {
+          computed_at?: string
+          doors_at_position?: number
+          geom?: unknown
+          height_m?: number
+          osm_id?: number
+          shared?: boolean
+          uprn?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "door_footprints_osm_id_fkey"
+            columns: ["osm_id"]
+            isOneToOne: false
+            referencedRelation: "building_footprints"
+            referencedColumns: ["osm_id"]
+          },
+          {
+            foreignKeyName: "door_footprints_uprn_fkey"
+            columns: ["uprn"]
+            isOneToOne: true
+            referencedRelation: "properties"
+            referencedColumns: ["uprn"]
+          },
+          {
+            foreignKeyName: "door_footprints_uprn_fkey"
+            columns: ["uprn"]
+            isOneToOne: true
+            referencedRelation: "v_door_label"
+            referencedColumns: ["uprn"]
+          },
+        ]
+      }
       knock_events: {
         Row: {
           assignment_id: string
@@ -1248,6 +1324,10 @@ export type Database = {
         Args: { p_assignment_id: string }
         Returns: Json
       }
+      assignment_door_footprints: {
+        Args: { p_assignment: string }
+        Returns: Json
+      }
       assignment_member_add: {
         Args: { p_assignment_id: string; p_canvasser_id: string }
         Returns: Json
@@ -1455,6 +1535,10 @@ export type Database = {
       properties_in_polygon: {
         Args: { cap?: number; poly: unknown }
         Returns: Json
+      }
+      rebuild_door_footprints: {
+        Args: { p_territory: string }
+        Returns: number
       }
       route_clipped_subgraph: {
         Args: { p_assignment_id: string }
@@ -2069,6 +2153,7 @@ export type Database = {
         }
         Returns: string
       }
+      upsert_building_footprints: { Args: { p_rows: Json }; Returns: number }
       upsert_properties: { Args: { p_rows: Json }; Returns: number }
       upsert_property_addresses: { Args: { p_rows: Json }; Returns: number }
       upsert_road_nodes: { Args: { p_rows: Json }; Returns: number }

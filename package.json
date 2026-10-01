@@ -14,6 +14,7 @@
     "ingest:nccz": "tsx scripts/ingest-nccz.ts",
     "ingest:addresses": "tsx scripts/ingest-addresses.ts",
     "ingest:roads": "tsx scripts/ingest-roads.ts",
+    "ingest:buildings": "tsx scripts/ingest-buildings.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
     "verify:stage1b": "tsx scripts/verify-stage-1b.ts",
     "verify:stage4": "tsx scripts/verify-stage-4.ts",
@@ -32,7 +33,8 @@
     "verify:ui1": "tsx scripts/verify-ui-1-logger.ts",
     "verify:anchors": "tsx scripts/verify-map-anchors.ts",
     "verify:stage5cb": "tsx scripts/verify-stage-5c-b.ts",
-    "verify:geom": "tsx scripts/verify-route-geom.ts"
+    "verify:geom": "tsx scripts/verify-route-geom.ts",
+    "verify:footprints": "tsx scripts/verify-door-footprints.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
