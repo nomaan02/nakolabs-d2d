@@ -15,6 +15,7 @@ import { mapLabel } from "@/lib/field/labels";
 import type { LocalOutcomes } from "@/lib/field/local-outcomes";
 import { ATTRIBUTION_LINES, fieldMapStyle } from "@/lib/field/map-style";
 import type { DoorCollection } from "@/lib/geo/todays-assignment";
+import { OUTCOME_DOT } from "@/lib/map/map-palette";
 import {
   applyRouteProgress,
   paintRouteLayers,
@@ -56,16 +57,18 @@ const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: 
  * whether it has a pale core, so the five states stay distinguishable in
  * glare, in greyscale, and to a colour-blind canvasser:
  *
- *   unlogged        dark neutral, base radius, no core
- *   no_answer       pale neutral, base radius, no core  (reads as spent)
+ * Colours 2026-10-01 (owner F2, Figma: Map style v1). Sizes the same day (F3).
+ *
+ *   unlogged        white,        base radius, no core
+ *   no_answer       grey,         base radius, no core  (reads as spent)
  *   answered        blue,         base radius, core     (ringed)
- *   no_opportunity  red,          SMALL radius, no core (a closed door)
+ *   no_opportunity  amber,        SMALL radius, no core (a closed door)
  *   lead            green,        LARGE radius, core    (biggest thing on screen)
  *
  * Driven by `feature-state`, not baked into the source data — coverage is
  * derived, and the source is the frozen snapshot.
  */
-const UNLOGGED = "#4a5259";
+const UNLOGGED = OUTCOME_DOT.open;
 
 /** The logged outcome for this door on this assignment, or "none". */
 const OUTCOME_STATE: ExpressionSpecification = [
@@ -78,22 +81,22 @@ const FILL_BY_STATE: ExpressionSpecification = [
   "match",
   OUTCOME_STATE,
   "no_answer",
-  "#d2d6c9",
+  OUTCOME_DOT.no_answer,
   "answered",
-  "#1b4aa6",
+  OUTCOME_DOT.answered,
   "lead",
-  "#1e6b3a",
+  OUTCOME_DOT.lead,
   "no_opportunity",
-  "#7a2b33",
+  OUTCOME_DOT.no_opportunity,
   // refused, do_not_call, inaccessible, callback: worked, nothing more said.
   "refused",
-  UNLOGGED,
+  OUTCOME_DOT.other,
   "do_not_call",
-  UNLOGGED,
+  OUTCOME_DOT.other,
   "inaccessible",
-  UNLOGGED,
+  OUTCOME_DOT.other,
   "callback",
-  UNLOGGED,
+  OUTCOME_DOT.other,
   UNLOGGED,
 ];
 
@@ -121,13 +124,13 @@ const CIRCLE_RADIUS: ExpressionSpecification = [
   ["linear"],
   ["zoom"],
   14,
-  radiusAt(5),
+  radiusAt(3),
   17,
-  radiusAt(10),
+  radiusAt(5),
   19,
-  radiusAt(16),
+  radiusAt(8),
   20,
-  radiusAt(20),
+  radiusAt(10),
 ];
 
 function coreAt(size: number): ExpressionSpecification {
@@ -144,13 +147,13 @@ const CORE_RADIUS: ExpressionSpecification = [
   ["linear"],
   ["zoom"],
   14,
-  coreAt(2),
+  coreAt(1),
   17,
-  coreAt(4),
+  coreAt(2),
   19,
-  coreAt(6),
+  coreAt(3),
   20,
-  coreAt(8),
+  coreAt(4),
 ];
 
 /** Dark halo around the focused door. Size, not hue, is the distinct mark. */
@@ -163,13 +166,13 @@ const FOCUS_HALO_RADIUS: ExpressionSpecification = [
   ["linear"],
   ["zoom"],
   14,
-  focusHaloAt(10),
+  focusHaloAt(7),
   17,
-  focusHaloAt(18),
+  focusHaloAt(11),
   19,
-  focusHaloAt(26),
+  focusHaloAt(16),
   20,
-  focusHaloAt(32),
+  focusHaloAt(20),
 ];
 
 function fitDoors(map: MapLibreMap, doors: DoorCollection) {
@@ -417,7 +420,7 @@ export function FieldMap({
               "case",
               ["boolean", ["feature-state", "selected"], false],
               "#1c2226",
-              "#fbfaf8",
+              ["case", ["==", OUTCOME_STATE, "none"], OUTCOME_DOT.openRing, OUTCOME_DOT.ring],
             ],
           },
         });

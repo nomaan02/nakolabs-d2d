@@ -1,0 +1,29 @@
+---
+description: How to execute a Claude-written plan session (numbered edits, gates, data safety) alwaysApply: true
+---
+
+Executing a plan session
+Edits
+A session prompt lists numbered EDITs. Do EVERY one, in order. An edit marked "carried", "step 0" or "from the review" has the same priority as the others. Never skip one silently.
+Report each edit on its own line: EDIT n DONE with evidence, or EDIT n NOT DONE with the reason. The report must list every number.
+Read only the files the prompt lists. Edit only the files the prompt names. If an edit seems to need another file, stop and ask.
+Code given in the prompt inside a code block is pasted EXACTLY. Do not "improve" it. If it does not compile, report the error. Do not rewrite it.
+Data safety
+Never DELETE or UPDATE any row in any database table, including rows your own test created, unless the prompt explicitly grants that exact write. Throwaway users and props created by the repo's own verify scripts are cleaned up by those scripts only.
+Test field logs with the browser OFFLINE (navigator.onLine false), then undo each one on the undo ring before going back online. Then confirm, with a read-only select, that no knock_events row was written for the test canvasser in the session window.
+If a test knock syncs anyway, STOP and report its client_event_id. The owner decides what happens to it.
+Never change the CanvasserX password, profile or role. Log any magic link you use.
+Test sizes
+Phone checks use the REAL usable iPhone heights, not full screen heights: 390x763 (main), 375x667 (small), 430x850 (large).
+A map layer change is also timed at 2,000 doors.
+Loop guards
+Two failed attempts on one edit: stop that edit, mark it NOT DONE, and continue only if later edits do not depend on it.
+The same command failing the same way twice: stop. Do not re-run it.
+Start the dev server once. Do not restart it to "try again".
+No npm install and no new dependencies unless the prompt says so.
+Run tsc and eslint after each edit group. Run the verify scripts once, at the end.
+Commands and docs
+PowerShell only. Use git grep, never rg. No &&.
+Never commit. The owner commits after Claude's review.
+Finish with the BUILD-LOG and CLAUDE-HANDOFF entries the prompt names. Owner decisions and agent decisions are listed separately.
+---

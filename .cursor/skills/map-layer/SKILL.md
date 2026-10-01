@@ -36,3 +36,12 @@ An effect that returns early when the style isn't ready leaves every feature
 looking default after a tab remount, even when the data is correct in Dexie.
 Apply state in BOTH places. Found in Stage 8b: outcome colour vanished on
 Map-tab remount. Stage 14's coverage map uses the same mechanism.
+
+UI item 2 map facts (2026-10-01)
+Colours: every map paint colour lives in lib/map/map-palette.ts (MAP_PALETTE, OUTCOME_DOT, OUTCOME_TINT). MapLibre cannot read CSS variables. No other map file defines a new hex value.
+Basemap: the MapTiler style is fetched as JSON and passed through restyleBasemap() (lib/map/restyle-basemap.ts), which matches layers by source-layer and type, not by layer id. The basemap's own fill-extrusion layers are hidden; we add our own.
+Door dots are drawn at ANCHORED points (lib/map/door-anchors.ts): each door is projected onto its work step's walkline, in sequence order, at least 2.5 m apart. This is display geometry only. Never use an anchored coordinate for a write, the sequence, routing, coverage counts or the UPRN. Doors with no work step keep their own point.
+Buildings: door_footprints (one slice per door, Voronoi-split terraces; shared = true when several doors share a position) is read through the RPC assignment_door_footprints and cached in Dexie (footprints store). The map source is field-footprints with promoteId: "fid". Outcome colour is feature-state, applied on style.load AND in the effect, the same as the dots. Shared slices are never coloured.
+Layer order: basemap → basemap-buildings-3d → field-footprints (fill / line / 3d) → route layers → focus halo → dots → core → labels → position. Route and dots must always draw above buildings.
+3D: lib/field/map-view.ts holds the shared 2D/3D choice (localStorage, try/catch). 3D = pitch 55 (Map tab) or 50 (mini map); rotation stays off; the mini map's pitch is set by code only.
+Overpass is called by scripts/ingest-buildings.ts only, never by the app (rule 40).

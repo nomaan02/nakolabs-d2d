@@ -14,6 +14,7 @@ import { logOutcome } from "@/lib/field/log-outcome";
 import { outcomeSpec, type OtherOutcome, type PrimaryOutcome } from "@/lib/field/outcomes";
 import { offerUndo, useUndoTarget } from "@/lib/field/undo";
 import { formatFieldHeader } from "@/lib/field/route-display";
+import { OUTCOME_DOT } from "@/lib/map/map-palette";
 import { ROUTE_TIER_COLOURS } from "@/lib/map/route-layers";
 
 /**
@@ -214,11 +215,36 @@ function Legend() {
   // P10: labels read from outcomeSpec, so "No Answer" → "Not In" (and any
   // future wording change) never has to be edited in two places.
   const items = [
-    { label: "Not yet logged", className: "rounded-full h-3 w-3 bg-ink-soft" },
-    { label: outcomeSpec("no_answer").label, className: "rounded-full h-3 w-3 bg-worksheet-deep ring-1 ring-ink" },
-    { label: outcomeSpec("answered").label, className: "rounded-full h-3.5 w-3.5 bg-prop ring-2 ring-inset ring-paper" },
-    { label: outcomeSpec("no_opportunity").label, className: "rounded-full h-2 w-2 bg-oxide" },
-    { label: outcomeSpec("lead").label, className: "rounded-full h-5 w-5 bg-lead ring-2 ring-inset ring-paper" },
+    {
+      label: "Not yet logged",
+      className: "rounded-full h-3 w-3",
+      backgroundColor: OUTCOME_DOT.open,
+      boxShadow: `0 0 0 1px ${OUTCOME_DOT.openRing}`,
+    },
+    {
+      label: outcomeSpec("no_answer").label,
+      className: "rounded-full h-3 w-3",
+      backgroundColor: OUTCOME_DOT.no_answer,
+      boxShadow: `0 0 0 1px ${OUTCOME_DOT.ring}`,
+    },
+    {
+      label: outcomeSpec("answered").label,
+      className: "rounded-full h-3.5 w-3.5",
+      backgroundColor: OUTCOME_DOT.answered,
+      boxShadow: `inset 0 0 0 2px ${OUTCOME_DOT.ring}`,
+    },
+    {
+      label: outcomeSpec("no_opportunity").label,
+      className: "rounded-full h-2 w-2",
+      backgroundColor: OUTCOME_DOT.no_opportunity,
+      boxShadow: "none",
+    },
+    {
+      label: outcomeSpec("lead").label,
+      className: "rounded-full h-5 w-5",
+      backgroundColor: OUTCOME_DOT.lead,
+      boxShadow: `inset 0 0 0 2px ${OUTCOME_DOT.ring}`,
+    },
   ];
   const routeRows = hasRoute
     ? [
@@ -235,7 +261,10 @@ function Legend() {
     >
       {items.map((item) => (
         <li key={item.label} className="flex items-center gap-2 py-0.5 text-[11px] leading-none">
-          <span className={`inline-block shrink-0 ${item.className}`} />
+          <span
+            className={`inline-block shrink-0 ${item.className}`}
+            style={{ backgroundColor: item.backgroundColor, boxShadow: item.boxShadow }}
+          />
           {item.label}
         </li>
       ))}

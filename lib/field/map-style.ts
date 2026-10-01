@@ -1,5 +1,8 @@
 import { setWorkerUrl, type StyleSpecification } from "maplibre-gl";
 
+import { MAP_PALETTE } from "@/lib/map/map-palette";
+import { restyleBasemap } from "@/lib/map/restyle-basemap";
+
 /**
  * Shared basemap setup for the field Map tab and the Logger's compact mini
  * map (`components/field/mini-map.tsx`, `components/field/field-map.tsx`'s
@@ -23,6 +26,7 @@ import { setWorkerUrl, type StyleSpecification } from "maplibre-gl";
  * counting `.maplibregl-map` in the DOM while switching
  * Map → Logger → Map → Logger (see the Session C BUILD-LOG entry).
  * 2026-09-30: the Logger's compact map is interactive (pan/pinch); still one instance per route.
+ * 2026-10-01 (UI-2 Session M1, owner F1): the fetched style JSON is passed through restyleBasemap; FALLBACK_STYLE uses MAP_PALETTE.ground.
  */
 
 setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
@@ -41,17 +45,17 @@ export const FALLBACK_STYLE: StyleSpecification = {
   version: 8,
   name: "field-offline",
   sources: {},
-  layers: [{ id: "background", type: "background", paint: { "background-color": "#e4e6de" } }],
+  layers: [{ id: "background", type: "background", paint: { "background-color": MAP_PALETTE.ground } }],
 };
 
-export async function fieldMapStyle(): Promise<string | StyleSpecification> {
+export async function fieldMapStyle(): Promise<StyleSpecification> {
   const key = process.env.NEXT_PUBLIC_MAPTILER_KEY;
   if (!key) return FALLBACK_STYLE;
   const url = `https://api.maptiler.com/maps/dataviz-light/style.json?key=${key}`;
   try {
     const response = await fetch(url);
     if (!response.ok) return FALLBACK_STYLE;
-    return url;
+    return restyleBasemap(await response.json());
   } catch {
     return FALLBACK_STYLE;
   }
