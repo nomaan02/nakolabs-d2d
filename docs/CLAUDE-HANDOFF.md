@@ -2,17 +2,17 @@
 
 ## Current state
 
-- Last updated: 2026-10-01 (UI item 2, Session M3 — building outlines and per-door slices). HEAD at the start of M2 was b24f04d. M2 and M3 are uncommitted. **The owner commits after review — this session did not commit.**
-- **UI item 2, Session M3** loads OpenStreetMap building ways into `building_footprints` and cuts `door_footprints` per door. Three territories were ingested. Coverage is above 80% on all three. The map does not draw the slices yet. Evidence is in the log entry below and in `docs/BUILD-LOG.md`.
-- Owner F4 is in the M3 log entry. M1 recorded F1, F2, and the smaller-dot half of F3. M2 recorded the walkline half of F3. F5 and F6 are not built.
-- Coverage: REF - Speedwell 179/182 doors (98.4%). TEST - dry run 85/88 (96.6%). Whitechurch Lane - Hartcliffe 1,578/1,682 (93.8%). Tables after a second identical run: `building_footprints` 3,674, `door_footprints` 1,842. Same counts as the first run.
-- Known limits: multipolygon relations are not loaded. A door more than 3 m from any outline gets no slice.
-- Whitechurch's only assignment `4d735d92-1eaa-4e55-9f21-e0e17f558379` (visit 1, work date 2026-10-01, 1,682 doors) is closed (`closed_at` 2026-10-01 20:38:26+00). CanvasserX's member row has `left_at` set to the same time. This session did not close it. The footprint RPC was still readable on that row: 1,468 single-door features.
-- `npx eslint scripts/ingest-buildings.ts scripts/verify-door-footprints.ts scripts/lib` exits 0. `npx eslint components/field lib/field lib/map scripts` was not re-run. The pre-existing `prefer-const` in `scripts/seed-demo.ts` line 242 is unchanged.
-- This session did not open the field app and did not recheck `knock_events` or the outbox row `61cea5a1-d03e-4edb-9294-6bf4045e61e1`.
-- Carried, unchanged: H1 plate about 4px left of the Lead gap; map band 169.64 at 390×763; Not In overlaps the note bar at 375×600; the Logger still needs an on-device pass. Admin coverage still shares `fieldMapStyle()`. Dataviz Light still does not select park or `roadMajorCase`. Door dots still use the M2 anchors.
-- External settings changed since handover: none. Two magic links for CanvasserX, user `576c4ce7-5fe0-489f-bd7f-42912925951a`, used only inside `verify:footprints`, then signed out locally. `expires_at` 1790892025 and 1790892081. Password, profile and role were not changed. The browser was not opened.
-- Shared modules this session: `lib/supabase/types.ts` regenerated after migration 024. `lib/map/route-layers.ts`, `lib/sync/queue.ts`, `lib/geo/walk/*` and `lib/field/*` were not edited.
+- Last updated: 2026-10-01 (UI item 2, Session M4 — coloured buildings and the 2D/3D toggle). M1–M4 are uncommitted. **The owner commits after review — this session did not commit.**
+- **UI item 2, Session M4** draws `door_footprints` on the field map. A logged door tints its slice. Shared slices stay neutral. The Map tab and the Logger mini map share one 2D/3D choice, stored on the device as `d2d.mapView`. Evidence is in the log entry below and in `docs/BUILD-LOG.md`.
+- Owner F4, F5 and F6 are in the M4 log entry. M1 recorded F1, F2, and the smaller-dot half of F3. M2 recorded the walkline half of F3. M3 recorded the outline half of F4.
+- CanvasserX's open prop is REF - Speedwell, assignment `8eaae87b-a77e-4e7b-b653-9a2cd9f03dbc`, visit 4, work date 2026-10-01, 182 doors. The map loaded 175 slices. Dexie `footprints` cached that collection at `2026-10-01T21:16:36.246Z`.
+- The browser was left signed in as CanvasserX on `/field`. `localStorage` `d2d.mapView` was left as `3d` after the reload check. Password, profile and role were not changed. No new magic link.
+- Two offline logs were undone before the radio returned. `knock_events` has neither `5e4e1192-f3ab-4096-8743-2bb595c2e498` nor `e56ec6b2-4c7f-4a86-b038-6ee802ad0704`. The older outbox id `61cea5a1-d03e-4edb-9294-6bf4045e61e1` is still not in `knock_events`. Retry was not clicked.
+- `npx tsc --noEmit` exit 0. `npx eslint components/field lib/field lib/map` exit 0. `npm run verify:ui1`, `verify:ui4` and `verify:anchors` each exit 0, once. `npx eslint` including `scripts` was not re-run. The pre-existing `prefer-const` in `scripts/seed-demo.ts` line 242 is unchanged.
+- A radio-off reload of `next dev` did not load the document (`chrome-error://chromewebdata/`). Coloured buildings from the Dexie cache after that reload: **NOT VERIFIED**.
+- Carried: multipolygon relations are not loaded. A door more than 3 m from any outline gets no slice. Whitechurch visit 1 stays closed. Admin coverage still shares `fieldMapStyle()`. Dataviz Light still does not select park or `roadMajorCase`.
+- External settings changed since handover: none.
+- Shared modules this session: `lib/field/db.ts` (Dexie version 7), new `lib/field/footprint-cache.ts`, new `lib/field/map-view.ts`. `lib/map/route-layers.ts`, `lib/sync/queue.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
 
 ## Log
 
@@ -1126,4 +1126,46 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** Drawing the slices on a map. A phone. Doors that are missing because the outline is a multipolygon relation, counted only as the gap below 100%. Authenticated INSERT on the new tables (RLS has no write policy; the session proof asked for select and the two function denials).
 - **External settings:** none. Magic link for CanvasserX, user `576c4ce7-5fe0-489f-bd7f-42912925951a`, `expires_at` 1790892025, used by the first passing verify, then local sign-out. Magic link for the same user, `expires_at` 1790892081, used by the final verify, then local sign-out. Password, profile and role were not changed. The browser was not opened.
 - **Open questions for Claude:** Whitechurch visit 1 is closed. The slice RPC still returns its doors for CanvasserX because the member row remains. Say if a closed assignment should stop returning footprints. The first cold rebuild of Whitechurch exceeded the API statement timeout twice before it finished. A later cold run may need the same retry.
+
+### 2026-10-01 — UI item 2 coloured buildings and 2D/3D (uncommitted)
+
+- **Item:** 2 — coloured buildings and the 2D/3D toggle (Session M4)
+- **What changed:** The field map loads each door's building slice and tints it from this assignment's knock. A shared slice is outlined and never tinted. 2D is flat. 3D tilts the camera and extrudes the slices 0.5 m above the basemap buildings. One control on the Map tab and one on the Logger mini map share the choice and remember it on the device.
+- **Files:**
+  - Changed: `lib/field/db.ts`, `components/field/field-data-provider.tsx`, `components/field/field-map.tsx`, `components/field/map-tab.tsx`, `components/field/mini-map.tsx`, `components/field/logger-tab.tsx`, `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `lib/field/footprint-cache.ts`, `lib/field/map-view.ts`
+  - Deleted: none
+- **Database:** none. Reads `assignment_door_footprints` from migration 024. No new migration.
+- **Shared modules touched:** `lib/field/db.ts` (Dexie version 7, `footprints` store). New `lib/field/footprint-cache.ts` and `lib/field/map-view.ts`. `lib/map/route-layers.ts`, `lib/sync/queue.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - owner — F4. Buildings take the outcome colour (tints), in 2D and 3D. Outlines come from OpenStreetMap. A terrace is split per house. A slice with several doors at one position stays neutral, with an outline.
+  - owner — F5. The dots stay, smaller, on top of the coloured buildings.
+  - owner — F6. A 2D/3D toggle on the Map tab and the Logger mini map. The choice is shared and remembered. 3D is a tilted camera plus extruded buildings. No terrain.
+  - agent — `ensureFootprints` takes the Supabase client as well as the assignment id and the online flag, the same shape as `ensureRoute`.
+  - agent — the route load and the slice load share one effect. Coming back online runs that load again. It does not clear `routeReady` on the way.
+  - agent — `logger-tab.tsx` passes `footprints` into `MiniMap`. The mini map is memoised and does not call `useFieldData` itself.
+- **Deviations from plan or brief:** The door dot for UPRN 74756 was selected by calling the map's `onSelectUprn` after `queryRenderedFeatures` showed that dot under the projected point. The screenshot click landed on the canvas at a scaled coordinate and did not open the panel. The lead itself was logged with the Lead button and the sheet, offline. A second offline Contact on door 17 was logged and undone to time the 3D mini map. `next dev` would not load the document while the radio was off.
+- **Invariants:** No GPS and no coordinates sent. No quality score. The two test knocks went through the existing logger and the queue, then undo deleted the held rows before anything was sent. `lib/sync/queue.ts` was not edited. Slice geometry is display only.
+- **Verified:**
+  - EDIT 1 DONE. Dexie version 7 repeats every version-6 store and adds `footprints: "assignment_id"`. No `.upgrade()`. Dated comment is above the version call and in the file header.
+  - EDIT 2 DONE. `lib/field/footprint-cache.ts`. Online calls `assignment_door_footprints` with a 4 s timeout, stores `{ assignment_id, fetched_at, data }`, and returns the collection. Offline, a timeout, or an error returns the cache or null.
+  - EDIT 3 DONE. Footprints load when the assignment is ready and again on `window` `online`, in the same effect as the route. Context exposes `footprints`.
+  - EDIT 4 DONE. `lib/field/map-view.ts`. `useMapView`, `setMapView`, `toggleMapView`. Key `d2d.mapView`. Reads and writes are in try/catch. Default `2d`.
+  - EDIT 5 DONE. `field-footprints` source, `promoteId: "fid"`. Fill, line and extrusion sit under the route. Basemap extrusion sits under the slices. Outcome state is applied on `style.load` and in the effect. 3D pitch is 55 on the Map tab and 50 on the mini map. Compact `touchPitch` stays disabled. Follow keeps the current pitch.
+  - EDIT 6 DONE. Both toggles are 44px, round, `border-line`, `bg-surface`, `text-field-button-label`, `aria-pressed`. The label is `3D` in 2D and `2D` in 3D. Map tab is `left-2 top-2`. Mini map is `right-2 top-2 z-[2]`.
+  - EDIT 7 DONE. `useFieldData().footprints` is passed into both `FieldMap` usages. `logger-tab.tsx` passes it through `MiniMap`.
+  - `npx tsc --noEmit` exit 0. `npx eslint components/field lib/field lib/map` exit 0.
+  - `npm run verify:ui1` exit 0, once. `npm run verify:ui4` exit 0, once. `npm run verify:anchors` exit 0, once.
+  - Chrome, CanvasserX, REF - Speedwell, visit 4, assignment `8eaae87b-a77e-4e7b-b653-9a2cd9f03dbc`. Emulation 390×763. `innerWidth` 391, `innerHeight` 763. 182 doors, 175 slices.
+  - Offline (`navigator.onLine` false, `fetch /health` threw `TypeError`). Lead on UPRN 74756 (174 Speedwell Road, door 89). `queryRenderedFeatures` on `field-footprints-fill` returned that feature with `state.outcome` `lead`, `shared` false. `getFeatureState` was `{ outcome: "lead" }`. The fill paint expression contains `#cfe6d8`. Undo removed outbox row `5e4e1192-f3ab-4096-8743-2bb595c2e498`. Feature state afterwards was `{}`.
+  - Shared slice fid `-621499241001`. Fill filter is `["!=", ["get", "shared"], true]`. Rendered fill features with `shared` true: 0. The line layer rendered that fid with feature state `{}`.
+  - Map tab 3D: pitch 55. `basemap-buildings-3d` and `field-footprints-3d` visible. Fill and line `none`. Doors and `route-walk-work` visible. Layer indexes: basemap extrusion 42, slice extrusion 45, route work 48, dots 53. `localStorage` `3d`.
+  - Logger mini map opened already in 3D: pitch 50, zoom 17.5, `touchPitch` false, button `2D` pressed. › moved the camera and pitch stayed 50. Toggling to 2D there stored `2d`. The Map tab then read pitch 0, fill visible, extrusion `none`, button `3D`.
+  - Reload with `d2d.mapView` `3d`: pitch 55, button `2D` pressed, 175 slices.
+  - 3D pan, 5,010 ms, zoom 18, pitch 55: 302 animation frames, 0 gaps over 1.5 frame budgets, 287 `render` events. A Contact tap on the 3D mini map showed the undo ring in 84 ms. Pitch stayed 50. That row `e56ec6b2-4c7f-4a86-b038-6ee802ad0704` was undone while offline. Outbox left 0.
+  - After both undos, and again after the app was back online: `knock_events` for those two ids, and for CanvasserX with `occurred_at` on or after 2026-10-01 21:20 UTC: 0 rows. `61cea5a1-d03e-4edb-9294-6bf4045e61e1` is not in `knock_events`.
+  - Point count on screen: 182 doors, 175 slices. Device: desktop Chrome with device-metrics emulation, not a phone.
+- **Not verified:** A radio-off reload. `location.reload()` while `navigator.onLine` was false ended on `chrome-error://chromewebdata/`. The Dexie row was present before that reload (175 features, fetched `2026-10-01T21:16:36.246Z`). A phone. A 2,000-door 3D timing pass. Sun, wet thumb, one-handed use.
+- **External settings:** none. No new magic link. The browser was already signed in as CanvasserX. Password, profile and role were not changed. Left on `/field`, map view `3d`.
+- **Open questions for Claude:** none from this session. The M3 question about a closed assignment still returning footprints is unchanged.
 

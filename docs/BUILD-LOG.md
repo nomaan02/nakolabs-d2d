@@ -1660,4 +1660,40 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not done / deferred:** Drawing slices on the map. F5. Phone. Authenticated INSERT was not executed. Did not commit.
 - **Follow-ups:** whether a closed assignment should still return footprints. Whether the Whitechurch rebuild needs a longer statement timeout before a cold run is reliable. Multipolygon relations and doors more than 3 m from an outline stay without a slice.
 
+---
+
+### UI item 2 — Coloured buildings and 2D/3D, Session M4
+- **Date:** 2026-10-01
+- **Model:** Grok 4.7
+- **Built:** Door slices on the field map, tinted from this assignment's knocks. Shared slices stay neutral. A shared 2D/3D choice for the Map tab and the Logger mini map, remembered in `d2d.mapView`. No migration. No sync change.
+- **Acceptance:**
+  - EDIT 1 DONE. Dexie version 7. Every version-6 store repeated. `footprints: "assignment_id"`. No `.upgrade()`.
+  - EDIT 2 DONE. `lib/field/footprint-cache.ts`. RPC `assignment_door_footprints`, 4 s timeout, Dexie row `{ assignment_id, fetched_at, data }`. Offline or error returns the cache or null.
+  - EDIT 3 DONE. Slices load with the route, and again on `online`. Context field `footprints`.
+  - EDIT 4 DONE. `lib/field/map-view.ts`. `useMapView`, `setMapView`, `toggleMapView`. Default `2d`. Storage in try/catch.
+  - EDIT 5 DONE. Layers `field-footprints-fill`, `field-footprints-line`, `field-footprints-3d`, `basemap-buildings-3d`, under the route. Feature state on `style.load` and in the effect. Pitch 55 / 50. Compact pitch is code only.
+  - EDIT 6 DONE. Both toggles, 44px. Map tab top-left. Mini map top-right.
+  - EDIT 7 DONE. Both `FieldMap` usages receive `footprints`. `logger-tab.tsx` passes them into `MiniMap`.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - `npx eslint components/field lib/field lib/map`: **PASS** — exit 0.
+  - `npm run verify:ui1`: **PASS** — exit 0, once.
+  - `npm run verify:ui4`: **PASS** — exit 0, once.
+  - `npm run verify:anchors`: **PASS** — exit 0, once.
+  - Chrome, CanvasserX, REF - Speedwell, visit 4, 182 doors, 175 slices. Emulation 390×763. `innerWidth` 391, `innerHeight` 763.
+  - (a) **PASS**. Offline. Lead on UPRN 74756. Fill feature state `lead`. Paint expression contains `#cfe6d8`. Undo cleared the state to `{}`. Outbox `5e4e1192-f3ab-4096-8743-2bb595c2e498` removed while offline.
+  - (b) **PASS**. Shared fid `-621499241001` is not in the fill layer. Line layer draws it. Feature state `{}`.
+  - (c) **PASS**. Map tab pitch 55, both extrusions visible, dots and route above them. Logger pitch 50, › kept the pitch. Toggle to 2D on the Logger, then the Map tab was pitch 0.
+  - (d) **PASS**. Reload kept `3d`: pitch 55, button `2D`.
+  - (e) **NOT VERIFIED**. Offline reload of `next dev` ended on `chrome-error://chromewebdata/`. Dexie had 175 features before that reload.
+  - (f) **PASS** for the frame count on this machine. 5,010 ms pan at zoom 18, pitch 55: 302 frames, 0 dropped, 287 map renders. Contact on the 3D mini map reached the undo ring in 84 ms. Undone offline. Id `e56ec6b2-4c7f-4a86-b038-6ee802ad0704`.
+  - `knock_events` for those two ids, and for CanvasserX on or after 2026-10-01 21:20 UTC: **0**. `61cea5a1-d03e-4edb-9294-6bf4045e61e1` is not in `knock_events`.
+  - Point count: 182 doors, 175 slices. Device: desktop Chrome with device-metrics emulation, not a phone.
+- **Deviations from brief:**
+  - `ensureFootprints(supabase, assignmentId, online)`. The prompt named the assignment and the online flag. The client is the same extra argument `ensureRoute` takes.
+  - Coming online re-runs the route load as well as the slices. `routeReady` is not cleared on that pass.
+  - `logger-tab.tsx` was edited so the memoised mini map receives `footprints`.
+  - The map click that should have selected UPRN 74756 missed because the screenshot coordinate was scaled. Selection then used `onSelectUprn`. The lead was logged from the Lead button.
+- **Not done / deferred:** Radio-off reload of the dev server. A phone. A 2,000-door 3D pass. Did not commit.
+- **Follow-ups:** none new. M3's closed-assignment question is unchanged.
+
 

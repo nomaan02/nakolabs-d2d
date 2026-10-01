@@ -28,6 +28,10 @@ import type { SyncOp, SyncOpKind } from "@/lib/sync/ops";
  * `variant_key`) are fields on the existing rows. Dexie does not reshape
  * objects, so a route cached before this version simply lacks those keys.
  * Readers treat a missing key as null and do not throw.
+ *
+ * Version 7 (UI item 2, 2026-10-01) adds `footprints`. Every version-6
+ * store is repeated verbatim. No `.upgrade()` — nothing is cleared.
+ * An absent row means the map draws no coloured buildings. Fail open.
  */
 export type CachedAssignment = {
   assignment_id: string;
@@ -153,6 +157,16 @@ export type SyncMetaRow = {
   value: string;
 };
 
+/**
+ * Door slices for one assignment, as returned by `assignment_door_footprints`.
+ * Display only. An empty collection is a successful fetch with nothing to draw.
+ */
+export type CachedFootprints = {
+  assignment_id: string;
+  fetched_at: string;
+  data: GeoJSON.FeatureCollection;
+};
+
 export type FieldDatabase = Dexie & {
   assignments: EntityTable<CachedAssignment, "assignment_id">;
   outbox: EntityTable<OutboxRow, "seq">;
@@ -160,6 +174,7 @@ export type FieldDatabase = Dexie & {
   addresses: EntityTable<CachedAddress, "uprn">;
   routes: EntityTable<CachedRoute, "assignment_id">;
   route_steps: EntityTable<CachedRouteStep, "id">;
+  footprints: EntityTable<CachedFootprints, "assignment_id">;
 };
 
 let instance: FieldDatabase | null = null;
@@ -221,6 +236,20 @@ export function fieldDb(): FieldDatabase {
       addresses: "uprn",
       routes: "assignment_id",
       route_steps: "id, assignment_id, step_index",
+    });
+    // UI item 2, Session M4 (2026-10-01). Only `footprints` is new. Every
+    // version-6 store is repeated because Dexie treats an omitted store as a
+    // drop. No `.upgrade()` — populated caches stay. An absent row means
+    // the map has no coloured buildings.
+    instance.version(7).stores({
+      assignments: "assignment_id, work_date, canvasser_id",
+      outbox:
+        "++seq, &client_event_id, assignment_id, canvasser_id, status, [assignment_id+seq], [status+assignment_id]",
+      sync_meta: "key",
+      addresses: "uprn",
+      routes: "assignment_id",
+      route_steps: "id, assignment_id, step_index",
+      footprints: "assignment_id",
     });
   }
   return instance;

@@ -2,6 +2,7 @@
 
 import { FieldMap } from "@/components/field/field-map";
 import { MapIcon } from "@/components/field/icons";
+import { toggleMapView, useMapView } from "@/lib/field/map-view";
 import type { DoorLabels } from "@/lib/field/labels";
 import type { LocalOutcomes } from "@/lib/field/local-outcomes";
 import type { DoorCollection } from "@/lib/geo/todays-assignment";
@@ -31,6 +32,7 @@ export function MiniMap({
   outcomes,
   routeModel,
   routeTiers,
+  footprints = null,
   currentUprn,
   onOpenMap,
 }: {
@@ -39,10 +41,12 @@ export function MiniMap({
   outcomes: LocalOutcomes;
   routeModel: RoutePaintModel;
   routeTiers: RouteTiers | null;
+  footprints?: GeoJSON.FeatureCollection | null;
   /** The door the Logger cursor is on now. Never a GPS position. */
   currentUprn: number | null;
   onOpenMap: () => void;
 }) {
+  const mapView = useMapView();
   return (
     <div className="relative h-full w-full overflow-hidden" data-testid="mini-map">
       <FieldMap
@@ -51,12 +55,22 @@ export function MiniMap({
         outcomes={outcomes}
         routeModel={routeModel}
         routeTiers={routeTiers}
+        footprints={footprints}
         selectedUprn={currentUprn}
         cameraNonce={0}
         onSelectUprn={() => {}}
         active
         variant="compact"
       />
+      <button
+        type="button"
+        aria-pressed={mapView === "3d"}
+        onClick={() => toggleMapView()}
+        className="absolute right-2 top-2 z-[2] flex size-11 items-center justify-center rounded-full border border-line bg-surface text-field-button-label"
+        data-testid="map-view-toggle"
+      >
+        {mapView === "3d" ? "2D" : "3D"}
+      </button>
       <button
         type="button"
         onClick={onOpenMap}

@@ -21,6 +21,7 @@ import { useTeam, type TeamApi } from "@/lib/field/use-team";
 import type { CachedAddress } from "@/lib/field/db";
 import { ensureAddresses, readLabels, type DoorLabels } from "@/lib/field/labels";
 import { useLocalOutcomes, type LocalOutcomes } from "@/lib/field/local-outcomes";
+import { ensureFootprints } from "@/lib/field/footprint-cache";
 import { ensureRoute, readRoute } from "@/lib/field/route-cache";
 import {
   describeRoute,
@@ -82,6 +83,8 @@ type FieldData = {
    * Display only. `phase.assignment.doors` is the sequence and the write source.
    */
   anchoredDoors: DoorCollection;
+  /** Door slices for this prop. Null when none are cached. Empty draws nothing. */
+  footprints: GeoJSON.FeatureCollection | null;
   labels: DoorLabels;
   outcomes: LocalOutcomes;
   cursor: Cursor;
@@ -133,6 +136,7 @@ export function FieldDataProvider({
   const [labelEpoch, setLabelEpoch] = useState(0);
   const [route, setRoute] = useState<Awaited<ReturnType<typeof readRoute>>>(null);
   const [routeReady, setRouteReady] = useState(false);
+  const [footprints, setFootprints] = useState<GeoJSON.FeatureCollection | null>(null);
   const [leadDrafts, setLeadDrafts] = useState<Map<number, LeadDraft>>(() => new Map());
   const [noteDrafts, setNoteDrafts] = useState<Map<number, string>>(() => new Map());
   const [mapSelectedUprn, setMapSelectedUprn] = useState<number | null>(null);
@@ -234,27 +238,37 @@ export function FieldDataProvider({
     };
   }, [assignmentId, sequence, labelEpoch]);
 
-  // Route geometry and steps, once per prop, same as the labels. An absent
-  // store or a failed fetch leaves `route` null and the banner up.
+  // Route geometry and door slices, once the assignment is ready, and again
+  // when the device comes back online. `ensureRoute` already refuses a
+  // network read while offline; the slices use that same `online` signal.
   useEffect(() => {
     if (!assignmentId) {
       setRoute(null);
       setRouteReady(false);
+      setFootprints(null);
       return;
     }
     let cancelled = false;
     setRouteReady(false);
 
-    void (async () => {
-      await ensureRoute(createClient(), assignmentId).catch(() => false);
-      const loaded = await readRoute(assignmentId).catch(() => null);
-      if (cancelled) return;
-      setRoute(loaded);
-      setRouteReady(true);
-    })();
+    const load = () => {
+      const online = typeof navigator !== "undefined" && navigator.onLine;
+      void (async () => {
+        await ensureRoute(createClient(), assignmentId).catch(() => false);
+        const loaded = await readRoute(assignmentId).catch(() => null);
+        const prints = await ensureFootprints(createClient(), assignmentId, online).catch(() => null);
+        if (cancelled) return;
+        setRoute(loaded);
+        setRouteReady(true);
+        setFootprints(prints);
+      })();
+    };
 
+    load();
+    window.addEventListener("online", load);
     return () => {
       cancelled = true;
+      window.removeEventListener("online", load);
     };
   }, [assignmentId]);
 
@@ -334,6 +348,7 @@ export function FieldDataProvider({
       routeModel,
       routeTiers,
       anchoredDoors,
+      footprints,
       labels,
       outcomes,
       cursor,
@@ -359,6 +374,7 @@ export function FieldDataProvider({
       routeModel,
       routeTiers,
       anchoredDoors,
+      footprints,
       labels,
       outcomes,
       cursor,

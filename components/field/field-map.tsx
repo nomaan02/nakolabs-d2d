@@ -13,9 +13,10 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { DoorLabels } from "@/lib/field/labels";
 import { mapLabel } from "@/lib/field/labels";
 import type { LocalOutcomes } from "@/lib/field/local-outcomes";
+import { useMapView, type MapView } from "@/lib/field/map-view";
 import { ATTRIBUTION_LINES, fieldMapStyle } from "@/lib/field/map-style";
 import type { DoorCollection } from "@/lib/geo/todays-assignment";
-import { OUTCOME_DOT } from "@/lib/map/map-palette";
+import { MAP_PALETTE, OUTCOME_DOT, OUTCOME_TINT } from "@/lib/map/map-palette";
 import {
   applyRouteProgress,
   paintRouteLayers,
@@ -44,6 +45,164 @@ const POSITION_SOURCE = "field-position";
 const POSITION_LAYER = "you-are-here";
 
 const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+
+const FOOTPRINTS_SOURCE = "field-footprints";
+const FOOTPRINTS_FILL = "field-footprints-fill";
+const FOOTPRINTS_LINE = "field-footprints-line";
+const FOOTPRINTS_3D = "field-footprints-3d";
+const BASEMAP_BUILDINGS_3D = "basemap-buildings-3d";
+/** Already used by the compact halo and the position seam. */
+const SELECTED_SLICE = "#1b4aa6";
+
+/** Outcome tint. `fallback` is transparent in 2D and the building fill in 3D. */
+function footprintTint(fallback: string): ExpressionSpecification {
+  return [
+    "match",
+    ["coalesce", ["feature-state", "outcome"], "none"],
+    "lead",
+    OUTCOME_TINT.lead,
+    "answered",
+    OUTCOME_TINT.answered,
+    "no_opportunity",
+    OUTCOME_TINT.no_opportunity,
+    "no_answer",
+    OUTCOME_TINT.no_answer,
+    "refused",
+    OUTCOME_TINT.other,
+    "do_not_call",
+    OUTCOME_TINT.other,
+    "inaccessible",
+    OUTCOME_TINT.other,
+    "callback",
+    OUTCOME_TINT.other,
+    fallback,
+  ];
+}
+
+function buildingFillSource(instance: MapLibreMap): { source: string; sourceLayer: string } | null {
+  const layers = instance.getStyle()?.layers;
+  if (!layers) return null;
+  for (const layer of layers) {
+    if (layer.type !== "fill") continue;
+    if (!("source-layer" in layer) || layer["source-layer"] !== "building") continue;
+    if (typeof layer.source !== "string") continue;
+    return { source: layer.source, sourceLayer: layer["source-layer"] };
+  }
+  return null;
+}
+
+function mountFootprints(
+  instance: MapLibreMap,
+  data: GeoJSON.FeatureCollection | null,
+  view: MapView,
+  beforeId: string,
+) {
+  const showFlat = view === "2d" ? "visible" : "none";
+  const show3d = view === "3d" ? "visible" : "none";
+  const before = instance.getLayer(beforeId) ? beforeId : undefined;
+
+  if (!instance.getSource(FOOTPRINTS_SOURCE)) {
+    instance.addSource(FOOTPRINTS_SOURCE, {
+      type: "geojson",
+      data: data ?? EMPTY,
+      promoteId: "fid",
+    });
+  }
+
+  if (!instance.getLayer(BASEMAP_BUILDINGS_3D)) {
+    const building = buildingFillSource(instance);
+    if (building && instance.getSource(building.source)) {
+      instance.addLayer(
+        {
+          id: BASEMAP_BUILDINGS_3D,
+          type: "fill-extrusion",
+          source: building.source,
+          "source-layer": building.sourceLayer,
+          minzoom: 15,
+          layout: { visibility: show3d },
+          paint: {
+            "fill-extrusion-color": MAP_PALETTE.building,
+            "fill-extrusion-opacity": 0.9,
+            "fill-extrusion-height": ["coalesce", ["get", "render_height"], 6],
+            "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0],
+          },
+        },
+        before,
+      );
+    }
+  }
+
+  if (!instance.getLayer(FOOTPRINTS_FILL)) {
+    instance.addLayer(
+      {
+        id: FOOTPRINTS_FILL,
+        type: "fill",
+        source: FOOTPRINTS_SOURCE,
+        filter: ["!=", ["get", "shared"], true],
+        layout: { visibility: showFlat },
+        paint: { "fill-color": footprintTint("rgba(0,0,0,0)") },
+      },
+      before,
+    );
+  }
+
+  if (!instance.getLayer(FOOTPRINTS_LINE)) {
+    instance.addLayer(
+      {
+        id: FOOTPRINTS_LINE,
+        type: "line",
+        source: FOOTPRINTS_SOURCE,
+        layout: { visibility: showFlat },
+        paint: {
+          "line-color": [
+            "case",
+            ["boolean", ["feature-state", "selected"], false],
+            SELECTED_SLICE,
+            MAP_PALETTE.buildingEdge,
+          ],
+          "line-width": [
+            "case",
+            ["boolean", ["feature-state", "selected"], false],
+            2,
+            1,
+          ],
+        },
+      },
+      before,
+    );
+  }
+
+  if (!instance.getLayer(FOOTPRINTS_3D)) {
+    instance.addLayer(
+      {
+        id: FOOTPRINTS_3D,
+        type: "fill-extrusion",
+        source: FOOTPRINTS_SOURCE,
+        layout: { visibility: show3d },
+        paint: {
+          "fill-extrusion-color": footprintTint(MAP_PALETTE.building),
+          "fill-extrusion-height": ["+", ["get", "height_m"], 0.5],
+          "fill-extrusion-base": 0,
+          "fill-extrusion-opacity": 0.95,
+        },
+      },
+      before,
+    );
+  }
+}
+
+function applyMapView(instance: MapLibreMap, view: MapView, mapVariant: "full" | "compact") {
+  const flat = view === "2d" ? "visible" : "none";
+  const extruded = view === "3d" ? "visible" : "none";
+  for (const id of [FOOTPRINTS_FILL, FOOTPRINTS_LINE]) {
+    if (instance.getLayer(id)) instance.setLayoutProperty(id, "visibility", flat);
+  }
+  for (const id of [BASEMAP_BUILDINGS_3D, FOOTPRINTS_3D]) {
+    if (instance.getLayer(id)) instance.setLayoutProperty(id, "visibility", extruded);
+  }
+  const pitch = view === "3d" ? (mapVariant === "compact" ? 50 : 55) : 0;
+  instance.easeTo({ pitch, duration: 400 });
+}
 
 /**
  * Outcome styling, per invariant 2 as amended 2026-09-17.
@@ -200,10 +359,11 @@ function flyToDoor(
   const feature = doors.features.find((f) => f.properties.uprn === uprn);
   if (!feature) return false;
   const center = feature.geometry.coordinates as [number, number];
+  const pitch = map.getPitch();
   if (mode === "jump") {
-    map.jumpTo({ center, zoom });
+    map.jumpTo({ center, zoom, pitch });
   } else {
-    map.easeTo({ center, zoom, duration: durationMs });
+    map.easeTo({ center, zoom, pitch, duration: durationMs });
   }
   return true;
 }
@@ -257,19 +417,29 @@ function recordLayerOrder(
   const present = (instance.getStyle()?.layers ?? []).map((layer) => layer.id);
   container.dataset.routeLayers = ROUTE_LAYER_IDS.filter((id) => present.includes(id)).join(",");
 }
+function paintOutcomeSource(
+  instance: MapLibreMap,
+  source: string,
+  outcomes: LocalOutcomes,
+  selectedUprn: number | null,
+) {
+  if (!instance.getSource(source)) return;
+  instance.removeFeatureState({ source });
+  for (const [uprn, entry] of outcomes) {
+    instance.setFeatureState({ source, id: uprn }, { outcome: entry.outcome });
+  }
+  if (selectedUprn !== null) {
+    instance.setFeatureState({ source, id: selectedUprn }, { selected: true });
+  }
+}
+
 function applyOutcomeState(
   instance: MapLibreMap,
   outcomes: LocalOutcomes,
   selectedUprn: number | null,
 ) {
-  if (!instance.getSource(DOORS_SOURCE)) return;
-  instance.removeFeatureState({ source: DOORS_SOURCE });
-  for (const [uprn, entry] of outcomes) {
-    instance.setFeatureState({ source: DOORS_SOURCE, id: uprn }, { outcome: entry.outcome });
-  }
-  if (selectedUprn !== null) {
-    instance.setFeatureState({ source: DOORS_SOURCE, id: selectedUprn }, { selected: true });
-  }
+  paintOutcomeSource(instance, DOORS_SOURCE, outcomes, selectedUprn);
+  paintOutcomeSource(instance, FOOTPRINTS_SOURCE, outcomes, selectedUprn);
 }
 
 export function FieldMap({
@@ -278,6 +448,7 @@ export function FieldMap({
   outcomes,
   routeModel,
   routeTiers,
+  footprints = null,
   selectedUprn,
   cameraNonce,
   onSelectUprn,
@@ -289,6 +460,7 @@ export function FieldMap({
   outcomes: LocalOutcomes;
   routeModel: RoutePaintModel;
   routeTiers: RouteTiers | null;
+  footprints?: GeoJSON.FeatureCollection | null;
   selectedUprn: number | null;
   cameraNonce: number;
   onSelectUprn: (uprn: number) => void;
@@ -313,6 +485,9 @@ export function FieldMap({
   const selectedRef = useRef(selectedUprn);
   const routeRef = useRef(routeModel);
   const tiersRef = useRef(routeTiers);
+  const footprintsRef = useRef(footprints);
+  const mapView = useMapView();
+  const mapViewRef = useRef(mapView);
   // Read-once: `variant` never changes for a mounted instance (a route
   // never toggles compact/full), but the mount effect below intentionally
   // has an empty dependency array, so it is captured the same way every
@@ -325,11 +500,15 @@ export function FieldMap({
   selectedRef.current = selectedUprn;
   routeRef.current = routeModel;
   tiersRef.current = routeTiers;
+  footprintsRef.current = footprints;
+  mapViewRef.current = mapView;
 
   useEffect(() => {
     if (!container.current || map.current) return;
     let cancelled = false;
     const mapVariant = variantRef.current;
+    const openingPitch =
+      mapViewRef.current === "3d" ? (mapVariant === "compact" ? 50 : 55) : 0;
 
     void (async () => {
       const style = await fieldMapStyle();
@@ -340,14 +519,16 @@ export function FieldMap({
         style,
         center: BRISTOL,
         zoom: 12.4,
+        pitch: openingPitch,
         interactive: true,
         attributionControl: { compact: true, customAttribution: [...ATTRIBUTION_LINES] },
       });
       map.current = instance;
 
-      // Compact only (2026-09-30 owner E6): pan and pinch stay on.
-      // Rotate, pitch and keyboard do not. No Navigation or Scale control
-      // (owner decision 7). Attribution is unchanged.
+      // Compact only (2026-09-30 owner E6, 2026-10-01 F6): pan and pinch stay
+      // on. Rotate and keyboard do not. Pitch is not a gesture — 3D sets it
+      // in code. No Navigation or Scale control (owner decision 7).
+      // Attribution is unchanged.
       if (mapVariant === "compact") {
         instance.dragRotate.disable();
         instance.touchPitch.disable();
@@ -386,6 +567,7 @@ export function FieldMap({
           layout: { "line-cap": "round", "line-join": "round" },
           paint: { "line-color": "#1c2226", "line-width": 4, "line-opacity": 0.85 },
         });
+        mountFootprints(instance, footprintsRef.current, mapViewRef.current, ROUTE_LAYER);
 
         // Focus halo sits under the dots so a selected door reads as a ring,
         // not a colour change. Unselected radius is 0 — cheap at 2,000 points.
@@ -488,6 +670,16 @@ export function FieldMap({
         applyRoute(instance, routeRef.current, tiersRef.current);
         if (container.current) recordLayerOrder(instance, container.current, routeRef.current, tiersRef.current);
         instance.on("style.load", () => {
+          const anchor = instance.getLayer(ROUTE_LAYER)
+            ? ROUTE_LAYER
+            : instance.getLayer("route-walk-other")
+              ? "route-walk-other"
+              : FOCUS_LAYER;
+          if (!instance.getSource(FOOTPRINTS_SOURCE) && instance.getLayer(anchor)) {
+            mountFootprints(instance, footprintsRef.current, mapViewRef.current, anchor);
+          }
+          applyOutcomeState(instance, outcomesRef.current, selectedRef.current);
+          applyMapView(instance, mapViewRef.current, mapVariant);
           applyRoute(instance, routeRef.current, tiersRef.current);
           if (container.current) recordLayerOrder(instance, container.current, routeRef.current, tiersRef.current);
         });
@@ -500,6 +692,7 @@ export function FieldMap({
         } else {
           fitDoors(instance, current);
         }
+        applyMapView(instance, mapViewRef.current, mapVariant);
 
         instance.on("click", DOORS_LAYER, (event) => {
           const feature = event.features?.[0];
@@ -555,7 +748,22 @@ export function FieldMap({
   // Outcome colour, current assignment only, applied as feature state.
   useEffect(() => {
     const instance = map.current;
-    if (!instance?.isStyleLoaded() || !instance.getSource(DOORS_SOURCE)) return;
+    if (!instance?.getSource(FOOTPRINTS_SOURCE)) return;
+    (instance.getSource(FOOTPRINTS_SOURCE) as GeoJSONSource).setData(footprints ?? EMPTY);
+    applyOutcomeState(instance, outcomesRef.current, selectedRef.current);
+  }, [footprints]);
+
+  useEffect(() => {
+    const instance = map.current;
+    if (!instance) return;
+    if (!instance.getLayer(FOOTPRINTS_FILL) && !instance.getLayer(FOOTPRINTS_3D)) return;
+    applyMapView(instance, mapView, variant);
+  }, [mapView, variant]);
+
+  useEffect(() => {
+    const instance = map.current;
+    if (!instance?.isStyleLoaded()) return;
+    if (!instance.getSource(DOORS_SOURCE) && !instance.getSource(FOOTPRINTS_SOURCE)) return;
     applyOutcomeState(instance, outcomes, selectedUprn);
   }, [outcomes, selectedUprn]);
 

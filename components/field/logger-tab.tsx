@@ -185,6 +185,7 @@ export function LoggerTab() {
     routeModel,
     routeTiers,
     anchoredDoors,
+    footprints,
     labels,
     labelFor,
     refreshLabels,
@@ -378,6 +379,7 @@ export function LoggerTab() {
               outcomes={outcomes}
               routeModel={routeModel}
               routeTiers={routeTiers}
+              footprints={footprints}
               currentUprn={door.uprn}
               onOpenMap={handleOpenMap}
             />

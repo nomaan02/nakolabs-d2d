@@ -12,6 +12,7 @@ import { pulse } from "@/lib/field/feedback";
 import { doorPlate, mapLabel } from "@/lib/field/labels";
 import { logOutcome } from "@/lib/field/log-outcome";
 import { outcomeSpec, type OtherOutcome, type PrimaryOutcome } from "@/lib/field/outcomes";
+import { toggleMapView, useMapView } from "@/lib/field/map-view";
 import { offerUndo, useUndoTarget } from "@/lib/field/undo";
 import { formatFieldHeader } from "@/lib/field/route-display";
 import { OUTCOME_DOT } from "@/lib/map/map-palette";
@@ -42,6 +43,7 @@ export function MapTab() {
     routeModel,
     routeTiers,
     anchoredDoors,
+    footprints,
     mapSelectedUprn,
     mapCameraNonce,
     selectDoorOnMap,
@@ -51,6 +53,7 @@ export function MapTab() {
   const router = useRouter();
   const [otherOpen, setOtherOpen] = useState(false);
   const undoTarget = useUndoTarget();
+  const mapView = useMapView();
 
   if (phase.kind === "loading") {
     return <p className="px-4 pt-8 text-sm text-ink-soft">Loading today&apos;s prop…</p>;
@@ -129,6 +132,7 @@ export function MapTab() {
           outcomes={outcomes}
           routeModel={routeModel}
           routeTiers={routeTiers}
+          footprints={footprints}
           selectedUprn={selectedUprn}
           cameraNonce={mapCameraNonce}
           onSelectUprn={(uprn) => {
@@ -137,6 +141,15 @@ export function MapTab() {
           }}
           active
         />
+        <button
+          type="button"
+          aria-pressed={mapView === "3d"}
+          onClick={() => toggleMapView()}
+          className="absolute left-2 top-2 z-[2] flex size-11 items-center justify-center rounded-full border border-line bg-surface text-field-button-label"
+          data-testid="map-view-toggle"
+        >
+          {mapView === "3d" ? "2D" : "3D"}
+        </button>
         <Legend />
       </div>
 
