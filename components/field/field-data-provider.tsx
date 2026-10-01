@@ -27,11 +27,13 @@ import {
   fieldRoutePaintModel,
   type RouteDescription,
 } from "@/lib/field/route-display";
+import { anchorDoorCollection } from "@/lib/map/anchor-doors-collection";
 import type { RoutePaintModel } from "@/lib/map/route-layers";
 import { computeRouteTiers, type RouteTiers } from "@/lib/map/route-progress";
 import { getSequence, type SequenceDoor } from "@/lib/field/sequence";
 import {
   fetchTodaysAssignment,
+  type DoorCollection,
   type TodaysAssignment,
   type TodaysAssignmentResult,
 } from "@/lib/geo/todays-assignment";
@@ -75,6 +77,11 @@ type FieldData = {
    * are ready, so the map does not flash "all done" while loading.
    */
   routeTiers: RouteTiers | null;
+  /**
+   * Door dots projected onto each work step's pavement walkline.
+   * Display only. `phase.assignment.doors` is the sequence and the write source.
+   */
+  anchoredDoors: DoorCollection;
   labels: DoorLabels;
   outcomes: LocalOutcomes;
   cursor: Cursor;
@@ -100,6 +107,8 @@ type FieldData = {
 };
 
 const FieldDataContext = createContext<FieldData | null>(null);
+
+const EMPTY_DOORS: DoorCollection = { type: "FeatureCollection", features: [] };
 
 export function useFieldData(): FieldData {
   const value = useContext(FieldDataContext);
@@ -269,6 +278,21 @@ export function FieldDataProvider({
     [routeModel, progressPosition],
   );
 
+  const anchoredDoors = useMemo(() => {
+    if (phase.kind !== "ready") return EMPTY_DOORS;
+    const doors = phase.assignment.doors;
+    if (!route) return doors;
+    return anchorDoorCollection(
+      doors,
+      route.steps.map((step) => ({
+        kind: step.kind,
+        first_seq: step.first_seq,
+        last_seq: step.last_seq,
+        walk: step.walk,
+      })),
+    );
+  }, [phase, route]);
+
   const labelFor = useCallback((uprn: number) => labels.get(uprn), [labels]);
   const refreshLabels = useCallback(() => setLabelEpoch((n) => n + 1), []);
 
@@ -309,6 +333,7 @@ export function FieldDataProvider({
       routeProgress,
       routeModel,
       routeTiers,
+      anchoredDoors,
       labels,
       outcomes,
       cursor,
@@ -333,6 +358,7 @@ export function FieldDataProvider({
       routeProgress,
       routeModel,
       routeTiers,
+      anchoredDoors,
       labels,
       outcomes,
       cursor,

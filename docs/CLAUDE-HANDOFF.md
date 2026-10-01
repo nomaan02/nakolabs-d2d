@@ -2,16 +2,15 @@
 
 ## Current state
 
-- Last updated: 2026-10-01 (UI item 2, Session M1 — map palette and outcome colours). HEAD: 37e8226. Still uncommitted on top of HEAD: the route-geometry work, UI item 4, UI item 1 sessions A–C and G1–G4 and H1–H3, and this M1 pass. **The owner commits after review — this session did not commit.** M2 has not started.
-- **UI item 2, Session M1** is the map palette and the field outcome colours. `lib/map/map-palette.ts` is the only new hex source. `fieldMapStyle()` fetches the MapTiler dataviz-light JSON and returns `restyleBasemap` of it. A missing key or a failed fetch still returns `FALLBACK_STYLE`, now `MAP_PALETTE.ground` (`#f6f4ef`). Door dots use `OUTCOME_DOT`. Unlogged is white with an `openRing` stroke. Logged strokes are white. Sizes are smaller (circle bases 3/5/8/10). The Map legend swatches use the same hexes. No migration. No field write. Evidence is in the log entry below and in `docs/BUILD-LOG.md`.
-- Owner F1 (palette) and owner F2 (outcome colours) are in the M1 log entry. Owner F3's smaller dots are in this session. F3's walkline anchoring is not built. F4–F6 are not built.
-- `components/admin/coverage-map.tsx` calls `fieldMapStyle()`, so the admin coverage basemap is restyled by the same function. That file was not edited. Route line colours were not edited (`START_FILL` / `END_FILL` unchanged).
-- Dataviz Light has no layer that matches the park rule, and no layer id that selects `roadMajorCase`. Forest, Aeroway, Pier and Bridge stay on the style's own paint. Not tuned.
-- A full offline reload of `next dev` still dies (`chrome-error`, no service worker). The fallback was checked by blocking MapTiler with the cache off: style name `field-offline`, ground `#f6f4ef`, door circles visible.
-- CanvasserX on this browser is Whitechurch Lane - Hartcliffe, visit 1, 1,682 doors. A pre-existing outbox row `61cea5a1-d03e-4edb-9294-6bf4045e61e1` is still `failed`. It was not retried. It is not in `knock_events`. Knocks for that canvasser with `occurred_at` on or after 2026-10-01 18:20 UTC: 0.
-- Carried, unchanged, from the UI item 1 log entries: H1 plate about 4px left of the Lead gap; map band 169.64 at 390×763; Not In overlaps the note bar at 375×600; G4's five synced knocks were not removed; the Logger still needs an on-device pass. Chrome emulation is not that pass.
-- External settings changed since handover: none. Magic link for CanvasserX, user `576c4ce7-5fe0-489f-bd7f-42912925951a`, `expires_at` 1790883474 (2026-10-01T19:37:54Z). Password, profile and role were not changed. The browser session was left signed in. Not signed out globally.
-- Shared modules since HEAD, plus M1: `lib/field/map-style.ts` now fetches the style JSON and restyles it. New `lib/map/map-palette.ts` and `lib/map/restyle-basemap.ts`. `components/field/field-map.tsx` outcome colours and sizes. `components/field/map-tab.tsx` legend swatches. `lib/map/route-layers.ts`, `lib/sync/queue.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited this session. Earlier UI item 1 module notes stay in the log below.
+- Last updated: 2026-10-01 (UI item 2, Session M2 — door dots on the pavement walkline). HEAD: b24f04d. This M2 pass is uncommitted. **The owner commits after review — this session did not commit.**
+- **UI item 2, Session M2** projects each door's display point onto the pavement walkline of the work step that covers its sequence. Minimum gap 2.5 m, 1 m in from each end. Doors with no work step keep their own point. `assignment.doors`, the sequence, the cursor and every write are unchanged. The Map tab and the Logger mini map read `anchoredDoors`. No migration. No field write. Evidence is in the log entry below and in `docs/BUILD-LOG.md`.
+- Owner F3 (walkline anchoring) is in the M2 log entry. M1 already recorded F1, F2, and the smaller-dot half of F3. F4–F6 are not built.
+- CanvasserX today is Whitechurch Lane - Hartcliffe, visit 1, 1,682 doors, 0 route steps. The live dots stay on the property points. REF - Speedwell visit 3 (`629d3ce4-a82a-4678-ab87-389e783da792`, work date 2026-09-30) is the prop the read-only check used: 182 anchored, minimum neighbour gap 2.497 m, move min 2.17 m, median 12.27 m, max 18.57 m.
+- `npx eslint components/field lib/field lib/map scripts` exits 1 on a pre-existing `prefer-const` in `scripts/seed-demo.ts` line 242 (`let leftover`). That file was not edited. This session's files lint clean.
+- A pre-existing outbox row `61cea5a1-d03e-4edb-9294-6bf4045e61e1` is still `failed` (RLS on `knock_events`). It was not retried. It is not in `knock_events`. Knocks for CanvasserX with `occurred_at` on or after 2026-10-01 20:00 UTC: 0.
+- Carried, unchanged: H1 plate about 4px left of the Lead gap; map band 169.64 at 390×763; Not In overlaps the note bar at 375×600; the Logger still needs an on-device pass. Admin coverage still shares `fieldMapStyle()`. Dataviz Light still does not select park or `roadMajorCase`.
+- External settings changed since handover: none. No new magic link. The browser was already signed in as CanvasserX, user `576c4ce7-5fe0-489f-bd7f-42912925951a`. Password, profile and role were not changed. The browser session was left signed in.
+- Shared modules this session: new `lib/map/door-anchors.ts` and `lib/map/anchor-doors-collection.ts`. `lib/map/route-layers.ts`, `lib/sync/queue.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited.
 
 ## Log
 
@@ -1056,4 +1055,39 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A radio-off reload of the document (`chrome-error`, no service worker). A phone. A timed pass at 2,000 doors. A live Figma frame.
 - **External settings:** none. Magic link for CanvasserX, user `576c4ce7-5fe0-489f-bd7f-42912925951a`, `expires_at` 1790883474 (2026-10-01T19:37:54Z). Password, profile and role were not changed. The browser session was left signed in.
 - **Open questions for Claude:** Dataviz Light never selects `park` or `roadMajorCase`. Forest, Aeroway, Pier and Bridge stay on the style's own paint. Logger button fills are lighter than `OUTCOME_DOT` (Lead `rgb(99,185,137)`, Contact `rgb(96,148,230)`, Rented/Council `rgb(249,242,230)`, Not In `rgb(150,155,164)`). Not tuned. Should coverage stop sharing `fieldMapStyle`?
+
+### 2026-10-01 — UI-2 Session M2 (uncommitted)
+
+- **Item:** 2 — door dots on the pavement walkline
+- **What changed:** A door's display point is its position projected onto the pavement walkline of the work step that covers its sequence, in order, at least 2.5 m from the next dot and 1 m in from each end of the line. A stack of flats spreads around the shared point. Doors with no work step, and any cross step, stay on the property point. The Map tab and the Logger mini map draw those display points. The assignment doors, the sequence and the writes are the same objects as before.
+- **Files:**
+  - Changed: `components/field/field-data-provider.tsx`, `components/field/map-tab.tsx`, `components/field/logger-tab.tsx`, `package.json`, `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `lib/map/door-anchors.ts`, `lib/map/anchor-doors-collection.ts`, `scripts/verify-map-anchors.ts`
+  - Deleted: none
+- **Database:** none. The Speedwell check was SELECT only.
+- **Shared modules touched:** new `lib/map/door-anchors.ts` and `lib/map/anchor-doors-collection.ts` (display geometry only). `lib/map/route-layers.ts` was not edited. `lib/sync/queue.ts` was not edited. `lib/field/*`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - owner — F3. Each door's dot sits on the pavement walkline in front of its house, in door order, at least 2.5 m from its neighbours. Display only: UPRN, data and writes unchanged.
+  - agent — when the field phase is not ready, `anchoredDoors` is an empty collection. Map and Logger return before they read it.
+  - agent — the live gap is the straight-line distance between consecutive doors in one work step. The 2,000-door figure is the second run, after one discarded warm-up.
+- **Deviations from plan or brief:** CanvasserX's today prop has no route steps, so the Map screenshots do not show a pavement row. The row was checked on REF - Speedwell's data, not on the open Map tab. `npx eslint components/field lib/field lib/map scripts` exits 1 on pre-existing `scripts/seed-demo.ts` line 242. A `window.anchorDoorCollection` hook was added for the browser timing and then removed. After the Logger load, `typeof window.anchorDoorCollection` was `undefined`.
+- **Invariants:** No GPS and no coordinates stored or sent. No quality score. No field write. `assignment.doors` is still what `getSequence` reads. `lib/sync/queue.ts` was not touched.
+- **Verified:**
+  - EDIT 1 DONE. `lib/map/door-anchors.ts` is the pasted file. `spread` and `anchorDoors` are exported from it.
+  - EDIT 2 DONE. `anchorDoorCollection` maps `uprn`, `sequence` and coordinates, returns a new collection with `anchored`, and returns the same reference when `steps` is empty.
+  - EDIT 3 DONE. `anchoredDoors` is a `useMemo` on the assignment doors and the route. No route returns the original doors. `getSequence(phase.assignment.doors)` is unchanged.
+  - EDIT 4 DONE. `map-tab.tsx` and `logger-tab.tsx` pass `doors={anchoredDoors}`. `mini-map.tsx` still forwards its `doors` prop.
+  - EDIT 5 DONE. `package.json` script `verify:anchors`. `npm run verify:anchors` exit 0, once.
+  - Pure: `spread([5,5,5],0,10,2.5)` = `[2.5,5,7.5]`. `spread([1,2,3,4],0,3,2.5)` = `[0,1,2,3]`. `spread([],0,5,2.5)` = `[]`. 100 m line, 10 doors, 4 stacked: minimum gap 2.500 m, order kept, inside [1, 99] m. A sequence outside every work step stays put, `anchored` false. A cross step is ignored.
+  - REF - Speedwell open assignment `629d3ce4-a82a-4678-ab87-389e783da792`, visit 3, snapshot 182. Anchored count 182. Minimum neighbour gap 2.497 m. Move min 2.17 m, median 12.27 m, max 18.57 m.
+  - `npx tsc --noEmit` exit 0.
+  - `npx eslint` on this session's files exit 0. The directory command that includes `scripts` exits 1. See deviations.
+  - `npm run verify:ui1` exit 0, once. `npm run verify:ui4` exit 0, once. ui4 printed read-only asserts.
+  - Node timing, 2,000 doors / 60 steps: 3.33 ms. Browser console, same generator, the real `anchorDoorCollection`: 2.80 ms, 2,000 features, 2,000 anchored.
+  - Chrome, CanvasserX, `/field`, Whitechurch Lane - Hartcliffe, visit 1, 1,682 doors. Emulation 390×763. `innerWidth` 391, `innerHeight` 763. Zoom 17: 98 `field-doors` in view. Zoom 18: 28 in view, house numbers visible (Belland Drive, Parkwood Close). Dots sit on the buildings. This assignment has 0 `route_steps`, so nothing is anchored. Profile heading CanvasserX, role canvasser. Logger mini map: 1 canvas. Attribution links for MapTiler and OpenStreetMap were on the map.
+  - `knock_events` for CanvasserX on or after 2026-10-01 20:00 UTC: 0. Outbox `61cea5a1-d03e-4edb-9294-6bf4045e61e1` is not in `knock_events`. Retry was not clicked.
+  - Point count on screen: 1,682. Timed at 2,000. Device: desktop Chrome with device-metrics emulation, not a phone.
+- **Not verified:** A pavement row on the live Map tab. Whitechurch has no walkline. A phone. Sun, wet thumb, one-handed use. A radio-off reload.
+- **External settings:** none. No new magic link. Password, profile and role were not changed. The browser was left signed in as CanvasserX.
+- **Open questions for Claude:** Today's prop cannot show F3. Speedwell visit 3 is 2026-09-30, so the field app will not open it. The row needs a today prop that has work steps, or a look at Speedwell another way. `scripts/seed-demo.ts` line 242 fails `prefer-const` and blocks `eslint scripts`.
 

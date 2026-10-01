@@ -184,6 +184,7 @@ export function LoggerTab() {
     routeProgress,
     routeModel,
     routeTiers,
+    anchoredDoors,
     labels,
     labelFor,
     refreshLabels,
@@ -372,7 +373,7 @@ export function LoggerTab() {
         <div className="relative min-h-[112px] flex-1" data-testid="logger-map-band">
           <div className="absolute inset-0">
             <MemoMiniMap
-              doors={assignment.doors}
+              doors={anchoredDoors}
               labels={labels}
               outcomes={outcomes}
               routeModel={routeModel}

@@ -41,6 +41,7 @@ export function MapTab() {
     routeProgress,
     routeModel,
     routeTiers,
+    anchoredDoors,
     mapSelectedUprn,
     mapCameraNonce,
     selectDoorOnMap,
@@ -123,7 +124,7 @@ export function MapTab() {
 
       <div className="relative min-h-0 flex-1">
         <FieldMap
-          doors={assignment.doors}
+          doors={anchoredDoors}
           labels={labels}
           outcomes={outcomes}
           routeModel={routeModel}

@@ -1606,4 +1606,32 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not done / deferred:** M2. Park colour and `roadMajorCase` do not hit a dataviz-light layer. Logger button fills are a different set (Lead `rgb(99,185,137)`, Contact `rgb(96,148,230)`, Rented/Council `rgb(249,242,230)`, Not In `rgb(150,155,164)`). Not tuned. Real phone and a 2,000-door timing pass: **NOT VERIFIED**. Full airplane-mode reload of `next dev`: **NOT VERIFIED**. Did not commit.
 - **Follow-ups:** whether Forest / Landcover should pick up `park` in a later session, or stay as this table. Whether the Logger circles should move to `OUTCOME_DOT`. Whether coverage should stop sharing `fieldMapStyle`.
 
+---
+
+### UI item 2 — Door dots on the pavement walkline, Session M2
+- **Date:** 2026-10-01
+- **Model:** Grok 4.7
+- **Built:** Display-only door anchors. Each dot is projected onto the work step's pavement walkline, in door order, at least 2.5 m apart, 1 m in from each end. The Map tab and the Logger mini map use that collection. `assignment.doors` is unchanged. No migration. No sync change. F4 was not started.
+- **Acceptance:**
+  - EDIT 1 DONE. New `lib/map/door-anchors.ts`, pasted as given. Exports `AnchorStep`, `AnchorDoor`, `Anchored`, `MIN_GAP_M`, `END_INSET_M`, `spread`, `anchorDoors`.
+  - EDIT 2 DONE. New `lib/map/anchor-doors-collection.ts`. `anchorDoorCollection` maps `properties.uprn`, `properties.sequence` and the point, calls `anchorDoors`, and returns a new FeatureCollection with the same properties plus `anchored`. Empty `steps` returns the same reference.
+  - EDIT 3 DONE. `anchoredDoors` is a `useMemo` over the assignment doors and the route steps (`kind`, `first_seq`, `last_seq`, `walk`). No route returns the original doors. `getSequence` still reads `phase.assignment.doors`.
+  - EDIT 4 DONE. `components/field/map-tab.tsx` and `components/field/logger-tab.tsx` pass `doors={anchoredDoors}`. Nothing else in those files. `mini-map.tsx` still forwards `doors`.
+  - EDIT 5 DONE. `scripts/verify-map-anchors.ts`. `package.json` `"verify:anchors": "tsx scripts/verify-map-anchors.ts"`.
+  - `npm run verify:anchors`: **PASS** — exit 0, once. spread stack `[2.5, 5, 7.5]`. spread short line `[0, 1, 2, 3]`. spread empty `[]`. 100 m line, 10 doors, 4 stacked, minimum gap 2.500 m. Sequence outside every work step stays put. A cross step is ignored. Speedwell `629d3ce4-a82a-4678-ab87-389e783da792` visit 3: anchored 182, minimum gap 2.497 m, move min 2.17 m, median 12.27 m, max 18.57 m. Node 2,000 doors / 60 steps: 3.33 ms.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - `npx eslint` on this session's files: **PASS** — exit 0. `npx eslint components/field lib/field lib/map scripts`: **FAIL** — exit 1. `scripts/seed-demo.ts` line 242, `prefer-const` on `let leftover`. That file is unchanged from HEAD. Not this session.
+  - `npm run verify:ui1`: **PASS** — exit 0, once.
+  - `npm run verify:ui4`: **PASS** — exit 0, once. Read-only asserts. No throwaway users in its output.
+  - Browser console, CanvasserX, the real `anchorDoorCollection`, same 2,000 / 60 input: **PASS** — 2.80 ms, 2,000 anchored. The hook used to reach the function was removed. After the Logger load it was `undefined`.
+  - Chrome, CanvasserX, Map tab, Whitechurch Lane - Hartcliffe, visit 1, 1,682 doors. Emulation 390×763. `innerWidth` 391, `innerHeight` 763. Screenshots at zoom 17 (98 dots in view) and zoom 18 (28 dots, Belland Drive and Parkwood Close numbers). The dots sit on the buildings. **NOT VERIFIED** as a pavement row: this assignment has 0 route steps, so the anchors do not move.
+  - Logger: heading CanvasserX was on the profile tab. Mini map rendered, 1 canvas. No knock was logged. `knock_events` for CanvasserX on or after 2026-10-01 20:00 UTC: 0. Outbox `61cea5a1-d03e-4edb-9294-6bf4045e61e1` is still not in `knock_events`. Retry was not clicked.
+  - Point count exercised on screen: 1,682. Timed at 2,000. Device: desktop Chrome with device-metrics emulation, not a phone.
+- **Deviations from brief:**
+  - The live Map tab cannot show F3. CanvasserX's today prop is Whitechurch, and it has no walkline. The 182-door row was checked by SELECT on REF - Speedwell visit 3, work date 2026-09-30.
+  - The verify script also checks that empty steps return the same collection, and that a cross step through `anchorDoorCollection` keeps the point. Both passed.
+  - The directory eslint command does not exit 0, because of `scripts/seed-demo.ts`. Not edited.
+- **Not done / deferred:** F4 buildings. A screenshot of one terraced street with the dots in a pavement row: **NOT VERIFIED**. Real phone: **NOT VERIFIED**. Did not commit.
+- **Follow-ups:** a today prop with work steps, so the row can be looked at on the phone. `scripts/seed-demo.ts` line 242 (`let leftover` → `const`) if `eslint scripts` is meant to exit 0.
+
 
