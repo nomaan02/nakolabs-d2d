@@ -1696,4 +1696,43 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not done / deferred:** Radio-off reload of the dev server. A phone. A 2,000-door 3D pass. Did not commit.
 - **Follow-ups:** none new. M3's closed-assignment question is unchanged.
 
+---
+
+### UI item 2 — Building colour lag, deeper tints, current-door link, Session M5
+- **Date:** 2026-10-02
+- **Model:** Grok 4.7
+- **Built:** Outcome colour on a building applies on the log that set it. Tints are deeper. The selected door draws one dashed leader from the pavement dot to the address point, with a ring, and that slice is highlighted in 2D and 3D. No migration. No sync change.
+- **Acceptance:**
+  - EDIT 1 DONE. `components/field/field-map.tsx` doors-data effect and outcome effect gate on the instance, then the source. Dated G1 comment on each.
+  - EDIT 2 DONE. `lib/map/map-palette.ts`. `OUTCOME_TINT` lead `#8fcfa8`, answered `#9dbcf0`, no_opportunity `#efc27f`, no_answer `#c3c7ce`, other `#c9c1b5`. `FOCUS` line `#1b4aa6`, tint `#c7d6f5`.
+  - EDIT 3 DONE. `lib/map/anchor-doors-collection.ts` adds `raw_lng` and `raw_lat` from the original point. Empty steps still return the same collection.
+  - EDIT 4 DONE. Selected line `FOCUS.line` width 2.5. Selected slice with no outcome uses `FOCUS.tint`. Selected 3D height is `height_m + 1.5` (others `+ 0.5`). Leader layers sit under the route and stay visible in 2D and 3D.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - `npx eslint components/field lib/field lib/map`: **PASS** — exit 0.
+  - `npm run verify:ui1`: **PASS** — exit 0, once.
+  - `npm run verify:anchors`: **PASS** — exit 0, once. 2,000 doors / 60 steps: 4.96 ms.
+  - `npm run verify:ui4`: first run **FAIL** — `JWT issued at future`, exit 1. Retry **PASS** — exit 0. Read-only asserts. No fixture was created.
+  - `git grep isStyleLoaded` in `components/field/field-map.tsx`: five comment lines, no calls. The route effects were not changed. The camera effect still has no `isStyleLoaded()` call.
+  - G1 **PASS**. Offline, TEST - dry run, five logs, `getFeatureState` on `field-footprints`:
+
+    | log | uprn | outcome | ms |
+    | --- | --- | --- | --- |
+    | 1 | 313869 | answered | 14 |
+    | 2 | 25300 | no_answer | 29 |
+    | 3 | 25388 | no_opportunity | 31 |
+    | 4 | 25467 | no_answer | 30 |
+    | 5 | 25437 | answered | 33 |
+
+  - G2 states **PASS**. The 3D screenshot shows a blue slice above the grey terrace. The 2D screenshot shows the current house in `FOCUS.tint`. A clearly separate amber slice: **NOT VERIFIED** in the frames.
+  - G3 **PASS**. Logger leader on 25615, then › moved it to 342809. Map tab click on 313869 drew the leader and opened the panel. Close cleared both. No door under 1.5 m (minimum gap 3.17 m).
+  - `knock_events` and `property_observations` for the five client ids, and for CanvasserX on or after 2026-10-02 19:39 UTC: **0**. `61cea5a1-d03e-4edb-9294-6bf4045e61e1` is not in `knock_events`.
+  - Point count on screen: 88 doors. Device: desktop Chrome, emulation 390×763, not a phone.
+- **Deviations from brief:**
+  - Leader `setData` also runs in the `load` handler. The `style.load` listener is attached after the first style has already loaded.
+  - Today's open assignment is TEST - dry run visit 3 (`1e9fe4c5-ffa6-46c7-80d8-9348267e477b`), not REF - Speedwell. REF - Speedwell visit 4 is work date 2026-10-01. The date was not updated.
+  - The undo ring expired (60 s) during the screenshots. The five unsent outbox rows were deleted locally while Supabase was blocked. The older pending id was not deleted and was not retried.
+  - The Map-tab tap was a canvas `click` at the projected pixel. The coordinate click tool required a screenshot in the same step and did not accept the previous one.
+- **Not done / deferred:** REF - Speedwell on today's field app. A door closer than 1.5 m. A phone. A 2,000-door map paint. Did not commit.
+- **Follow-ups:** none.
+
 

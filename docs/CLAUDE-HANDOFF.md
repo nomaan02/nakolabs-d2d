@@ -2,17 +2,16 @@
 
 ## Current state
 
-- Last updated: 2026-10-01 (UI item 2, Session M4 — coloured buildings and the 2D/3D toggle). M1–M4 are uncommitted. **The owner commits after review — this session did not commit.**
-- **UI item 2, Session M4** draws `door_footprints` on the field map. A logged door tints its slice. Shared slices stay neutral. The Map tab and the Logger mini map share one 2D/3D choice, stored on the device as `d2d.mapView`. Evidence is in the log entry below and in `docs/BUILD-LOG.md`.
-- Owner F4, F5 and F6 are in the M4 log entry. M1 recorded F1, F2, and the smaller-dot half of F3. M2 recorded the walkline half of F3. M3 recorded the outline half of F4.
-- CanvasserX's open prop is REF - Speedwell, assignment `8eaae87b-a77e-4e7b-b653-9a2cd9f03dbc`, visit 4, work date 2026-10-01, 182 doors. The map loaded 175 slices. Dexie `footprints` cached that collection at `2026-10-01T21:16:36.246Z`.
-- The browser was left signed in as CanvasserX on `/field`. `localStorage` `d2d.mapView` was left as `3d` after the reload check. Password, profile and role were not changed. No new magic link.
-- Two offline logs were undone before the radio returned. `knock_events` has neither `5e4e1192-f3ab-4096-8743-2bb595c2e498` nor `e56ec6b2-4c7f-4a86-b038-6ee802ad0704`. The older outbox id `61cea5a1-d03e-4edb-9294-6bf4045e61e1` is still not in `knock_events`. Retry was not clicked.
-- `npx tsc --noEmit` exit 0. `npx eslint components/field lib/field lib/map` exit 0. `npm run verify:ui1`, `verify:ui4` and `verify:anchors` each exit 0, once. `npx eslint` including `scripts` was not re-run. The pre-existing `prefer-const` in `scripts/seed-demo.ts` line 242 is unchanged.
-- A radio-off reload of `next dev` did not load the document (`chrome-error://chromewebdata/`). Coloured buildings from the Dexie cache after that reload: **NOT VERIFIED**.
-- Carried: multipolygon relations are not loaded. A door more than 3 m from any outline gets no slice. Whitechurch visit 1 stays closed. Admin coverage still shares `fieldMapStyle()`. Dataviz Light still does not select park or `roadMajorCase`.
+- Last updated: 2026-10-02 (UI item 2, Session M5 — building colour lag, deeper tints, current-door link). M1–M5 are uncommitted. **The owner commits after review — this session did not commit.**
+- **UI item 2, Session M5** makes a logged building take its outcome colour on that log, deepens the building tints, and draws one dashed leader from the selected door's pavement dot to the address point in its house. Evidence is in the log entry below and in `docs/BUILD-LOG.md`.
+- Owner G1, G2 and G3 (2026-10-02) are in the M5 log entry. M4 recorded F4, F5 and F6. M1 recorded F1, F2, and the smaller-dot half of F3. M2 recorded the walkline half of F3. M3 recorded the outline half of F4.
+- London date 2026-10-02. CanvasserX's open prop is TEST - dry run, assignment `1e9fe4c5-ffa6-46c7-80d8-9348267e477b`, visit 3, 88 doors. REF - Speedwell visit 4 (`8eaae87b-a77e-4e7b-b653-9a2cd9f03dbc`) is work date 2026-10-01, so the field app does not open it today. That date was not changed.
+- The browser was left signed in as CanvasserX on `/field`, with the devtools network forced offline, so the pre-existing outbox row `61cea5a1-d03e-4edb-9294-6bf4045e61e1` does not send. Password, profile and role were not changed. No new magic link.
+- Five offline logs were removed from the local outbox before any insert. `knock_events` and `property_observations` have none of `c46396d5-8f0b-4e54-957c-39735f76e96e`, `5b560f09-f4b2-480a-b5f3-918ce776351e`, `33b8a4eb-3860-4d39-9019-e5788e340290`, `65b4e08f-84ab-47f8-a838-8479dde7267d`, `cf6a12ca-5be6-4f9c-a8bf-0e587ea8c6ff`. The older id `61cea5a1-d03e-4edb-9294-6bf4045e61e1` is still not in `knock_events`. Retry was not clicked.
+- `npx tsc --noEmit` exit 0. `npx eslint components/field lib/field lib/map` exit 0. `npm run verify:ui1` and `verify:anchors` exit 0, once. `verify:ui4` failed once with `JWT issued at future`, then exit 0 on the retry. `npx eslint` including `scripts` was not re-run. The pre-existing `prefer-const` in `scripts/seed-demo.ts` line 242 is unchanged.
+- Carried: multipolygon relations are not loaded. A door more than 3 m from any outline gets no slice. Whitechurch visit 1 stays closed. Admin coverage still shares `fieldMapStyle()`. Dataviz Light still does not select park or `roadMajorCase`. No door on TEST - dry run sits under 1.5 m from its raw point (minimum 3.17 m).
 - External settings changed since handover: none.
-- Shared modules this session: `lib/field/db.ts` (Dexie version 7), new `lib/field/footprint-cache.ts`, new `lib/field/map-view.ts`. `lib/map/route-layers.ts`, `lib/sync/queue.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
+- Shared modules this session: `lib/map/map-palette.ts`, `lib/map/anchor-doors-collection.ts`. `lib/map/route-layers.ts`, `lib/sync/queue.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
 
 ## Log
 
@@ -1168,4 +1167,39 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A radio-off reload. `location.reload()` while `navigator.onLine` was false ended on `chrome-error://chromewebdata/`. The Dexie row was present before that reload (175 features, fetched `2026-10-01T21:16:36.246Z`). A phone. A 2,000-door 3D timing pass. Sun, wet thumb, one-handed use.
 - **External settings:** none. No new magic link. The browser was already signed in as CanvasserX. Password, profile and role were not changed. Left on `/field`, map view `3d`.
 - **Open questions for Claude:** none from this session. The M3 question about a closed assignment still returning footprints is unchanged.
+
+### 2026-10-02 — UI item 2, Session M5 (uncommitted)
+
+- **Item:** 2 — building colour lag, deeper tints, current-door link
+- **What changed:** A logged door's building takes the outcome colour on that log. The tint no longer waits for a later log. Building tints are deeper. The selected door (Logger current door, or the Map tab's tapped door) draws one dashed line from its pavement dot to the address point inside the house, ending in a small ring, and that slice is highlighted. Other doors have no leader.
+- **Files:**
+  - Changed: `components/field/field-map.tsx`, `lib/map/map-palette.ts`, `lib/map/anchor-doors-collection.ts`, `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: none
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** `lib/map/map-palette.ts` (deeper `OUTCOME_TINT`, new `FOCUS`) and `lib/map/anchor-doors-collection.ts` (`raw_lng` / `raw_lat` on anchored features). `lib/map/route-layers.ts`, `lib/sync/queue.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - owner — G1. A building takes its outcome colour immediately after the log.
+  - owner — G2. Building outcome tints are deeper and higher contrast.
+  - owner — G3. Only the door being worked gets a dashed leader from its pavement dot to the address point, ending in a small ring, and that house slice is highlighted in 2D and 3D.
+  - agent — the same leader `setData` also runs in the map `load` handler, next to the first `applyOutcomeState`. The `style.load` listener is registered inside `load`, so it does not run for the first style.
+- **Deviations from plan or brief:** The phone check ran on today's open prop, TEST - dry run visit 3, not REF - Speedwell. REF - Speedwell visit 4 is dated 2026-10-01. The work date was not changed. The undo ring holds one log for 60 seconds. The five logs were made consecutively so the lag check was real, and the ring had expired before they could be undone one by one. The five unsent outbox rows were deleted locally while Supabase was blocked. Nothing was inserted. The pre-existing outbox id `61cea5a1-d03e-4edb-9294-6bf4045e61e1` was left pending. The Map-tab tap was a `click` event on the map canvas at the door's pixel, because the coordinate click tool would not run without a screenshot in the same step.
+- **Invariants:** No GPS and no coordinates sent. `raw_lng` / `raw_lat` stay on the device as display properties for the leader. No quality score. Field writes still go through `lib/sync/queue.ts`, which was not edited. The five test knocks were queued offline and removed from the local outbox before send.
+- **Verified:**
+  - EDIT 1 DONE. Doors-data effect and outcome effect each gate on the map instance, then on the source. Dated G1 comment on each. No other effect was given that change.
+  - EDIT 2 DONE. `OUTCOME_TINT` is lead `#8fcfa8`, answered `#9dbcf0`, no_opportunity `#efc27f`, no_answer `#c3c7ce`, other `#c9c1b5`. `FOCUS` is `{ line: "#1b4aa6", tint: "#c7d6f5" }`. Dated comment `2026-10-02 G2/G3 (phone check)`.
+  - EDIT 3 DONE. Anchored features carry `raw_lng` and `raw_lat` from the original point. Empty steps still return the same collection, with no `raw_*`.
+  - EDIT 4 DONE. Selected outline uses `FOCUS.line` at width 2.5. A selected slice with no outcome uses `FOCUS.tint` in 2D and in 3D. Selected extrusion stands 1 m proud (`height_m + 1.5` against `+ 0.5`). Leader source `field-door-leader`, layers `field-door-leader-line` and `field-door-leader-end`, under the route, visible in 2D and 3D, not in `applyMapView`. `leaderFor` returns empty when there is no selection, no door, no raw point, or the gap is under 1.5 m.
+  - `git grep -n "isStyleLoaded" -- components/field/field-map.tsx` prints five comment lines (831, 832, 880, 881, 903). None call it. 831–832 and 880–881 are the G1 comments. 903 is the 2026-09-30 camera comment. The route effects still gate on `getStyle()` and `getSource`. They were not changed.
+  - `npx tsc --noEmit` exit 0. `npx eslint components/field lib/field lib/map` exit 0. `npm run verify:ui1` exit 0. `npm run verify:anchors` exit 0 (2,000 doors / 60 steps, 4.96 ms). `npm run verify:ui4` first run: `JWT issued at future`, exit 1. Retry: exit 0.
+  - Chrome, CanvasserX, TEST - dry run, visit 3, 88 doors. Emulation 390×763. Offline (`navigator.onLine` false) for every log.
+  - G1 **PASS**. Five logs, feature state on `field-footprints` within 300 ms: 313869 answered 14 ms; 25300 no_answer 29 ms; 25388 no_opportunity 31 ms; 25467 no_answer 30 ms; 25437 answered 33 ms. The first log was immediate.
+  - G2 feature states **PASS** for answered, no_answer and no_opportunity. The 3D frame shows a blue slice standing above the grey terrace. The 2D frame shows `FOCUS.tint` on the current house. A separate amber rented slice is not obvious in the captured frames.
+  - G3 **PASS** on the Logger: leader line plus end point on door 25615 (gap 6.93 m), footprint state `{ selected: true }` and no outcome. › moved the selection to 342809 and the line start moved. Map tab: canvas click on 313869 opened the panel and drew a LineString and a Point. Close removed the panel and the leader (0 features).
+  - G3 short leader: **none on this prop**. Minimum dot-to-raw gap 3.17 m across the doors queried.
+  - After the local outbox delete, `knock_events` for the five ids, and for CanvasserX with `occurred_at` on or after 2026-10-02 19:39 UTC: 0 rows. `property_observations` for those ids, and for that canvasser in the same window: 0 rows. `61cea5a1-d03e-4edb-9294-6bf4045e61e1` is not in `knock_events`.
+  - Point count on screen: 88 doors. Device: desktop Chrome with device-metrics emulation, not a phone. The leader is two features.
+- **Not verified:** REF - Speedwell on the phone, because it is not today's open assignment. A distinct amber building in the screenshot. A door under 1.5 m. A physical phone. A 2,000-door paint of the map. Sun, wet thumb, one-handed use. The undo ring itself, because the 60 s window closed during the screenshots.
+- **External settings:** none. No new magic link. The browser was already signed in as CanvasserX. Password, profile and role were not changed. Left on `/field` with the devtools network forced offline.
+- **Open questions for Claude:** none. REF - Speedwell visit 4 is yesterday's assignment. Say if a later phone check should use a prop whose work date is today.
 

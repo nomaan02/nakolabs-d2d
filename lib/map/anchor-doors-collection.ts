@@ -18,9 +18,11 @@ export function anchorDoorCollection(doors: DoorCollection, steps: AnchorStep[])
     type: "FeatureCollection",
     features: doors.features.map((feature) => {
       const door = byUprn.get(feature.properties.uprn);
-      const properties: DoorProperties & { anchored: boolean } = {
+      const properties: DoorProperties & { anchored: boolean; raw_lng: number; raw_lat: number } = {
         ...feature.properties,
         anchored: door?.anchored ?? false,
+        raw_lng: feature.geometry.coordinates[0]!,
+        raw_lat: feature.geometry.coordinates[1]!,
       };
       const coordinates = door?.coordinates ?? [
         feature.geometry.coordinates[0]!,

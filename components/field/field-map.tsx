@@ -16,7 +16,7 @@ import type { LocalOutcomes } from "@/lib/field/local-outcomes";
 import { useMapView, type MapView } from "@/lib/field/map-view";
 import { ATTRIBUTION_LINES, fieldMapStyle } from "@/lib/field/map-style";
 import type { DoorCollection } from "@/lib/geo/todays-assignment";
-import { MAP_PALETTE, OUTCOME_DOT, OUTCOME_TINT } from "@/lib/map/map-palette";
+import { FOCUS, MAP_PALETTE, OUTCOME_DOT, OUTCOME_TINT } from "@/lib/map/map-palette";
 import {
   applyRouteProgress,
   paintRouteLayers,
@@ -51,8 +51,9 @@ const FOOTPRINTS_FILL = "field-footprints-fill";
 const FOOTPRINTS_LINE = "field-footprints-line";
 const FOOTPRINTS_3D = "field-footprints-3d";
 const BASEMAP_BUILDINGS_3D = "basemap-buildings-3d";
-/** Already used by the compact halo and the position seam. */
-const SELECTED_SLICE = "#1b4aa6";
+const LEADER_SOURCE = "field-door-leader";
+const LEADER_LINE = "field-door-leader-line";
+const LEADER_END = "field-door-leader-end";
 
 /** Outcome tint. `fallback` is transparent in 2D and the building fill in 3D. */
 function footprintTint(fallback: string): ExpressionSpecification {
@@ -140,7 +141,18 @@ function mountFootprints(
         source: FOOTPRINTS_SOURCE,
         filter: ["!=", ["get", "shared"], true],
         layout: { visibility: showFlat },
-        paint: { "fill-color": footprintTint("rgba(0,0,0,0)") },
+        paint: {
+          "fill-color": [
+            "case",
+            [
+              "all",
+              ["boolean", ["feature-state", "selected"], false],
+              ["==", ["coalesce", ["feature-state", "outcome"], "none"], "none"],
+            ],
+            FOCUS.tint,
+            footprintTint("rgba(0,0,0,0)"),
+          ],
+        },
       },
       before,
     );
@@ -157,13 +169,13 @@ function mountFootprints(
           "line-color": [
             "case",
             ["boolean", ["feature-state", "selected"], false],
-            SELECTED_SLICE,
+            FOCUS.line,
             MAP_PALETTE.buildingEdge,
           ],
           "line-width": [
             "case",
             ["boolean", ["feature-state", "selected"], false],
-            2,
+            2.5,
             1,
           ],
         },
@@ -180,10 +192,61 @@ function mountFootprints(
         source: FOOTPRINTS_SOURCE,
         layout: { visibility: show3d },
         paint: {
-          "fill-extrusion-color": footprintTint(MAP_PALETTE.building),
-          "fill-extrusion-height": ["+", ["get", "height_m"], 0.5],
+          "fill-extrusion-color": [
+            "case",
+            [
+              "all",
+              ["boolean", ["feature-state", "selected"], false],
+              ["==", ["coalesce", ["feature-state", "outcome"], "none"], "none"],
+            ],
+            FOCUS.tint,
+            footprintTint(MAP_PALETTE.building),
+          ],
+          "fill-extrusion-height": [
+            "+",
+            ["get", "height_m"],
+            ["case", ["boolean", ["feature-state", "selected"], false], 1.5, 0.5],
+          ],
           "fill-extrusion-base": 0,
           "fill-extrusion-opacity": 0.95,
+        },
+      },
+      before,
+    );
+  }
+
+  if (!instance.getSource(LEADER_SOURCE)) {
+    instance.addSource(LEADER_SOURCE, { type: "geojson", data: EMPTY });
+  }
+  if (!instance.getLayer(LEADER_LINE)) {
+    instance.addLayer(
+      {
+        id: LEADER_LINE,
+        type: "line",
+        source: LEADER_SOURCE,
+        layout: { "line-cap": "butt" },
+        paint: {
+          "line-color": FOCUS.line,
+          "line-width": 1.5,
+          "line-opacity": 0.9,
+          "line-dasharray": [2, 1.5],
+        },
+      },
+      before,
+    );
+  }
+  if (!instance.getLayer(LEADER_END)) {
+    instance.addLayer(
+      {
+        id: LEADER_END,
+        type: "circle",
+        source: LEADER_SOURCE,
+        filter: ["==", ["geometry-type"], "Point"],
+        paint: {
+          "circle-radius": 3,
+          "circle-color": "rgba(0,0,0,0)",
+          "circle-stroke-color": FOCUS.line,
+          "circle-stroke-width": 1.5,
         },
       },
       before,
@@ -417,6 +480,47 @@ function recordLayerOrder(
   const present = (instance.getStyle()?.layers ?? []).map((layer) => layer.id);
   container.dataset.routeLayers = ROUTE_LAYER_IDS.filter((id) => present.includes(id)).join(",");
 }
+/** Cheap equirectangular metres. Used only to hide a leader shorter than 1.5 m. */
+function metresBetween(aLng: number, aLat: number, bLng: number, bLat: number): number {
+  const lat = ((aLat + bLat) / 2) * (Math.PI / 180);
+  const x = (bLng - aLng) * Math.cos(lat) * 111_320;
+  const y = (bLat - aLat) * 110_540;
+  return Math.hypot(x, y);
+}
+
+function leaderFor(doors: DoorCollection, uprn: number | null): GeoJSON.FeatureCollection {
+  if (uprn === null) return EMPTY;
+  const door = doors.features.find((feature) => feature.properties.uprn === uprn);
+  if (!door) return EMPTY;
+  const props = door.properties as { raw_lng?: unknown; raw_lat?: unknown };
+  if (typeof props.raw_lng !== "number" || typeof props.raw_lat !== "number") return EMPTY;
+  const dotLng = door.geometry.coordinates[0];
+  const dotLat = door.geometry.coordinates[1];
+  if (dotLng === undefined || dotLat === undefined) return EMPTY;
+  if (metresBetween(dotLng, dotLat, props.raw_lng, props.raw_lat) < 1.5) return EMPTY;
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: {},
+        geometry: {
+          type: "LineString",
+          coordinates: [
+            [dotLng, dotLat],
+            [props.raw_lng, props.raw_lat],
+          ],
+        },
+      },
+      {
+        type: "Feature",
+        properties: {},
+        geometry: { type: "Point", coordinates: [props.raw_lng, props.raw_lat] },
+      },
+    ],
+  };
+}
+
 function paintOutcomeSource(
   instance: MapLibreMap,
   source: string,
@@ -667,6 +771,9 @@ export function FieldMap({
         // remount still colours, and jump to a focused door instead of
         // fitting the whole prop — "Show on map" asked for this door.
         applyOutcomeState(instance, outcomesRef.current, selectedRef.current);
+        (instance.getSource(LEADER_SOURCE) as GeoJSONSource | undefined)?.setData(
+          leaderFor(doorsRef.current, selectedRef.current),
+        );
         applyRoute(instance, routeRef.current, tiersRef.current);
         if (container.current) recordLayerOrder(instance, container.current, routeRef.current, tiersRef.current);
         instance.on("style.load", () => {
@@ -679,6 +786,9 @@ export function FieldMap({
             mountFootprints(instance, footprintsRef.current, mapViewRef.current, anchor);
           }
           applyOutcomeState(instance, outcomesRef.current, selectedRef.current);
+          (instance.getSource(LEADER_SOURCE) as GeoJSONSource | undefined)?.setData(
+            leaderFor(doorsRef.current, selectedRef.current),
+          );
           applyMapView(instance, mapViewRef.current, mapVariant);
           applyRoute(instance, routeRef.current, tiersRef.current);
           if (container.current) recordLayerOrder(instance, container.current, routeRef.current, tiersRef.current);
@@ -718,11 +828,16 @@ export function FieldMap({
 
   useEffect(() => {
     const instance = map.current;
-    if (!instance?.isStyleLoaded()) return;
+    // 2026-10-02 G1: gate on the source, not isStyleLoaded(). setData makes
+    // isStyleLoaded() false while it re-tiles, which skipped outcome updates.
+    if (!instance) return;
     const source = instance.getSource(DOORS_SOURCE) as GeoJSONSource | undefined;
     if (!source) return;
     source.setData(withLabels(doors, labels));
     applyOutcomeState(instance, outcomes, selectedUprn);
+    (instance.getSource(LEADER_SOURCE) as GeoJSONSource | undefined)?.setData(
+      leaderFor(doors, selectedUprn),
+    );
   }, [doors, labels, outcomes, selectedUprn]);
 
   useEffect(() => {
@@ -762,9 +877,14 @@ export function FieldMap({
 
   useEffect(() => {
     const instance = map.current;
-    if (!instance?.isStyleLoaded()) return;
+    // 2026-10-02 G1: gate on the source, not isStyleLoaded(). setData makes
+    // isStyleLoaded() false while it re-tiles, which skipped outcome updates.
+    if (!instance) return;
     if (!instance.getSource(DOORS_SOURCE) && !instance.getSource(FOOTPRINTS_SOURCE)) return;
     applyOutcomeState(instance, outcomes, selectedUprn);
+    (instance.getSource(LEADER_SOURCE) as GeoJSONSource | undefined)?.setData(
+      leaderFor(doorsRef.current, selectedUprn),
+    );
   }, [outcomes, selectedUprn]);
 
   useEffect(() => {

@@ -25,10 +25,13 @@ export const OUTCOME_DOT = {
   ring: "#ffffff",
 } as const;
 
+/** 2026-10-02 G2/G3 (phone check). */
 export const OUTCOME_TINT = {
-  lead: "#cfe6d8",
-  answered: "#d5e2f7",
-  no_opportunity: "#f3e0c2",
-  no_answer: "#dcdee2",
-  other: "#dedad3",
+  lead: "#8fcfa8",
+  answered: "#9dbcf0",
+  no_opportunity: "#efc27f",
+  no_answer: "#c3c7ce",
+  other: "#c9c1b5",
 } as const;
+
+export const FOCUS = { line: "#1b4aa6", tint: "#c7d6f5" } as const;
