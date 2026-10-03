@@ -713,6 +713,9 @@ async function main(): Promise<void> {
     return;
   }
   await ingestEpc();
+  // UI-5 A1: addresses change units_at_address. Recompute eligibility.
+  const eligibility = await rpc<unknown>("refresh_door_eligibility", {});
+  console.log(`door eligibility: ${JSON.stringify(eligibility)}`);
 }
 
 main().catch((err: unknown) => {

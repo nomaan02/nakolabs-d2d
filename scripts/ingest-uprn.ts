@@ -107,6 +107,7 @@ async function main(): Promise<void> {
   await flush(batch);
 
   const flagged = await rpc<number>("apply_nccz_flags", {});
+  const eligibility = await rpc<unknown>("refresh_door_eligibility", {});
   const supabase = createIngestClient();
   const { count, error } = await supabase
     .from("properties")
@@ -118,6 +119,7 @@ async function main(): Promise<void> {
   console.log(`Bristol UPRN matches this pass: ${matched.toLocaleString("en-GB")}`);
   console.log(`properties row count: ${count?.toLocaleString("en-GB") ?? "?"}`);
   console.log(`is_nccz = true: ${flagged.toLocaleString("en-GB")}`);
+  console.log(`door eligibility: ${JSON.stringify(eligibility)}`);
 }
 
 main().catch((err: unknown) => {

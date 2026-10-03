@@ -106,7 +106,7 @@ function polygonsFromGeometry(
 
 function featureName(feature: GeoJsonFeature, index: number): string {
   const props = feature.properties ?? {};
-  for (const key of ["name", "Name", "NAME", "zone", "ZONE_NAME", "nccz_name"]) {
+  for (const key of ["CCZONE", "name", "Name", "NAME", "zone", "ZONE_NAME", "nccz_name"]) {
     const value = props[key];
     if (typeof value === "string" && value.trim()) return value.trim();
   }

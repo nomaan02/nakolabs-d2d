@@ -1,0 +1,277 @@
+# Field-test build plan (UI-5 to UI-10)
+
+**Owner:** Nomaan · **Planner/reviewer:** Claude · **Executor:** Grok 4.7 in Cursor
+**Started:** 2026-10-03 · **Source:** owner's field test, 2026-10-03
+**Lives at:** `docs/FIELD-TEST-BUILD-PLAN.md` (committed). The governing document is still `docs/D2D-Build-Brief.md`. This file is the plan for this run of changes only.
+
+## How to use this file (Grok)
+
+- Every session prompt names its session ID (for example `UI-5 A1`). Read **§1, §2, §3 and that session's block in §5** before starting.
+- Do ONLY your session. Never start the next one.
+- At the end of the session, change **only your row** in the §4 tracker:
+  - set Status to `DONE`, `PARTIAL` or `BLOCKED`
+  - fill in the date and a 1-line result
+  - leave the Commit column as `—` (the owner fills it in)
+- Never rewrite §1–§3 or another session's block. If something has to change, add a dated note at the end of §6.
+- BUILD-LOG and CLAUDE-HANDOFF entries are still required, exactly as before.
+
+---
+
+## 1. Owner decisions (2026-10-03)
+
+| ID | Decision |
+|---|---|
+| H1 | **Eligibility.** A door is not knockable if it is in a No Cold Calling Zone, OR its building holds 3+ units. "Units" = the larger of: UPRNs at the same OS point, or addresses sharing house number (or building name) + street + postcode. Two-flat conversions stay knockable. EPC "Flat" alone does not exclude a door. The rule lives in ONE place: `properties.is_knockable`. |
+| H2 | **Existing data.** Nothing is ever deleted. Non-knockable doors are hidden in currently open assignments too. Knock writes keep the ORIGINAL snapshot index as `sequence_position`. |
+| H3 | **GPS on the phone.** Continuous while the app is open: a direction arrow on both maps and a "near you" door chip. The Stage 16 route position (distance along the route) goes to the partner. |
+| H4 | **Exception-only logging (Mode B).** Inferred "Not In" doors go through a review sheet. Solo props only. Stored with `knock_events.origin = 'inferred'`. |
+| H5 | **Admin location.** Raw GPS goes to admins. Current position only, overwritten on every update: no trail, no history. Cleared when the visit closes. A visible "sharing location" indicator. Foreground only. The brief's invariant 7 and Section 8 get a dated amendment (UI-7 C0), plus a "DPIA before anyone else uses it" to-do. |
+| H6 | The owned/rented (tenure) layer is admin only (invariant 2: no scoring in /field). |
+| H7 | Mode B review sheet: gaps of 25+ doors, or a change of street, always ask. Backtracking never fills. |
+
+## 2. Facts found on 2026-10-03 (SELECT only, by Claude)
+
+- **No Cold Calling Zones:** `nccz_zones` was empty until 2026-10-03.
+  - Loaded by Claude via the Supabase connection: 26 zones, from `data/raw/bristol-nccz.geojson` (Bristol City Council, OGL v3).
+  - 13,270 properties flagged.
+  - The council file names each zone in a field called `CCZONE`.
+- **Knocks already logged inside a zone:** 29 knocks on 22 doors in the Horfield zone, all on "TEST - dry run", 25 Sep to 2 Oct.
+- **City-wide eligibility under H1:**
+
+  | | Doors |
+  |---|---|
+  | Total | 424,952 |
+  | Multi-unit | 110,760 |
+  | In a No Cold Calling Zone | 13,270 |
+  | Knockable | 303,003 |
+
+- **Open props:**
+
+  | Prop | Total | Multi-unit | NCCZ | Knockable |
+  |---|---|---|---|---|
+  | Southville solo 2 | 1,730 | 661 | 0 | 1,069 |
+  | redland | 5,642 | 3,824 | 0 | 1,818 |
+  | Northville | 2,450 | 44 | 244 | 2,162 |
+  | TEST - dry run | 264 | 39 | 66 | 159 |
+
+- **Addresses:** `property_addresses` covers 133,619 of 424,952 properties, all from EPC. On Southville, 54% of doors have no address text.
+- **Saved routes:** `territory_routes.door_order` must equal the assignment snapshot exactly, or `assignment_route_freeze` raises `snapshot_mismatch`. Once `allocate_prop` snapshots knockable doors only, **every prop's routes must be regenerated** before its next allocation can freeze.
+- **GPS:** there is no `navigator.geolocation` anywhere in the repo yet (`lib/field/position.ts` is a stub). `assignment_members.route_position_m` and `route_position_at` exist from Stage 2.
+
+## 3. Standing rules for every session
+
+- **Rule 50** (`.cursor/rules/50-plan-execution.mdc`) applies:
+  - every numbered EDIT gets a DONE / NOT DONE line
+  - read only the listed files
+  - paste given code exactly
+  - no DB deletes or updates unless the prompt grants that exact write
+  - PowerShell only, no `&&`, `git grep`
+  - never commit
+- **Database:**
+  - the next migration number comes from listing `supabase/migrations/`
+  - apply with the Supabase MCP `apply_migration` (name = the file name without `.sql`)
+  - regenerate `lib/supabase/types.ts`
+  - `npx tsc --noEmit` must pass
+- **The eligibility rule is never re-implemented in TypeScript.** The client reads `knockable` / `is_knockable` from the database.
+- **Phone sizes:** 390×763 (main), 375×667, 430×850.
+- **Browser checks need a prop dated TODAY (London)** for CanvasserX. The owner creates or re-dates one before the session.
+- **Offline tests:** CDP offline (rule 50). Undo every test log.
+- **Invariants:**
+  - no scoring in /field
+  - field writes only via `lib/sync/queue.ts`
+  - no resident names
+  - coverage is derived, never stored
+
+---
+
+## 4. Tracker
+
+| Session | What | Status | Date | Result | Commit |
+|---|---|---|---|---|---|
+| UI-5 A0 | Load No Cold Calling Zones | DONE | 2026-10-03 | 26 zones, 13,270 properties flagged (Claude, via MCP) | n/a (data) |
+| UI-5 A1 | Eligibility migration 025 + types + ingest hooks | DONE | 2026-10-03 | 025 applied: 424,952 doors, 110,760 multi-unit, 13,270 NCCZ, 303,003 knockable. Logger loads. | — |
+| UI-5 A2 | Field: hide non-knockable doors (logger, maps, counts) | TODO | | | — |
+| UI-5 A3 | Admin: 3-state dots and counts, completion/coverage views, route regeneration | TODO | | | — |
+| UI-5 A4 | Admin tenure layer (optional) | TODO | | | — |
+| UI-6 B1 | Mini map: rotate, recentre | TODO | | | — |
+| UI-6 B2 | Logger tabs: Logging View / Survey Overview | TODO | | | — |
+| UI-7 C0 | Brief amendment: invariant 7, Section 8, Stage 16 (H3, H5) | TODO | | | — |
+| UI-7 C1 | On-device GPS + direction arrow (both maps) | TODO | | | — |
+| UI-7 C2 | "Near you" door chip | TODO | | | — |
+| UI-7 C3 | Position sharing: partner scalar + admin live map | TODO | | | — |
+| UI-8 D1 | `knock_events.origin` + logging-mode setting | TODO | | | — |
+| UI-8 D2 | Mode B inference + review sheet | TODO | | | — |
+| UI-9 E1 | Route door-list editor + server validation | TODO | | | — |
+| UI-9 E2 | Manual route tracing (snapped to roads) | TODO | | | — |
+| UI-10 F* | Mobile admin, screen by screen (after admin design Phases 2–3) | TODO | | | — |
+
+---
+
+## 5. Sessions
+
+### UI-5: Data eligibility (field requirement P0.1)
+
+**Goal:** buildings with 3+ units and No Cold Calling Zone doors vanish from the logger, the maps, the counts and route generation. Nothing is deleted.
+
+**UI-5 A1: eligibility in the database**
+- Migration 025:
+  - `properties.units_at_point`, `units_at_address`, generated `is_multi_unit` and `is_knockable`
+  - `refresh_door_eligibility()` (service role only), run once as a backfill
+  - `count_knockable`, `properties_in_polygon`, `route_walk_inputs` and `allocate_prop` switch to `is_knockable`
+  - `todays_assignment` adds a `knockable` flag per door. The snapshot, sequence and door_count are unchanged, so today's client keeps working.
+- Ingest hooks:
+  - `ingest-uprn.ts` and `ingest-addresses.ts` call `refresh_door_eligibility` at the end
+  - `ingest-nccz.ts` reads the `CCZONE` name
+- **Acceptance:**
+  - totals match §2 (multi-unit 110,760, knockable 303,003)
+  - `authenticated` cannot execute `refresh_door_eligibility`
+  - the field app still loads today's prop with no error
+  - tsc exits 0
+
+**UI-5 A2: field client hides non-knockable doors (H2)**
+- The logger sequence, door scroll, "Door x of N", stats, Map tab dots, mini map, building slices and route door markers all skip doors with `knockable === false`.
+- Knock writes keep the ORIGINAL snapshot index in `sequence_position`.
+- The cursor, nextOpenIndex and the team logic work on the filtered list.
+- **Offline cache:** the Dexie cache refreshes so an open assignment hides flats after the next sync. Check whether a Dexie version bump is needed.
+- **Acceptance:**
+  - Southville solo 2 shows 1,069 doors
+  - a log writes the original `sequence_position`
+  - offline load still works
+  - verify:ui1 and verify:stage8b pass, or a documented update is made
+
+**UI-5 A3: admin and views**
+- **Draw page:**
+  - dots in 3 states: knockable, flats (multi-unit), No Cold Calling
+  - count copy: "N knockable · N flats · N no cold calling" (needs an extended count RPC: new migration)
+  - NCCZ polygons drawn on the map
+- **Views:** `v_prop_completion`, `coverage_map_payload` and `admin_dashboard` count only knockable doors as "remaining", so a flat is never "left to do".
+- **Route regeneration:** a script, in the pattern of `scripts/route-geom-apply.ts`, re-saves the routes of every non-archived prop. The owner runs it; it's the only write. Unworked open assignments are re-frozen only if the owner says so.
+- **Acceptance:**
+  - the draw page shows 3 dot states
+  - every live prop's `best` door_order equals its knockable set
+  - completion "remaining" excludes flats
+
+**UI-5 A4 (optional): admin tenure layer (H6)**
+- **Sources:**
+  - own Rented/Council observations (`property_observations`)
+  - EPC tenure (needs re-ingesting: an `ingest-addresses.ts` pass)
+  - Census TS054 area share
+- An admin-only map toggle. Never in /field.
+
+### UI-6: Logger quick wins (P2.2, P2.1)
+
+**UI-6 B1: mini map parity (P2.2)**
+- Two-finger rotate on the compact FieldMap.
+- A recentre button appears after a manual pan, rotate or zoom. It snaps back to the current door, or to the GPS position once UI-7 lands.
+- The door-scroll swipe must not fight the map gestures.
+- **Acceptance:**
+  - rotate, pinch and pan work on the iPhone
+  - recentre works
+  - the door swipe is unaffected
+
+**UI-6 B2: Logging View / Survey Overview tabs (P2.1)**
+- **Figma mock first** (Claude). A segmented control at the top of the Logger.
+- The Survey Overview is a virtualised two-column list:
+  - columns: address | outcome
+  - order: route order, with sticky street headers
+  - includes doors still to knock
+  - tapping a row opens the outcome picker and re-logs (a new event, latest wins)
+- **Addressless rows:** a fallback label (street + door number in route order). The wording gets decided in the Figma step.
+- **Acceptance:**
+  - 1,069 rows scroll smoothly at 390×763
+  - a re-log updates instantly, offline
+
+### UI-7: GPS (P1.5, P2.2 arrow; H3, H5)
+
+**UI-7 C0: brief amendment (docs only)**
+- Dated amendments to invariant 7, Section 8 and Stage 16:
+  - on-device continuous fixes (H3)
+  - raw position to admins, current only (H5)
+  - no trail, ever
+  - cleared at close
+  - visible indicator
+  - opt-in per assignment
+  - fallback when denied
+  - "DPIA before anyone else uses it" to-do
+- **Acceptance:** an owner read-through.
+
+**UI-7 C1: on-device GPS + arrow**
+- A `useGeoPosition` hook using `watchPosition` (high accuracy), only while the page is visible.
+- Heading from `DeviceOrientationEvent`. iOS needs `requestPermission` on a tap.
+- Arrow on the Map tab and the mini map.
+- Fixes with accuracy worse than 30 m are dimmed.
+- **Denied permission:** everything works as today, with a quiet notice.
+- No coordinate is stored, in IndexedDB or anywhere else, in this session.
+- **Acceptance:**
+  - the arrow moves on a walk test
+  - "denied" leaves the logger working
+  - no fix appears in any network payload (C3 adds the admin channel deliberately)
+
+**UI-7 C2: "near you" chip**
+- Snap the fix onto the route line. The nearest knockable door by distance along the route becomes the chip ("Near you: 42 Coronation Rd → Jump").
+- Hysteresis: the chip changes only after 2 agreeing fixes.
+- Off-route by more than 100 m: no chip.
+- The chip suggests and never jumps on its own (owner can change this later).
+- **Acceptance:** walking 3 doors moves the chip about 3 doors, with no flicker.
+
+**UI-7 C3: sharing**
+- **Partner:** `assignment_members.route_position_m` / `_at`, an update roughly every 30 s while visible.
+- **Admins:** a new table `live_positions`:
+  - one row per canvasser, upserted (never inserted twice)
+  - RLS: admin read, own-row write
+  - lat, lon, accuracy, heading, at
+  - nulled on assignment close
+  - no history table, ever
+- An admin live map (on the Today screen, or a temporary panel until UI-10).
+- A "Sharing location" indicator in /field whenever it's on.
+- **Acceptance:**
+  - the row count stays constant while walking
+  - closing the visit nulls the row
+  - a canvasser cannot read another canvasser's row
+
+### UI-8: Exception-only logging (P1.4; H4, H7)
+
+**UI-8 D1:**
+- Migration: `knock_events.origin text not null default 'tap' check (origin in ('tap','inferred'))`.
+- A logging-mode setting: per user, stored locally, with an org default in `app_settings`.
+- A mode badge in the logger header.
+- Mode B is disabled on team props.
+
+**UI-8 D2:**
+- When a door is logged in Mode B, collect the unlogged knockable doors between the last confirmed log and this one, in route order.
+- Show the review sheet: list, untick, Confirm.
+- Writes go through the queue with `origin = 'inferred'`.
+- Undo removes the whole batch.
+- **Never fill:**
+  - an existing outcome
+  - when backtracking
+  - a gap of 25+ doors, or a change of street, without asking
+- **Acceptance:** log #5 then #18 → the sheet lists #6–#17 minus doors already logged.
+
+### UI-9: Route editing (P1.2, P1.1)
+
+**UI-9 E1: door-list editor**
+- On a prop's saved variant: reorder (drag), remove (swipe), re-add.
+- Saves as a new variant `edited_N`, which the freeze key regex must accept.
+- Server validation: knockable only, no duplicates, `validate.ts` V1–V6.
+- **Acceptance:** an ineligible door is rejected; the edited order shows in the logger after allocation.
+
+**UI-9 E2: manual trace**
+- The admin taps along streets; the trace snaps to `road_segments` and the pavement side.
+- Doors are ordered by where they fall along the trace.
+- Saved as `manual_N`. Doors the trace doesn't reach are counted as stranded.
+- **Acceptance:** trace → save → allocate → the logger follows the trace, and it reloads unchanged next visit.
+
+### UI-10: Mobile admin (P1.3)
+
+- Built to the admin design chat's approved IA (`claude/admin-design-HANDBACK.md`), after its Phases 2–3.
+- Small RPCs from its §8: Today numbers, per-canvasser stats, needs-attention.
+- **Acceptance:**
+  - no horizontal overflow at 375, 390 or 430 px
+  - draw → route → edit → allocate is completed end to end on the iPhone
+
+---
+
+## 6. Dated notes
+
+- 2026-10-03 (Claude): plan approved by the owner. "UI item 4" is already used in BUILD-LOG (route focus), so this run starts at UI-5.

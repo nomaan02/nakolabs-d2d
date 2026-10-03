@@ -2,15 +2,15 @@
 
 ## Current state
 
-- Last updated: 2026-10-03 night London (UI item 3, Session D2). D1, D1b and D2 are uncommitted, as are M1–M5. **The owner commits after review — this session did not commit.**
-- **UI item 3, Session D2** makes the field Map tab and the Logger mini map follow the resolved theme. Light values are the previous constants. Admin maps still call the style and route painters with no mode, so they stay light.
-- CanvasserX's open prop for London 2026-10-03 is Southville solo 2, assignment `e047335b-006a-4b61-a2db-6517889198dc`, slot mid, not closed. The date was not changed.
-- **A test knock synced. Stop. The owner decides the row.** `knock_events.client_event_id` `730525dc-7e2f-42c8-a3d5-6291949edcc7`, outcome `no_answer`, UPRN `114486`, door #1 Coronation Road, `occurred_at` `2026-10-03 20:23:38.486+00`. Local outbox `synced_at` `2026-10-03T20:24:38.772Z`. The undo ring had already expired. The row was not deleted or updated.
-- Magic link for CanvasserX `576c4ce7-5fe0-489f-bd7f-42912925951a`: `expires_at` 1791057115 was minted and verified in Node. The browser was already signed in as CanvasserX; that link was not opened. Password, profile and role were not changed. No token is stored here.
-- `npx tsc --noEmit` exit 0. `npx eslint components/field lib/field lib/map` exit 0. `npm run verify:ui4`, `verify:ui1` and `verify:anchors` each exit 0, once.
-- Dark Map 2D, dark Map 3D, dark Logger, and the light map after Dark → Light were screenshotted. `/admin` coverage and the `<html>` hydration console were **not** finished. See the D2 log entry.
+- Last updated: 2026-10-03 night London (UI-5 Session A1). Uncommitted. **The owner commits after review — this session did not commit.**
+- **UI-5 A1** puts door eligibility in the database. `properties.is_knockable` is generated. Nothing was deleted. The field app still shows every door in the snapshot. Hiding non-knockable doors is Session A2.
+- Allocating a prop will fail with `snapshot_mismatch` until UI-5 A3 regenerates that prop's routes. `allocate_prop` now snapshots knockable doors only. Saved `territory_routes` from before 025 still contain the old set.
+- CanvasserX's open prop for London 2026-10-03 is REF - Speedwell, assignment `94a886e0-8ced-4088-a757-b0730b6b62e7`, visit 5, 182 doors, not closed. Southville solo 2 (`e047335b-006a-4b61-a2db-6517889198dc`) is closed (`closed_at` 2026-10-03 22:18:24 UTC). This session did not change either date.
+- The earlier synced knock is still there. `knock_events.client_event_id` `730525dc-7e2f-42c8-a3d5-6291949edcc7`. This session did not log a door. `knock_events` count was 1,236 before 025 and 1,236 after the browser check.
+- Magic link for CanvasserX `576c4ce7-5fe0-489f-bd7f-42912925951a`: `expires_at` 1791070252 was minted and verified in Node. The browser was already signed in as CanvasserX; that link was not opened. Password, profile and role were not changed. No token is stored here.
+- `npx tsc --noEmit` exit 0. `npx eslint lib/geo scripts/ingest-uprn.ts scripts/ingest-addresses.ts scripts/ingest-nccz.ts` exit 0.
 - External settings changed since handover: none.
-- Shared modules this session: `lib/map/map-palette.ts`, `lib/map/restyle-basemap.ts`, `lib/map/route-layers.ts`, `lib/field/map-style.ts`. `lib/sync/queue.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited. Door anchors were not edited.
+- Shared modules this session: `lib/supabase/types.ts` regenerated (13 lines). `lib/geo/todays-assignment.ts` and `lib/geo/properties-in-polygon.ts` gained optional door flags only. `lib/sync/queue.ts`, `lib/field/*`, `lib/map/*` and `lib/geo/walk/*` were not edited.
 
 ## Log
 
@@ -1304,5 +1304,34 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** (e) `/admin` coverage was not opened. (f) The console was not captured. `Page.addScriptToEvaluateOnNewDocument` was installed twice; after the load, `window.__d2dLogs` was missing, so "no hydration warning" was not printed. The accessibility tree showed no error dialog. Figma frames "Dark / Map 2D" and "Dark / Map 3D" were not opened. A 2,000-door paint of the dark style was not timed. A physical phone. Sun, wet thumb, one-handed use.
 - **External settings:** none. Magic link `expires_at` 1791057115, as in Current state. Password, profile and role were not changed. Left on `/field?d2=hydration` with `d2d.theme` `dark` and `d2d.mapView` `3d`.
 - **Open questions for Claude:** The synced Not In row above. Say whether to leave it. `/admin` coverage still needs a light-map check. The `<html>` console on a Dark hard load still needs a captured log.
+
+### 2026-10-03 — UI-5 Session A1 (uncommitted)
+
+- **Item:** UI-5 — door eligibility
+- **What changed:** A door is not knockable when it is in a No Cold Calling Zone or its building holds 3 or more units. The rule is the generated column `properties.is_knockable`. `refresh_door_eligibility()` filled `units_at_point` and `units_at_address` once. Read paths use that column. Today's assignment adds a `knockable` flag and leaves the snapshot, sequence and door count as they were. Ingest hooks are in place and were not run.
+- **Files:**
+  - New: `supabase/migrations/025_door_eligibility.sql`
+  - Changed: `lib/supabase/types.ts`, `lib/geo/todays-assignment.ts`, `lib/geo/properties-in-polygon.ts`, `scripts/ingest-uprn.ts`, `scripts/ingest-addresses.ts`, `scripts/ingest-nccz.ts`, `docs/FIELD-TEST-BUILD-PLAN.md`, `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - Deleted: none
+- **Database:** 025 `025_door_eligibility`. Four columns on `properties`. `is_multi_unit` and `is_knockable` are generated. `refresh_door_eligibility()` is revoked from `public`, `anon` and `authenticated`. `count_knockable`, `properties_in_polygon`, `route_walk_inputs` and `todays_assignment` were replaced. `allocate_prop` changed one predicate, `and not p.is_nccz` to `and p.is_knockable`, via a guarded replace. No new table. No row deleted.
+- **Shared modules touched:** `lib/supabase/types.ts` regenerated after 025 (13 insertions). `lib/geo/todays-assignment.ts` and `lib/geo/properties-in-polygon.ts` only widened `DoorProperties`. `lib/sync/queue.ts`, `lib/field/*`, `lib/map/*` and `lib/geo/walk/*` were not touched.
+- **Decided by:**
+  - owner — H1 (2026-10-03): a door is not knockable if it is in a No Cold Calling Zone or its building holds 3 or more units. Units are the larger of UPRNs at the same OS point, or addresses sharing house number (or building name) plus street plus postcode. Two-flat conversions stay knockable. EPC "Flat" alone does not exclude. The rule lives only in `properties.is_knockable`.
+  - owner — H2 (2026-10-03): nothing is deleted. Non-knockable doors will also be hidden in open assignments. That hide is Session A2, not this session.
+  - Claude — the rule is a generated column, so it cannot drift from `is_nccz`.
+  - Claude — `todays_assignment` only adds a `knockable` flag. Snapshot, sequence and `door_count` stay as they were, so today's field app keeps working until A2.
+  - Claude — `allocate_prop` changes one line by a guarded replace of its live body, and keeps the 021 body, comment and grants.
+  - Claude — dry-ran this SQL in a rolled-back transaction on 2026-10-03: 4 columns, multi-unit 110,760, knockable 303,003, `allocate_prop` patched, `authenticated` keeps EXECUTE on `allocate_prop` and has no EXECUTE on `refresh_door_eligibility`.
+- **Deviations from plan or brief:** The pasted SQL comment says routes are regenerated in Session A2. The plan's regeneration session is A3. The SQL was not rewritten. Port 3000 was already in use, so the dev server is `http://localhost:3002`. Started once, not restarted.
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. No field write. `lib/sync/queue.ts` was not edited. Coverage was not stored. `knock_events` stayed at 1,236. The eligibility columns were written only by the migration's one call to `refresh_door_eligibility()`.
+- **Verified:**
+  - Counts: 424,952 total, 110,760 multi-unit, 13,270 NCCZ, 303,003 knockable.
+  - `has_function_privilege`: `authenticated` cannot execute `refresh_door_eligibility()`. `authenticated` can execute `allocate_prop(uuid, date, uuid[])`. Both patched bodies contain `and p.is_knockable`.
+  - `schema_migrations` latest row is `025_door_eligibility`, then `024_door_footprints`.
+  - `npx tsc --noEmit` exit 0. eslint on `lib/geo` and the three ingest scripts exit 0.
+  - Chrome, CanvasserX, `/field/logger`, REF - Speedwell, visit 5, 182 doors, door 1 Ventnor Road. 390×763 (`innerWidth` 390, `innerHeight` 763). GET 200. No error dialog. No failed resource. Post-load `console.error` hook was empty. No door logged. Profile after: name CanvasserX, role canvasser, active true.
+- **Not verified:** A `console.error` hook on the first paint. `Page.addScriptToEvaluateOnNewDocument` did not run. Hiding doors, admin dots, views, and route regeneration. The ingest scripts were not run. A phone.
+- **External settings:** none. Magic link `expires_at` 1791070252, minted and verified in Node, not opened. Password, profile and role were not changed. No token is stored here.
+- **Open questions for Claude:** Allocating a prop will fail with `snapshot_mismatch` until A3 regenerates its routes. The migration comment names that work as A2.
 
 

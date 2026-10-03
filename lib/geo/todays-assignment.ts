@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/lib/supabase/types";
 import type { Slot, SweepDirection } from "@/lib/geo/rotation";
 
-export type DoorProperties = { uprn: number; sequence: number };
+export type DoorProperties = { uprn: number; sequence: number; knockable?: boolean };
 
 export type DoorCollection = GeoJSON.FeatureCollection<GeoJSON.Point, DoorProperties>;
 

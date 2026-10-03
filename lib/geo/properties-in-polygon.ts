@@ -4,7 +4,7 @@ import { ringToEwkt, type Ring } from "@/lib/geo/prop-polygon";
 import { mapPropRpcError, type PropFailureResult } from "@/lib/geo/rpc-error";
 
 /** What each door feature carries. Never summed — the count comes from count_knockable. */
-export type DoorProperties = { uprn: number; is_nccz: boolean };
+export type DoorProperties = { uprn: number; is_nccz: boolean; is_multi_unit?: boolean; is_knockable?: boolean };
 
 export type DoorCollection = GeoJSON.FeatureCollection<GeoJSON.Point, DoorProperties>;
 

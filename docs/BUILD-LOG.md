@@ -1819,4 +1819,30 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not done / deferred:** Admin coverage. A captured hydration console. A 2,000-door dark paint. A phone. Did not commit. Did not change the work date. Did not delete the synced knock.
 - **Follow-ups:** Owner decides `knock_events` `730525dc-7e2f-42c8-a3d5-6291949edcc7` (no_answer, UPRN 114486, 2026-10-03 20:23:38.486+00). Then check `/admin` coverage is still light, and print the console from a Dark hard load of `/field`.
 
+---
+
+### UI-5 Session A1 — Door eligibility in the database
+- **Date:** 2026-10-03
+- **Model:** Grok 4.7
+- **Built:** Migration 025. Generated `properties.is_knockable` (not NCCZ, and fewer than 3 units). `refresh_door_eligibility()` backfilled once. `count_knockable`, `properties_in_polygon`, `route_walk_inputs` and `allocate_prop` read `is_knockable`. `todays_assignment` adds a `knockable` flag. Snapshot, sequence and `door_count` are unchanged. Ingest scripts call the refresh after UPRN and address loads. NCCZ names read `CCZONE` first. No component, no field write path, no ingest run.
+- **Acceptance:**
+  - EDIT 1 DONE. `supabase/migrations/025_door_eligibility.sql` pasted as given. Next free number was 025. `apply_migration` name `025_door_eligibility` returned success. Not retried.
+  - EDIT 2 DONE. `npx supabase gen types typescript --project-id xerxsaptwpvhkkpyvkfi --schema public`. `properties` Row has `units_at_point`, `units_at_address`, `is_multi_unit`, `is_knockable`. `refresh_door_eligibility` is under Functions. `git diff --stat` on `lib/supabase/types.ts` is 13 insertions.
+  - EDIT 3 DONE. `DoorProperties` in `lib/geo/todays-assignment.ts` is `{ uprn: number; sequence: number; knockable?: boolean }`. Nothing else in that file.
+  - EDIT 4 DONE. `DoorProperties` in `lib/geo/properties-in-polygon.ts` is `{ uprn: number; is_nccz: boolean; is_multi_unit?: boolean; is_knockable?: boolean }`. Nothing else.
+  - EDIT 5 DONE. `scripts/ingest-uprn.ts` calls `refresh_door_eligibility` after `apply_nccz_flags` and logs the result. Script not run.
+  - EDIT 6 DONE. `scripts/ingest-addresses.ts` calls `refresh_door_eligibility` after `ingestEpc()`. Script not run.
+  - EDIT 7 DONE. `scripts/ingest-nccz.ts` `featureName` key list starts with `CCZONE`. Script not run.
+  - Counts: **PASS** — total 424,952, multi-unit 110,760, NCCZ 13,270, knockable 303,003.
+  - Privileges: **PASS** — `authenticated` EXECUTE on `refresh_door_eligibility()` is false. EXECUTE on `allocate_prop(uuid, date, uuid[])` is true. `allocate_prop` and `route_walk_inputs` bodies contain `and p.is_knockable`.
+  - `knock_events`: **PASS** — 1,236 before the migration and 1,236 after the browser check.
+  - `schema_migrations`: **PASS** — latest name `025_door_eligibility`, then `024_door_footprints`.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on `lib/geo` and the three ingest scripts: **PASS** — exit 0.
+  - `git grep` of `units_at|multi_unit|is_knockable` in `*.ts` / `*.tsx`: `lib/supabase/types.ts`, the `DoorProperties` line in `lib/geo/properties-in-polygon.ts`, and the comment the prompt required in `scripts/ingest-addresses.ts` line 716. No eligibility rule in TypeScript. `todays-assignment.ts` uses `knockable`, so that line does not match this pattern.
+  - Logger: **PASS**. Chrome, CanvasserX, `/field/logger`, REF - Speedwell, visit 5, 182 doors, door 1 Ventnor Road. `http://localhost:3002` (3000 was already taken). Emulation 390×763, `innerWidth` 390, `innerHeight` 763. Page GET 200. No error dialog. No resource with status 400 or above. A `console.error` hook installed after the load recorded an empty list. No door was logged.
+- **Deviations from brief:** The given SQL comment says routes are regenerated in UI-5 Session A2. The plan's regeneration session is A3. The SQL was pasted exactly. Port 3000 was already in use, so this session's dev server is `http://localhost:3002`. It was started once and not restarted. `Page.addScriptToEvaluateOnNewDocument` did not run on the logger document, so the first paint was not hooked. The post-load hook was empty.
+- **Not done / deferred:** Hiding doors (A2). Admin dots, counts, views and route regeneration (A3). Did not run any ingest script. Did not call `refresh_door_eligibility` again. Did not commit. Did not log a door. A phone.
+- **Follow-ups:** Allocation of a prop will fail with `snapshot_mismatch` until A3 regenerates its routes. The synced knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's to decide.
+
 

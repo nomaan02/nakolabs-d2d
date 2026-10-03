@@ -513,22 +513,34 @@ export type Database = {
         Row: {
           created_at: string
           geom: unknown
+          is_knockable: boolean | null
+          is_multi_unit: boolean | null
           is_nccz: boolean
           postcode: string | null
+          units_at_address: number
+          units_at_point: number
           uprn: number
         }
         Insert: {
           created_at?: string
           geom: unknown
+          is_knockable?: boolean | null
+          is_multi_unit?: boolean | null
           is_nccz?: boolean
           postcode?: string | null
+          units_at_address?: number
+          units_at_point?: number
           uprn: number
         }
         Update: {
           created_at?: string
           geom?: unknown
+          is_knockable?: boolean | null
+          is_multi_unit?: boolean | null
           is_nccz?: boolean
           postcode?: string | null
+          units_at_address?: number
+          units_at_point?: number
           uprn?: number
         }
         Relationships: []
@@ -1540,6 +1552,7 @@ export type Database = {
         Args: { p_territory: string }
         Returns: number
       }
+      refresh_door_eligibility: { Args: never; Returns: Json }
       route_clipped_subgraph: {
         Args: { p_assignment_id: string }
         Returns: Json
