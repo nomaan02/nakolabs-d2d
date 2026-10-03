@@ -285,13 +285,13 @@ function Legend() {
       {hasEnds ? (
         <>
           <li className="flex items-center gap-2 py-0.5 text-[11px] leading-none">
-            <span className="inline-flex shrink-0 items-center rounded-full bg-lead px-1 text-[9px] font-bold text-white ring-1 ring-paper">
+            <span className="inline-flex shrink-0 items-center rounded-full bg-lead px-1 text-[9px] font-bold text-paper ring-1 ring-paper">
               START
             </span>
             First door
           </li>
           <li className="flex items-center gap-2 py-0.5 text-[11px] leading-none">
-            <span className="inline-flex shrink-0 items-center rounded-full bg-oxide px-1 text-[9px] font-bold text-white ring-1 ring-paper">
+            <span className="inline-flex shrink-0 items-center rounded-full bg-oxide px-1 text-[9px] font-bold text-paper ring-1 ring-paper">
               END
             </span>
             Last door

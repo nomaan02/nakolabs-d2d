@@ -1764,4 +1764,27 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not done / deferred:** Outcome column and Notes on a dark screen. A phone. Sun, wet thumb, one-handed use. Did not commit. Did not change any work date.
 - **Follow-ups:** Option A still needs a screenshot on a day when CanvasserX has a prop. D2 darkens the map.
 
+---
+
+### UI item 3 — Dark-mode fixes, Session D1b
+- **Date:** 2026-10-03
+- **Model:** Grok 4.7
+- **Built:** Three fixes from Claude's review of D1. Sheet scrim uses `--color-scrim`. Map START and END badges use paper text. The theme effect reads the live preference. No migration. No sync change.
+- **Acceptance:**
+  - EDIT 1 DONE. `components/field/sheet.tsx` backdrop `bg-scrim/45`. Comment: `2026-10-03 D1b: scrim token, not ink (ink flips to near-white in dark).`
+  - EDIT 2 DONE. `components/field/map-tab.tsx` START and END: `text-white` became `text-paper`. Nothing else in that file.
+  - EDIT 3 DONE. `lib/field/theme.ts` exports `currentResolvedTheme()`. `field-theme-sync.tsx` uses it for the dataset write, `applyThemeColor`, and each head-observer callback. Effect dependency stays `[resolved]`.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - `npx eslint components/field lib/field`: **PASS** — exit 0.
+  - `npm run verify:ui1`: **PASS** — exit 0, once.
+  - `git grep -n "bg-ink/" -- components/field`: one line, `components/field/prop-status.tsx:73`, a grid gap. Not a full-screen backdrop.
+  - (a) Logger, Dark, outcome column light: **PASS**. Southville solo 2, 1,730 doors. 390×763 (`innerWidth` 391). Lead fill `rgb(99, 185, 137)`.
+  - (b) Notes sheet, Dark, backdrop darkens: **PASS**. `bg-scrim/45`, computed `oklab(0 0 0 / 0.45)`.
+  - (c) Map door panel, outcome buttons light: **PASS**. Lead `rgb(30, 107, 58)`, text `rgb(251, 250, 248)`. START and END text `rgb(31, 36, 44)` on `#7ad3a0` and `#ff9b9b`.
+  - (d) Hard reload, Dark saved, `data-field-theme` never `"light"`: **NOT VERIFIED**. The sequence was not printed.
+  - (e) Pref Light, Logger and Notes unchanged: **NOT VERIFIED**. No light screenshot.
+- **Deviations from brief:** The IDE hard reload did not return. A headless retry was stopped before it printed. `app/layout.tsx` was not edited. A hydration warning pointed at that file's `<html>` and the diff was not captured.
+- **Not done / deferred:** Checks (d) and (e). A phone. Sun, wet thumb, one-handed use. Did not commit. Did not change any work date. No knock was logged.
+- **Follow-ups:** Print the hard-reload `data-field-theme` sequence with Dark saved. One light screenshot of Logger with the Notes sheet open.
+
 

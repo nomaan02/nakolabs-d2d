@@ -2,16 +2,15 @@
 
 ## Current state
 
-- Last updated: 2026-10-03 early morning London (UI item 3, Session D1 — field dark mode). D1 is uncommitted, as are M1–M5. **The owner commits after review — this session did not commit.**
-- **UI item 3, Session D1** adds Auto / Light / Dark for the field app only. The choice is saved on the phone. A new install starts on Auto. Outcome buttons stay on the light palette. The map stays light. Evidence is in the log entry below and in `docs/BUILD-LOG.md`.
-- Owner H1, H2, H3 and H4 (2026-10-02) are in the D1 log entry.
-- London date during the browser check was 2026-10-03 (00:08 BST). CanvasserX's latest prop is TEST - dry run, assignment `1e9fe4c5-ffa6-46c7-80d8-9348267e477b`, work date 2026-10-02. The field app therefore showed "Nothing is assigned to you today". That date was not changed.
-- This session logged no knocks. `knock_events` was not queried. Password, profile and role were not changed.
-- Magic links used, then signed out with `scope: "local"`: CanvasserX `576c4ce7-5fe0-489f-bd7f-42912925951a` (`expires_at` 1790986092 and 1790986309); admin `802e95de-e975-4bb5-9545-123b4bc8fe43` (`expires_at` 1790986098). No token is stored here.
-- `npx tsc --noEmit` exit 0. `npx eslint components/field lib/field "app/(field)"` exit 0. `npm run verify:ui1` exit 0, once. `npm run verify:stage8b` exit 0, once.
-- Carried from M5: multipolygon relations are not loaded. A door more than 3 m from any outline gets no slice. Whitechurch visit 1 stays closed. Admin coverage still shares `fieldMapStyle()`. No door on TEST - dry run sits under 1.5 m from its raw point (minimum 3.17 m). The pre-existing outbox id `61cea5a1-d03e-4edb-9294-6bf4045e61e1` was not touched and was not re-checked.
+- Last updated: 2026-10-03 evening London (UI item 3, Session D1b). D1 and D1b are uncommitted, as are M1–M5. **The owner commits after review — this session did not commit.**
+- **UI item 3, Session D1b** is three dark-mode fixes from Claude's review of D1. The sheet scrim uses `--color-scrim`. The map START and END badges use paper text. The theme effect reads the live preference, not the hydration snapshot.
+- CanvasserX's open prop for London 2026-10-03 is Southville solo 2, assignment `e047335b-006a-4b61-a2db-6517889198dc`, slot mid, not closed. The date was not changed.
+- This session logged no knocks. No database row was written.
+- Magic links for CanvasserX `576c4ce7-5fe0-489f-bd7f-42912925951a`: `expires_at` 1791042478 and 1791052465 were used in the browser. `expires_at` 1791055574 was minted for a headless retry that was stopped before it finished. Password, profile and role were not changed. No token is stored here.
+- `npx tsc --noEmit` exit 0. `npx eslint components/field lib/field` exit 0. `npm run verify:ui1` exit 0, once.
+- Dark logger, Notes scrim, and map outcome buttons were checked. The hard-reload theme sequence and the light-mode screenshot were **not** finished. See the D1b log entry.
 - External settings changed since handover: none.
-- Shared modules this session: new `lib/field/theme.ts` (device theme only). `lib/map/*`, `lib/sync/queue.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
+- Shared modules this session: `lib/field/theme.ts` (`currentResolvedTheme` only). `lib/map/*`, `lib/sync/queue.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
 
 ## Log
 
@@ -1238,5 +1237,33 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** The outcome column and the Notes sheet on a dark screen. There is no prop for London 2026-10-03, so those controls were not mounted. The light-island rule was not seen in the browser. A physical phone. Sun, wet thumb, one-handed use. Haptics (this setting does not vibrate). The paint-observer trace was null, so the flash check is the script order plus the first DOM read, not a frame recording.
 - **External settings:** none. Magic links as in Current state. Password, profile and role were not changed.
 - **Open questions for Claude:** A screenshot of option A (light outcome buttons on a dark logger) needs a prop whose work date is the London day of the check. TEST - dry run `1e9fe4c5-ffa6-46c7-80d8-9348267e477b` is 2026-10-02. The date was not changed.
+
+### 2026-10-03 — UI item 3, Session D1b, dark-mode fixes (uncommitted)
+
+- **Item:** 3 — field app dark mode
+- **What changed:** Three fixes from Claude's review of D1. Sheet backdrops use the scrim token, so dark mode no longer opens a white wash. The map START and END badges use paper text, so they stay readable on the light dark-mode greens and reds. The theme effect writes the live preference, so the hydration snapshot cannot put "light" back over the boot script.
+- **Files:**
+  - Changed: `components/field/sheet.tsx`, `components/field/map-tab.tsx`, `lib/field/theme.ts`, `components/field/field-theme-sync.tsx`, `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: none
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** `lib/field/theme.ts` — added `currentResolvedTheme()`. `lib/map/*`, `lib/sync/queue.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - agent — the three fixes, found in Claude's D1 review. No owner decision in this session.
+- **Deviations from plan or brief:** The hard reload (check d) and the light screenshot (check e) were not finished. The IDE reload call did not return. A headless retry was stopped while Chrome was still running, before it printed a result. `app/layout.tsx` was not edited. A Next.js hydration warning pointed at `app/layout.tsx` line 50; the attribute diff was not captured.
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. No field write. `lib/sync/queue.ts` was not edited. No knock was logged.
+- **Verified:**
+  - EDIT 1 DONE. `components/field/sheet.tsx` backdrop is `bg-scrim/45`. Dated comment: `2026-10-03 D1b: scrim token, not ink (ink flips to near-white in dark).`
+  - EDIT 2 DONE. In `components/field/map-tab.tsx`, the START and END badges use `text-paper`. No other line in that file was changed.
+  - EDIT 3 DONE. `currentResolvedTheme()` is exported from `lib/field/theme.ts`. The effect in `field-theme-sync.tsx` writes `const live = currentResolvedTheme()` onto the dataset and into `applyThemeColor`. The head observer calls `currentResolvedTheme()` each time. The effect dependency is still `[resolved]`.
+  - `npx tsc --noEmit` exit 0. `npx eslint components/field lib/field` exit 0. `npm run verify:ui1` exit 0, once.
+  - `git grep -n "bg-ink/" -- components/field` prints one line: `components/field/prop-status.tsx:73` (`gap-px bg-ink/15` on a three-column grid). That is not a full-screen backdrop.
+  - (a) **PASS**. Chrome, CanvasserX, Southville solo 2, visit 1, 1,730 doors, door #1 Coronation Road. Emulation 390×763 (`innerWidth` 391, `innerHeight` 763). Pref Dark (`d2d.theme` `dark`, `data-field-theme` `dark`). The outcome column was on screen. Lead fill `rgb(99, 185, 137)`, the light-island outcome colour, not the dark `#3f9e69`.
+  - (b) **PASS**. Notes sheet open. Backdrop class `bg-scrim/45`, computed `oklab(0 0 0 / 0.45)`, about 391×706. Not a white wash.
+  - (c) **PASS**. Map tab, door panel open. Lead `rgb(30, 107, 58)` with text `rgb(251, 250, 248)` (light-island lead and paper). START text `rgb(31, 36, 44)` on `rgb(122, 211, 160)`. END text `rgb(31, 36, 44)` on `rgb(255, 155, 155)`.
+  - No knock. No database write.
+- **Not verified:** (d) the hard-reload sequence of `data-field-theme`. It was not printed. It is not known whether a value was `"light"`. (e) Pref Light, Logger and Notes. No light screenshot in this session. A physical phone. Sun, wet thumb, one-handed use. Haptics.
+- **External settings:** none. Magic links as in Current state. Password, profile and role were not changed.
+- **Open questions for Claude:** Check (d) still needs a hard reload with Dark saved and a log of every `data-field-theme` value. Check (e) still needs one light screenshot of Logger and the Notes sheet. The hydration warning on `<html>` was seen and not diagnosed.
 
 

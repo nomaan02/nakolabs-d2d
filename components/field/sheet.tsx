@@ -28,11 +28,12 @@ export function Sheet({
 
   return (
     <div className="absolute inset-0 z-40 flex flex-col justify-end" data-testid="field-sheet">
+      {/* 2026-10-03 D1b: scrim token, not ink (ink flips to near-white in dark). */}
       <button
         type="button"
         aria-label="Close"
         onClick={onDismiss}
-        className="absolute inset-0 bg-ink/45"
+        className="absolute inset-0 bg-scrim/45"
       />
       <section
         role="dialog"

@@ -95,6 +95,12 @@ function getSystemDark(): boolean {
   return systemDarkQuery()?.matches ?? false;
 }
 
+export function currentResolvedTheme(): ResolvedTheme {
+  if (pref === "dark") return "dark";
+  if (pref === "light") return "light";
+  return getSystemDark() ? "dark" : "light";
+}
+
 function getSystemDarkServer(): boolean {
   return false;
 }

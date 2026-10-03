@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-import { THEME_COLOR, useResolvedTheme, type ResolvedTheme } from "@/lib/field/theme";
+import { THEME_COLOR, currentResolvedTheme, useResolvedTheme, type ResolvedTheme } from "@/lib/field/theme";
 
 function applyThemeColor(resolved: ResolvedTheme): void {
   const metas = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]');
@@ -24,11 +24,12 @@ export function FieldThemeSync() {
   const resolved = useResolvedTheme();
 
   useEffect(() => {
-    document.documentElement.dataset.fieldTheme = resolved;
-    applyThemeColor(resolved);
+    const live = currentResolvedTheme();
+    document.documentElement.dataset.fieldTheme = live;
+    applyThemeColor(live);
 
     const observer = new MutationObserver(() => {
-      applyThemeColor(resolved);
+      applyThemeColor(currentResolvedTheme());
     });
     observer.observe(document.head, {
       subtree: true,
