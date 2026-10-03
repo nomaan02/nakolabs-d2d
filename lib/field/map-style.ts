@@ -1,6 +1,6 @@
 import { setWorkerUrl, type StyleSpecification } from "maplibre-gl";
 
-import { MAP_PALETTE } from "@/lib/map/map-palette";
+import { mapColours, type MapMode } from "@/lib/map/map-palette";
 import { restyleBasemap } from "@/lib/map/restyle-basemap";
 
 /**
@@ -41,22 +41,33 @@ export const ATTRIBUTION_LINES = [
 export const ATTRIBUTION = ATTRIBUTION_LINES.join(" ");
 
 /** Offline, or no key: a flat background. Dots and labels still render. */
-export const FALLBACK_STYLE: StyleSpecification = {
-  version: 8,
-  name: "field-offline",
-  sources: {},
-  layers: [{ id: "background", type: "background", paint: { "background-color": MAP_PALETTE.ground } }],
-};
+function fallbackStyle(mode: MapMode): StyleSpecification {
+  return {
+    version: 8,
+    name: "field-offline",
+    sources: {},
+    layers: [
+      {
+        id: "background",
+        type: "background",
+        paint: { "background-color": mapColours(mode).palette.ground },
+      },
+    ],
+  };
+}
 
-export async function fieldMapStyle(): Promise<StyleSpecification> {
+export const FALLBACK_STYLE: StyleSpecification = fallbackStyle("light");
+
+export async function fieldMapStyle(mode: MapMode = "light"): Promise<StyleSpecification> {
+  const fallback = fallbackStyle(mode);
   const key = process.env.NEXT_PUBLIC_MAPTILER_KEY;
-  if (!key) return FALLBACK_STYLE;
+  if (!key) return fallback;
   const url = `https://api.maptiler.com/maps/dataviz-light/style.json?key=${key}`;
   try {
     const response = await fetch(url);
-    if (!response.ok) return FALLBACK_STYLE;
-    return restyleBasemap(await response.json());
+    if (!response.ok) return fallback;
+    return restyleBasemap(await response.json(), mode);
   } catch {
-    return FALLBACK_STYLE;
+    return fallback;
   }
 }

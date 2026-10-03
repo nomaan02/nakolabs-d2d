@@ -1,6 +1,6 @@
 import type { LayerSpecification, StyleSpecification } from "maplibre-gl";
 
-import { MAP_PALETTE } from "@/lib/map/map-palette";
+import { mapColours, type MapMode } from "@/lib/map/map-palette";
 
 /**
  * 2026-10-01 (UI-2 Session M1). Pure restyle of a MapTiler style JSON.
@@ -97,13 +97,16 @@ function hide(layer: LayerSpecification): LayerSpecification {
   }
 }
 
-function restyleLayer(layer: LayerSpecification): LayerSpecification {
+function restyleLayer(
+  layer: LayerSpecification,
+  palette: ReturnType<typeof mapColours>["palette"],
+): LayerSpecification {
   const rule = ruleFor(layer);
 
   if (rule === "background" && layer.type === "background") {
     return {
       ...layer,
-      paint: { ...layer.paint, "background-color": MAP_PALETTE.ground },
+      paint: { ...layer.paint, "background-color": palette.ground },
     };
   }
 
@@ -111,21 +114,21 @@ function restyleLayer(layer: LayerSpecification): LayerSpecification {
 
   if (layer.type === "fill") {
     if (rule === "fill-water") {
-      return { ...layer, paint: { ...layer.paint, "fill-color": MAP_PALETTE.water } };
+      return { ...layer, paint: { ...layer.paint, "fill-color": palette.water } };
     }
     if (rule === "fill-park") {
-      return { ...layer, paint: { ...layer.paint, "fill-color": MAP_PALETTE.park } };
+      return { ...layer, paint: { ...layer.paint, "fill-color": palette.park } };
     }
     if (rule === "fill-landuse") {
-      return { ...layer, paint: { ...layer.paint, "fill-color": MAP_PALETTE.landuse } };
+      return { ...layer, paint: { ...layer.paint, "fill-color": palette.landuse } };
     }
     if (rule === "fill-building") {
       return {
         ...layer,
         paint: {
           ...layer.paint,
-          "fill-color": MAP_PALETTE.building,
-          "fill-outline-color": MAP_PALETTE.buildingEdge,
+          "fill-color": palette.building,
+          "fill-outline-color": palette.buildingEdge,
         },
       };
     }
@@ -134,15 +137,15 @@ function restyleLayer(layer: LayerSpecification): LayerSpecification {
   if (layer.type === "line") {
     const lineColor =
       rule === "line-water"
-        ? MAP_PALETTE.water
+        ? palette.water
         : rule === "line-rail" || rule === "line-building"
-          ? MAP_PALETTE.buildingEdge
+          ? palette.buildingEdge
           : rule === "line-path" || rule === "line-casing-minor"
-            ? MAP_PALETTE.roadMinorCase
+            ? palette.roadMinorCase
             : rule === "line-casing-major"
-              ? MAP_PALETTE.roadMajorCase
+              ? palette.roadMajorCase
               : rule === "line-road"
-                ? MAP_PALETTE.road
+                ? palette.road
                 : undefined;
     if (lineColor !== undefined) {
       return { ...layer, paint: { ...layer.paint, "line-color": lineColor } };
@@ -154,8 +157,8 @@ function restyleLayer(layer: LayerSpecification): LayerSpecification {
       ...layer,
       paint: {
         ...layer.paint,
-        "text-color": rule === "symbol-name" ? MAP_PALETTE.label : MAP_PALETTE.labelMuted,
-        "text-halo-color": MAP_PALETTE.ground,
+        "text-color": rule === "symbol-name" ? palette.label : palette.labelMuted,
+        "text-halo-color": palette.ground,
         "text-halo-width": rule === "symbol-name" ? 1.5 : 1.2,
       },
     };
@@ -164,10 +167,11 @@ function restyleLayer(layer: LayerSpecification): LayerSpecification {
   return layer;
 }
 
-export function restyleBasemap(style: StyleSpecification): StyleSpecification {
+export function restyleBasemap(style: StyleSpecification, mode: MapMode = "light"): StyleSpecification {
+  const palette = mapColours(mode).palette;
   return {
     ...style,
-    layers: style.layers.map((layer) => restyleLayer(layer)),
+    layers: style.layers.map((layer) => restyleLayer(layer, palette)),
   };
 }
 

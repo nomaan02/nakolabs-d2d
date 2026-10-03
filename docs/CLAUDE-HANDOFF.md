@@ -2,15 +2,15 @@
 
 ## Current state
 
-- Last updated: 2026-10-03 evening London (UI item 3, Session D1b). D1 and D1b are uncommitted, as are M1–M5. **The owner commits after review — this session did not commit.**
-- **UI item 3, Session D1b** is three dark-mode fixes from Claude's review of D1. The sheet scrim uses `--color-scrim`. The map START and END badges use paper text. The theme effect reads the live preference, not the hydration snapshot.
+- Last updated: 2026-10-03 night London (UI item 3, Session D2). D1, D1b and D2 are uncommitted, as are M1–M5. **The owner commits after review — this session did not commit.**
+- **UI item 3, Session D2** makes the field Map tab and the Logger mini map follow the resolved theme. Light values are the previous constants. Admin maps still call the style and route painters with no mode, so they stay light.
 - CanvasserX's open prop for London 2026-10-03 is Southville solo 2, assignment `e047335b-006a-4b61-a2db-6517889198dc`, slot mid, not closed. The date was not changed.
-- This session logged no knocks. No database row was written.
-- Magic links for CanvasserX `576c4ce7-5fe0-489f-bd7f-42912925951a`: `expires_at` 1791042478 and 1791052465 were used in the browser. `expires_at` 1791055574 was minted for a headless retry that was stopped before it finished. Password, profile and role were not changed. No token is stored here.
-- `npx tsc --noEmit` exit 0. `npx eslint components/field lib/field` exit 0. `npm run verify:ui1` exit 0, once.
-- Dark logger, Notes scrim, and map outcome buttons were checked. The hard-reload theme sequence and the light-mode screenshot were **not** finished. See the D1b log entry.
+- **A test knock synced. Stop. The owner decides the row.** `knock_events.client_event_id` `730525dc-7e2f-42c8-a3d5-6291949edcc7`, outcome `no_answer`, UPRN `114486`, door #1 Coronation Road, `occurred_at` `2026-10-03 20:23:38.486+00`. Local outbox `synced_at` `2026-10-03T20:24:38.772Z`. The undo ring had already expired. The row was not deleted or updated.
+- Magic link for CanvasserX `576c4ce7-5fe0-489f-bd7f-42912925951a`: `expires_at` 1791057115 was minted and verified in Node. The browser was already signed in as CanvasserX; that link was not opened. Password, profile and role were not changed. No token is stored here.
+- `npx tsc --noEmit` exit 0. `npx eslint components/field lib/field lib/map` exit 0. `npm run verify:ui4`, `verify:ui1` and `verify:anchors` each exit 0, once.
+- Dark Map 2D, dark Map 3D, dark Logger, and the light map after Dark → Light were screenshotted. `/admin` coverage and the `<html>` hydration console were **not** finished. See the D2 log entry.
 - External settings changed since handover: none.
-- Shared modules this session: `lib/field/theme.ts` (`currentResolvedTheme` only). `lib/map/*`, `lib/sync/queue.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
+- Shared modules this session: `lib/map/map-palette.ts`, `lib/map/restyle-basemap.ts`, `lib/map/route-layers.ts`, `lib/field/map-style.ts`. `lib/sync/queue.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited. Door anchors were not edited.
 
 ## Log
 
@@ -1265,5 +1265,44 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** (d) the hard-reload sequence of `data-field-theme`. It was not printed. It is not known whether a value was `"light"`. (e) Pref Light, Logger and Notes. No light screenshot in this session. A physical phone. Sun, wet thumb, one-handed use. Haptics.
 - **External settings:** none. Magic links as in Current state. Password, profile and role were not changed.
 - **Open questions for Claude:** Check (d) still needs a hard reload with Dark saved and a log of every `data-field-theme` value. Check (e) still needs one light screenshot of Logger and the Notes sheet. The hydration warning on `<html>` was seen and not diagnosed.
+
+### 2026-10-03 — UI item 3, Session D2, dark map (uncommitted)
+
+- **Item:** 3 — the dark map (Map tab and Logger mini map)
+- **What changed:** Field maps follow the resolved theme. `mapColours(mode)` is the only colour source for the basemap, door dots, building tints, focus and the small UI marks. `routeColours(mode)` paints the route. Light output is the previous constants. A theme change remounts `FieldMap` with `key={mode}`. Admin callers pass no mode and stay light. `<html>` has `suppressHydrationWarning` so the field boot script can set `data-field-theme` before hydration.
+- **Files:**
+  - Changed: `app/layout.tsx`, `lib/map/map-palette.ts`, `lib/map/restyle-basemap.ts`, `lib/field/map-style.ts`, `lib/map/route-layers.ts`, `components/field/field-map.tsx`, `components/field/map-tab.tsx`, `components/field/mini-map.tsx`, `components/field/logger-tab.tsx`, `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: none
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** `lib/map/map-palette.ts`, `lib/map/restyle-basemap.ts`, `lib/map/route-layers.ts` (optional `mode`, default `"light"`), `lib/field/map-style.ts`. `lib/sync/queue.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited. Door-anchor code was not edited.
+- **Decided by:**
+  - owner — H1 to H4, recorded in the D1 entry.
+  - owner — H5 (2026-10-02): the map follows the resolved theme. The dark map is the Apple-Maps-style palette from Figma section "Dark mode v1 (2026-10-02)". Admin maps stay light.
+  - agent — the Logger compact halo keeps using the position colour (`#1b4aa6` in light, `#8cb4ff` in dark). The full-map halo uses `ui.halo` (`#1c2226` in light). Every listed light UI hex matched the file.
+  - agent — `applyRouteProgress` takes `mode` and does not repaint. Line, chevron and badge colours are set when `paintRouteLayers` adds the layers.
+- **Deviations from plan or brief:** A second `next dev` was started on port 3001 because port 3000 was already in use (pid 8444). It was not restarted. The Not In log was not undone: the 60 s ring expired while the dark-dot screenshot was being read, and the row then synced. `fetch /health` returned 200 while `navigator.onLine` was false. The Figma frames were not opened; no file key is in the repo.
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. Field writes still go through `lib/sync/queue.ts`, which was not edited. One test knock did reach `knock_events`. See Current state. The owner decides that row.
+- **Verified:**
+  - EDIT 0 DONE. `app/layout.tsx` `<html>` has `suppressHydrationWarning` and the dated D2 comment. Viewport, body and metadata were not changed.
+  - EDIT 1 DONE. `MapMode`, dark palette sets, `MAP_UI`, and `mapColours(mode)`. Light `MAP_PALETTE`, `OUTCOME_DOT`, `OUTCOME_TINT` and `FOCUS` are unchanged.
+  - EDIT 2 DONE. `restyleBasemap(style, mode = "light")` uses `mapColours(mode).palette`. `restyleReport` is unchanged.
+  - EDIT 3 DONE. `fieldMapStyle(mode = "light")` passes the mode through. `fallbackStyle(mode)` supplies the ground. `FALLBACK_STYLE` is `fallbackStyle("light")`.
+  - EDIT 4 DONE. `routeColours` light values are today's hexes. `ROUTE_TIER_COLOURS` is still those light values. `paintRouteLayers` and `applyRouteProgress` take a last optional `mode` defaulting to `"light"`. The chevron sprite stays `#ffffff`.
+  - EDIT 5 DONE. `FieldMap` takes `mode` and reads it once on `modeRef`. `git grep -n -E "#[0-9a-fA-F]{6}\b" -- components/field/field-map.tsx` returned no lines.
+  - EDIT 6 DONE. Map tab renders `<FieldMap key={mode} mode={mode}>`. The legend swatches use `mapColours(mode).dot`. The route rows use `routeColours(mode)`. `MiniMap` takes `mode` and passes `key` and `mode`. Logger passes `useResolvedTheme()`.
+  - `npx tsc --noEmit` exit 0. `npx eslint components/field lib/field lib/map` exit 0.
+  - `npm run verify:ui4` exit 0. Near `#dc9476`, far `#e7b9a5`, focus `#c2410c`, done `#a3a9ae`. Style validates, 0 errors.
+  - `npm run verify:ui1` exit 0. `npm run verify:anchors` exit 0. 2,000 doors / 60 steps: 7.66 ms. That timing is the anchor maths, not a dark-map paint.
+  - Contrast, WCAG, dark ground `#2b3341`: label `#c7cdd6` 7.95:1; open ring `#c2c9d2` 7.61:1; lead `#45b877` 5.07:1; answered `#5b8ff0` 4.01:1; no_opportunity `#e09a3a` 5.36:1; no_answer `#9aa2ad` 4.93:1; other `#c2c9d2` 7.61:1. Labels are at least 7:1. Those dots are at least 3:1. The open fill `#2b3341` is the ground (1.00:1); the ring is the mark.
+  - Chrome, CanvasserX, Southville solo 2, visit 1, 1,730 doors. Emulation 390×763 (`innerWidth` 391, `innerHeight` 763).
+  - (a) Dark Map 2D, dark Map 3D, dark Logger: screenshots taken. Legend swatches matched the dark dot and route hexes, including Now & next `rgb(255, 122, 69)` and Later `rgb(117, 76, 66)`.
+  - (b) Not In on UPRN 114486. 2D screenshot pixels: closest to the dark dot `#9AA2AC` (target `#9aa2ad`, one channel off by 1) and closest to the dark tint `#4C525C` (target `#4b525c`, one channel off by 1).
+  - (c) You tab Light, then Map: one `.maplibregl-map`. Legend open `rgb(255, 255, 255)`, Not In `rgb(133, 138, 147)`, Contact `rgb(63, 116, 208)`, Rented/Council `rgb(199, 122, 18)`, Lead `rgb(47, 143, 87)`, Now & next `rgb(194, 65, 12)`. Those are the light constants.
+  - (d) `d2d.mapView` stayed `3d` after Dark → Light and after a later load with Dark saved. The button read `2D` and `aria-pressed` true.
+  - Point count on screen: 1,730 doors. Device: desktop Chrome with device-metrics emulation, not a phone.
+- **Not verified:** (e) `/admin` coverage was not opened. (f) The console was not captured. `Page.addScriptToEvaluateOnNewDocument` was installed twice; after the load, `window.__d2dLogs` was missing, so "no hydration warning" was not printed. The accessibility tree showed no error dialog. Figma frames "Dark / Map 2D" and "Dark / Map 3D" were not opened. A 2,000-door paint of the dark style was not timed. A physical phone. Sun, wet thumb, one-handed use.
+- **External settings:** none. Magic link `expires_at` 1791057115, as in Current state. Password, profile and role were not changed. Left on `/field?d2=hydration` with `d2d.theme` `dark` and `d2d.mapView` `3d`.
+- **Open questions for Claude:** The synced Not In row above. Say whether to leave it. `/admin` coverage still needs a light-map check. The `<html>` console on a Dark hard load still needs a captured log.
 
 

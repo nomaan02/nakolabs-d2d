@@ -27,6 +27,7 @@ import type {
 } from "maplibre-gl";
 
 import type { WalkResult } from "@/lib/geo/walk/types";
+import type { MapMode } from "@/lib/map/map-palette";
 import { legRuns, type RouteTiers } from "@/lib/map/route-progress";
 
 export const ROUTE_LINE_SOURCE = "route-walk-lines";
@@ -52,14 +53,8 @@ export const ROUTE_LAYER_IDS = [
   POINT_END,
 ] as const;
 
-const FOCUS = "#c2410c";
-const PAPER = "#fbfaf8";
 const NEAR_MIX = 0.55;
 const FAR_MIX = 0.35;
-const DONE = "#a3a9ae";
-const INK = "#1c2226";
-const START_FILL = "#1e6b3a";
-const END_FILL = "#7a2b33";
 
 /** Owner tunes these. Near and far are solid mixes, drawn at opacity 1. */
 function hexChannels(hex: string): [number, number, number] {
@@ -78,14 +73,32 @@ function mixHex(focus: string, paper: string, amount: number): string {
   return `#${[0, 1, 2].map((index) => channel(index).toString(16).padStart(2, "0")).join("")}`;
 }
 
-const NEAR = mixHex(FOCUS, PAPER, NEAR_MIX);
-const FAR = mixHex(FOCUS, PAPER, FAR_MIX);
+export function routeColours(mode: MapMode = "light") {
+  const focus = mode === "dark" ? "#ff7a45" : "#c2410c";
+  const paper = mode === "dark" ? "#2b3341" : "#fbfaf8";
+  const done = mode === "dark" ? "#5b6472" : "#a3a9ae";
+  const ink = mode === "dark" ? "#eef1f4" : "#1c2226";
+  const startFill = mode === "dark" ? "#3f9e69" : "#1e6b3a";
+  const endFill = mode === "dark" ? "#c4505a" : "#7a2b33";
+  return {
+    focus,
+    paper,
+    done,
+    ink,
+    startFill,
+    endFill,
+    near: mixHex(focus, paper, NEAR_MIX),
+    far: mixHex(focus, paper, FAR_MIX),
+  };
+}
+
+const LIGHT_ROUTE = routeColours("light");
 
 export const ROUTE_TIER_COLOURS = {
-  focus: FOCUS,
-  near: NEAR,
-  far: FAR,
-  done: DONE,
+  focus: LIGHT_ROUTE.focus,
+  near: LIGHT_ROUTE.near,
+  far: LIGHT_ROUTE.far,
+  done: LIGHT_ROUTE.done,
 } as const;
 
 /** Joints closer than this become one vertex so a chevron is not planted on the join. */
@@ -553,7 +566,11 @@ export function applyRouteActive(map: MapLibreMap, model: RoutePaintModel, activ
 
 const ACTIVE: ExpressionSpecification = ["boolean", ["feature-state", "active"], false];
 const TIER: ExpressionSpecification = ["coalesce", ["feature-state", "tier"], "focus"];
-const LINE_COLOUR: ExpressionSpecification = ["match", TIER, "near", NEAR, "far", FAR, "done", DONE, FOCUS];
+
+function lineColour(mode: MapMode): ExpressionSpecification {
+  const colours = routeColours(mode);
+  return ["match", TIER, "near", colours.near, "far", colours.far, "done", colours.done, colours.focus];
+}
 const LINE_WIDTH: ExpressionSpecification = [
   "interpolate",
   ["linear"],
@@ -653,7 +670,7 @@ function ensureChevron(map: MapLibreMap): void {
 const BADGE_FONT = '700 10px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
 
 /** Raster pill with the word baked in. Null outside a browser, or with no 2D context. */
-function drawBadge(text: string, fill: string): ImageData | null {
+function drawBadge(text: string, fill: string, paper: string): ImageData | null {
   if (typeof document === "undefined") return null;
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
@@ -677,7 +694,7 @@ function drawBadge(text: string, fill: string): ImageData | null {
   ctx.closePath();
   ctx.fillStyle = fill;
   ctx.fill();
-  ctx.strokeStyle = PAPER;
+  ctx.strokeStyle = paper;
   ctx.lineWidth = 1.5;
   ctx.stroke();
   ctx.fillStyle = "#ffffff";
@@ -687,9 +704,9 @@ function drawBadge(text: string, fill: string): ImageData | null {
   return ctx.getImageData(0, 0, canvas.width, canvas.height);
 }
 
-function ensureBadge(map: MapLibreMap, id: string, text: string, fill: string): boolean {
+function ensureBadge(map: MapLibreMap, id: string, text: string, fill: string, paper: string): boolean {
   if (map.hasImage(id)) return true;
-  const image = drawBadge(text, fill);
+  const image = drawBadge(text, fill, paper);
   if (!image) return false;
   map.addImage(id, image, { pixelRatio: 2 });
   return map.hasImage(id);
@@ -697,7 +714,8 @@ function ensureBadge(map: MapLibreMap, id: string, text: string, fill: string): 
 
 type RouteLayer = Parameters<MapLibreMap["addLayer"]>[0];
 
-function routeLayerList(includeBadges: boolean): RouteLayer[] {
+function routeLayerList(includeBadges: boolean, mode: MapMode = "light"): RouteLayer[] {
+  const colours = routeColours(mode);
   const workFilter: FilterSpecification = ["==", ["get", "kind"], "work"];
   const otherFilter: FilterSpecification = ["!=", ["get", "kind"], "work"];
   const doneFilter: FilterSpecification = ["!=", ["get", "tier"], "done"];
@@ -709,7 +727,7 @@ function routeLayerList(includeBadges: boolean): RouteLayer[] {
       filter: otherFilter,
       layout: { "line-cap": "butt", "line-join": "round" },
       paint: {
-        "line-color": LINE_COLOUR,
+        "line-color": lineColour(mode),
         "line-width": LINE_WIDTH,
         "line-opacity": LINE_OPACITY,
         "line-dasharray": [1.4, 1.3],
@@ -722,7 +740,7 @@ function routeLayerList(includeBadges: boolean): RouteLayer[] {
       filter: workFilter,
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
-        "line-color": LINE_COLOUR,
+        "line-color": lineColour(mode),
         "line-width": LINE_WIDTH,
         "line-opacity": LINE_OPACITY,
       },
@@ -743,8 +761,8 @@ function routeLayerList(includeBadges: boolean): RouteLayer[] {
         "icon-pitch-alignment": "map",
       },
       paint: {
-        "icon-color": INK,
-        "icon-halo-color": PAPER,
+        "icon-color": colours.ink,
+        "icon-halo-color": colours.paper,
         "icon-halo-width": 1,
         "icon-opacity": CHEVRON_OPACITY,
       },
@@ -822,9 +840,12 @@ export function routeValidationStyle(): {
  * layer so the route paints underneath the dots. Idempotent, including
  * after a style reload, which drops images.
  */
-export function ensureRouteLayers(map: MapLibreMap, beforeId?: string): void {
+export function ensureRouteLayers(map: MapLibreMap, beforeId?: string, mode: MapMode = "light"): void {
+  const colours = routeColours(mode);
   ensureChevron(map);
-  const badges = ensureBadge(map, BADGE_START, "START", START_FILL) && ensureBadge(map, BADGE_END, "END", END_FILL);
+  const badges =
+    ensureBadge(map, BADGE_START, "START", colours.startFill, colours.paper) &&
+    ensureBadge(map, BADGE_END, "END", colours.endFill, colours.paper);
   if (!map.getSource(ROUTE_LINE_SOURCE)) {
     map.addSource(ROUTE_LINE_SOURCE, { type: "geojson", data: EMPTY, promoteId: "fid" });
   }
@@ -834,7 +855,7 @@ export function ensureRouteLayers(map: MapLibreMap, beforeId?: string): void {
   if (!map.getSource(CHEVRON_SOURCE)) {
     map.addSource(CHEVRON_SOURCE, { type: "geojson", data: EMPTY, promoteId: "fid" });
   }
-  for (const layer of routeLayerList(badges)) addBefore(map, layer, beforeId);
+  for (const layer of routeLayerList(badges, mode)) addBefore(map, layer, beforeId);
 }
 
 /**
@@ -846,6 +867,9 @@ export function applyRouteProgress(
   map: MapLibreMap,
   model: RoutePaintModel,
   tiers?: RouteTiers | null,
+  // Colours are painted in paintRouteLayers from routeColours(mode).
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  mode: MapMode = "light",
 ): void {
   if (!map.getSource(ROUTE_LINE_SOURCE)) return;
   const resolved = tiers ?? null;
@@ -871,13 +895,14 @@ export function paintRouteLayers(
   activeKey: string,
   beforeId?: string,
   tiers?: RouteTiers | null,
+  mode: MapMode = "light",
 ): void {
   // Do not consult `isStyleLoaded()` here. It is still false inside the
   // `style.load` handler, and bailing there is how the highlight gets lost.
   if (!map.getStyle()) return;
-  ensureRouteLayers(map, beforeId);
+  ensureRouteLayers(map, beforeId, mode);
   setRouteData(map, model);
   syncChevrons(map, model, tiers ?? null);
   applyRouteActive(map, model, activeKey);
-  applyRouteProgress(map, model, tiers ?? null);
+  applyRouteProgress(map, model, tiers ?? null, mode);
 }

@@ -1787,4 +1787,36 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not done / deferred:** Checks (d) and (e). A phone. Sun, wet thumb, one-handed use. Did not commit. Did not change any work date. No knock was logged.
 - **Follow-ups:** Print the hard-reload `data-field-theme` sequence with Dark saved. One light screenshot of Logger with the Notes sheet open.
 
+---
+
+### UI item 3 — Dark map, Session D2
+- **Date:** 2026-10-03
+- **Model:** Grok 4.7
+- **Built:** The field Map tab and the Logger mini map follow the resolved theme. Light colours are the previous constants. Admin callers pass no mode and stay light. `<html>` suppresses its own hydration warning. No migration. No sync change.
+- **Acceptance:**
+  - EDIT 0 DONE. `app/layout.tsx` `<html suppressHydrationWarning>` plus the dated D2 comment. Viewport, body and metadata unchanged.
+  - EDIT 1 DONE. `mapColours(mode)` in `lib/map/map-palette.ts`. Light constants kept. Dark sets and `MAP_UI` added. Listed light UI hexes matched `field-map.tsx`. Compact halo stays the position colour (`#1b4aa6`), not the full-map halo.
+  - EDIT 2 DONE. `restyleBasemap(style, mode = "light")`. `restyleReport` unchanged.
+  - EDIT 3 DONE. `fieldMapStyle(mode)` and `fallbackStyle(mode)`. `FALLBACK_STYLE` is the light fallback.
+  - EDIT 4 DONE. `routeColours`. Light route unchanged: `verify:ui4` near `#dc9476`, far `#e7b9a5`, focus `#c2410c`, done `#a3a9ae`. Chevron sprite stays `#ffffff`.
+  - EDIT 5 DONE. `FieldMap` `mode` read once. `git grep` hex in `components/field/field-map.tsx`: 0 lines.
+  - EDIT 6 DONE. Map tab `key={mode}`. Legend uses `mapColours(mode).dot` and `routeColours(mode)`. Mini map takes `mode`. Logger passes `useResolvedTheme()`.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - `npx eslint components/field lib/field lib/map`: **PASS** — exit 0.
+  - `npm run verify:ui4`: **PASS** — exit 0, once.
+  - `npm run verify:ui1`: **PASS** — exit 0, once.
+  - `npm run verify:anchors`: **PASS** — exit 0, once. 2,000 doors / 60 steps: 7.66 ms (anchor maths, not a dark paint).
+  - Contrast, dark, ground `#2b3341`: label 7.95:1, open ring 7.61:1, lead 5.07:1, answered 4.01:1, no_opportunity 5.36:1, no_answer 4.93:1, other 7.61:1. Open fill is the ground, 1.00:1.
+  - Chrome, CanvasserX, Southville solo 2, 1,730 doors. Emulation 390×763 (`innerWidth` 391).
+  - (a) Dark Map 2D, dark Map 3D, dark Logger: **PASS** — screenshots taken. Legend hexes matched the dark sets.
+  - (b) Not In dot and building tint: **PASS** for the colours on the 2D screenshot (`#9AA2AC` against `#9aa2ad`, `#4C525C` against `#4b525c`). Undo: **FAIL**. The ring expired. The row synced. See below.
+  - (c) Dark → Light, back to the Map: **PASS**. One `.maplibregl-map`. Legend colours are the light constants. Screenshot taken.
+  - (d) 2D/3D survives a theme switch: **PASS**. `d2d.mapView` stayed `3d`. Button `2D`, pressed.
+  - (e) `/admin` coverage still light: **NOT VERIFIED**. Not opened.
+  - (f) Dark load, no `<html>` hydration warning: **NOT VERIFIED**. The console hook did not appear on the loaded page (`window.__d2dLogs` missing). No error dialog in the accessibility tree. That is not a console print.
+  - Point count on screen: 1,730 doors. Device: desktop Chrome, emulation, not a phone.
+- **Deviations from brief:** Port 3000 was already taken, so this session's dev server is `http://localhost:3001`. It was started once and not restarted. `fetch /health` returned 200 while `navigator.onLine` was false, and the undo window then expired. Figma frames were not opened.
+- **Not done / deferred:** Admin coverage. A captured hydration console. A 2,000-door dark paint. A phone. Did not commit. Did not change the work date. Did not delete the synced knock.
+- **Follow-ups:** Owner decides `knock_events` `730525dc-7e2f-42c8-a3d5-6291949edcc7` (no_answer, UPRN 114486, 2026-10-03 20:23:38.486+00). Then check `/admin` coverage is still light, and print the console from a Dark hard load of `/field`.
+
 

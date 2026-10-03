@@ -47,7 +47,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en-GB" className={`${display.variable} ${body.variable} ${data.variable}`}>
+    // 2026-10-03 D2: the field boot script sets
+    // data-field-theme before hydration. This only silences <html>'s own
+    // attributes, not its children.
+    <html
+      lang="en-GB"
+      className={`${display.variable} ${body.variable} ${data.variable}`}
+      suppressHydrationWarning
+    >
       <body className="bg-white font-body text-zinc-900">{children}</body>
     </html>
   );

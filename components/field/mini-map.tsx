@@ -6,6 +6,7 @@ import { toggleMapView, useMapView } from "@/lib/field/map-view";
 import type { DoorLabels } from "@/lib/field/labels";
 import type { LocalOutcomes } from "@/lib/field/local-outcomes";
 import type { DoorCollection } from "@/lib/geo/todays-assignment";
+import type { MapMode } from "@/lib/map/map-palette";
 import type { RoutePaintModel } from "@/lib/map/route-layers";
 import type { RouteTiers } from "@/lib/map/route-progress";
 
@@ -35,6 +36,7 @@ export function MiniMap({
   footprints = null,
   currentUprn,
   onOpenMap,
+  mode,
 }: {
   doors: DoorCollection;
   labels: DoorLabels;
@@ -45,11 +47,14 @@ export function MiniMap({
   /** The door the Logger cursor is on now. Never a GPS position. */
   currentUprn: number | null;
   onOpenMap: () => void;
+  mode: MapMode;
 }) {
   const mapView = useMapView();
   return (
     <div className="relative h-full w-full overflow-hidden" data-testid="mini-map">
       <FieldMap
+        key={mode}
+        mode={mode}
         doors={doors}
         labels={labels}
         outcomes={outcomes}

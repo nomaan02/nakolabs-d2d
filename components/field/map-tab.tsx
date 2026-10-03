@@ -15,8 +15,9 @@ import { outcomeSpec, type OtherOutcome, type PrimaryOutcome } from "@/lib/field
 import { toggleMapView, useMapView } from "@/lib/field/map-view";
 import { offerUndo, useUndoTarget } from "@/lib/field/undo";
 import { formatFieldHeader } from "@/lib/field/route-display";
-import { OUTCOME_DOT } from "@/lib/map/map-palette";
-import { ROUTE_TIER_COLOURS } from "@/lib/map/route-layers";
+import { useResolvedTheme } from "@/lib/field/theme";
+import { mapColours, type MapMode } from "@/lib/map/map-palette";
+import { routeColours } from "@/lib/map/route-layers";
 
 /**
  * The map is the SECONDARY logging path and the recovery route: when the
@@ -54,6 +55,7 @@ export function MapTab() {
   const [otherOpen, setOtherOpen] = useState(false);
   const undoTarget = useUndoTarget();
   const mapView = useMapView();
+  const mode = useResolvedTheme();
 
   if (phase.kind === "loading") {
     return <p className="px-4 pt-8 text-sm text-ink-soft">Loading today&apos;s prop…</p>;
@@ -127,6 +129,8 @@ export function MapTab() {
 
       <div className="relative min-h-0 flex-1">
         <FieldMap
+          key={mode}
+          mode={mode}
           doors={anchoredDoors}
           labels={labels}
           outcomes={outcomes}
@@ -150,7 +154,7 @@ export function MapTab() {
         >
           {mapView === "3d" ? "2D" : "3D"}
         </button>
-        <Legend />
+        <Legend mode={mode} />
       </div>
 
       {selectedUprn !== null ? (
@@ -220,8 +224,10 @@ export function MapTab() {
  * focus, the later streets and the steps already walked. They show only
  * when a route is painted.
  */
-function Legend() {
+function Legend({ mode }: { mode: MapMode }) {
   const { routeModel } = useFieldData();
+  const dot = mapColours(mode).dot;
+  const route = routeColours(mode);
   const hasEnds =
     routeModel.points.some((point) => point.role === "start") &&
     routeModel.points.some((point) => point.role === "end");
@@ -232,39 +238,39 @@ function Legend() {
     {
       label: "Not yet logged",
       className: "rounded-full h-3 w-3",
-      backgroundColor: OUTCOME_DOT.open,
-      boxShadow: `0 0 0 1px ${OUTCOME_DOT.openRing}`,
+      backgroundColor: dot.open,
+      boxShadow: `0 0 0 1px ${dot.openRing}`,
     },
     {
       label: outcomeSpec("no_answer").label,
       className: "rounded-full h-3 w-3",
-      backgroundColor: OUTCOME_DOT.no_answer,
-      boxShadow: `0 0 0 1px ${OUTCOME_DOT.ring}`,
+      backgroundColor: dot.no_answer,
+      boxShadow: `0 0 0 1px ${dot.ring}`,
     },
     {
       label: outcomeSpec("answered").label,
       className: "rounded-full h-3.5 w-3.5",
-      backgroundColor: OUTCOME_DOT.answered,
-      boxShadow: `inset 0 0 0 2px ${OUTCOME_DOT.ring}`,
+      backgroundColor: dot.answered,
+      boxShadow: `inset 0 0 0 2px ${dot.ring}`,
     },
     {
       label: outcomeSpec("no_opportunity").label,
       className: "rounded-full h-2 w-2",
-      backgroundColor: OUTCOME_DOT.no_opportunity,
+      backgroundColor: dot.no_opportunity,
       boxShadow: "none",
     },
     {
       label: outcomeSpec("lead").label,
       className: "rounded-full h-5 w-5",
-      backgroundColor: OUTCOME_DOT.lead,
-      boxShadow: `inset 0 0 0 2px ${OUTCOME_DOT.ring}`,
+      backgroundColor: dot.lead,
+      boxShadow: `inset 0 0 0 2px ${dot.ring}`,
     },
   ];
   const routeRows = hasRoute
     ? [
-        { label: "Now & next", className: "h-1.5 w-6", colour: ROUTE_TIER_COLOURS.focus },
-        { label: "Later", className: "h-1 w-6", colour: ROUTE_TIER_COLOURS.far },
-        { label: "Done", className: "h-0.5 w-6", colour: ROUTE_TIER_COLOURS.done },
+        { label: "Now & next", className: "h-1.5 w-6", colour: route.focus },
+        { label: "Later", className: "h-1 w-6", colour: route.far },
+        { label: "Done", className: "h-0.5 w-6", colour: route.done },
       ]
     : [];
 

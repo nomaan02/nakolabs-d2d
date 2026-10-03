@@ -32,6 +32,7 @@ import { pulse, useInputLock } from "@/lib/field/feedback";
 import { doorPlate } from "@/lib/field/labels";
 import { logHouseNumber, logOutcome } from "@/lib/field/log-outcome";
 import { outcomeSpec, type OtherOutcome, type PrimaryOutcome } from "@/lib/field/outcomes";
+import { useResolvedTheme } from "@/lib/field/theme";
 import {
   fieldHeaderParts,
   formatLoggerAreaLine,
@@ -200,6 +201,7 @@ export function LoggerTab() {
 
   const router = useRouter();
   const lock = useInputLock();
+  const mode = useResolvedTheme();
 
   const [sheet, setSheet] = useState<SheetState>({ kind: "none" });
   const [otherOpen, setOtherOpen] = useState(false);
@@ -374,6 +376,7 @@ export function LoggerTab() {
         <div className="relative min-h-[112px] flex-1" data-testid="logger-map-band">
           <div className="absolute inset-0">
             <MemoMiniMap
+              mode={mode}
               doors={anchoredDoors}
               labels={labels}
               outcomes={outcomes}

@@ -16,7 +16,7 @@ import type { LocalOutcomes } from "@/lib/field/local-outcomes";
 import { useMapView, type MapView } from "@/lib/field/map-view";
 import { ATTRIBUTION_LINES, fieldMapStyle } from "@/lib/field/map-style";
 import type { DoorCollection } from "@/lib/geo/todays-assignment";
-import { FOCUS, MAP_PALETTE, OUTCOME_DOT, OUTCOME_TINT } from "@/lib/map/map-palette";
+import { mapColours, type MapMode } from "@/lib/map/map-palette";
 import {
   applyRouteProgress,
   paintRouteLayers,
@@ -55,27 +55,29 @@ const LEADER_SOURCE = "field-door-leader";
 const LEADER_LINE = "field-door-leader-line";
 const LEADER_END = "field-door-leader-end";
 
+type FieldColours = ReturnType<typeof mapColours>;
+
 /** Outcome tint. `fallback` is transparent in 2D and the building fill in 3D. */
-function footprintTint(fallback: string): ExpressionSpecification {
+function footprintTint(tint: FieldColours["tint"], fallback: string): ExpressionSpecification {
   return [
     "match",
     ["coalesce", ["feature-state", "outcome"], "none"],
     "lead",
-    OUTCOME_TINT.lead,
+    tint.lead,
     "answered",
-    OUTCOME_TINT.answered,
+    tint.answered,
     "no_opportunity",
-    OUTCOME_TINT.no_opportunity,
+    tint.no_opportunity,
     "no_answer",
-    OUTCOME_TINT.no_answer,
+    tint.no_answer,
     "refused",
-    OUTCOME_TINT.other,
+    tint.other,
     "do_not_call",
-    OUTCOME_TINT.other,
+    tint.other,
     "inaccessible",
-    OUTCOME_TINT.other,
+    tint.other,
     "callback",
-    OUTCOME_TINT.other,
+    tint.other,
     fallback,
   ];
 }
@@ -97,6 +99,7 @@ function mountFootprints(
   data: GeoJSON.FeatureCollection | null,
   view: MapView,
   beforeId: string,
+  colours: FieldColours,
 ) {
   const showFlat = view === "2d" ? "visible" : "none";
   const show3d = view === "3d" ? "visible" : "none";
@@ -122,7 +125,7 @@ function mountFootprints(
           minzoom: 15,
           layout: { visibility: show3d },
           paint: {
-            "fill-extrusion-color": MAP_PALETTE.building,
+            "fill-extrusion-color": colours.palette.building,
             "fill-extrusion-opacity": 0.9,
             "fill-extrusion-height": ["coalesce", ["get", "render_height"], 6],
             "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0],
@@ -149,8 +152,8 @@ function mountFootprints(
               ["boolean", ["feature-state", "selected"], false],
               ["==", ["coalesce", ["feature-state", "outcome"], "none"], "none"],
             ],
-            FOCUS.tint,
-            footprintTint("rgba(0,0,0,0)"),
+            colours.focus.tint,
+            footprintTint(colours.tint, "rgba(0,0,0,0)"),
           ],
         },
       },
@@ -169,8 +172,8 @@ function mountFootprints(
           "line-color": [
             "case",
             ["boolean", ["feature-state", "selected"], false],
-            FOCUS.line,
-            MAP_PALETTE.buildingEdge,
+            colours.focus.line,
+            colours.palette.buildingEdge,
           ],
           "line-width": [
             "case",
@@ -199,8 +202,8 @@ function mountFootprints(
               ["boolean", ["feature-state", "selected"], false],
               ["==", ["coalesce", ["feature-state", "outcome"], "none"], "none"],
             ],
-            FOCUS.tint,
-            footprintTint(MAP_PALETTE.building),
+            colours.focus.tint,
+            footprintTint(colours.tint, colours.palette.building),
           ],
           "fill-extrusion-height": [
             "+",
@@ -226,7 +229,7 @@ function mountFootprints(
         source: LEADER_SOURCE,
         layout: { "line-cap": "butt" },
         paint: {
-          "line-color": FOCUS.line,
+          "line-color": colours.focus.line,
           "line-width": 1.5,
           "line-opacity": 0.9,
           "line-dasharray": [2, 1.5],
@@ -245,7 +248,7 @@ function mountFootprints(
         paint: {
           "circle-radius": 3,
           "circle-color": "rgba(0,0,0,0)",
-          "circle-stroke-color": FOCUS.line,
+          "circle-stroke-color": colours.focus.line,
           "circle-stroke-width": 1.5,
         },
       },
@@ -290,8 +293,6 @@ function applyMapView(instance: MapLibreMap, view: MapView, mapVariant: "full" |
  * Driven by `feature-state`, not baked into the source data — coverage is
  * derived, and the source is the frozen snapshot.
  */
-const UNLOGGED = OUTCOME_DOT.open;
-
 /** The logged outcome for this door on this assignment, or "none". */
 const OUTCOME_STATE: ExpressionSpecification = [
   "coalesce",
@@ -299,28 +300,39 @@ const OUTCOME_STATE: ExpressionSpecification = [
   "none",
 ];
 
-const FILL_BY_STATE: ExpressionSpecification = [
-  "match",
-  OUTCOME_STATE,
-  "no_answer",
-  OUTCOME_DOT.no_answer,
-  "answered",
-  OUTCOME_DOT.answered,
-  "lead",
-  OUTCOME_DOT.lead,
-  "no_opportunity",
-  OUTCOME_DOT.no_opportunity,
-  // refused, do_not_call, inaccessible, callback: worked, nothing more said.
-  "refused",
-  OUTCOME_DOT.other,
-  "do_not_call",
-  OUTCOME_DOT.other,
-  "inaccessible",
-  OUTCOME_DOT.other,
-  "callback",
-  OUTCOME_DOT.other,
-  UNLOGGED,
-];
+function fillByState(dot: FieldColours["dot"]): ExpressionSpecification {
+  return [
+    "match",
+    OUTCOME_STATE,
+    "no_answer",
+    dot.no_answer,
+    "answered",
+    dot.answered,
+    "lead",
+    dot.lead,
+    "no_opportunity",
+    dot.no_opportunity,
+    // refused, do_not_call, inaccessible, callback: worked, nothing more said.
+    "refused",
+    dot.other,
+    "do_not_call",
+    dot.other,
+    "inaccessible",
+    dot.other,
+    "callback",
+    dot.other,
+    dot.open,
+  ];
+}
+
+function strokeByState(dot: FieldColours["dot"], selected: string): ExpressionSpecification {
+  return [
+    "case",
+    ["boolean", ["feature-state", "selected"], false],
+    selected,
+    ["case", ["==", OUTCOME_STATE, "none"], dot.openRing, dot.ring],
+  ];
+}
 
 /**
  * MapLibre only allows `["zoom"]` as the input of a *top-level* interpolate
@@ -450,11 +462,16 @@ function withLabels(doors: DoorCollection, labels: DoorLabels): DoorCollection {
   };
 }
 
-function applyRoute(instance: MapLibreMap, model: RoutePaintModel, tiers: RouteTiers | null) {
+function applyRoute(
+  instance: MapLibreMap,
+  model: RoutePaintModel,
+  tiers: RouteTiers | null,
+  mode: MapMode,
+) {
   const source = instance.getSource(ROUTE_SOURCE) as GeoJSONSource | undefined;
   source?.setData(EMPTY);
   const key = model.steps[0]?.variantKey || "route";
-  paintRouteLayers(instance, model, key, FOCUS_LAYER, tiers);
+  paintRouteLayers(instance, model, key, FOCUS_LAYER, tiers, mode);
 }
 
 const FIELD_LAYER_ORDER = [
@@ -558,6 +575,7 @@ export function FieldMap({
   onSelectUprn,
   active,
   variant = "full",
+  mode = "light",
 }: {
   doors: DoorCollection;
   labels: DoorLabels;
@@ -579,6 +597,8 @@ export function FieldMap({
    * 2026-09-30 owner E6: pan and pinch allowed, no rotate or pitch; re-centres on every door change.
    */
   variant?: "full" | "compact";
+  /** Read once. A theme change remounts this map via `key={mode}`. */
+  mode?: MapMode;
 }) {
   const container = useRef<HTMLDivElement | null>(null);
   const map = useRef<MapLibreMap | null>(null);
@@ -597,6 +617,7 @@ export function FieldMap({
   // has an empty dependency array, so it is captured the same way every
   // other prop that effect reads is — via a ref, not a render-time closure.
   const variantRef = useRef(variant);
+  const modeRef = useRef(mode);
   onSelect.current = onSelectUprn;
   doorsRef.current = doors;
   labelsRef.current = labels;
@@ -611,11 +632,13 @@ export function FieldMap({
     if (!container.current || map.current) return;
     let cancelled = false;
     const mapVariant = variantRef.current;
+    const mapMode = modeRef.current;
+    const c = mapColours(mapMode);
     const openingPitch =
       mapViewRef.current === "3d" ? (mapVariant === "compact" ? 50 : 55) : 0;
 
     void (async () => {
-      const style = await fieldMapStyle();
+      const style = await fieldMapStyle(mapMode);
       if (cancelled || !container.current) return;
 
       const instance = new MapLibreMap({
@@ -669,9 +692,9 @@ export function FieldMap({
           type: "line",
           source: ROUTE_SOURCE,
           layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": "#1c2226", "line-width": 4, "line-opacity": 0.85 },
+          paint: { "line-color": c.ui.placeholderLine, "line-width": 4, "line-opacity": 0.85 },
         });
-        mountFootprints(instance, footprintsRef.current, mapViewRef.current, ROUTE_LAYER);
+        mountFootprints(instance, footprintsRef.current, mapViewRef.current, ROUTE_LAYER, c);
 
         // Focus halo sits under the dots so a selected door reads as a ring,
         // not a colour change. Unselected radius is 0 — cheap at 2,000 points.
@@ -684,7 +707,7 @@ export function FieldMap({
           source: DOORS_SOURCE,
           paint: {
             "circle-radius": FOCUS_HALO_RADIUS,
-            "circle-color": mapVariant === "compact" ? "#1b4aa6" : "#1c2226",
+            "circle-color": mapVariant === "compact" ? c.ui.position : c.ui.halo,
             "circle-opacity": 0.9,
           },
         });
@@ -695,19 +718,14 @@ export function FieldMap({
           source: DOORS_SOURCE,
           paint: {
             "circle-radius": CIRCLE_RADIUS,
-            "circle-color": FILL_BY_STATE,
+            "circle-color": fillByState(c.dot),
             "circle-stroke-width": [
               "case",
               ["boolean", ["feature-state", "selected"], false],
               4,
               1.5,
             ],
-            "circle-stroke-color": [
-              "case",
-              ["boolean", ["feature-state", "selected"], false],
-              "#1c2226",
-              ["case", ["==", OUTCOME_STATE, "none"], OUTCOME_DOT.openRing, OUTCOME_DOT.ring],
-            ],
+            "circle-stroke-color": strokeByState(c.dot, c.ui.halo),
           },
         });
 
@@ -719,7 +737,7 @@ export function FieldMap({
           source: DOORS_SOURCE,
           paint: {
             "circle-radius": CORE_RADIUS,
-            "circle-color": "#fbfaf8",
+            "circle-color": c.ui.core,
           },
         });
 
@@ -743,8 +761,8 @@ export function FieldMap({
             "text-optional": true,
           },
           paint: {
-            "text-color": "#1c2226",
-            "text-halo-color": "#fbfaf8",
+            "text-color": c.ui.labelText,
+            "text-halo-color": c.ui.labelHalo,
             "text-halo-width": 1.6,
           },
         });
@@ -760,9 +778,9 @@ export function FieldMap({
           layout: { visibility: "none" },
           paint: {
             "circle-radius": 8,
-            "circle-color": "#1b4aa6",
+            "circle-color": c.ui.position,
             "circle-stroke-width": 3,
-            "circle-stroke-color": "#fbfaf8",
+            "circle-stroke-color": c.ui.positionRing,
           },
         });
 
@@ -774,7 +792,7 @@ export function FieldMap({
         (instance.getSource(LEADER_SOURCE) as GeoJSONSource | undefined)?.setData(
           leaderFor(doorsRef.current, selectedRef.current),
         );
-        applyRoute(instance, routeRef.current, tiersRef.current);
+        applyRoute(instance, routeRef.current, tiersRef.current, mapMode);
         if (container.current) recordLayerOrder(instance, container.current, routeRef.current, tiersRef.current);
         instance.on("style.load", () => {
           const anchor = instance.getLayer(ROUTE_LAYER)
@@ -783,14 +801,14 @@ export function FieldMap({
               ? "route-walk-other"
               : FOCUS_LAYER;
           if (!instance.getSource(FOOTPRINTS_SOURCE) && instance.getLayer(anchor)) {
-            mountFootprints(instance, footprintsRef.current, mapViewRef.current, anchor);
+            mountFootprints(instance, footprintsRef.current, mapViewRef.current, anchor, c);
           }
           applyOutcomeState(instance, outcomesRef.current, selectedRef.current);
           (instance.getSource(LEADER_SOURCE) as GeoJSONSource | undefined)?.setData(
             leaderFor(doorsRef.current, selectedRef.current),
           );
           applyMapView(instance, mapViewRef.current, mapVariant);
-          applyRoute(instance, routeRef.current, tiersRef.current);
+          applyRoute(instance, routeRef.current, tiersRef.current, mapMode);
           if (container.current) recordLayerOrder(instance, container.current, routeRef.current, tiersRef.current);
         });
         const initialZoom = mapVariant === "compact" ? COMPACT_ZOOM : FOCUS_ZOOM;
@@ -844,7 +862,7 @@ export function FieldMap({
     const instance = map.current;
     const node = container.current;
     if (!instance?.getStyle() || !instance.getSource(ROUTE_SOURCE) || !node) return;
-    applyRoute(instance, routeModel, tiersRef.current);
+    applyRoute(instance, routeModel, tiersRef.current, modeRef.current);
     recordLayerOrder(instance, node, routeModel, tiersRef.current);
   }, [routeModel]);
 
@@ -856,7 +874,7 @@ export function FieldMap({
     const instance = map.current;
     const node = container.current;
     if (!instance?.getStyle() || !node || !instance.getSource(ROUTE_LINE_SOURCE)) return;
-    applyRouteProgress(instance, routeRef.current, routeTiers);
+    applyRouteProgress(instance, routeRef.current, routeTiers, modeRef.current);
     recordLayerOrder(instance, node, routeRef.current, routeTiers);
   }, [routeTiers]);
 
