@@ -2,16 +2,16 @@
 
 ## Current state
 
-- Last updated: 2026-10-02 (UI item 2, Session M5 — building colour lag, deeper tints, current-door link). M1–M5 are uncommitted. **The owner commits after review — this session did not commit.**
-- **UI item 2, Session M5** makes a logged building take its outcome colour on that log, deepens the building tints, and draws one dashed leader from the selected door's pavement dot to the address point in its house. Evidence is in the log entry below and in `docs/BUILD-LOG.md`.
-- Owner G1, G2 and G3 (2026-10-02) are in the M5 log entry. M4 recorded F4, F5 and F6. M1 recorded F1, F2, and the smaller-dot half of F3. M2 recorded the walkline half of F3. M3 recorded the outline half of F4.
-- London date 2026-10-02. CanvasserX's open prop is TEST - dry run, assignment `1e9fe4c5-ffa6-46c7-80d8-9348267e477b`, visit 3, 88 doors. REF - Speedwell visit 4 (`8eaae87b-a77e-4e7b-b653-9a2cd9f03dbc`) is work date 2026-10-01, so the field app does not open it today. That date was not changed.
-- The browser was left signed in as CanvasserX on `/field`, with the devtools network forced offline, so the pre-existing outbox row `61cea5a1-d03e-4edb-9294-6bf4045e61e1` does not send. Password, profile and role were not changed. No new magic link.
-- Five offline logs were removed from the local outbox before any insert. `knock_events` and `property_observations` have none of `c46396d5-8f0b-4e54-957c-39735f76e96e`, `5b560f09-f4b2-480a-b5f3-918ce776351e`, `33b8a4eb-3860-4d39-9019-e5788e340290`, `65b4e08f-84ab-47f8-a838-8479dde7267d`, `cf6a12ca-5be6-4f9c-a8bf-0e587ea8c6ff`. The older id `61cea5a1-d03e-4edb-9294-6bf4045e61e1` is still not in `knock_events`. Retry was not clicked.
-- `npx tsc --noEmit` exit 0. `npx eslint components/field lib/field lib/map` exit 0. `npm run verify:ui1` and `verify:anchors` exit 0, once. `verify:ui4` failed once with `JWT issued at future`, then exit 0 on the retry. `npx eslint` including `scripts` was not re-run. The pre-existing `prefer-const` in `scripts/seed-demo.ts` line 242 is unchanged.
-- Carried: multipolygon relations are not loaded. A door more than 3 m from any outline gets no slice. Whitechurch visit 1 stays closed. Admin coverage still shares `fieldMapStyle()`. Dataviz Light still does not select park or `roadMajorCase`. No door on TEST - dry run sits under 1.5 m from its raw point (minimum 3.17 m).
+- Last updated: 2026-10-03 early morning London (UI item 3, Session D1 — field dark mode). D1 is uncommitted, as are M1–M5. **The owner commits after review — this session did not commit.**
+- **UI item 3, Session D1** adds Auto / Light / Dark for the field app only. The choice is saved on the phone. A new install starts on Auto. Outcome buttons stay on the light palette. The map stays light. Evidence is in the log entry below and in `docs/BUILD-LOG.md`.
+- Owner H1, H2, H3 and H4 (2026-10-02) are in the D1 log entry.
+- London date during the browser check was 2026-10-03 (00:08 BST). CanvasserX's latest prop is TEST - dry run, assignment `1e9fe4c5-ffa6-46c7-80d8-9348267e477b`, work date 2026-10-02. The field app therefore showed "Nothing is assigned to you today". That date was not changed.
+- This session logged no knocks. `knock_events` was not queried. Password, profile and role were not changed.
+- Magic links used, then signed out with `scope: "local"`: CanvasserX `576c4ce7-5fe0-489f-bd7f-42912925951a` (`expires_at` 1790986092 and 1790986309); admin `802e95de-e975-4bb5-9545-123b4bc8fe43` (`expires_at` 1790986098). No token is stored here.
+- `npx tsc --noEmit` exit 0. `npx eslint components/field lib/field "app/(field)"` exit 0. `npm run verify:ui1` exit 0, once. `npm run verify:stage8b` exit 0, once.
+- Carried from M5: multipolygon relations are not loaded. A door more than 3 m from any outline gets no slice. Whitechurch visit 1 stays closed. Admin coverage still shares `fieldMapStyle()`. No door on TEST - dry run sits under 1.5 m from its raw point (minimum 3.17 m). The pre-existing outbox id `61cea5a1-d03e-4edb-9294-6bf4045e61e1` was not touched and was not re-checked.
 - External settings changed since handover: none.
-- Shared modules this session: `lib/map/map-palette.ts`, `lib/map/anchor-doors-collection.ts`. `lib/map/route-layers.ts`, `lib/sync/queue.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
+- Shared modules this session: new `lib/field/theme.ts` (device theme only). `lib/map/*`, `lib/sync/queue.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
 
 ## Log
 
@@ -1202,4 +1202,41 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** REF - Speedwell on the phone, because it is not today's open assignment. A distinct amber building in the screenshot. A door under 1.5 m. A physical phone. A 2,000-door paint of the map. Sun, wet thumb, one-handed use. The undo ring itself, because the 60 s window closed during the screenshots.
 - **External settings:** none. No new magic link. The browser was already signed in as CanvasserX. Password, profile and role were not changed. Left on `/field` with the devtools network forced offline.
 - **Open questions for Claude:** none. REF - Speedwell visit 4 is yesterday's assignment. Say if a later phone check should use a prop whose work date is today.
+
+### 2026-10-03 — UI item 3, Session D1, field dark mode (uncommitted)
+
+- **Item:** 3 — field app dark mode
+- **What changed:** The field app (/field) can be Auto, Light or Dark. Auto follows the phone and is the default. The choice is stored on the device under `d2d.theme`. A script sets `data-field-theme` on `<html>` before the field UI is parsed. Dark colours are re-declared on `.field-root` only. Outcome buttons sit in a light island, so they keep the light palette on a dark screen. Admin and office are not included. The map is still light.
+- **Files:**
+  - Changed: `app/globals.css`, `app/(field)/layout.tsx`, `components/field/outcome-column.tsx`, `components/field/outcome-buttons.tsx`, `components/field/profile-tab.tsx`, `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`, `docs/D2D-Build-Brief.md`
+  - New: `lib/field/theme.ts`, `components/field/field-theme-sync.tsx`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** new `lib/field/theme.ts` (local preference only). `lib/map/*`, `lib/sync/queue.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - owner — H1: dark mode covers the whole field app (Map, Logger, Leads, You, sheets, tab bar). Admin and office are not included.
+  - owner — H2: You tab setting Auto / Light / Dark. A new install starts on Auto. The choice is saved on the device.
+  - owner — H3: Dark palette v1.
+  - owner — H4: outcome buttons keep the light look (option A), including the Map tab door panel.
+  - owner — the map stays light in this session. D2 darkens the map.
+  - agent — the Appearance buttons also use `rounded-field-sm text-sm font-semibold`, so the selected segment follows the field radius.
+  - agent — `FieldThemeSync` watches `document.head` and writes the theme colour back when Next.js replaces the meta tag on a client navigation.
+- **Deviations from plan or brief:** The head watcher was not in the prompt. Without it, Logger loaded with `theme-color` `#161a20` and Leads / You went back to `#fbfaf8` while the page stayed dark. The dev server that was already running stopped answering; it was stopped and started once. It was not restarted again.
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. No field write. `lib/sync/queue.ts` was not edited. No knock was logged.
+- **Verified:**
+  - EDIT 1 DONE. `@theme` has these 26 `--color-*` tokens, and the light island copies all 26 with the same values: ink, ink-soft, worksheet, worksheet-deep, paper, prop, prop-soft, ochre, oxide, lead, field-bg, surface, line, ink-muted, ink-faint, outcome-lead, outcome-lead-ink, outcome-contact, outcome-rented, outcome-rented-edge, outcome-rented-ink, outcome-notin, outcome-on-pill, warn-bg, error-bg, scrim.
+  - EDIT 2 DONE. `lib/field/theme.ts`. Key `d2d.theme`. Default `auto`. Reads and writes are in try/catch. Server snapshot for the resolved theme is light.
+  - EDIT 3 DONE. `FieldThemeSync` sets `data-field-theme` and every `theme-color` meta, and on unmount clears the attribute and sets the meta back to `#fbfaf8`.
+  - EDIT 4 DONE. The boot script is the first child inside the field layout, before `RegisterServiceWorker`. `FieldThemeSync` is next to it.
+  - EDIT 5 DONE. `data-theme-island="light"` is on `outcome-column` and `outcome-buttons`.
+  - EDIT 6 DONE. You tab, first section, Appearance, radiogroup of Auto / Light / Dark. Each radio is at least 44px tall.
+  - Contrast, dark palette: ink on field-bg 15.40:1; ink on surface 13.75:1; ink-soft on field-bg 10.46:1; ink-soft on surface 9.34:1; ink-muted on field-bg 5.83:1; ink-muted on surface 5.20:1; prop on surface 7.49:1; lead on surface 8.65:1; oxide on surface 7.73:1; rented-ink on warn-bg 7.48:1; oxide on error-bg 7.10:1. Selected Appearance text `#161a20` on prop `#8cb4ff` is 8.39:1. Must-read pairs are at least 7:1. ink-muted is at least 4.5:1.
+  - `npx tsc --noEmit` exit 0. `npx eslint components/field lib/field "app/(field)"` exit 0. `git grep` for a hex colour under `components/field/ui` returned no lines. `npm run verify:ui1` exit 0, once. `npm run verify:stage8b` exit 0, once.
+  - Headless Chromium, CanvasserX, 390×763. Dark: Logger, Leads and You use field background `rgb(22, 26, 32)` and paper `#1f242c`. You shows Dark selected. Light: Logger background `rgb(244, 245, 247)`, paper `#fbfaf8`, meta `#fbfaf8`. Auto plus `prefers-color-scheme` dark then light, no reload: theme and background followed, and the meta was `#161a20` then `#fbfaf8`. After the head watcher, Logger, Leads and You in dark all kept meta `#161a20`.
+  - No light flash on a hard load with Dark saved: the boot script is in the HTML before `.field-root`, and the first read, while the logger still said "Loading today's prop", already had `data-field-theme` `dark` and background `#161a20`.
+  - CanvasserX opening `/admin` is sent back to `/field`. An admin session in the same tab (`802e95de-e975-4bb5-9545-123b4bc8fe43`) loaded `/admin` with no `data-field-theme`, meta `#fbfaf8`, title "Draw a prop", light map and worksheet. Signed out locally after.
+- **Not verified:** The outcome column and the Notes sheet on a dark screen. There is no prop for London 2026-10-03, so those controls were not mounted. The light-island rule was not seen in the browser. A physical phone. Sun, wet thumb, one-handed use. Haptics (this setting does not vibrate). The paint-observer trace was null, so the flash check is the script order plus the first DOM read, not a frame recording.
+- **External settings:** none. Magic links as in Current state. Password, profile and role were not changed.
+- **Open questions for Claude:** A screenshot of option A (light outcome buttons on a dark logger) needs a prop whose work date is the London day of the check. TEST - dry run `1e9fe4c5-ffa6-46c7-80d8-9348267e477b` is 2026-10-02. The date was not changed.
+
 

@@ -35,7 +35,7 @@ export function OutcomeButtons({
   const lock = useInputLock();
 
   return (
-    <div className="flex flex-col gap-2 px-3 pb-4" data-testid="outcome-buttons">
+    <div className="flex flex-col gap-2 px-3 pb-4" data-testid="outcome-buttons" data-theme-island="light">
       <button
         type="button"
         disabled={disabled}

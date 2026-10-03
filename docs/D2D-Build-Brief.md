@@ -1897,6 +1897,8 @@ That last case is the one that matters at the drop-off. Before anyone has knocke
 >   nothing left to collide or expire. `scripts/verify-stage-10.ts` now
 >   proves A1/B1/C1/heartbeat instead.
 
+> **2026-10-02 (owner): field app supports Auto/Light/Dark; outcome buttons stay light (option A).**
+
 ---
 
 ### Stage 11 — Amenity cache (toilet locator)

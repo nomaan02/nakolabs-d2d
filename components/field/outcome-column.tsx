@@ -55,7 +55,7 @@ export function OutcomeColumn({
   const notIn = PRIMARY_OUTCOMES.find((spec) => spec.key === "no_answer");
 
   return (
-    <div className="flex flex-col items-end gap-2" data-testid="outcome-column">
+    <div className="flex flex-col items-end gap-2" data-testid="outcome-column" data-theme-island="light">
       <div className="contents" inert={otherOpen || undefined}>
         {leading.map((spec) => (
           <OutcomePill

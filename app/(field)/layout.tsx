@@ -2,11 +2,13 @@ import type { ReactNode } from "react";
 import { Sora } from "next/font/google";
 
 import { FieldDataProvider } from "@/components/field/field-data-provider";
+import { FieldThemeSync } from "@/components/field/field-theme-sync";
 import { SyncProvider } from "@/components/field/sync-provider";
 import { TabBar } from "@/components/field/tab-bar";
 import { FloatingUndo } from "@/components/field/undo-toast";
 import { RegisterServiceWorker } from "@/components/pwa/register-sw";
 import { getOwnProfile } from "@/lib/auth/profile";
+import { THEME_BOOT_SCRIPT } from "@/lib/field/theme";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -44,7 +46,9 @@ export default async function FieldLayout({ children }: { children: ReactNode })
 
   return (
     <SyncProvider>
+      <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       <RegisterServiceWorker />
+      <FieldThemeSync />
       <FieldDataProvider
         signedInAs={profile?.full_name ?? user?.email ?? ""}
         role={profile?.role ?? "canvasser"}

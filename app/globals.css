@@ -127,6 +127,56 @@
   --shadow-field-toast: 0 8px 10px rgb(0 0 0 / 0.2);
 }
 
+/* 2026-10-02 owner H1-H4: dark mode. Scope = .field-root only. The light island = outcome buttons (option A). */
+:root[data-field-theme="dark"] .field-root {
+  color-scheme: dark;
+  --color-ink: #eef1f4;          --color-ink-soft: #c2c9d2;
+  --color-ink-muted: #8c96a3;    --color-ink-faint: #5b6470;
+  --color-paper: #1f242c;        --color-surface: #1f242c;
+  --color-field-bg: #161a20;     --color-line: #2e353f;
+  --color-worksheet: #1b2027;    --color-worksheet-deep: #2a313b;
+  --color-prop: #8cb4ff;         --color-prop-soft: #2b3a57;
+  --color-lead: #7ad3a0;         --color-oxide: #ff9b9b;
+  --color-ochre: #e0a54a;
+  --color-outcome-lead: #3f9e69; --color-outcome-lead-ink: #7ad3a0;
+  --color-outcome-contact: #4f84df;
+  --color-outcome-rented: #3a2e1c; --color-outcome-rented-edge: #e09a3a;
+  --color-outcome-rented-ink: #f1b968;
+  --color-outcome-notin: #6d7480; --color-outcome-on-pill: #ffffff;
+  --color-warn-bg: #3a2e1c;      --color-error-bg: #3d2326;
+  --color-scrim: #000000;
+}
+
+:root[data-field-theme="dark"] .field-root [data-theme-island="light"] {
+  color-scheme: light;
+  --color-ink: #1c2226;
+  --color-ink-soft: #4a5259;
+  --color-worksheet: #e4e6de;
+  --color-worksheet-deep: #d2d6c9;
+  --color-paper: #fbfaf8;
+  --color-prop: #1b4aa6;
+  --color-prop-soft: #cfd8ea;
+  --color-ochre: #9c6212;
+  --color-oxide: #7a2b33;
+  --color-lead: #1e6b3a;
+  --color-field-bg: #f4f5f7;
+  --color-surface: #ffffff;
+  --color-line: #e7e9ee;
+  --color-ink-muted: #6a7078;
+  --color-ink-faint: #a5abb3;
+  --color-outcome-lead: #63b989;
+  --color-outcome-lead-ink: #185a30;
+  --color-outcome-contact: #6094e6;
+  --color-outcome-rented: #f9f2e6;
+  --color-outcome-rented-edge: #d98a1f;
+  --color-outcome-rented-ink: #7a4507;
+  --color-outcome-notin: #969ba4;
+  --color-outcome-on-pill: #ffffff;
+  --color-warn-bg: #fdf3e3;
+  --color-error-bg: #f8e9ea;
+  --color-scrim: #1c2226;
+}
+
 /* Re-point the three admin font roles to Sora, but only inside the field
    root (decision 9 / P1). `--font-sora` is declared on `<main>` in
    app/(field)/layout.tsx via next/font, so it only exists inside that DOM

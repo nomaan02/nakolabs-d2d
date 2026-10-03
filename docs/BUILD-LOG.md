@@ -1735,4 +1735,33 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not done / deferred:** REF - Speedwell on today's field app. A door closer than 1.5 m. A phone. A 2,000-door map paint. Did not commit.
 - **Follow-ups:** none.
 
+---
+
+### UI item 3 — Field dark mode, Session D1
+- **Date:** 2026-10-03
+- **Model:** Grok 4.7
+- **Built:** Auto / Light / Dark for the field app only. Saved on the device. Default Auto. Dark colours apply inside `.field-root`. Outcome buttons keep the light palette. The map stays light. No migration. No sync change.
+- **Acceptance:**
+  - EDIT 1 DONE. 26 `--color-*` tokens in `@theme`. The light island re-declares all 26 with the same values. `@theme` itself was not edited.
+  - EDIT 2 DONE. `lib/field/theme.ts`. `d2d.theme`, default `auto`, try/catch on every read and write.
+  - EDIT 3 DONE. `FieldThemeSync` sets the attribute and the theme-color meta, and clears both on unmount.
+  - EDIT 4 DONE. Boot script is the first child of the field layout. `FieldThemeSync` sits beside the service-worker registration.
+  - EDIT 5 DONE. `data-theme-island="light"` on the outcome column and the outcome buttons.
+  - EDIT 6 DONE. Appearance on the You tab: Auto / Light / Dark.
+  - Contrast **PASS**. Must-read dark pairs are at least 7:1. ink-muted is 5.83:1 on field-bg and 5.20:1 on surface (floor 4.5:1).
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - `npx eslint components/field lib/field "app/(field)"`: **PASS** — exit 0.
+  - `git grep` hex under `components/field/ui`: **PASS** — no lines.
+  - `npm run verify:ui1`: **PASS** — exit 0, once.
+  - `npm run verify:stage8b`: **PASS** — exit 0, once.
+  - (a) Logger, Leads, You in dark: **PASS** for the shell. Outcome column and Notes: **NOT VERIFIED** — no prop on London 2026-10-03.
+  - (b) Logger in light: **PASS** — background `rgb(244, 245, 247)`, the empty-state copy, light tab bar.
+  - (c) Auto follows `prefers-color-scheme` without a reload: **PASS**.
+  - (d) Hard load, Dark saved, no light flash: **PASS** by script order (boot script before `.field-root`) and the first DOM read already dark while the logger was still loading. Not a frame recording.
+  - (e) Admin: **PASS** for an admin session in the same tab. No `data-field-theme`, meta `#fbfaf8`, light draw page. CanvasserX is redirected to `/field`.
+  - (f) Meta `#161a20` in dark on Logger, Leads and You, and `#fbfaf8` in light: **PASS** after the head watcher.
+- **Deviations from brief:** `FieldThemeSync` watches `document.head`, because a tab change was putting `theme-color` back to `#fbfaf8`. Appearance buttons also use `rounded-field-sm text-sm font-semibold`. The dev server that was already running had stopped answering and was started once.
+- **Not done / deferred:** Outcome column and Notes on a dark screen. A phone. Sun, wet thumb, one-handed use. Did not commit. Did not change any work date.
+- **Follow-ups:** Option A still needs a screenshot on a day when CanvasserX has a prop. D2 darkens the map.
+
 

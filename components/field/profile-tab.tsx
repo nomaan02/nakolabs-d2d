@@ -6,6 +6,13 @@ import { PropStatus } from "@/components/field/prop-status";
 import { SyncStatus } from "@/components/field/sync-status";
 import { SharedKnockNotice } from "@/components/field/shared-knock-notice";
 import { ATTRIBUTION_LINES } from "@/lib/field/map-style";
+import { setThemePref, useThemePref, type ThemePref } from "@/lib/field/theme";
+
+const APPEARANCE: { value: ThemePref; label: string }[] = [
+  { value: "auto", label: "Auto" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+];
 
 /**
  * Name, role, sign out, and the queue depth and last-sync time Stage 7
@@ -18,6 +25,7 @@ import { ATTRIBUTION_LINES } from "@/lib/field/map-style";
  */
 export function ProfileTab() {
   const { signedInAs, role, phase } = useFieldData();
+  const themePref = useThemePref();
 
   return (
     <div className="h-full overflow-y-auto bg-worksheet" data-testid="profile-tab">
@@ -25,6 +33,36 @@ export function ProfileTab() {
         <h1 className="font-display text-lg tracking-tight">{signedInAs || "Signed in"}</h1>
         <p className="font-data text-xs uppercase tracking-wide text-ink-soft">{role}</p>
       </header>
+
+      <section className="border-b border-ink/15 bg-paper px-4 py-3">
+        <h2 className="text-sm font-semibold">Appearance</h2>
+        <div
+          role="radiogroup"
+          aria-label="Appearance"
+          className="mt-2 flex gap-1 rounded-field-md border border-line bg-surface p-1"
+        >
+          {APPEARANCE.map((option) => {
+            const selected = themePref === option.value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => setThemePref(option.value)}
+                className={`min-h-tap-min flex-1 rounded-field-sm text-sm font-semibold ${
+                  selected ? "bg-prop text-field-bg" : "text-ink"
+                }`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-xs leading-relaxed text-ink-muted">
+          Auto follows your phone&apos;s light/dark setting. Saved on this phone.
+        </p>
+      </section>
 
       <section className="border-b border-ink/15 bg-paper px-4 py-3">
         <h2 className="text-sm font-semibold">Sync</h2>
