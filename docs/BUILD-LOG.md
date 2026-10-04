@@ -1901,4 +1901,34 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not done / deferred:** Admin dots, counts, completion and coverage views, and route regeneration (A3). Survey Overview (UI-6). A physical phone. A 2,000-door paint of the filtered map. The end-of-prop screen. Did not commit.
 - **Follow-ups:** None for the field filter. A3 still has to regenerate routes before a new allocation can freeze.
 
+---
+
+### UI-5 Session A3a — Admin eligibility counts
+- **Date:** 2026-10-04
+- **Model:** Grok 4.7
+- **Built:** Migration 026. `count_door_eligibility` and `nccz_zones_geojson` for the draw page. `v_prop_completion` knockable and remaining count knockable doors only. `coverage_map_payload` and `admin_dashboard` patched in place. A flat is not left to do. A hidden door that already has a knock stays on the coverage map. No component. No route regeneration.
+- **Owner decisions:**
+  - H1 (2026-10-03) — a door is not knockable in a No Cold Calling Zone or when its building holds 3+ units. The rule is `properties.is_knockable`.
+  - H2 (2026-10-03) — nothing is deleted. Hidden doors keep their history.
+  - H8 (2026-10-04) — regenerate routes for the 6 props that have them in Session A3c, not this one.
+  - H9 (2026-10-04) — leave the 20 old open assignments as they are. No database writes.
+  - H10 (2026-10-04) — the tenure layer (A4) is deferred until after UI-7.
+- **Claude decisions:**
+  - Knockable and remaining count knockable doors only, so a flat is never left to do.
+  - The coverage map keeps a hidden door if it already has a knock.
+  - `coverage_map_payload` and `admin_dashboard` are patched by a guarded regex replace of their live bodies.
+  - `count_door_eligibility` is new. `count_knockable` stays.
+- **Acceptance:**
+  - EDIT 1 DONE. Next free number was 026. `supabase/migrations/026_eligibility_admin_counts.sql` pasted as given. Applied once. `schema_migrations` version `20261004144243`, name `026_eligibility_admin_counts`. Not retried.
+  - EDIT 2 DONE. `lib/supabase/types.ts` has `count_door_eligibility` and `nccz_zones_geojson` under Functions. `git diff --stat` is 10 insertions. `npx tsc --noEmit` exit 0.
+  - Completion row: **PASS** — assignment `1e9fe4c5-ffa6-46c7-80d8-9348267e477b`, knockable 53, worked 73, answered 52, remaining 1.
+  - Zone outlines: **PASS** — `nccz_zones_geojson` features 26.
+  - Privileges and patches: **PASS** — authenticated execute true, anon execute false, both bodies patched, view options `{security_invoker=true}`.
+  - `knock_events`: **PASS** — 1,240 before the migration and 1,240 after.
+  - `schema_migrations`: **PASS** — `026_eligibility_admin_counts`, then `025_door_eligibility`.
+  - eslint on `lib/supabase/types.ts`: **PASS** — exit 0.
+- **Deviations from brief:** Supabase MCP sign-in is desktop-only, so this headless session could not call `apply_migration` or `generate_typescript_types` as tools. The SQL went once to the Management API migrations endpoint with the name the prompt required. Types used `npx supabase gen types typescript --project-id xerxsaptwpvhkkpyvkfi --schema public`, the same command Session A1 recorded. Node then asserted in libuv on process exit, after HTTP 200. The migration row was read back. The SQL was not changed.
+- **Not done / deferred:** Draw-page dots and count copy (A3b). Route regeneration (A3c, H8). The 20 old assignments (H9). Tenure (H10, after UI-7). A browser. A phone. Did not commit.
+- **Follow-ups:** Claude to accept the Management API apply. A3b and A3c still to come. Allocating a prop still fails with `snapshot_mismatch` until routes are regenerated.
+
 

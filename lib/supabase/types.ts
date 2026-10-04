@@ -1353,6 +1353,15 @@ export type Database = {
         Args: { p_assignment_id: string; p_variant_key?: string }
         Returns: Json
       }
+      count_door_eligibility: {
+        Args: { poly: unknown }
+        Returns: {
+          knockable: number
+          multi_unit: number
+          nccz: number
+          total: number
+        }[]
+      }
       count_knockable: {
         Args: { poly: unknown }
         Returns: {
@@ -1504,6 +1513,7 @@ export type Database = {
         Returns: Json
       }
       longtransactionsenabled: { Args: never; Returns: boolean }
+      nccz_zones_geojson: { Args: never; Returns: Json }
       populate_geometry_columns:
         | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
         | { Args: { use_typmod?: boolean }; Returns: string }

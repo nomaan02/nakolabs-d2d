@@ -2,12 +2,12 @@
 
 ## Current state
 
-- Last updated: 2026-10-04 (UI-5 Session A2). Uncommitted. **The owner commits after review — this session did not commit.**
-- Field app hides doors with `knockable: false` through `knockableOnly` in `FieldDataProvider`. TEST - dry run for CanvasserX today is assignment `1e9fe4c5-ffa6-46c7-80d8-9348267e477b`: snapshot 88, shown 53, first door snapshot position 1. `knock_events` is 1,240. No new row.
-- Dev server started once this session: `http://localhost:3000`. Not restarted.
-- Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until A3 regenerates routes. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
-- Magic link for CanvasserX `576c4ce7-5fe0-489f-bd7f-42912925951a`: `expires_at` 1791127096 was minted and verified in Node. It was not opened. The browser was already signed in as CanvasserX. Password, profile and role were not changed. Profile after: name CanvasserX, role canvasser, active true. No token is stored here.
-- External settings changed since handover: none.
+- Last updated: 2026-10-04 (UI-5 Session A3a). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Migration 026 is applied. Admin knockable and remaining counts follow `properties.is_knockable`. TEST - dry run assignment `1e9fe4c5-ffa6-46c7-80d8-9348267e477b`: knockable 53, worked 73, answered 52, remaining 1. `nccz_zones_geojson` has 26 features. `knock_events` is still 1,240. No new row.
+- A3b and A3c are not started. Routes are not regenerated (H8). The 20 old open assignments were left as they are (H9). The tenure layer stays deferred until after UI-7 (H10).
+- Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until A3c regenerates routes. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
+- No magic link this session. Password, profile and role were not changed.
+- External settings changed since handover: none. No dev server.
 
 ## Log
 
@@ -1379,5 +1379,32 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** The end-of-prop screen (it shows only when every door is logged). A 2,000-door paint. A physical phone. Sun, wet thumb, one-handed use. `querySourceFeatures` returned 82 because features repeat across tiles; the source data count is 53.
 - **External settings:** none. Magic link `expires_at` 1791127096, minted and verified in Node, not opened. Password, profile and role were not changed.
 - **Open questions for Claude:** none for this filter. A3 still has to regenerate routes before a new allocation can freeze.
+
+### 2026-10-04 — UI-5 Session A3a (uncommitted)
+
+- **Item:** UI-5 — admin eligibility counts
+- **What changed:** Migration 026. New `count_door_eligibility` and `nccz_zones_geojson`. `v_prop_completion` knockable and remaining count knockable doors only. `coverage_map_payload` and `admin_dashboard` were patched in place so a flat is not left to do, and a hidden door with a knock stays on the coverage map. No table, no row, no RLS change.
+- **Files:**
+  - New: `supabase/migrations/026_eligibility_admin_counts.sql`
+  - Changed: `lib/supabase/types.ts` (10 insertions), `docs/FIELD-TEST-BUILD-PLAN.md` (UI-5 A3 tracker row only), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - Deleted: none
+- **Database:** 026 `026_eligibility_admin_counts`. Recorded as version `20261004144243`. No row written to an application table.
+- **Shared modules touched:** `lib/supabase/types.ts` only, regenerated after 026. No component. No other `lib/**`.
+- **Decided by:**
+  - owner — H1 (2026-10-03): a door is not knockable if it is in a No Cold Calling Zone or its building holds 3+ units. The rule is `properties.is_knockable` (migration 025).
+  - owner — H2 (2026-10-03): nothing is deleted. Hidden doors keep their history.
+  - owner — H8 (2026-10-04): regenerate routes for the 6 props that have them in Session A3c, not this one.
+  - owner — H9 (2026-10-04): leave the 20 old open assignments as they are. No database writes.
+  - owner — H10 (2026-10-04): the tenure layer (A4) is deferred until after UI-7.
+  - Claude — admin counts must agree with the field app: knockable and remaining count knockable doors only, so a flat is never left to do.
+  - Claude — the coverage map keeps a hidden door if it already has a knock, so history stays visible.
+  - Claude — `coverage_map_payload` and `admin_dashboard` are edited by a guarded in-place regex replace of their live bodies. Each pattern must match the expected number of times, or the migration aborts.
+  - Claude — `count_door_eligibility` is new. `count_knockable` stays for existing callers.
+- **Deviations from plan or brief:** Supabase MCP OAuth cannot run in this headless session (`mcp_auth` is desktop-only). The SQL was applied once through the Management API `POST /v1/projects/xerxsaptwpvhkkpyvkfi/database/migrations` with name `026_eligibility_admin_counts`, which is the call `apply_migration` makes. HTTP 200. Types were regenerated with `npx supabase gen types typescript --project-id xerxsaptwpvhkkpyvkfi --schema public`, the method Session A1 recorded, because MCP `generate_typescript_types` was not authenticated. The Node process then hit a Windows libuv assertion on exit, after the 200 body was printed. The migration row was confirmed by a later read. The SQL was not edited and not applied again.
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. No field write. `lib/sync/queue.ts` was not edited. No application row was inserted, updated or deleted. Coverage is still derived.
+- **Verified:** Read-only SQL. `v_prop_completion` for `1e9fe4c5-ffa6-46c7-80d8-9348267e477b`: knockable 53, worked 73, answered 52, remaining 1. `nccz_zones_geojson` features 26. Privileges: authenticated execute true on both new functions, anon execute false on `count_door_eligibility`. Both function bodies patched. `v_prop_completion` reloptions `{security_invoker=true}`. `knock_events` 1,240 before and after. `schema_migrations` names `026_eligibility_admin_counts` then `025_door_eligibility`. `npx tsc --noEmit` exit 0. eslint on `lib/supabase/types.ts` exit 0.
+- **Not verified:** A browser. `/admin/dashboard` and `/admin/coverage` were not opened. A phone.
+- **External settings:** none
+- **Open questions for Claude:** Accept the Management API apply in place of the MCP tool. The SQL and the migration name match the prompt. A3b and A3c are still to come.
 
 

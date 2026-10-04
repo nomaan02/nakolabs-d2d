@@ -91,7 +91,7 @@
 | UI-5 A0 | Load No Cold Calling Zones | DONE | 2026-10-03 | 26 zones, 13,270 properties flagged (Claude, via MCP) | n/a (data) |
 | UI-5 A1 | Eligibility migration 025 + types + ingest hooks | DONE | 2026-10-03 | 025 applied: 424,952 doors, 110,760 multi-unit, 13,270 NCCZ, 303,003 knockable. Logger loads. | 591913d |
 | UI-5 A2 | Field: hide non-knockable doors (logger, maps, counts) | DONE | 2026-10-04 | Logger and map show 53 of 88 on TEST - dry run. First door is snapshot position 1. Offline Not In wrote sequence_position 1, then undo. No new knock. | — |
-| UI-5 A3 | Admin: 3-state dots and counts, completion/coverage views, route regeneration | TODO | | | — |
+| UI-5 A3 | Admin: 3-state dots and counts, completion/coverage views, route regeneration | TODO | 2026-10-04 | A3a done: migration 026 applied (admin counts follow is_knockable). A3b, A3c to come. | — |
 | UI-5 A4 | Admin tenure layer (optional) | TODO | | | — |
 | UI-6 B1 | Mini map: rotate, recentre | TODO | | | — |
 | UI-6 B2 | Logger tabs: Logging View / Survey Overview | TODO | | | — |
