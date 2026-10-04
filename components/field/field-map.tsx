@@ -429,6 +429,7 @@ function flyToDoor(
   mode: "jump" | "ease",
   zoom: number = FOCUS_ZOOM,
   durationMs: number = 400,
+  bearing?: number,
 ): boolean {
   if (uprn === null) return false;
   const feature = doors.features.find((f) => f.properties.uprn === uprn);
@@ -436,9 +437,9 @@ function flyToDoor(
   const center = feature.geometry.coordinates as [number, number];
   const pitch = map.getPitch();
   if (mode === "jump") {
-    map.jumpTo({ center, zoom, pitch });
+    map.jumpTo({ center, zoom, pitch, ...(bearing === undefined ? {} : { bearing }) });
   } else {
-    map.easeTo({ center, zoom, pitch, duration: durationMs });
+    map.easeTo({ center, zoom, pitch, ...(bearing === undefined ? {} : { bearing }), duration: durationMs });
   }
   return true;
 }
@@ -576,6 +577,8 @@ export function FieldMap({
   active,
   variant = "full",
   mode = "light",
+  onUserMove,
+  recenterNonce = 0,
 }: {
   doors: DoorCollection;
   labels: DoorLabels;
@@ -594,15 +597,24 @@ export function FieldMap({
    * full map already uses for a tapped door. Still one MapLibre instance at
    * a time: the Map tab and the Logger are separate routes, and this
    * component `remove()`s on unmount either way (see `lib/field/map-style.ts`).
-   * 2026-09-30 owner E6: pan and pinch allowed, no rotate or pitch; re-centres on every door change.
+   * 2026-09-30 owner E6, amended 2026-10-04 UI-6 B1: pan, pinch and rotate allowed, no pitch gesture; re-centres on every door change.
    */
   variant?: "full" | "compact";
   /** Read once. A theme change remounts this map via `key={mode}`. */
   mode?: MapMode;
+  /**
+   * UI-6 B1 (compact only). Called with true when the canvasser moves the
+   * camera themselves (pan, pinch, rotate), and false when the map is
+   * re-centred (door change or the recentre button).
+   */
+  onUserMove?: (moved: boolean) => void;
+  /** UI-6 B1 (compact only). Bump to re-centre on the current door, north-up. */
+  recenterNonce?: number;
 }) {
   const container = useRef<HTMLDivElement | null>(null);
   const map = useRef<MapLibreMap | null>(null);
   const onSelect = useRef(onSelectUprn);
+  const onUserMoveRef = useRef(onUserMove);
   const doorsRef = useRef(doors);
   const labelsRef = useRef(labels);
   const outcomesRef = useRef(outcomes);
@@ -619,6 +631,7 @@ export function FieldMap({
   const variantRef = useRef(variant);
   const modeRef = useRef(mode);
   onSelect.current = onSelectUprn;
+  onUserMoveRef.current = onUserMove;
   doorsRef.current = doors;
   labelsRef.current = labels;
   outcomesRef.current = outcomes;
@@ -652,15 +665,17 @@ export function FieldMap({
       });
       map.current = instance;
 
-      // Compact only (2026-09-30 owner E6, 2026-10-01 F6): pan and pinch stay
-      // on. Rotate and keyboard do not. Pitch is not a gesture — 3D sets it
-      // in code. No Navigation or Scale control (owner decision 7).
-      // Attribution is unchanged.
+      // Compact only (2026-09-30 owner E6, 2026-10-01 F6; amended 2026-10-04 UI-6 B1, owner P2.2): pan, pinch and two-finger rotate are on. Pitch is not a gesture — 3D sets it in code. Keyboard off. No Navigation or Scale control (owner decision 7). Attribution is unchanged.
       if (mapVariant === "compact") {
-        instance.dragRotate.disable();
         instance.touchPitch.disable();
-        instance.touchZoomRotate.disableRotation();
         instance.keyboard.disable();
+      }
+      // UI-6 B1. Only a real gesture carries an originalEvent; code-driven
+      // eases (door change, recentre) do not, so they never show the button.
+      if (mapVariant === "compact") {
+        instance.on("movestart", (event) => {
+          if ((event as { originalEvent?: unknown }).originalEvent) onUserMoveRef.current?.(true);
+        });
       }
       if (mapVariant === "full") {
         instance.addControl(new NavigationControl({ showCompass: false }), "bottom-left");
@@ -923,6 +938,7 @@ export function FieldMap({
     if (!instance || selectedUprn === null) return;
     if (variant === "compact") {
       const moved = flyToDoor(instance, doors, selectedUprn, "ease", COMPACT_ZOOM, 300);
+      onUserMoveRef.current?.(false);
       if (moved && node) {
         node.dataset.cameraJumps = String((Number(node.dataset.cameraJumps) || 0) + 1);
       }
@@ -930,6 +946,17 @@ export function FieldMap({
     }
     flyToDoor(instance, doors, selectedUprn, "ease", FOCUS_ZOOM);
   }, [selectedUprn, doors, cameraNonce, variant]);
+
+  // UI-6 B1. Recentre button: back to the current door, north-up.
+  useEffect(() => {
+    const instance = map.current;
+    if (!instance || variant !== "compact" || recenterNonce === 0) return;
+    if (flyToDoor(instance, doors, selectedUprn, "ease", COMPACT_ZOOM, 300, 0)) {
+      onUserMoveRef.current?.(false);
+    }
+    // Only the nonce triggers this; door changes have their own effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recenterNonce]);
 
   return <div ref={container} className="h-full w-full" data-testid="field-map" />;
 }

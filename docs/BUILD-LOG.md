@@ -1960,4 +1960,37 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not done / deferred:** A browser and a phone (headless). Route regeneration (A3c). The `propWarnings` call in `scripts/verify-stage-5b-r3.ts`. Did not commit.
 - **Follow-ups:** Claude to say whether `scripts/verify-stage-5b-r3.ts` line 349 should gain `multiUnit` and `nccz`, or whether those fields should be optional. `scripts/verify-stage-4.ts` still calls `count_knockable`.
 
+---
+
+### UI-6 Session B1 — Mini map rotate and recentre
+- **Date:** 2026-10-04
+- **Model:** Grok 4.7
+- **Built:** The Logger mini map pans, pinches and rotates. Pitch stays a coded 3D setting. Keyboard stays off. After the canvasser moves the camera, a 44px target button at the bottom-right eases back to the current door, north-up, and hides. A door change still eases to that door, hides the button, and keeps the bearing. No GPS arrow.
+- **Owner decisions:**
+  - P2.2 (field test 2026-10-03) — the mini map gets one-finger pan, pinch zoom, two-finger rotate, and a clear recentre control after manual exploring. The GPS arrow comes later (UI-7).
+  - 2026-10-04 — the plan is approved (Claude's design).
+- **Claude decisions:**
+  - Compact rotation is on (two-finger twist, plus right-drag on desktop). Pitch gesture and keyboard stay off.
+  - The recentre button appears only after a camera move with an `originalEvent`. Tap eases to the current door at the compact zoom, bearing 0, and the button hides.
+  - A door change still re-centres and hides the button. That ease keeps the current bearing.
+  - The button is 44px, round, bottom-right. New `LocateIcon`.
+- **Acceptance:**
+  - EDIT 1 DONE. `LocateIcon` appended to `components/field/icons.tsx` as given.
+  - EDIT 2 DONE. Compact map disables only `touchPitch` and `keyboard`. Comment and variant doc line updated as given.
+  - EDIT 3 DONE. `flyToDoor` takes an optional last `bearing`. Both `jumpTo` and `easeTo` spread it only when it is defined.
+  - EDIT 4 DONE. `onUserMove` and `recenterNonce` added. Compact `movestart` sets moved only when `originalEvent` is set. Door-change ease calls `onUserMove(false)`. Recentre effect eases with bearing 0.
+  - EDIT 5 DONE. Mini map holds `moved` and `recenterNonce`, passes both into `FieldMap`, and shows the recentre button after the open-map button.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on the three field files: **PASS** — exit 0.
+  - `npm run verify:ui1`: **PASS** — exit 0.
+  - `npm run verify:anchors`: **PASS** — exit 0. 2,000 doors / 60 steps: 3.71 ms. That is the anchor maths, not a paint of this gesture.
+  - `git grep` `disableRotation` / `dragRotate.disable` in `field-map.tsx`: **PASS** — no lines.
+  - `git grep` 6-digit hex in `field-map.tsx`: **PASS** — no lines.
+  - iPhone rotate, pinch, pan and recentre: **NOT VERIFIED**. No browser. Headless session.
+  - Door swipe on a phone: **NOT VERIFIED**. `verify:ui1` door-scroll checks passed. `logger-tab.tsx` was not edited.
+  - Map tab: **NOT VERIFIED** in a browser. The full-variant branch was not given a new gesture disable. Existing `flyToDoor` callers pass no bearing.
+- **Deviations from brief:** none
+- **Not done / deferred:** The four phone checks. A painted map at 2,000 doors. GPS arrow (UI-7). Logger tabs (UI-6 B2). Did not commit.
+- **Follow-ups:** Owner phone check. UI-6 B2 is not started.
+
 

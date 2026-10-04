@@ -2,9 +2,10 @@
 
 ## Current state
 
-- Last updated: 2026-10-04 (UI-5 Session A3b). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- The admin draw page reads `count_door_eligibility`. The tally is knockable, flats, and no cold calling. Dots: solid blue (knockable), hollow oxide (No Cold Calling), hollow ink (flats). Zone outlines load once from `nccz_zones_geojson()` and fail open. No migration. No database row written.
-- `npx tsc --noEmit` fails at `scripts/verify-stage-5b-r3.ts(349,35)`: `propWarnings` now needs `multiUnit` and `nccz`. The pasted `KnockableCount` was not rewritten. That script was not edited. eslint on the four session files exited 0.
+- Last updated: 2026-10-04 (UI-6 Session B1). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- The Logger mini map can pan, pinch and rotate. Pitch is set in code. Keyboard stays off. After a real gesture, a 44px recentre button (bottom-right) eases back to the current door, north-up, then hides. A door change still eases and hides it, and keeps the current bearing. GPS arrow is UI-7.
+- `npx tsc --noEmit` exited 0. eslint on the three field files exited 0. `verify:ui1` and `verify:anchors` exited 0. Anchors: 2,000 doors / 60 steps in 3.71 ms. That is the anchor maths, not a paint of this gesture.
+- No migration. No database row. No `client_event_id`.
 - A3c is not started. Routes are not regenerated (H8). The 20 old open assignments were left as they are (H9). The tenure layer stays deferred until after UI-7 (H10).
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until A3c regenerates routes. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
@@ -1432,5 +1433,29 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** `npx tsc --noEmit` (exit 2, one error, see above). A browser. The three phone checks. A 2,000-door paint. A phone. Point count not tested. No device.
 - **External settings:** none
 - **Open questions for Claude:** Should `scripts/verify-stage-5b-r3.ts` line 349 pass `multiUnit` and `nccz`, or should those fields be optional on `KnockableCount`? `scripts/verify-stage-4.ts` still calls `count_knockable`. A3c is still to come.
+
+### 2026-10-04 — UI-6 Session B1 (uncommitted)
+
+- **Item:** UI-6 — mini map rotate and recentre (P2.2)
+- **What changed:** The compact map keeps pan and pinch, and now allows two-finger rotate and desktop right-drag. Pitch is not a gesture. Keyboard stays off. A recentre button appears only after a camera move that carries an `originalEvent`. Tap eases to the current door at the compact zoom with bearing 0, then the button hides. Changing door still eases and hides the button, and does not force bearing.
+- **Files:**
+  - Changed: `components/field/icons.tsx`, `components/field/field-map.tsx`, `components/field/mini-map.tsx`, `docs/FIELD-TEST-BUILD-PLAN.md` (UI-6 B1 row only), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: none
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none
+- **Decided by:**
+  - owner — P2.2 (field test 2026-10-03): the mini map gets one-finger pan, pinch zoom, two-finger rotate, and a clear recentre control after manual exploring. The GPS arrow comes later (UI-7).
+  - owner — 2026-10-04: the plan is approved (Claude's design below).
+  - Claude — compact rotation is on (two-finger twist, plus right-drag on desktop). Pitch gesture and keyboard stay off. 3D pitch is set in code.
+  - Claude — the recentre button appears only after the canvasser moves the map (a camera move with an `originalEvent`). Tap eases back to the current door at the compact zoom, north-up (bearing 0), and the button hides.
+  - Claude — moving to another door still re-centres and hides the button. That ease keeps the current bearing.
+  - Claude — the button is 44px, round, bottom-right. New `LocateIcon`. The open-full-map button stays bottom-left. The 2D/3D toggle stays top-right.
+- **Deviations from plan or brief:** none
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. No field write. `lib/sync/queue.ts` was not edited. Coverage is still derived.
+- **Verified:** `npx tsc --noEmit` exit 0. eslint on `components/field/field-map.tsx`, `components/field/mini-map.tsx` and `components/field/icons.tsx` exit 0. `npm run verify:ui1` exit 0. `npm run verify:anchors` exit 0 (2,000 doors / 60 steps, 3.71 ms). `git grep` for `disableRotation` and `dragRotate.disable` in `field-map.tsx`: no lines. `git grep` for a 6-digit hex colour in `field-map.tsx`: no lines.
+- **Not verified:** A browser. A phone. The four phone checks (rotate, pinch, pan, recentre, next-door hide, door swipe, Map tab). A painted map at 2,000 doors. Sun, wet thumb, one-handed use. The anchor timing is not a paint of this gesture.
+- **External settings:** none
+- **Open questions for Claude:** none
 
 

@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { FieldMap } from "@/components/field/field-map";
-import { MapIcon } from "@/components/field/icons";
+import { LocateIcon, MapIcon } from "@/components/field/icons";
 import { toggleMapView, useMapView } from "@/lib/field/map-view";
 import type { DoorLabels } from "@/lib/field/labels";
 import type { LocalOutcomes } from "@/lib/field/local-outcomes";
@@ -26,6 +27,7 @@ import type { RouteTiers } from "@/lib/map/route-progress";
  * 2026-09-30 owner E6: the map itself pans and pinches. A 44px round
  * button at the bottom-left opens the full map, centred on this door.
  * Attribution stays tappable.
+ * 2026-10-04 UI-6 B1 (owner P2.2): two-finger rotate; a recentre button (bottom-right) appears after a manual move and returns north-up to the current door.
  */
 export function MiniMap({
   doors,
@@ -50,6 +52,8 @@ export function MiniMap({
   mode: MapMode;
 }) {
   const mapView = useMapView();
+  const [moved, setMoved] = useState(false);
+  const [recenterNonce, setRecenterNonce] = useState(0);
   return (
     <div className="relative h-full w-full overflow-hidden" data-testid="mini-map">
       <FieldMap
@@ -66,6 +70,8 @@ export function MiniMap({
         onSelectUprn={() => {}}
         active
         variant="compact"
+        onUserMove={setMoved}
+        recenterNonce={recenterNonce}
       />
       <button
         type="button"
@@ -85,6 +91,17 @@ export function MiniMap({
       >
         <MapIcon className="size-5" />
       </button>
+      {moved ? (
+        <button
+          type="button"
+          onClick={() => setRecenterNonce((n) => n + 1)}
+          aria-label="Recentre on this door"
+          className="absolute right-2 bottom-2 z-[2] flex size-11 items-center justify-center rounded-full border border-line bg-surface text-prop shadow-field-knob"
+          data-testid="mini-map-recentre"
+        >
+          <LocateIcon className="size-5" />
+        </button>
+      ) : null}
     </div>
   );
 }
