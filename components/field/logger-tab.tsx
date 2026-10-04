@@ -24,6 +24,8 @@ import { StatRow } from "@/components/field/ui/stat-row";
 import { UndoButton } from "@/components/field/ui/undo-button";
 import { StatusBanner, type StatusBannerKind } from "@/components/field/ui/status-banner";
 import { TeamStrip } from "@/components/field/ui/team-strip";
+import { ViewTabs, type ViewTab } from "@/components/field/ui/view-tabs";
+import { SurveyOverview } from "@/components/field/survey-overview";
 import { nextOpenIndex } from "@/lib/field/cursor";
 import type { OutboxRow } from "@/lib/field/db";
 import { formatTeammateLine } from "@/lib/field/door-signals";
@@ -39,6 +41,7 @@ import {
   type InstructionCard,
 } from "@/lib/field/route-display";
 import { getCurrentStreetLabel, sequenceIsRouteDerived } from "@/lib/field/sequence";
+import { surveyRows } from "@/lib/field/survey-rows";
 import { sharedKnockMessage } from "@/lib/field/shared-knock";
 import { countBookableContacts, countDoorsLogged, countLeads } from "@/lib/field/today-stats";
 import { offerUndo } from "@/lib/field/undo";
@@ -59,6 +62,24 @@ import { useSyncStatus, type SyncStatus as SyncStatusValue } from "@/lib/sync/us
  * are Session A's; this session only renders them through the new
  * components.
  */
+
+type LoggerView = "logging" | "survey";
+
+/** UI-6 B2b (owner B2-1). Add an entry here to add a Logger view. */
+const LOGGER_VIEWS: ReadonlyArray<ViewTab<LoggerView>> = [
+  { id: "logging", label: "Logging" },
+  { id: "survey", label: "Survey" },
+];
+
+const VIEW_KEY = "d2d.loggerView";
+
+function readLoggerView(): LoggerView {
+  try {
+    return sessionStorage.getItem(VIEW_KEY) === "survey" ? "survey" : "logging";
+  } catch {
+    return "logging";
+  }
+}
 
 type SheetState =
   | { kind: "none" }
@@ -213,6 +234,15 @@ export function LoggerTab() {
     no_answer: 0,
   });
   const [now, setNow] = useState(() => Date.now());
+  const [view, setViewState] = useState<LoggerView>(readLoggerView);
+  const setView = useCallback((next: LoggerView) => {
+    setViewState(next);
+    try {
+      sessionStorage.setItem(VIEW_KEY, next);
+    } catch {
+      // Private mode or storage blocked: the view just is not remembered.
+    }
+  }, []);
 
   const assignmentId = phase.kind === "ready" ? phase.assignment.assignment_id : null;
   const status = useSyncStatus();
@@ -237,6 +267,29 @@ export function LoggerTab() {
     [sequence, labelFor, team.knockedBy],
   );
 
+  const survey = useMemo(
+    () =>
+      view === "survey"
+        ? surveyRows({
+            sequence,
+            labels,
+            outcomes,
+            routeStreets: routeProgress.doors.map((door) => door.routeStreet),
+            knockedBy: team.knockedBy,
+            currentIndex: cursor.index,
+          })
+        : [],
+    [view, sequence, labels, outcomes, routeProgress.doors, team.knockedBy, cursor.index],
+  );
+
+  const pickFromSurvey = useCallback(
+    (index: number) => {
+      cursor.goTo(index);
+      setView("logging");
+    },
+    [cursor, setView],
+  );
+
   // The same "blocked" test `commit` uses to decide whether to move the
   // cursor — -1 back means nothing is open anywhere in the ring.
   const allDone = useMemo(() => {
@@ -257,19 +310,19 @@ export function LoggerTab() {
     for (const row of status.failedRows) void retryFailed(row.client_event_id);
   }, [status.failedRows]);
 
-  const view = routeProgress.doors[cursor.index];
+  const routeDoor = routeProgress.doors[cursor.index];
 
   const banner = useMemo(
     () =>
       computeBanner({
         status,
-        cards: view?.cards ?? [],
+        cards: routeDoor?.cards ?? [],
         shared,
         dismissedShared,
         onDismissShared: () => setDismissedShared(shared.count),
         onRetryAll: retryAllFailed,
       }),
-    [status, view, shared, dismissedShared, retryAllFailed],
+    [status, routeDoor, shared, dismissedShared, retryAllFailed],
   );
 
   if (phase.kind !== "ready") return <PhaseNotice phase={phase} />;
@@ -288,7 +341,7 @@ export function LoggerTab() {
   const label = labelFor(door.uprn);
   const plate = doorPlate(label);
   const routed = sequenceIsRouteDerived(routeProgress.hasRoute);
-  const street = getCurrentStreetLabel(label, view?.routeStreet, routed);
+  const street = getCurrentStreetLabel(label, routeDoor?.routeStreet, routed);
   const logged = outcomes.get(door.uprn);
   const noteDraft = noteDrafts.get(door.uprn) ?? "";
   const leadDraft = leadDrafts.get(door.uprn);
@@ -368,10 +421,15 @@ export function LoggerTab() {
         <p className="mt-0.5 truncate text-field-body text-ink-soft" data-testid="logger-area-line">
           {formatLoggerAreaLine(fieldHeaderParts(assignment, routeProgress))}
         </p>
+        <div className="mt-1.5">
+          <ViewTabs views={LOGGER_VIEWS} active={view} onChange={setView} />
+        </div>
       </header>
 
       <TeamStrip rows={teamRows} />
 
+      {view === "logging" ? (
+        <>
       <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto" data-testid="logger-body">
         <div className="relative min-h-[112px] flex-1" data-testid="logger-map-band">
           <div className="absolute inset-0">
@@ -488,6 +546,10 @@ export function LoggerTab() {
         open={sheet.kind === "notes"}
         onPress={() => setSheet({ kind: "notes" })}
       />
+        </>
+      ) : (
+        <SurveyOverview rows={survey} onPick={pickFromSurvey} />
+      )}
 
       {sheet.kind === "other" ? (
         <OtherOutcomeSheet onPick={(outcome) => void commit(outcome)} onDismiss={() => setSheet({ kind: "none" })} />

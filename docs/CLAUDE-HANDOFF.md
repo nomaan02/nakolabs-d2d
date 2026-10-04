@@ -2,11 +2,13 @@
 
 ## Current state
 
-- Last updated: 2026-10-04 (UI-6 Session B2a). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Survey Overview rows are plain data in `lib/field/survey-rows.ts`. Knockable doors stay in the Logger's route order. A street header is inserted when the street changes. The code is this device's latest local outcome (L, C, R, NI, O). A teammate knock with no local outcome stays empty and keeps the first name. No React. B2b draws it.
-- `npx tsc --noEmit` exited 0. eslint on `lib/field/survey-rows.ts` and `scripts/verify-ui-6-survey.ts` exited 0. `npm run verify:ui6` exited 0.
+- Last updated: 2026-10-04 (UI-6 Session B2b). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- The Logger has scrollable `Logging` and `Survey` pills under the prop name and the visit line. Survey replaces the door panel, stats, mini map and note bar with the list from `surveyRows`. Header, team strip and sheets stay. Tapping a row returns to Logging on that door.
+- The chosen view is kept in `sessionStorage` (`d2d.loggerView`). A storage failure stays on Logging.
+- The existing route-door local in `logger-tab.tsx` was renamed from `view` to `routeDoor` so it does not collide with the new view state. The pasted blocks were not rewritten.
+- `npx tsc --noEmit` exited 0. eslint on the three field files exited 0. `npm run verify:ui1` and `npm run verify:ui6` exited 0.
 - No migration. No database row. No `client_event_id`.
-- UI-6 B2 Status stays TODO. Result is `B2a done: surveyRows + verify:ui6.`
+- UI-6 B2 Status is DONE. Result is `B2a done: surveyRows + verify:ui6. B2b done: view pills + Survey Overview.`
 - A3c is not started. Routes are not regenerated (H8). The 20 old open assignments were left as they are (H9). The tenure layer stays deferred until after UI-7 (H10).
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until A3c regenerates routes. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
@@ -1485,6 +1487,34 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. No field write. `lib/sync/queue.ts` was not edited. Coverage is still derived. No database row. No `client_event_id`.
 - **Verified:** `npx tsc --noEmit` exit 0. eslint on `lib/field/survey-rows.ts` and `scripts/verify-ui-6-survey.ts` exit 0. `npm run verify:ui6` exit 0 (lead L, answered C, no_opportunity R, no_answer NI, refused/do_not_call/inaccessible/callback/not_interested O; "12 Coronation Road"; "Rosebank House, Coronation Road"; "Coronation Road · door 5"; route street wins; five doors give headers A, B, A and indexes 0..4; current only at index 2; local outcome clears the teammate name; summary 3 knocked, 2 to go).
 - **Not verified:** A browser. A phone. The pills, the table, and tap-to-jump. Those are B2b.
+- **External settings:** none
+- **Open questions for Claude:** none
+
+### 2026-10-04 — UI-6 Session B2b (uncommitted)
+
+- **Item:** UI-6 — Logger view pills and Survey Overview (P2.1)
+- **What changed:** The Logger header now has scrollable `Logging` and `Survey` pills under the prop name and the visit line. Survey replaces the door panel, stats, mini map and note bar with a fixed-height list of `surveyRows`. Tapping a row returns to Logging on that door. The view is remembered in `sessionStorage` for the tab session.
+- **Files:**
+  - Changed: `components/field/logger-tab.tsx`, `docs/FIELD-TEST-BUILD-PLAN.md` (UI-6 B2 row only), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `components/field/ui/view-tabs.tsx`, `components/field/survey-overview.tsx`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none. `lib/field/survey-rows.ts` is read, not edited. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - owner — B2-1 (revised, 2026-10-04): the Logger's views are small scrollable pills (`Logging`, `Survey`) under the prop name and the visit line. More views may be added later; the row scrolls sideways.
+  - owner — B2-2 (2026-10-04): tapping a row switches to Logging on that door. No logging from the table.
+  - owner — B2-3 (2026-10-04): code chips L / C / R / NI / O in the outcome colours. A dashed empty pill means still to knock.
+  - owner — B2-4 (2026-10-04): no address reads `<street> · door N` (built in B2a).
+  - Claude — each pill looks 28px tall, but the button is 44px. The row uses `-my-2` so the header only grows by the pill height.
+  - Claude — the chosen view is remembered per tab session in `sessionStorage`, wrapped in try/catch. Failure stays on Logging.
+  - Claude — in Survey view the door panel, stats, mini map and note bar are replaced by the list. Header, team strip and sheets stay.
+  - Claude — the list draws only the rows on screen. Fixed heights: door 48px, street 32px, a 900px window plus 8 rows overscan. No measuring and no setState inside effects. No new dependency. A street label pinned at the top shows the street of the first visible row.
+  - Claude — on opening Survey, the list scrolls so the current door is near the top third.
+  - Claude — colours are tokens only. The current door uses `bg-prop/10` and a 4px `border-prop` left bar.
+- **Deviations from plan or brief:** The pasted blocks were not rewritten. The existing route-door local `view` was renamed to `routeDoor`. The first `tsc` failed with TS2451 (redeclare `view`) and then TS2339 (`cards` and `routeStreet` missing on `LoggerView`). After the rename, `tsc` exited 0. `routeStreet` is present on the route door.
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. No field write. `lib/sync/queue.ts` was not edited. Coverage is still derived. No database row. No `client_event_id`.
+- **Verified:** `npx tsc --noEmit` exit 0. eslint on `components/field/ui/view-tabs.tsx`, `components/field/survey-overview.tsx` and `components/field/logger-tab.tsx` exit 0 (inline `style` and the `rowAt` non-null assertions were accepted). `npm run verify:ui1` exit 0. `npm run verify:ui6` exit 0. `git grep` for a 6-digit hex colour in the two new files: no lines. `git grep` for `localStorage` in `logger-tab.tsx`: no lines.
+- **Not verified:** A browser. A phone. The seven phone checks in the brief (pills, Survey list, fast scroll, tap-to-jump, offline code, addressless label, dark mode). Sun, wet thumb, one-handed use.
 - **External settings:** none
 - **Open questions for Claude:** none
 

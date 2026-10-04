@@ -2024,4 +2024,37 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not done / deferred:** The Logger pills, the table, and the tap-to-jump (B2b). A browser. A phone. Did not commit.
 - **Follow-ups:** UI-6 B2b draws the Survey Overview from these rows.
 
+---
+
+### UI-6 Session B2b — Logger view pills and Survey Overview
+- **Date:** 2026-10-04
+- **Model:** Grok 4.7
+- **Built:** The Logger has scrollable `Logging` and `Survey` pills under the prop name and the visit line. Survey replaces the door panel, stats, mini map and note bar with a fixed-height list built from `surveyRows`. Tapping a row returns to Logging on that door. The view is kept in `sessionStorage` for the tab session. Header, team strip and sheets stay in both views.
+- **Owner decisions (2026-10-04):**
+  - B2-1 (revised) — the Logger's views are small scrollable pills (`Logging`, `Survey`) under the prop name and the visit line. More views may be added later; the row scrolls sideways.
+  - B2-2 — tapping a row switches to Logging on that door. No logging from the table.
+  - B2-3 — code chips L / C / R / NI / O in the outcome colours. A dashed empty pill means still to knock.
+  - B2-4 — a door with no address reads `<street> · door N` (built in B2a).
+- **Claude decisions:**
+  - Each pill looks 28px tall, but the button is 44px. The row uses `-my-2` so the header only grows by the pill height.
+  - The chosen view is remembered per tab session in `sessionStorage`, wrapped in try/catch. A failure stays on Logging.
+  - In Survey view the door panel, stats, mini map and note bar are replaced by the list. Header, team strip and sheets stay.
+  - The list draws only the rows on screen. Fixed heights: door 48px, street 32px, a 900px window plus 8 rows overscan. No measuring and no setState inside effects. No new dependency. A street label pinned at the top shows the street of the first visible row.
+  - On opening Survey, the list scrolls so the current door is near the top third.
+  - Colours are tokens only. The current door uses `bg-prop/10` and a 4px `border-prop` left bar.
+- **Acceptance:**
+  - EDIT 1 DONE. `components/field/ui/view-tabs.tsx` pasted as given.
+  - EDIT 2 DONE. `components/field/survey-overview.tsx` pasted as given. eslint accepted the inline `style` and the `rowAt` non-null assertions.
+  - EDIT 3 DONE. Imports, the module-level view helpers, the `view` state, `survey` and `pickFromSurvey`, the header pills, and the Survey swap are in `logger-tab.tsx`. `routeStreet` is present. The first `tsc` failed because an existing local was also named `view`. That local was renamed to `routeDoor`. The pasted blocks were not rewritten. Second `tsc` exited 0.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on the three field files: **PASS** — exit 0.
+  - `npm run verify:ui1`: **PASS** — exit 0.
+  - `npm run verify:ui6`: **PASS** — exit 0.
+  - `git grep` 6-digit hex in the two new files: **PASS** — no lines.
+  - `git grep` `localStorage` in `logger-tab.tsx`: **PASS** — no lines.
+  - Phone checks: **NOT VERIFIED**. No browser. Headless session.
+- **Deviations from brief:** The existing route-door local `view` was renamed to `routeDoor` so the mandated Logger view state could compile. First `tsc` errors: TS2451 redeclare `view`; TS2339 `cards` and `routeStreet` missing on `LoggerView`.
+- **Not done / deferred:** The seven phone checks. A browser. Did not commit.
+- **Follow-ups:** Owner phone check of the pills, the list, tap-to-jump, offline codes, addressless labels and dark mode.
+
 
