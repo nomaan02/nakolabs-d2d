@@ -94,7 +94,7 @@
 | UI-5 A3 | Admin: 3-state dots and counts, completion/coverage views, route regeneration | TODO | 2026-10-04 | A3a done: migration 026 applied (admin counts follow is_knockable). A3b, A3c to come. A3b done: draw page shows flats and No Cold Calling. | — |
 | UI-5 A4 | Admin tenure layer (optional) | TODO | | | — |
 | UI-6 B1 | Mini map: rotate, recentre | DONE | 2026-10-04 | Compact map rotates; recentre returns north-up. tsc, eslint, verify:ui1 and verify:anchors passed. | — |
-| UI-6 B2 | Logger tabs: Logging View / Survey Overview | TODO | | | — |
+| UI-6 B2 | Logger tabs: Logging View / Survey Overview | TODO | | B2a done: surveyRows + verify:ui6. | — |
 | UI-7 C0 | Brief amendment: invariant 7, Section 8, Stage 16 (H3, H5) | TODO | | | — |
 | UI-7 C1 | On-device GPS + direction arrow (both maps) | TODO | | | — |
 | UI-7 C2 | "Near you" door chip | TODO | | | — |

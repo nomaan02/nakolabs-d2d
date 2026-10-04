@@ -31,6 +31,7 @@
     "verify:stage10": "tsx scripts/verify-stage-10.ts",
     "verify:ui4": "tsx scripts/verify-ui-4-route-focus.ts",
     "verify:ui1": "tsx scripts/verify-ui-1-logger.ts",
+    "verify:ui6": "tsx scripts/verify-ui-6-survey.ts",
     "verify:anchors": "tsx scripts/verify-map-anchors.ts",
     "verify:stage5cb": "tsx scripts/verify-stage-5c-b.ts",
     "verify:geom": "tsx scripts/verify-route-geom.ts",

@@ -2,10 +2,11 @@
 
 ## Current state
 
-- Last updated: 2026-10-04 (UI-6 Session B1). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- The Logger mini map can pan, pinch and rotate. Pitch is set in code. Keyboard stays off. After a real gesture, a 44px recentre button (bottom-right) eases back to the current door, north-up, then hides. A door change still eases and hides it, and keeps the current bearing. GPS arrow is UI-7.
-- `npx tsc --noEmit` exited 0. eslint on the three field files exited 0. `verify:ui1` and `verify:anchors` exited 0. Anchors: 2,000 doors / 60 steps in 3.71 ms. That is the anchor maths, not a paint of this gesture.
+- Last updated: 2026-10-04 (UI-6 Session B2a). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Survey Overview rows are plain data in `lib/field/survey-rows.ts`. Knockable doors stay in the Logger's route order. A street header is inserted when the street changes. The code is this device's latest local outcome (L, C, R, NI, O). A teammate knock with no local outcome stays empty and keeps the first name. No React. B2b draws it.
+- `npx tsc --noEmit` exited 0. eslint on `lib/field/survey-rows.ts` and `scripts/verify-ui-6-survey.ts` exited 0. `npm run verify:ui6` exited 0.
 - No migration. No database row. No `client_event_id`.
+- UI-6 B2 Status stays TODO. Result is `B2a done: surveyRows + verify:ui6.`
 - A3c is not started. Routes are not regenerated (H8). The 20 old open assignments were left as they are (H9). The tenure layer stays deferred until after UI-7 (H10).
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until A3c regenerates routes. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
@@ -1455,6 +1456,35 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. No field write. `lib/sync/queue.ts` was not edited. Coverage is still derived.
 - **Verified:** `npx tsc --noEmit` exit 0. eslint on `components/field/field-map.tsx`, `components/field/mini-map.tsx` and `components/field/icons.tsx` exit 0. `npm run verify:ui1` exit 0. `npm run verify:anchors` exit 0 (2,000 doors / 60 steps, 3.71 ms). `git grep` for `disableRotation` and `dragRotate.disable` in `field-map.tsx`: no lines. `git grep` for a 6-digit hex colour in `field-map.tsx`: no lines.
 - **Not verified:** A browser. A phone. The four phone checks (rotate, pinch, pan, recentre, next-door hide, door swipe, Map tab). A painted map at 2,000 doors. Sun, wet thumb, one-handed use. The anchor timing is not a paint of this gesture.
+- **External settings:** none
+- **Open questions for Claude:** none
+
+### 2026-10-04 — UI-6 Session B2a (uncommitted)
+
+- **Item:** UI-6 — Survey Overview rows (P2.1, data only)
+- **What changed:** `surveyRows` builds the Survey Overview as plain data. Knockable doors stay in route order. A street header is added when the street changes. Address text is the house number, else the building name, else `<street> · door N`. The code is this device's latest local outcome. A teammate knock with no local outcome leaves the code empty and keeps the first name. `npm run verify:ui6` checks it. No React.
+- **Files:**
+  - Changed: `package.json` (one script, `verify:ui6`), `docs/FIELD-TEST-BUILD-PLAN.md` (UI-6 B2 Result only), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `lib/field/survey-rows.ts`, `scripts/verify-ui-6-survey.ts`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** new `lib/field/survey-rows.ts` (pure row builder; no Dexie, no network). `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - owner — B2-1 (2026-10-04): the Survey Overview is a second Logger view, switched by small scrollable pills under the prop name and visit line.
+  - owner — B2-2 (2026-10-04): tapping a row jumps to that door in Logging. No logging from the table.
+  - owner — B2-3 (2026-10-04): the outcome column is a short code in the outcome colour: L Lead, C Contact, R Rented/Council, NI Not In, O Other. Empty (to knock) shows a dashed empty pill.
+  - owner — B2-4 (2026-10-04): a door with no address reads `<street> · door N`, where N is its 1-based place in the Logger's list.
+  - Claude — this session is the pure function and the check script only. B2b draws it.
+  - Claude — rows are the Logger sequence, knockable doors only, in route order, with a street header when the street changes.
+  - Claude — street is the route step's street, else the address street, else `Unnamed road`.
+  - Claude — address text is house number plus street, else building name plus street, else the B2-4 fallback.
+  - Claude — the code is this device's latest local outcome. A teammate knock without a local outcome is still to knock, with `knockedBy` set. The code stays empty.
+  - Claude — `not_interested` maps to O.
+  - Claude — type imports only from Dexie-backed modules, so `tsx` can run the check with no browser.
+- **Deviations from plan or brief:** none
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. No field write. `lib/sync/queue.ts` was not edited. Coverage is still derived. No database row. No `client_event_id`.
+- **Verified:** `npx tsc --noEmit` exit 0. eslint on `lib/field/survey-rows.ts` and `scripts/verify-ui-6-survey.ts` exit 0. `npm run verify:ui6` exit 0 (lead L, answered C, no_opportunity R, no_answer NI, refused/do_not_call/inaccessible/callback/not_interested O; "12 Coronation Road"; "Rosebank House, Coronation Road"; "Coronation Road · door 5"; route street wins; five doors give headers A, B, A and indexes 0..4; current only at index 2; local outcome clears the teammate name; summary 3 knocked, 2 to go).
+- **Not verified:** A browser. A phone. The pills, the table, and tap-to-jump. Those are B2b.
 - **External settings:** none
 - **Open questions for Claude:** none
 

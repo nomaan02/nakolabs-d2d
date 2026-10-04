@@ -1993,4 +1993,35 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not done / deferred:** The four phone checks. A painted map at 2,000 doors. GPS arrow (UI-7). Logger tabs (UI-6 B2). Did not commit.
 - **Follow-ups:** Owner phone check. UI-6 B2 is not started.
 
+---
+
+### UI-6 Session B2a — Survey Overview rows
+- **Date:** 2026-10-04
+- **Model:** Grok 4.7
+- **Built:** A pure function, `surveyRows`, turns the Logger sequence into Survey Overview rows: one door row per knockable door, in route order, and a street header whenever the street changes. Address text is house number, else building name, else `<street> · door N`. The code comes from this device's latest local outcome. A teammate knock with no local outcome leaves the code empty and stores the first name. `surveySummary` counts knocked and still to go. Checked by `npm run verify:ui6`. No React.
+- **Owner decisions (2026-10-04):**
+  - B2-1 — the Survey Overview is a second Logger view, switched by small scrollable pills under the prop name and visit line.
+  - B2-2 — tapping a row jumps to that door in Logging. No logging from the table.
+  - B2-3 — the outcome column is a short code in the outcome colour: L Lead, C Contact, R Rented/Council, NI Not In, O Other. Empty (to knock) shows a dashed empty pill.
+  - B2-4 — a door with no address reads `<street> · door N`, where N is its 1-based place in the Logger's list.
+- **Claude decisions:**
+  - This session builds only the pure function and its check script. No React, no Dexie, no network. B2b draws it.
+  - Rows are the Logger's own sequence (knockable doors only), in route order, with a street header each time the street changes.
+  - Street per door: the route step's street first, else the address street, else `Unnamed road`.
+  - Address text: house number plus street, else building name plus street, else the B2-4 fallback.
+  - The outcome is this device's latest local outcome, so it works offline. A teammate's knock without a local outcome shows as to-knock with `knockedBy` set. The code stays empty.
+  - `not_interested` (legacy rows) maps to O.
+  - Type imports only from Dexie-backed modules, so the verify script runs under tsx with no browser.
+- **Acceptance:**
+  - EDIT 1 DONE. `lib/field/survey-rows.ts` pasted as given. `LocalOutcome.outcome` and `knockedBy.firstName` are present. `npx tsc --noEmit` exit 0.
+  - EDIT 2 DONE. `scripts/verify-ui-6-survey.ts` uses `check()`, relative imports, and in-script fixtures. No `any`. No `as unknown as`.
+  - EDIT 3 DONE. `package.json` gained `"verify:ui6": "tsx scripts/verify-ui-6-survey.ts"` next to `verify:ui1`. No other change. No new dependency.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on `lib/field/survey-rows.ts` and `scripts/verify-ui-6-survey.ts`: **PASS** — exit 0.
+  - `npm run verify:ui6`: **PASS** — exit 0. Nine outcome codes, three address cases, street fallback, five-door street headers, current index, local-versus-teammate, summary 3 knocked and 2 to go.
+  - Phone: **NOT VERIFIED**. This session is data only. B2b covers the phone.
+- **Deviations from brief:** none
+- **Not done / deferred:** The Logger pills, the table, and the tap-to-jump (B2b). A browser. A phone. Did not commit.
+- **Follow-ups:** UI-6 B2b draws the Survey Overview from these rows.
+
 
