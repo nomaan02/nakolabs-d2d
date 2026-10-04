@@ -1875,4 +1875,30 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not done / deferred:** A real queue run. A phone ping. No UI, so no phone check. Did not commit.
 - **Follow-ups:** Claude reviews the pack. The three pre-existing dirty files are not part of TOOLING-1 A1.
 
+---
+
+### UI-5 Session A2 — Hide non-knockable doors in the field app
+- **Date:** 2026-10-04
+- **Model:** Grok 4.7
+- **Built:** One filter, `knockableOnly`, drops doors the database marks `knockable: false`. It runs in `FieldDataProvider` on the cached payload and on the fresh payload. The Dexie cache stays the full snapshot. A door with no `knockable` key is kept. `sequence` on each kept door is the original snapshot index. `describeRoute` decides "off route" from that snapshot position against `snapshot_door_count`, not from the filtered array index. Building slices for a hidden door are dropped. Shared slices (`uprn` null) stay.
+- **Acceptance:**
+  - EDIT 1 DONE. `snapshot_door_count` and `knockableOnly` added to `lib/geo/todays-assignment.ts`. The function body is the text from the prompt.
+  - EDIT 2 DONE. `knockableOnly` wraps both cache reads and the fresh payload in `components/field/field-data-provider.tsx`. `cacheAssignment(result.assignment, uid)` is still the unfiltered payload. `describeRoute` receives `snapshot_door_count`. `visibleFootprints` filters slices in a `useMemo`. The context value exposes `shownFootprints`.
+  - EDIT 3 DONE. `describeRoute` takes `snapshotLength` (default `sequence.length`). Both stranded tests use `door.position` only. The unused `index` argument was removed.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - `npx eslint components/field lib/field lib/geo`: **PASS** — exit 0.
+  - `npm run verify:ui1`: **PASS** — exit 0. It does not assume an unfiltered sequence.
+  - `npm run verify:anchors`: **PASS** — exit 0. 2,000 doors / 60 steps: 10.02 ms. That is the anchor maths, not a filtered paint.
+  - `npm run verify:stage8b`: **PASS** — exit 0. The script created and deleted its own throwaway rows.
+  - `git grep -n "knockable" -- "*.ts" "*.tsx"`: **NOT** limited to the four named files. The word already appears in admin counts, `count_knockable`, allocate, coverage, completion and verify scripts. This session adds it in `todays-assignment.ts`, `field-data-provider.tsx`, and a comment in `route-display.ts`. No TypeScript eligibility rule (no 3-unit test, no No Cold Calling test).
+  - Logger: **PASS**. Chrome, CanvasserX, `/field/logger`, TEST - dry run, visit 3. Emulation 390×763 (`innerWidth` 391, `innerHeight` 763). Header "53 doors". Plate "Door 2, Harbury Road, 1 of 53". Provider: `door_count` 53, `snapshot_door_count` 88, `fromCache` false, cursor index 0, cursor position 1, UPRN 348735, stranded 0. Screenshot `ui5-a2-logger-53.png`.
+  - Map source `field-doors` data: **PASS** — 53 features. Sequences start at 1 and skip 0, 10–19, 63–83 and 85–87. `querySourceFeatures` returned 82, which repeats features across tiles.
+  - Offline Not In: **PASS**. `navigator.onLine` false. `fetch('https://example.com/')` threw `TypeError: Failed to fetch`. `fetch /health` still returned 200, and the Supabase health URL still returned 401, including after `Network.setBlockedURLs`. The queue does not flush while `onLine` is false. Outbox row `10fe004b-652d-4941-b4b0-6552f2f57424`, status `held_undo`, outcome `no_answer`, UPRN 348735, `sequence_position` 1 (the snapshot index, not index 0 of the 53). Undo removed it before the network was restored. Open outbox rows after undo: 0.
+  - `knock_events`: **PASS** — 1,240 at the start of the session and 1,240 after the undo. That `client_event_id`: 0 rows. CanvasserX rows with `occurred_at` on or after 2026-10-04 14:00 UTC: 0.
+  - End-of-prop screen: **NOT VERIFIED**. It renders only when every door is logged. The count it reads is `assignment.door_count`, which is 53.
+  - Point count on screen: 53 door features in the map source. Device: desktop Chrome with device-metrics emulation, not a phone.
+- **Deviations from brief:** The first browser navigation hung because the browser had been shut down. The checks were completed later on a new tab. Dev servers on 3000, 3001 and 3002 were down, so `npm run dev` was started once at `http://localhost:3000`. It was not restarted. The browser was already signed in as CanvasserX. A magic link was minted and verified in Node (`expires_at` 1791127096) and was not opened, because its redirect target was the production site.
+- **Not done / deferred:** Admin dots, counts, completion and coverage views, and route regeneration (A3). Survey Overview (UI-6). A physical phone. A 2,000-door paint of the filtered map. The end-of-prop screen. Did not commit.
+- **Follow-ups:** None for the field filter. A3 still has to regenerate routes before a new allocation can freeze.
+
 

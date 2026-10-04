@@ -34,6 +34,7 @@ import { computeRouteTiers, type RouteTiers } from "@/lib/map/route-progress";
 import { getSequence, type SequenceDoor } from "@/lib/field/sequence";
 import {
   fetchTodaysAssignment,
+  knockableOnly,
   type DoorCollection,
   type TodaysAssignment,
   type TodaysAssignmentResult,
@@ -80,7 +81,7 @@ type FieldData = {
   routeTiers: RouteTiers | null;
   /**
    * Door dots projected onto each work step's pavement walkline.
-   * Display only. `phase.assignment.doors` is the sequence and the write source.
+   * Display only. `phase.assignment.doors` is the sequence and the write source. Knockable doors only since UI-5 A2 (knockableOnly).
    */
   anchoredDoors: DoorCollection;
   /** Door slices for this prop. Null when none are cached. Empty draws nothing. */
@@ -112,6 +113,21 @@ type FieldData = {
 const FieldDataContext = createContext<FieldData | null>(null);
 
 const EMPTY_DOORS: DoorCollection = { type: "FeatureCollection", features: [] };
+
+/** UI-5 A2: drop the slice of a hidden door. Shared slices (uprn null) stay. */
+function visibleFootprints(
+  prints: GeoJSON.FeatureCollection | null,
+  visible: ReadonlySet<number>,
+): GeoJSON.FeatureCollection | null {
+  if (!prints) return prints;
+  return {
+    ...prints,
+    features: prints.features.filter((feature) => {
+      const uprn = (feature.properties as { uprn?: number | null } | null)?.uprn;
+      return uprn === null || uprn === undefined || visible.has(uprn);
+    }),
+  };
+}
 
 export function useFieldData(): FieldData {
   const value = useContext(FieldDataContext);
@@ -160,7 +176,7 @@ export function FieldDataProvider({
       if (cancelled) return;
       if (cached) {
         if (!uid) setCanvasserId(cached.canvasser_id);
-        setPhase({ kind: "ready", assignment: cached.payload, fromCache: true });
+        setPhase({ kind: "ready", assignment: knockableOnly(cached.payload), fromCache: true });
       }
 
       const result = await Promise.race([
@@ -183,7 +199,7 @@ export function FieldDataProvider({
       if (result.ok && result.assignment) {
         if (uid) await cacheAssignment(result.assignment, uid).catch(() => undefined);
         if (cancelled) return;
-        setPhase({ kind: "ready", assignment: result.assignment, fromCache: false });
+        setPhase({ kind: "ready", assignment: knockableOnly(result.assignment), fromCache: false });
         return;
       }
 
@@ -196,7 +212,7 @@ export function FieldDataProvider({
 
       if (!result.ok) {
         if (cached) {
-          setPhase({ kind: "ready", assignment: cached.payload, fromCache: true });
+          setPhase({ kind: "ready", assignment: knockableOnly(cached.payload), fromCache: true });
           return;
         }
         setPhase({ kind: "error", message: result.message });
@@ -216,8 +232,14 @@ export function FieldDataProvider({
   );
 
   const routeProgress = useMemo(
-    () => describeRoute(sequence, route, routeReady),
-    [sequence, route, routeReady],
+    () =>
+      describeRoute(
+        sequence,
+        route,
+        routeReady,
+        phase.kind === "ready" ? phase.assignment.snapshot_door_count : undefined,
+      ),
+    [sequence, route, routeReady, phase],
   );
 
   // One RPC per prop, then Dexie for the rest of the day. Fails open: no
@@ -292,6 +314,12 @@ export function FieldDataProvider({
     [routeModel, progressPosition],
   );
 
+  const visibleUprns = useMemo(() => new Set(sequence.map((d) => d.uprn)), [sequence]);
+  const shownFootprints = useMemo(
+    () => visibleFootprints(footprints, visibleUprns),
+    [footprints, visibleUprns],
+  );
+
   const anchoredDoors = useMemo(() => {
     if (phase.kind !== "ready") return EMPTY_DOORS;
     const doors = phase.assignment.doors;
@@ -348,7 +376,7 @@ export function FieldDataProvider({
       routeModel,
       routeTiers,
       anchoredDoors,
-      footprints,
+      footprints: shownFootprints,
       labels,
       outcomes,
       cursor,
@@ -374,7 +402,7 @@ export function FieldDataProvider({
       routeModel,
       routeTiers,
       anchoredDoors,
-      footprints,
+      shownFootprints,
       labels,
       outcomes,
       cursor,

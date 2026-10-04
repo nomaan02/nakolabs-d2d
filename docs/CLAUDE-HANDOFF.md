@@ -2,12 +2,11 @@
 
 ## Current state
 
-- Last updated: 2026-10-04 (TOOLING-1 A1). Uncommitted. **The owner commits after review — this session did not commit.**
-- Queue runner scripts are in `scripts/agent/`. They were dry-run only. Default model `grok-4.7-high`. Only the runner commits, and only on `run/*`, as `wip(<session-id>)` checkpoints.
-- Cursor CLI (C4): Name `agent.ps1`, CommandType ExternalScript, Source `C:\Users\nomaa\AppData\Local\cursor-agent\agent.ps1`.
-- No database change. No app code. No new dependency. HEAD at the start of this session: `ba22e49`.
-- Three files were already modified before this session and were not edited here: `components/field/field-data-provider.tsx`, `lib/field/route-display.ts`, `lib/geo/todays-assignment.ts`.
-- Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until that prop's routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's. This session did not log a door.
+- Last updated: 2026-10-04 (UI-5 Session A2). Uncommitted. **The owner commits after review — this session did not commit.**
+- Field app hides doors with `knockable: false` through `knockableOnly` in `FieldDataProvider`. TEST - dry run for CanvasserX today is assignment `1e9fe4c5-ffa6-46c7-80d8-9348267e477b`: snapshot 88, shown 53, first door snapshot position 1. `knock_events` is 1,240. No new row.
+- Dev server started once this session: `http://localhost:3000`. Not restarted.
+- Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until A3 regenerates routes. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
+- Magic link for CanvasserX `576c4ce7-5fe0-489f-bd7f-42912925951a`: `expires_at` 1791127096 was minted and verified in Node. It was not opened. The browser was already signed in as CanvasserX. Password, profile and role were not changed. Profile after: name CanvasserX, role canvasser, active true. No token is stored here.
 - External settings changed since handover: none.
 
 ## Log
@@ -1355,5 +1354,30 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** `run-queue.ps1` without `-DryRun` (forbidden this session). A phone ping. No UI in this session. C7 did not match the expected seven paths: three files were already dirty. Details are in the session report.
 - **External settings:** none
 - **Open questions for Claude:** The three pre-existing dirty files are not part of this session. Say if they should be set aside before a real queue run. The line above the new rule 50 section still ends `review UI-5 A2`. It was already in the file and was not changed.
+
+### 2026-10-04 — UI-5 Session A2 (uncommitted)
+
+- **Item:** UI-5 — hide non-knockable doors in the field app
+- **What changed:** Doors the database marks `knockable: false` are hidden in the open assignment. One function, `knockableOnly`, filters the cached payload and the fresh payload before any tab reads them. The cache itself stays complete. A missing `knockable` key is kept, so an old offline cache still shows every door until the next online load. Knocks still store the original snapshot index. Stranded doors are judged by that index against the snapshot length. A building slice whose UPRN is hidden is dropped. Shared slices stay.
+- **Files:**
+  - Changed: `lib/geo/todays-assignment.ts`, `components/field/field-data-provider.tsx`, `lib/field/route-display.ts`, `docs/FIELD-TEST-BUILD-PLAN.md`, `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: none
+  - Deleted: none
+- **Database:** none. No migration. No row deleted or updated.
+- **Shared modules touched:** `lib/geo/todays-assignment.ts` (the filter and `snapshot_door_count`). `lib/field/route-display.ts` (stranded uses snapshot position). `lib/sync/queue.ts`, `lib/map/*`, `lib/field/log-outcome.ts`, `lib/field/cursor.ts`, `lib/field/use-team.ts` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - owner — H1 (2026-10-03): flats in buildings of 3+ units and No Cold Calling Zone doors are not knockable. The database decides (`knockable` on each door from `todays_assignment`, migration 025). The client never re-derives it.
+  - owner — H2 (2026-10-03): hide them in currently open assignments too. Nothing is deleted. A knock keeps the original snapshot index as `sequence_position`.
+  - Claude — one choke point, `knockableOnly`, applied in `FieldDataProvider` to both the cached and the fresh payload.
+  - Claude — a door with no `knockable` key is kept. Only `knockable === false` hides. No Dexie version bump. The cache stores the unfiltered payload.
+  - Claude — `SequenceDoor.position` already comes from the door's `sequence`, so logging code is unchanged.
+  - Claude — `describeRoute` must use the snapshot length and snapshot positions, because a filtered sequence would otherwise mark real doors as off route.
+  - Claude — drop a building slice whose `uprn` is a hidden door. Shared slices (`uprn` null) stay.
+- **Deviations from plan or brief:** `git grep "knockable"` is not limited to the four files named in the prompt. The word was already used for counts and allocation. This session did not add an eligibility rule in TypeScript. The required comment in `route-display.ts` also contains the word. The end-of-prop screen was not opened. `fetch /health` returned 200 while `navigator.onLine` was false, same as the dark-map session. Dev servers were down, so this session started `http://localhost:3000` once.
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. The test knock went through the existing queue and was undone on the device. `lib/sync/queue.ts` was not edited. Nothing was deleted from the database. Coverage is still derived.
+- **Verified:** `npx tsc --noEmit` exit 0. `npx eslint components/field lib/field lib/geo` exit 0. `npm run verify:ui1`, `npm run verify:anchors` and `npm run verify:stage8b` exit 0. Chrome, CanvasserX, TEST - dry run, 390×763 (`innerWidth` 391). Header 53 doors. First door snapshot position 1, UPRN 348735, "1 of 53". Map source `field-doors` has 53 features. Stranded count 0. Offline outbox `sequence_position` 1 on `10fe004b-652d-4941-b4b0-6552f2f57424`, then undo. `knock_events` 1,240 before and after. That id: 0 rows. CanvasserX knocks since 2026-10-04 14:00 UTC: 0.
+- **Not verified:** The end-of-prop screen (it shows only when every door is logged). A 2,000-door paint. A physical phone. Sun, wet thumb, one-handed use. `querySourceFeatures` returned 82 because features repeat across tiles; the source data count is 53.
+- **External settings:** none. Magic link `expires_at` 1791127096, minted and verified in Node, not opened. Password, profile and role were not changed.
+- **Open questions for Claude:** none for this filter. A3 still has to regenerate routes before a new allocation can freeze.
 
 

@@ -229,11 +229,15 @@ export function describeRoute(
   sequence: SequenceDoor[],
   route: FieldRoute | null,
   ready: boolean,
+  snapshotLength: number = sequence.length,
 ): RouteDescription {
   if (!ready) return blank(sequence, false, false);
   if (!route?.hasRoute) return blank(sequence, true, false);
 
-  const strandedFrom = Math.max(0, sequence.length - Math.max(0, route.strandedCount));
+  // 2026-10-04 UI-5 A2: the sequence can be filtered (knockableOnly), so stranded
+  // is decided by snapshot position against the snapshot length, never by array
+  // index. Identical result on an unfiltered sequence.
+  const strandedFrom = Math.max(0, snapshotLength - Math.max(0, route.strandedCount));
   const paintRoute = routeIsNewEngine(route);
   const facts = routeFacts(route, paintRoute);
 
@@ -243,8 +247,8 @@ export function describeRoute(
       hasRoute: true,
       paintRoute: false,
       ...facts,
-      doors: sequence.map((door, index) =>
-        index >= strandedFrom || door.position >= strandedFrom
+      doors: sequence.map((door) =>
+        door.position >= strandedFrom
           ? { stranded: true, stepIndex: null, routeStreet: null, cards: [{ kind: "stranded", text: "Off the drawn route" }] }
           : EMPTY_DOOR,
       ),
@@ -254,8 +258,8 @@ export function describeRoute(
   const placed = placeByRange(sequence, route);
   const byIndex = new Map(route.steps.map((step) => [step.step_index, step]));
   let previousStep: number | null = null;
-  const doors = sequence.map((door, index) => {
-    const stranded = index >= strandedFrom || door.position >= strandedFrom;
+  const doors = sequence.map((door) => {
+    const stranded = door.position >= strandedFrom;
     const stepIndex = stranded ? null : (placed.get(door.position) ?? null);
     const step = stepIndex === null ? undefined : byIndex.get(stepIndex);
     const view: DoorRouteView = {

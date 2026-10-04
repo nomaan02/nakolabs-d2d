@@ -17,6 +17,8 @@ export type TodaysAssignment = {
   entry_vertex_index: number;
   entry_compass: string;
   door_count: number;
+  /** Snapshot size before knockableOnly. Absent on an unfiltered payload. */
+  snapshot_door_count?: number;
   doors: DoorCollection;
 };
 
@@ -101,6 +103,24 @@ export function parseTodaysAssignment(data: Json | null): TodaysAssignment | nul
       type: "FeatureCollection",
       features: collection.features as unknown as GeoJSON.Feature<GeoJSON.Point, DoorProperties>[],
     },
+  };
+}
+
+/**
+ * UI-5 A2 (owner H1, H2). Drops doors the database marks `knockable: false`
+ * (3+ unit buildings, No Cold Calling Zones). A door without the flag (a
+ * cache from before migration 025) is kept. `sequence` on each kept door is
+ * untouched: it is the snapshot index that a knock records.
+ */
+export function knockableOnly(assignment: TodaysAssignment): TodaysAssignment {
+  const features = assignment.doors.features.filter(
+    (feature) => feature.properties.knockable !== false,
+  );
+  return {
+    ...assignment,
+    snapshot_door_count: assignment.snapshot_door_count ?? assignment.door_count,
+    door_count: features.length,
+    doors: { ...assignment.doors, features },
   };
 }
 
