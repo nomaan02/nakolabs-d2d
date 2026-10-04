@@ -2,12 +2,13 @@
 
 ## Current state
 
-- Last updated: 2026-10-04 (UI-5 Session A3a). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Migration 026 is applied. Admin knockable and remaining counts follow `properties.is_knockable`. TEST - dry run assignment `1e9fe4c5-ffa6-46c7-80d8-9348267e477b`: knockable 53, worked 73, answered 52, remaining 1. `nccz_zones_geojson` has 26 features. `knock_events` is still 1,240. No new row.
-- A3b and A3c are not started. Routes are not regenerated (H8). The 20 old open assignments were left as they are (H9). The tenure layer stays deferred until after UI-7 (H10).
+- Last updated: 2026-10-04 (UI-5 Session A3b). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- The admin draw page reads `count_door_eligibility`. The tally is knockable, flats, and no cold calling. Dots: solid blue (knockable), hollow oxide (No Cold Calling), hollow ink (flats). Zone outlines load once from `nccz_zones_geojson()` and fail open. No migration. No database row written.
+- `npx tsc --noEmit` fails at `scripts/verify-stage-5b-r3.ts(349,35)`: `propWarnings` now needs `multiUnit` and `nccz`. The pasted `KnockableCount` was not rewritten. That script was not edited. eslint on the four session files exited 0.
+- A3c is not started. Routes are not regenerated (H8). The 20 old open assignments were left as they are (H9). The tenure layer stays deferred until after UI-7 (H10).
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until A3c regenerates routes. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
-- External settings changed since handover: none. No dev server.
+- External settings changed since handover: none. No browser. No dev server.
 
 ## Log
 
@@ -1406,5 +1407,30 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. `/admin/dashboard` and `/admin/coverage` were not opened. A phone.
 - **External settings:** none
 - **Open questions for Claude:** Accept the Management API apply in place of the MCP tool. The SQL and the migration name match the prompt. A3b and A3c are still to come.
+
+### 2026-10-04 — UI-5 Session A3b (uncommitted)
+
+- **Item:** UI-5 — admin draw page shows flats and No Cold Calling
+- **What changed:** The draw page counts doors with `count_door_eligibility`. The readout is knockable, flats, and no cold calling. `excluded` remains multi-unit plus No Cold Calling. Door dots have three states, by shape as well as colour. No Cold Calling zone outlines are drawn under the dots and fail open if the fetch fails.
+- **Files:**
+  - Changed: `lib/geo/count-knockable.ts`, `components/admin/prop-tally.tsx`, `components/admin/prop-drawer.tsx`, `docs/FIELD-TEST-BUILD-PLAN.md` (UI-5 A3 Result only), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `lib/geo/nccz-zones.ts`
+  - Deleted: none
+- **Database:** none. No migration. No row written.
+- **Shared modules touched:** `lib/geo/count-knockable.ts` (now calls `count_door_eligibility`). New `lib/geo/nccz-zones.ts`. `lib/map/*`, `lib/sync/queue.ts`, `lib/field/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - owner — H1 (2026-10-03): a door is not knockable if it is in a No Cold Calling Zone or its building holds 3+ units. The database decides (`properties.is_knockable`, migrations 025/026).
+  - owner — H2 (2026-10-03): nothing is deleted.
+  - Claude — the draw page reads `count_door_eligibility`. total = knockable + flats + No Cold Calling. `excluded` stays on the type.
+  - Claude — three dot states, by shape as well as colour: knockable solid `--color-prop`; No Cold Calling hollow `--color-oxide` ring 1.6; flat (multi-unit, not NCCZ) hollow `--color-ink-soft` ring 1.0.
+  - Claude — zone outlines under the dots: oxide fill 0.08 and a 1.2px oxide line. Loaded once from `nccz_zones_geojson()`. Fails open.
+  - Claude — admin keeps the existing `token()` helper. `lib/map/map-palette.ts` is not touched.
+  - Claude — do not change `count_knockable` callers outside these files.
+- **Deviations from plan or brief:** none in the pasted code. `npx tsc --noEmit` fails because `scripts/verify-stage-5b-r3.ts` builds a `KnockableCount` without `multiUnit` and `nccz`. That file is outside the allow list. The pasted type was not rewritten. `git grep count_knockable` is not limited to `lib/supabase/types.ts`: comments in `lib/geo/prop-polygon.ts` and `lib/geo/properties-in-polygon.ts`, and an RPC call in `scripts/verify-stage-4.ts`. Those were already there and were not edited.
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. No field write. `lib/sync/queue.ts` was not edited. No application row was inserted, updated or deleted. Coverage is still derived.
+- **Verified:** eslint on `lib/geo/count-knockable.ts`, `lib/geo/nccz-zones.ts`, `components/admin/prop-tally.tsx` and `components/admin/prop-drawer.tsx` exit 0. `git grep is_multi_unit` in `components/*` and `lib/geo/*` is prop-drawer.tsx and properties-in-polygon.ts only.
+- **Not verified:** `npx tsc --noEmit` (exit 2, one error, see above). A browser. The three phone checks. A 2,000-door paint. A phone. Point count not tested. No device.
+- **External settings:** none
+- **Open questions for Claude:** Should `scripts/verify-stage-5b-r3.ts` line 349 pass `multiUnit` and `nccz`, or should those fields be optional on `KnockableCount`? `scripts/verify-stage-4.ts` still calls `count_knockable`. A3c is still to come.
 
 

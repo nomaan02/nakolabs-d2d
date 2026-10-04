@@ -1931,4 +1931,33 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not done / deferred:** Draw-page dots and count copy (A3b). Route regeneration (A3c, H8). The 20 old assignments (H9). Tenure (H10, after UI-7). A browser. A phone. Did not commit.
 - **Follow-ups:** Claude to accept the Management API apply. A3b and A3c still to come. Allocating a prop still fails with `snapshot_mismatch` until routes are regenerated.
 
+---
+
+### UI-5 Session A3b — Draw page flats and No Cold Calling
+- **Date:** 2026-10-04
+- **Model:** Grok 4.7
+- **Built:** The admin draw page reads `count_door_eligibility`. The tally says knockable, flats, and no cold calling. Door dots have three states (solid blue, hollow oxide, hollow ink). No Cold Calling zone outlines load once from `nccz_zones_geojson` and fail open. No migration. No database write.
+- **Owner decisions:**
+  - H1 (2026-10-03) — a door is not knockable if it is in a No Cold Calling Zone or its building holds 3+ units. The database decides (`properties.is_knockable`, migrations 025/026).
+  - H2 (2026-10-03) — nothing is deleted.
+- **Claude decisions:**
+  - The draw page reads `count_door_eligibility` (migration 026). total = knockable + flats + No Cold Calling. `excluded` stays on the type (= flats + No Cold Calling).
+  - Door dots, three states, by shape as well as colour: knockable solid `--color-prop`; No Cold Calling hollow `--color-oxide` ring 1.6; flat hollow `--color-ink-soft` ring 1.0.
+  - Zone outlines sit under the dots: oxide fill at 0.08 opacity plus a 1.2px oxide outline. Loaded once from `nccz_zones_geojson()`. Fails open if the call fails.
+  - Admin keeps its own CSS tokens via the existing `token()` helper. `lib/map/map-palette.ts` was not touched.
+  - `count_knockable` callers outside these files were not touched.
+- **Acceptance:**
+  - EDIT 1 DONE. `lib/geo/count-knockable.ts` pasted as given. RPC arg and return types match `count_door_eligibility`.
+  - EDIT 2 DONE. `lib/geo/nccz-zones.ts` pasted as given.
+  - EDIT 3 DONE. Readout is "N knockable · N flats · N no cold calling". Doc comment sentence appended.
+  - EDIT 4 DONE. Circle colour, stroke width and stroke colour replaced as given. Radius unchanged.
+  - EDIT 5 DONE. `NCCZ_SOURCE` added before the door source. `setData` is gated on `getSource`. No `beforeId`.
+  - `npx tsc --noEmit`: **FAIL** — `scripts/verify-stage-5b-r3.ts(349,35)`: `{ knockable: 1225, excluded: 10, total: 1235 }` is missing `multiUnit` and `nccz` for `propWarnings` (`lib/geo/prop-warnings.ts`). Not an RPC type error. The pasted type was not rewritten. The script is outside the allow list and was not edited.
+  - eslint on the four session files: **PASS** — exit 0.
+  - `git grep count_knockable`: **FAIL** against "only `lib/supabase/types.ts`". Also `lib/geo/prop-polygon.ts` (comment), `lib/geo/properties-in-polygon.ts` (comment), `scripts/verify-stage-4.ts` (RPC caller). Those files were not edited.
+  - `git grep is_multi_unit`: **PASS** — `components/admin/prop-drawer.tsx` and `lib/geo/properties-in-polygon.ts` only.
+- **Deviations from brief:** none in the pasted code. The project typecheck does not pass because `KnockableCount` gained two required fields and one existing script literal was not updated.
+- **Not done / deferred:** A browser and a phone (headless). Route regeneration (A3c). The `propWarnings` call in `scripts/verify-stage-5b-r3.ts`. Did not commit.
+- **Follow-ups:** Claude to say whether `scripts/verify-stage-5b-r3.ts` line 349 should gain `multiUnit` and `nccz`, or whether those fields should be optional. `scripts/verify-stage-4.ts` still calls `count_knockable`.
+
 

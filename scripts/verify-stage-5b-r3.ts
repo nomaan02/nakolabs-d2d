@@ -346,7 +346,7 @@ async function main(): Promise<void> {
       routeDiff.trim() === "" && migrationDiff.trim() === "" ? "PASS" : "FAIL",
       `git diff generate-route.ts length ${routeDiff.length}; migration 020 length ${migrationDiff.length}`,
     );
-    const warnings = propWarnings({ knockable: 1225, excluded: 10, total: 1235 });
+    const warnings = propWarnings({ knockable: 1225, multiUnit: 0, nccz: 10, excluded: 10, total: 1235 });
     const warningHits = sourceHits(["knockable doors is above", "DoorBand"]);
     record(
       "The 150-door warning is gone; a count over 150 produces no warning",

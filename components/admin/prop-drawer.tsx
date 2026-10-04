@@ -19,6 +19,7 @@ import { PropTally } from "@/components/admin/prop-tally";
 import { RouteOverlay, type RouteVariantChoice } from "@/components/admin/route-overlay";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { countKnockable, type KnockableCount } from "@/lib/geo/count-knockable";
+import { fetchNcczZones } from "@/lib/geo/nccz-zones";
 import { type Ring } from "@/lib/geo/prop-polygon";
 import { previewTerritoryRoutes, saveTerritoryRoutes } from "@/lib/geo/walk/save";
 import { describeGeometryIssues } from "@/lib/geo/walk/validate";
@@ -51,6 +52,7 @@ setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
 const BRISTOL: [number, number] = [-2.5879, 51.4545];
 const BRISTOL_ZOOM = 12.4;
 const DOORS_SOURCE = "prop-doors";
+const NCCZ_SOURCE = "prop-nccz";
 const EMPTY_DOORS: DoorCollection = { type: "FeatureCollection", features: [] };
 // Drawing props is repetitive work in one part of the city at a time, so the
 // view is remembered. Kept in session storage rather than the URL: MapLibre's
@@ -263,6 +265,34 @@ export function PropDrawer({
 
     instance.on("load", () => {
       try {
+      // UI-5 A3b. No Cold Calling Zone outlines, under the doors. Loaded once;
+      // empty (no outlines) if the call fails.
+      instance.addSource(NCCZ_SOURCE, {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+      instance.addLayer({
+        id: `${NCCZ_SOURCE}-fill`,
+        type: "fill",
+        source: NCCZ_SOURCE,
+        paint: {
+          "fill-color": token("--color-oxide", "#7a2b33"),
+          "fill-opacity": 0.08,
+        },
+      });
+      instance.addLayer({
+        id: `${NCCZ_SOURCE}-line`,
+        type: "line",
+        source: NCCZ_SOURCE,
+        paint: {
+          "line-color": token("--color-oxide", "#7a2b33"),
+          "line-width": 1.2,
+        },
+      });
+      void fetchNcczZones(createClient()).then((zones) => {
+        const source = map.current?.getSource(NCCZ_SOURCE) as GeoJSONSource | undefined;
+        source?.setData(zones);
+      });
       // Added before Terra Draw starts, so the prop outline and its draggable
       // corners always render above the doors.
       instance.addSource(DOORS_SOURCE, { type: "geojson", data: EMPTY_DOORS });
@@ -284,20 +314,32 @@ export function PropDrawer({
             19,
             6.5,
           ],
-          // Knockable doors are solid Bristol blue. Doors in a No Cold Calling
-          // Zone are hollow with an oxide ring, so they read as excluded by
-          // shape as well as by colour.
+          // UI-5 A3b (2026-10-04). Knockable doors are solid Bristol blue.
+          // Doors in a No Cold Calling Zone are hollow with an oxide ring.
+          // Flats (buildings of 3+ units) are hollow with a soft ink ring.
+          // Shape carries the meaning as well as colour.
           "circle-color": [
             "case",
-            ["get", "is_nccz"],
+            ["boolean", ["get", "is_nccz"], false],
+            token("--color-paper", "#fbfaf8"),
+            ["boolean", ["get", "is_multi_unit"], false],
             token("--color-paper", "#fbfaf8"),
             token("--color-prop", "#1b4aa6"),
           ],
-          "circle-stroke-width": ["case", ["get", "is_nccz"], 1.6, 0.6],
+          "circle-stroke-width": [
+            "case",
+            ["boolean", ["get", "is_nccz"], false],
+            1.6,
+            ["boolean", ["get", "is_multi_unit"], false],
+            1.0,
+            0.6,
+          ],
           "circle-stroke-color": [
             "case",
-            ["get", "is_nccz"],
+            ["boolean", ["get", "is_nccz"], false],
             token("--color-oxide", "#7a2b33"),
+            ["boolean", ["get", "is_multi_unit"], false],
+            token("--color-ink-soft", "#4a5259"),
             token("--color-paper", "#fbfaf8"),
           ],
         },

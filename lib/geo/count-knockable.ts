@@ -11,6 +11,11 @@ import { mapPropRpcError, type PropFailureResult } from "@/lib/geo/rpc-error";
 export type KnockableCount = {
   total: number;
   knockable: number;
+  /** Flats in buildings of 3+ units, outside No Cold Calling Zones (UI-5 A3b). */
+  multiUnit: number;
+  /** Doors inside a No Cold Calling Zone (UI-5 A3b). */
+  nccz: number;
+  /** multiUnit + nccz. Kept for existing readers. */
   excluded: number;
 };
 
@@ -18,8 +23,12 @@ export type CountResult = { ok: true; count: KnockableCount } | PropFailureResul
 
 /**
  * Counts the doors inside a drawn prop. The count is computed in Postgres
- * against 424,952 property rows; nothing is fetched to the client to be
+ * against every property row; nothing is fetched to the client to be
  * counted here.
+ *
+ * UI-5 A3b (2026-10-04): reads `count_door_eligibility` (migration 026), so
+ * the draw page can say how many doors are flats and how many are in a No
+ * Cold Calling Zone. total = knockable + multiUnit + nccz.
  *
  * `supabase` must carry the caller's own session, not the service role: the
  * RPC is SECURITY INVOKER, so `properties` RLS and the admin check both
@@ -34,7 +43,7 @@ export async function countKnockable(
     return { ok: false, code: problem, message: RING_PROBLEM_MESSAGES[problem] };
   }
 
-  const { data, error } = await supabase.rpc("count_knockable", {
+  const { data, error } = await supabase.rpc("count_door_eligibility", {
     poly: ringToEwkt(ring),
   });
 
@@ -46,7 +55,7 @@ export async function countKnockable(
       ok: false,
       code: "unavailable",
       message: "The door count is unavailable. Check your connection and try again.",
-      detail: "count_knockable returned no rows",
+      detail: "count_door_eligibility returned no rows",
     };
   }
 
@@ -55,7 +64,9 @@ export async function countKnockable(
     count: {
       total: row.total,
       knockable: row.knockable,
-      excluded: row.excluded,
+      multiUnit: row.multi_unit,
+      nccz: row.nccz,
+      excluded: row.multi_unit + row.nccz,
     },
   };
 }
