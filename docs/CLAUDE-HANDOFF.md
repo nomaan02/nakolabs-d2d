@@ -2,15 +2,13 @@
 
 ## Current state
 
-- Last updated: 2026-10-03 night London (UI-5 Session A1). Uncommitted. **The owner commits after review — this session did not commit.**
-- **UI-5 A1** puts door eligibility in the database. `properties.is_knockable` is generated. Nothing was deleted. The field app still shows every door in the snapshot. Hiding non-knockable doors is Session A2.
-- Allocating a prop will fail with `snapshot_mismatch` until UI-5 A3 regenerates that prop's routes. `allocate_prop` now snapshots knockable doors only. Saved `territory_routes` from before 025 still contain the old set.
-- CanvasserX's open prop for London 2026-10-03 is REF - Speedwell, assignment `94a886e0-8ced-4088-a757-b0730b6b62e7`, visit 5, 182 doors, not closed. Southville solo 2 (`e047335b-006a-4b61-a2db-6517889198dc`) is closed (`closed_at` 2026-10-03 22:18:24 UTC). This session did not change either date.
-- The earlier synced knock is still there. `knock_events.client_event_id` `730525dc-7e2f-42c8-a3d5-6291949edcc7`. This session did not log a door. `knock_events` count was 1,236 before 025 and 1,236 after the browser check.
-- Magic link for CanvasserX `576c4ce7-5fe0-489f-bd7f-42912925951a`: `expires_at` 1791070252 was minted and verified in Node. The browser was already signed in as CanvasserX; that link was not opened. Password, profile and role were not changed. No token is stored here.
-- `npx tsc --noEmit` exit 0. `npx eslint lib/geo scripts/ingest-uprn.ts scripts/ingest-addresses.ts scripts/ingest-nccz.ts` exit 0.
+- Last updated: 2026-10-04 (TOOLING-1 A1). Uncommitted. **The owner commits after review — this session did not commit.**
+- Queue runner scripts are in `scripts/agent/`. They were dry-run only. Default model `grok-4.7-high`. Only the runner commits, and only on `run/*`, as `wip(<session-id>)` checkpoints.
+- Cursor CLI (C4): Name `agent.ps1`, CommandType ExternalScript, Source `C:\Users\nomaa\AppData\Local\cursor-agent\agent.ps1`.
+- No database change. No app code. No new dependency. HEAD at the start of this session: `ba22e49`.
+- Three files were already modified before this session and were not edited here: `components/field/field-data-provider.tsx`, `lib/field/route-display.ts`, `lib/geo/todays-assignment.ts`.
+- Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until that prop's routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's. This session did not log a door.
 - External settings changed since handover: none.
-- Shared modules this session: `lib/supabase/types.ts` regenerated (13 lines). `lib/geo/todays-assignment.ts` and `lib/geo/properties-in-polygon.ts` gained optional door flags only. `lib/sync/queue.ts`, `lib/field/*`, `lib/map/*` and `lib/geo/walk/*` were not edited.
 
 ## Log
 
@@ -1333,5 +1331,29 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A `console.error` hook on the first paint. `Page.addScriptToEvaluateOnNewDocument` did not run. Hiding doors, admin dots, views, and route regeneration. The ingest scripts were not run. A phone.
 - **External settings:** none. Magic link `expires_at` 1791070252, minted and verified in Node, not opened. Password, profile and role were not changed. No token is stored here.
 - **Open questions for Claude:** Allocating a prop will fail with `snapshot_mismatch` until A3 regenerates its routes. The migration comment names that work as A2.
+
+### 2026-10-04 — TOOLING-1 A1, queue runner scripts (uncommitted)
+
+- **Item:** other — owner tooling
+- **What changed:** `run-queue.ps1` reads `.handoff/queue/NN-<session-id>.md` in name order and runs each prompt through the Cursor CLI (`agent -p`, model `grok-4.7-high`). After each session it checks the report, the allow list, the CLI log, `tsc`, eslint and the prompt's own checks. A pass commits `wip(<session-id>)` on `run/<batch>` and continues; a fail commits nothing and stops the queue. `gate: human` always stops after that prompt. `review-pack.ps1` writes `.handoff/review/<id>.md` for Claude. Only the runner commits, and only on `run/*`. Final commits land on `main` after review.
+- **Files:**
+  - New: `scripts/agent/lib.ps1`, `scripts/agent/run-queue.ps1`, `scripts/agent/review-pack.ps1`, `scripts/agent/README.md`
+  - Changed: `.cursor/rules/50-plan-execution.mdc`, `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none
+- **Decided by:**
+  - owner — T1 (2026-10-04): a headless queue runner may run Grok sessions unattended. Only the runner commits, only on `run/*` branches, as `wip(<session-id>)` checkpoints. Final commits land on `main` after Claude's review.
+  - owner — T2 (2026-10-04): Claude may write prompt files into `.handoff/` (git-ignored). The rest of the repo stays read-only for Claude.
+  - owner — T3 (2026-10-04): runner sessions do no browser checks. Visual checks move to the owner's phone check.
+  - owner — T4 (2026-10-04): a prompt whose runner block says `gate: human` (any migration, RLS, sync-queue or database write) always stops the queue after it.
+  - owner — T5 (2026-10-04): runner default model is `grok-4.7-high`.
+  - agent — the three files already dirty at session start were left as they were. The pasted scripts were not edited.
+- **Deviations from plan or brief:** C7's expected list of seven paths does not match the tree, because those three files were already modified. No script line was changed to hide that.
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. No field write. `lib/sync/queue.ts` was not edited. No knock was logged.
+- **Verified:** C1, three scripts, 0 parse errors. C2, no non-ASCII in `scripts\agent\*.ps1`. C3, `/.handoff/`, `/Claude outputs/` and `*.tsbuildinfo` are ignored. C4, `agent.ps1` at `C:\Users\nomaa\AppData\Local\cursor-agent\agent.ps1`. C5, `-DryRun` on batch `dryrun`, branch stayed `main`, sample prompt deleted. C6, review pack `.handoff/review/tooling-1-a1.md`; new untracked files are the four `scripts/agent/` files. C8, HEAD still `ba22e49`.
+- **Not verified:** `run-queue.ps1` without `-DryRun` (forbidden this session). A phone ping. No UI in this session. C7 did not match the expected seven paths: three files were already dirty. Details are in the session report.
+- **External settings:** none
+- **Open questions for Claude:** The three pre-existing dirty files are not part of this session. Say if they should be set aside before a real queue run. The line above the new rule 50 section still ends `review UI-5 A2`. It was already in the file and was not changed.
 
 

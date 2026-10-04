@@ -1845,4 +1845,34 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not done / deferred:** Hiding doors (A2). Admin dots, counts, views and route regeneration (A3). Did not run any ingest script. Did not call `refresh_door_eligibility` again. Did not commit. Did not log a door. A phone.
 - **Follow-ups:** Allocation of a prop will fail with `snapshot_mismatch` until A3 regenerates its routes. The synced knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's to decide.
 
+---
+
+### TOOLING-1 A1 — queue runner scripts
+- **Date:** 2026-10-04
+- **Model:** Grok 4.7 (`grok-4.7-high`)
+- **Built:** Owner tooling only. `scripts/agent/lib.ps1`, `scripts/agent/run-queue.ps1`, `scripts/agent/review-pack.ps1` and `scripts/agent/README.md`, pasted as given. Rule 50 gained the headless-runner section. No app code, no database, no migration, no dependency.
+- **Owner decisions (2026-10-04):**
+  - T1 — A headless queue runner (`scripts/agent/run-queue.ps1`, Cursor CLI) may run Grok sessions unattended. Only the runner commits, only on `run/*` branches, as `wip(<session-id>)` checkpoints. Final commits land on `main` after Claude's review.
+  - T2 — Claude may write prompt files into `.handoff/` (git-ignored). The rest of the repo stays read-only for Claude.
+  - T3 — Runner sessions do no browser checks. Visual checks move to the owner's phone check.
+  - T4 — A prompt whose runner block says `gate: human` (any migration, RLS, sync-queue or database write) always stops the queue after it.
+  - T5 — Runner default model: `grok-4.7-high`.
+- **Acceptance:**
+  - EDIT 1 DONE. `scripts/agent/lib.ps1` created as given.
+  - EDIT 2 DONE. `scripts/agent/run-queue.ps1` created as given.
+  - EDIT 3 DONE. `scripts/agent/review-pack.ps1` created as given.
+  - EDIT 4 DONE. `scripts/agent/README.md` created as given.
+  - EDIT 5 DONE. One blank line, then the headless-runner section, appended to `.cursor/rules/50-plan-execution.mdc`. Nothing else in that file was changed.
+  - C1 parse: **PASS** — `lib.ps1`, `run-queue.ps1`, `review-pack.ps1` each `0 parse errors`.
+  - C2 ASCII: **PASS** — `Select-String` on `scripts\agent\*.ps1` printed nothing.
+  - C3 ignore: **PASS** — `.handoff/queue/probe.md` matches `.gitignore:57:/.handoff/`. `Claude outputs/probe.md` matches `.gitignore:58:/Claude outputs/`. `tsconfig.tsbuildinfo` matches `.gitignore:59:*.tsbuildinfo`. No extra ignore line is required.
+  - C4 CLI: **PASS** — `agent.ps1`, ExternalScript, `C:\Users\nomaa\AppData\Local\cursor-agent\agent.ps1`.
+  - C5 dry run: **PASS** — session `dryrun-sample`, `gate: auto`, `edits: 1,2`, `allow: docs/example.md`, `checks: git --version`. WARN: working tree not clean (8 changed files). Last line: `Dry run finished. Nothing was run or changed.` Branch `main` before and after. Sample prompt deleted.
+  - C6 review pack: **PASS** — `Review pack written: .handoff/review/tooling-1-a1.md`. New untracked files are the four `scripts/agent/` files.
+  - C7 working tree: **FAIL** — ten paths, not the expected seven. The extra three were already modified before this session. Nothing under `.handoff/` or `Claude outputs/`.
+  - C8 no commit: **PASS** — `ba22e49 tooling-1: phone ping on agent stop, hand-off folders ignored, report-to-file rule`, same as the start.
+- **Deviations from brief:** The working tree was already dirty before any edit in this session: `components/field/field-data-provider.tsx`, `lib/field/route-display.ts`, `lib/geo/todays-assignment.ts`. They were not read and not edited. C7 therefore cannot list only the seven paths this session owns. The pasted scripts were not changed to force a pass. `run-queue.ps1` was not run without `-DryRun`.
+- **Not done / deferred:** A real queue run. A phone ping. No UI, so no phone check. Did not commit.
+- **Follow-ups:** Claude reviews the pack. The three pre-existing dirty files are not part of TOOLING-1 A1.
+
 

@@ -29,4 +29,26 @@ Finish with the BUILD-LOG and CLAUDE-HANDOFF entries the prompt names. Owner dec
 - Offline tests: use CDP Network.emulateNetworkConditions { offline: true } and confirm a fetch FAILS before logging. Undo every test log immediately, before any screenshot. Then confirm, with a read-only select, that no knock_events row was written for the test canvasser in the session window.
 
 Finish by writing your full report to .handoff/reports/<session-id>.md." Then you just tell me "review UI-5 A2
+
+## Headless runner sessions (owner decisions T1-T4, 2026-10-04)
+
+These apply when your prompt says you are running under the queue runner
+(`scripts/agent/run-queue.ps1`). The runner checks your work automatically.
+
+- No browser. Do not open or drive a browser or take screenshots. List visual
+  checks under a "Phone check" heading in your report instead.
+- No questions. If something is unclear, take the safest reading, say so in
+  the report, and mark that EDIT NOT DONE if you are not sure it is right.
+- Never commit, and never run state-changing git (commit, push, reset,
+  checkout, switch, stash, clean, rebase, merge, worktree). The runner makes
+  the checkpoint commit.
+- Only change files the prompt's runner block allows, plus `docs/BUILD-LOG.md`,
+  `docs/CLAUDE-HANDOFF.md` and `docs/FIELD-TEST-BUILD-PLAN.md`. Anything else
+  fails the session.
+- Report file: `.handoff/reports/<session-id>.md`. Start it with one line per
+  numbered edit, written exactly as `EDIT n DONE` or `EDIT n NOT DONE - reason`.
+  Then each check as PASS, FAIL or NOT VERIFIED. Then "Phone check". Then any
+  database row you created, with its `client_event_id`.
+- Write BLOCKED or PARTIAL in capitals only when the session really is blocked
+  or partial. The runner treats those words as a failure.
 ---
