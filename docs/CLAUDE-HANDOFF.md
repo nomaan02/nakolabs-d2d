@@ -2,17 +2,20 @@
 
 ## Current state
 
-- Last updated: 2026-10-05 (UI-7 Session C1a). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Pure position maths is in `lib/field/geo.ts`. `npm run verify:ui7` checks it. No React, no browser API, no network, no storage. No coordinate is stored or sent.
-- Snapping keeps the pass you are already on. A backward move costs 4 times a forward one, so the end of a street turns onto the return pass. Every along value is server metres, scaled to the last step's `cumulative_m`.
-- `npx tsc --noEmit` exited 0. eslint on `lib/field/geo.ts` and `scripts/verify-ui-7-geo.ts` exited 0. `npm run verify:ui7` exited 0.
-- `git grep navigator.geolocation` has no call site. `components/field/geo-provider.tsx` does not exist yet (C1b).
+- Last updated: 2026-10-05 (UI-7 Session C1b). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- `components/field/geo-provider.tsx` is the one `watchPosition` and the one orientation listener, mounted from `app/(field)/layout.tsx`. The watch runs while the page is visible and stops when it is hidden. Fixes stay in React state.
+- Both maps draw a violet "you" marker: accuracy ring, heading cone, dot. A fix worse than 30 m is a grey dot, a faint ring and no cone. Mini-map recentre goes to you, heading-up, when the fix is 30 m or better; otherwise to the current door, north-up. The Map tab has a locate button. iOS compass permission is asked from those taps.
+- Location denied or unavailable shows a quiet "Location off" pill. Logging is unchanged.
+- `lib/field/position.ts`: `positionEnabled` stays false and `getRoutePosition()` stays null, so the Logger does not auto-advance. Comment only; exports unchanged.
+- No coordinate is stored or sent. No network request was added. `lib/field/geo.ts` from C1a is unchanged.
+- `npx tsc --noEmit` exited 0. eslint on the eight session files exited 0. `npm run verify:ui7`, `npm run verify:ui1` and `npm run verify:anchors` exited 0.
+- The only `watchPosition` / `clearWatch` calls are in `components/field/geo-provider.tsx` (lines 95 and 89). The file is new, so plain `git grep` on tracked files does not list it until it is committed. `git grep --untracked` does. `git grep` for storage APIs in that file returned nothing.
 - No migration. No database row. No `client_event_id`.
-- UI-7 C1 Status stays TODO. Result is `C1a done: lib/field/geo.ts + verify:ui7.`
+- UI-7 C1 Status stays TODO. Result is `C1a done: geo maths + verify:ui7. C1b done: GeoProvider, you marker, recentre, Location off.`
 - UI-6 B2 stays DONE. A3c is not started. Routes are not regenerated (H8). The 20 old open assignments were left as they are (H9). The tenure layer stays deferred until after UI-7 (H10).
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
-- External settings changed since handover: none. No browser. No dev server.
+- External settings changed since handover: none. No browser. No dev server. Phone checks are not done.
 
 ## Log
 
@@ -1552,5 +1555,37 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Invariants:** No `navigator.geolocation` call. No coordinate is stored or sent. The new file is maths only. No quality scoring in `/field`. No field write. `lib/sync/queue.ts` was not edited. Coverage is still derived. No database row. No `client_event_id`.
 - **Verified:** `npx tsc --noEmit` exit 0. eslint on `lib/field/geo.ts` and `scripts/verify-ui-7-geo.ts` exit 0. `npm run verify:ui7` exit 0 (route length 500 m; pass 1 at ~50 m; pass 2 at ~350 m; spur ~460 m; off-route scalar null; on-route scalar 100; door alongs 20..480; no-steps walk forward; server length 450 scales 100 m local to 90; turnaround ~210 m; same-side step-back stays at ~60 m; nearest door, chip walks both ways with no backward flicker; hysteresis; send throttle; compass and course; weak accuracy; partner gap labels; weak fix drops heading). `git grep -n "navigator.geolocation"` lists comments and documents only. `components/field/geo-provider.tsx` is absent.
 - **Not verified:** A browser. A phone. No phone check in this session.
+- **External settings:** none
+- **Open questions for Claude:** none
+
+### 2026-10-05 — UI-7 Session C1b (uncommitted)
+
+- **Item:** UI-7
+- **What changed:** The field shell now takes a foreground GPS fix and a compass heading while the app is open and the page is visible. Both maps draw a violet "you" marker. Recentre and the Map tab locate button centre on that fix when it is 30 m or better. Denied or unavailable location shows "Location off". Nothing is stored or sent.
+- **Files:**
+  - Changed: `lib/map/map-palette.ts`, `app/(field)/layout.tsx`, `components/field/field-map.tsx`, `components/field/mini-map.tsx`, `components/field/map-tab.tsx`, `lib/field/position.ts` (comments only), `docs/FIELD-TEST-BUILD-PLAN.md` (UI-7 C1 Result only; Status stays TODO), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `components/field/geo-provider.tsx`, `components/field/location-off-notice.tsx`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** `lib/map/map-palette.ts` (you / youRing / youWeak colours). `lib/field/position.ts` (comment only; `positionEnabled` and `getRoutePosition()` unchanged). `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - OWNER — H3 (2026-10-03): continuous GPS while the app is open; a direction arrow on both maps; a "near you" door chip; the route position goes to the partner.
+  - OWNER — H5 (2026-10-03): raw current position to admins, overwritten, no trail, cleared at close, visible indicator, foreground only.
+  - OWNER — U7-1 (2026-10-04): sharing on by default, with a Stop pill.
+  - OWNER — U7-2 (2026-10-04): one send every 30 s (scalar and admin position together), skipped under 10 m, 2-minute heartbeat.
+  - OWNER — U7-3 (2026-10-04): admins see position off the route too.
+  - OWNER — U7-4 (2026-10-04): mini map recentre goes to you (heading-up) when the fix is 30 m or better, else the door.
+  - OWNER — U7-5 (2026-10-04): admin "Live now" panel on `/admin/dashboard` until UI-10.
+  - CLAUDE — Figma page "Logger — clean build" (5:2), section "UI-7 GPS (2026-10-04)". The "you" marker is violet (`#6741d9` light, `#a58bff` dark), never an outcome colour.
+  - CLAUDE — `components/field/geo-provider.tsx` holds the one `watchPosition` (high accuracy, only while the page is visible) and the one orientation listener. Fixes are React state only.
+  - CLAUDE — Heading: compass (`webkitCompassHeading` on iOS after a tap; `deviceorientationabsolute` on Android), else GPS course above 0.5 m/s, else none (dot without a cone).
+  - CLAUDE — The iOS compass permission is asked from the recentre button (mini map) and the locate button (Map tab), always inside a tap.
+  - CLAUDE — A fix worse than 30 m is weak: grey dot, faint ring, no cone, and recentre goes to the door.
+  - CLAUDE — Location denied or unavailable: a quiet "Location off" pill. Nothing else changes.
+  - CLAUDE — No network request and no storage. `lib/field/position.ts` keeps auto-advance off.
+- **Deviations from plan or brief:** none
+- **Invariants:** The one `navigator.geolocation` call is in `components/field/geo-provider.tsx`. Coordinates stay in React state. They are not written to Dexie, localStorage, sessionStorage, the outbox or a network request. No quality scoring in `/field`. No field write. `lib/sync/queue.ts` was not edited. Coverage is still derived. `positionEnabled` stays false. No database row. No `client_event_id`. Layer id `you-are-here` and `FIELD_LAYER_ORDER` were left as they were.
+- **Verified:** `npx tsc --noEmit` exit 0. eslint on the eight session files exit 0. `npm run verify:ui7` exit 0. `npm run verify:ui1` exit 0. `npm run verify:anchors` exit 0 (2,000-door anchor timing 4.53 ms; that check is the existing anchor maths, not the new marker). `git grep --untracked` for `navigator.geolocation`: executable calls only in `components/field/geo-provider.tsx` lines 89 and 95. Storage-API grep on that file: no lines.
+- **Not verified:** A browser. A phone. The five phone checks in the brief. The new marker layers were not timed at 2,000 doors on a device. Sun, wet thumb, one-handed use.
 - **External settings:** none
 - **Open questions for Claude:** none

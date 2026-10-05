@@ -10,6 +10,7 @@ import {
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
+import { accuracyPxAtZoom22, type MapPosition } from "@/lib/field/geo";
 import type { DoorLabels } from "@/lib/field/labels";
 import { mapLabel } from "@/lib/field/labels";
 import type { LocalOutcomes } from "@/lib/field/local-outcomes";
@@ -40,9 +41,16 @@ const COMPACT_ZOOM = 17.5;
 const ROUTE_SOURCE = "field-route";
 const ROUTE_LAYER = "route-line";
 
-/** SEAM (Stage 16). Registered now, hidden. Becomes the live position marker. */
+/**
+ * UI-7 C1b (owner H3, 2026-10-04). The canvasser's own position: an accuracy
+ * ring, a heading cone and a dot. Memory only — fed from GeoProvider, never
+ * stored (invariant 7 as amended). `you-are-here` keeps its Stage 8 id.
+ */
 const POSITION_SOURCE = "field-position";
 const POSITION_LAYER = "you-are-here";
+const POSITION_ACCURACY = "you-accuracy";
+const POSITION_CONE = "you-heading";
+const CONE_IMAGE = "you-cone";
 
 const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
 
@@ -92,6 +100,107 @@ function buildingFillSource(instance: MapLibreMap): { source: string; sourceLaye
     return { source: layer.source, sourceLayer: layer["source-layer"] };
   }
   return null;
+}
+
+/** A heading wedge, apex at the bottom centre, pointing up (north at bearing 0). */
+function coneImage(colour: string): ImageData | null {
+  if (typeof document === "undefined") return null;
+  const size = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  const gradient = ctx.createLinearGradient(32, 64, 32, 0);
+  gradient.addColorStop(0, colour);
+  gradient.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.globalAlpha = 0.55;
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.moveTo(32, 64);
+  ctx.lineTo(8, 6);
+  ctx.quadraticCurveTo(32, -4, 56, 6);
+  ctx.closePath();
+  ctx.fill();
+  return ctx.getImageData(0, 0, size, size);
+}
+
+function positionData(position: MapPosition | null): GeoJSON.FeatureCollection {
+  if (!position) return EMPTY;
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: {
+          acc_px22: accuracyPxAtZoom22(position.lat, position.accuracyM),
+          heading: position.heading ?? 0,
+          has_heading: position.heading !== null,
+          weak: position.weak,
+        },
+        geometry: { type: "Point", coordinates: [position.lng, position.lat] },
+      },
+    ],
+  };
+}
+
+/** Accuracy ring, heading cone and dot, on top of everything. Safe to call again after a style reload. */
+function mountPosition(instance: MapLibreMap, colours: FieldColours, position: MapPosition | null) {
+  if (!instance.hasImage(CONE_IMAGE)) {
+    const image = coneImage(colours.ui.you);
+    if (image) instance.addImage(CONE_IMAGE, image, { pixelRatio: 2 });
+  }
+  if (!instance.getSource(POSITION_SOURCE)) {
+    instance.addSource(POSITION_SOURCE, { type: "geojson", data: positionData(position) });
+  }
+  if (!instance.getLayer(POSITION_ACCURACY)) {
+    instance.addLayer({
+      id: POSITION_ACCURACY,
+      type: "circle",
+      source: POSITION_SOURCE,
+      paint: {
+        // MapLibre: ["zoom"] only as the input of a TOP-LEVEL interpolate.
+        "circle-radius": ["interpolate", ["exponential", 2], ["zoom"], 0, 0, 22, ["get", "acc_px22"]],
+        "circle-color": colours.ui.you,
+        "circle-opacity": ["case", ["boolean", ["get", "weak"], false], 0.06, 0.12],
+        "circle-stroke-color": colours.ui.you,
+        "circle-stroke-width": 1,
+        "circle-stroke-opacity": 0.4,
+        "circle-pitch-alignment": "map",
+      },
+    });
+  }
+  if (!instance.getLayer(POSITION_CONE)) {
+    instance.addLayer({
+      id: POSITION_CONE,
+      type: "symbol",
+      source: POSITION_SOURCE,
+      filter: ["all", ["==", ["get", "has_heading"], true], ["!=", ["get", "weak"], true]],
+      layout: {
+        "icon-image": CONE_IMAGE,
+        "icon-anchor": "bottom",
+        "icon-rotate": ["get", "heading"],
+        "icon-rotation-alignment": "map",
+        "icon-pitch-alignment": "map",
+        "icon-allow-overlap": true,
+        "icon-ignore-placement": true,
+      },
+    });
+  }
+  if (!instance.getLayer(POSITION_LAYER)) {
+    instance.addLayer({
+      id: POSITION_LAYER,
+      type: "circle",
+      source: POSITION_SOURCE,
+      paint: {
+        "circle-radius": 8,
+        "circle-color": ["case", ["boolean", ["get", "weak"], false], colours.ui.youWeak, colours.ui.you],
+        "circle-opacity": ["case", ["boolean", ["get", "weak"], false], 0.8, 1],
+        "circle-stroke-width": 3,
+        "circle-stroke-color": colours.ui.youRing,
+      },
+    });
+  }
 }
 
 function mountFootprints(
@@ -579,6 +688,8 @@ export function FieldMap({
   mode = "light",
   onUserMove,
   recenterNonce = 0,
+  position = null,
+  recenterTarget = "door",
 }: {
   doors: DoorCollection;
   labels: DoorLabels;
@@ -608,8 +719,15 @@ export function FieldMap({
    * re-centred (door change or the recentre button).
    */
   onUserMove?: (moved: boolean) => void;
-  /** UI-6 B1 (compact only). Bump to re-centre on the current door, north-up. */
+  /**
+   * UI-6 B1, amended UI-7 C1b (owner U7-4). Bump to re-centre. The target
+   * is `recenterTarget`: "door" (compact only, north-up) or "position"
+   * (compact: heading-up at the mini map zoom; full: keeps the bearing).
+   */
   recenterNonce?: number;
+  /** UI-7 C1b. The canvasser's live position, memory only. Null hides the marker. */
+  position?: MapPosition | null;
+  recenterTarget?: "door" | "position";
 }) {
   const container = useRef<HTMLDivElement | null>(null);
   const map = useRef<MapLibreMap | null>(null);
@@ -622,6 +740,7 @@ export function FieldMap({
   const routeRef = useRef(routeModel);
   const tiersRef = useRef(routeTiers);
   const footprintsRef = useRef(footprints);
+  const positionRef = useRef(position);
   const mapView = useMapView();
   const mapViewRef = useRef(mapView);
   // Read-once: `variant` never changes for a mounted instance (a route
@@ -639,6 +758,7 @@ export function FieldMap({
   routeRef.current = routeModel;
   tiersRef.current = routeTiers;
   footprintsRef.current = footprints;
+  positionRef.current = position;
   mapViewRef.current = mapView;
 
   useEffect(() => {
@@ -782,22 +902,8 @@ export function FieldMap({
           },
         });
 
-        // SEAM (Stage 16): the canvasser's own position. Registered and
-        // hidden. Nothing writes to it this stage and nothing may, because
-        // there is no geolocation call in this repo yet.
-        instance.addSource(POSITION_SOURCE, { type: "geojson", data: EMPTY });
-        instance.addLayer({
-          id: POSITION_LAYER,
-          type: "circle",
-          source: POSITION_SOURCE,
-          layout: { visibility: "none" },
-          paint: {
-            "circle-radius": 8,
-            "circle-color": c.ui.position,
-            "circle-stroke-width": 3,
-            "circle-stroke-color": c.ui.positionRing,
-          },
-        });
+        // UI-7 C1b: the canvasser's own position, on top of the doors.
+        mountPosition(instance, c, positionRef.current);
 
         // Outcomes and the focused door often arrive before the style is
         // ready. The effect below bails in that case; paint them here so a
@@ -824,6 +930,7 @@ export function FieldMap({
           );
           applyMapView(instance, mapViewRef.current, mapVariant);
           applyRoute(instance, routeRef.current, tiersRef.current, mapMode);
+          mountPosition(instance, c, positionRef.current);
           if (container.current) recordLayerOrder(instance, container.current, routeRef.current, tiersRef.current);
         });
         const initialZoom = mapVariant === "compact" ? COMPACT_ZOOM : FOCUS_ZOOM;
@@ -947,10 +1054,33 @@ export function FieldMap({
     flyToDoor(instance, doors, selectedUprn, "ease", FOCUS_ZOOM);
   }, [selectedUprn, doors, cameraNonce, variant]);
 
-  // UI-6 B1. Recentre button: back to the current door, north-up.
+  // UI-7 C1b. The live position: memory only, never stored. Gate on the
+  // source, not isStyleLoaded() (2026-10-02 G1).
   useEffect(() => {
     const instance = map.current;
-    if (!instance || variant !== "compact" || recenterNonce === 0) return;
+    if (!instance) return;
+    const source = instance.getSource(POSITION_SOURCE) as GeoJSONSource | undefined;
+    source?.setData(positionData(position));
+  }, [position]);
+
+  // UI-6 B1, amended UI-7 C1b (owner U7-4). "position": to the canvasser
+  // (compact heading-up; full keeps its bearing). "door": compact only, back
+  // to the current door north-up.
+  useEffect(() => {
+    const instance = map.current;
+    if (!instance || recenterNonce === 0) return;
+    const here = positionRef.current;
+    if (recenterTarget === "position" && here) {
+      instance.easeTo({
+        center: [here.lng, here.lat],
+        zoom: variant === "compact" ? COMPACT_ZOOM : FOCUS_ZOOM - 1,
+        ...(variant === "compact" ? { bearing: here.heading ?? 0 } : {}),
+        duration: 300,
+      });
+      onUserMoveRef.current?.(false);
+      return;
+    }
+    if (variant !== "compact") return;
     if (flyToDoor(instance, doors, selectedUprn, "ease", COMPACT_ZOOM, 300, 0)) {
       onUserMoveRef.current?.(false);
     }

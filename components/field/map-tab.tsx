@@ -1,11 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { OtherOutcomeSheet } from "@/components/field/door-sheets";
 import { FieldMap } from "@/components/field/field-map";
 import { useFieldData } from "@/components/field/field-data-provider";
+import { useGeo } from "@/components/field/geo-provider";
+import { LocateIcon } from "@/components/field/icons";
+import { LocationOffNotice } from "@/components/field/location-off-notice";
+import { mapPositionOf } from "@/lib/field/geo";
 import { OutcomeButtons } from "@/components/field/outcome-buttons";
 import { TeammateLines } from "@/components/field/teammate-lines";
 import { pulse } from "@/lib/field/feedback";
@@ -56,6 +60,14 @@ export function MapTab() {
   const undoTarget = useUndoTarget();
   const mapView = useMapView();
   const mode = useResolvedTheme();
+  // UI-7 C1b (owner H3). The canvasser's own marker, memory only.
+  const geo = useGeo();
+  const [locateNonce, setLocateNonce] = useState(0);
+  const position = useMemo(
+    () => mapPositionOf(geo.fix, geo.heading, geo.weak),
+    [geo.fix, geo.heading, geo.weak],
+  );
+  const locationOff = geo.status === "denied" || geo.status === "unavailable";
 
   if (phase.kind === "loading") {
     return <p className="px-4 pt-8 text-sm text-ink-soft">Loading today&apos;s prop…</p>;
@@ -144,7 +156,26 @@ export function MapTab() {
             cursor.goToUprn(uprn);
           }}
           active
+          position={position}
+          recenterTarget="position"
+          recenterNonce={locateNonce}
         />
+        {position ? (
+          <button
+            type="button"
+            onClick={() => {
+              geo.requestCompass();
+              setLocateNonce((n) => n + 1);
+            }}
+            aria-label="Centre the map on you"
+            className="absolute right-2 bottom-10 z-[2] flex size-11 items-center justify-center rounded-full border border-line bg-surface text-prop shadow-field-knob"
+            data-testid="map-locate"
+          >
+            <LocateIcon className="size-5" />
+          </button>
+        ) : locationOff ? (
+          <LocationOffNotice className="left-2 top-16" />
+        ) : null}
         <button
           type="button"
           aria-pressed={mapView === "3d"}

@@ -1,15 +1,14 @@
 /**
  * SEAM (Stage 16). Where the canvasser is along the route.
  *
- * Stage 8 has no position source at all. There is no `navigator.geolocation`
- * call anywhere in this repo yet and the first one belongs to Stage 16, which
- * carries the whole of Section 8's compliance argument: the raw fix is
- * snapped to the route line on the device and discarded there, and only the
- * distance along the route is ever transmitted. Invariant 7.
+ * Amended 2026-10-04 (UI-7 C1b; owner H3, H5, U7-1..U7-5). The live fix now
+ * comes from `components/field/geo-provider.tsx` (the only geolocation call
+ * in the repo) and the scalar from the route snapping in UI-7 C2. See the
+ * brief's invariant 7 / Section 8 / Stage 16 amendments.
  *
- * Until then `getRoutePosition()` returns null, `positionEnabled` is false,
- * and the Logger's auto-advance is off because of it rather than because of
- * a separate switch someone could flip by accident.
+ * This seam is deliberately left as it was: `positionEnabled` stays false and
+ * `getRoutePosition()` stays null, so the Logger never auto-advances. The
+ * near-you chip (UI-7 C2) suggests a door; the canvasser taps.
  */
 
 /**

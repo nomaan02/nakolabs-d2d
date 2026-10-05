@@ -82,6 +82,10 @@ export const MAP_UI = {
     position: "#1b4aa6",
     positionRing: "#fbfaf8",
     placeholderLine: "#1c2226",
+    /** UI-7 (2026-10-04): the canvasser's own marker. Never an outcome colour. */
+    you: "#6741d9",
+    youRing: "#ffffff",
+    youWeak: "#858a93",
   },
   dark: {
     halo: "#eef1f4",
@@ -91,6 +95,9 @@ export const MAP_UI = {
     position: "#8cb4ff",
     positionRing: "#161a20",
     placeholderLine: "#c2c9d2",
+    you: "#a58bff",
+    youRing: "#161a20",
+    youWeak: "#9aa2ad",
   },
 } as const;
 

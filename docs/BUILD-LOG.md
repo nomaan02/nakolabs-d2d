@@ -2101,3 +2101,46 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Deviations from brief:** none
 - **Not done / deferred:** GPS provider, arrow, recentre and the location-off notice (C1b). The near-you chip in the Logger (C2). Position sharing (C3). A browser. A phone. Did not commit.
 - **Follow-ups:** UI-7 C1b uses this maths for the watch and the arrow.
+
+---
+
+### UI-7 Session C1b — on-device GPS, the "you" marker, recentre
+- **Date:** 2026-10-05
+- **Model:** Grok 4.7
+- **Built:** Foreground GPS and compass for the field shell. `GeoProvider` is the one `watchPosition` and the one orientation listener, mounted in the field layout. Both maps draw a violet "you" marker from memory. Mini-map recentre goes to you, heading-up, when the fix is 30 m or better, otherwise to the door. The Map tab has a locate button. Denied or unavailable location shows "Location off". `positionEnabled` stays false, so the Logger does not auto-advance. No storage and no network request.
+- **Owner decisions:**
+  - OWNER — H3 (2026-10-03): continuous GPS while the app is open; a direction arrow on both maps; a "near you" door chip; the route position goes to the partner.
+  - OWNER — H5 (2026-10-03): raw current position to admins, overwritten, no trail, cleared at close, visible indicator, foreground only.
+  - OWNER — U7-1 (2026-10-04): sharing on by default, with a Stop pill.
+  - OWNER — U7-2 (2026-10-04): one send every 30 s (scalar and admin position together), skipped under 10 m, 2-minute heartbeat.
+  - OWNER — U7-3 (2026-10-04): admins see position off the route too.
+  - OWNER — U7-4 (2026-10-04): mini map recentre goes to you (heading-up) when the fix is 30 m or better, else the door.
+  - OWNER — U7-5 (2026-10-04): admin "Live now" panel on `/admin/dashboard` until UI-10.
+- **Claude decisions:**
+  - CLAUDE — Figma page "Logger — clean build" (5:2), section "UI-7 GPS (2026-10-04)". The "you" marker is violet (`#6741d9` light, `#a58bff` dark), never an outcome colour.
+  - CLAUDE — `components/field/geo-provider.tsx` holds the one `watchPosition` (high accuracy, only while the page is visible) and the one orientation listener. Fixes are React state only.
+  - CLAUDE — Heading: compass (`webkitCompassHeading` on iOS after a tap; `deviceorientationabsolute` on Android), else GPS course above 0.5 m/s, else none (dot without a cone).
+  - CLAUDE — The iOS compass permission is asked from the recentre button (mini map) and the locate button (Map tab), always inside a tap.
+  - CLAUDE — A fix worse than 30 m is weak: grey dot, faint ring, no cone, and recentre goes to the door.
+  - CLAUDE — Location denied or unavailable: a quiet "Location off" pill. Nothing else changes.
+  - CLAUDE — No network request and no storage. `lib/field/position.ts` keeps auto-advance off.
+- **Acceptance:**
+  - EDIT 1 DONE. `lib/map/map-palette.ts` light and dark `you` / `youRing` / `youWeak`.
+  - EDIT 2 DONE. New `components/field/geo-provider.tsx`, pasted as given.
+  - EDIT 3 DONE. New `components/field/location-off-notice.tsx`, pasted as given.
+  - EDIT 4 DONE. `GeoProvider` wraps the field `main` in `app/(field)/layout.tsx`.
+  - EDIT 5 DONE. `components/field/field-map.tsx`: you marker (`you-are-here` id kept), position prop, recentre target. `FIELD_LAYER_ORDER` unchanged.
+  - EDIT 6 DONE. `components/field/mini-map.tsx`: marker, recentre to you or the door, location notice, `overlay` slot.
+  - EDIT 7 DONE. `components/field/map-tab.tsx`: marker, locate button, location notice.
+  - EDIT 8 DONE. `lib/field/position.ts` comment replaced. `positionEnabled` is still `false`. `getRoutePosition()` still returns `null`.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on the eight session files: **PASS** — exit 0.
+  - `npm run verify:ui7`: **PASS** — exit 0.
+  - `npm run verify:ui1`: **PASS** — exit 0.
+  - `npm run verify:anchors`: **PASS** — exit 0. 2,000-door anchor timing 4.53 ms (existing anchor maths).
+  - `git grep -n "navigator.geolocation"`: **PASS** for call sites. The new file is untracked, so the plain command lists comments and documents only. `git grep --untracked` lists the only executable calls in `components/field/geo-provider.tsx` lines 89 (`clearWatch`) and 95 (`watchPosition`).
+  - Storage grep on `components/field/geo-provider.tsx`: **PASS** — no lines.
+  - Phone: **NOT VERIFIED**. Headless session. No browser.
+- **Deviations from brief:** none
+- **Not done / deferred:** The near-you chip (C2). Position sharing, the Sharing pill and the admin live panel (C3). A browser. A phone. Did not commit.
+- **Follow-ups:** UI-7 C2 adds the near-you chip in the mini-map `overlay` slot and the route-position scalar.

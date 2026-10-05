@@ -101,7 +101,7 @@
 | UI-6 B1 | Mini map: rotate, recentre | DONE | 2026-10-04 | Compact map rotates; recentre returns north-up. tsc, eslint, verify:ui1 and verify:anchors passed. | 025ccd8 |
 | UI-6 B2 | Logger tabs: Logging View / Survey Overview | DONE | 2026-10-04 | B2a done: surveyRows + verify:ui6. B2b done: view pills + Survey Overview. Phone check 10/10 passed. | 38fdba1, c21a652 |
 | UI-7 C0 | Brief amendment: invariant 7, Section 8, Stage 16 (H3, H5) | DONE | 2026-10-04 | Done by Claude directly (docs only): invariant 7, Section 8 (DPIA/LIA/notice/solicitor to-do), Stage 16 table. Owner read-through pending. | — |
-| UI-7 C1 | On-device GPS + direction arrow (both maps) | TODO | 2026-10-05 | C1a done: lib/field/geo.ts + verify:ui7. | — |
+| UI-7 C1 | On-device GPS + direction arrow (both maps) | TODO | 2026-10-05 | C1a done: geo maths + verify:ui7. C1b done: GeoProvider, you marker, recentre, Location off. | — |
 | UI-7 C2 | "Near you" door chip | TODO | | | — |
 | UI-7 C3 | Position sharing: partner scalar + admin live map | TODO | | | — |
 | UI-8 D1 | `knock_events.origin` + logging-mode setting | TODO | | | — |

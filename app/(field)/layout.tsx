@@ -3,6 +3,7 @@ import { Sora } from "next/font/google";
 
 import { FieldDataProvider } from "@/components/field/field-data-provider";
 import { FieldThemeSync } from "@/components/field/field-theme-sync";
+import { GeoProvider } from "@/components/field/geo-provider";
 import { SyncProvider } from "@/components/field/sync-provider";
 import { TabBar } from "@/components/field/tab-bar";
 import { FloatingUndo } from "@/components/field/undo-toast";
@@ -53,15 +54,17 @@ export default async function FieldLayout({ children }: { children: ReactNode })
         signedInAs={profile?.full_name ?? user?.email ?? ""}
         role={profile?.role ?? "canvasser"}
       >
-        <main
-          className={`${sora.variable} field-root relative flex h-dvh flex-col overflow-hidden bg-field-bg pt-[env(safe-area-inset-top)] font-body text-ink`}
-        >
-          <div className="relative min-h-0 flex-1">
-            {children}
-            <FloatingUndo />
-          </div>
-          <TabBar />
-        </main>
+        <GeoProvider>
+          <main
+            className={`${sora.variable} field-root relative flex h-dvh flex-col overflow-hidden bg-field-bg pt-[env(safe-area-inset-top)] font-body text-ink`}
+          >
+            <div className="relative min-h-0 flex-1">
+              {children}
+              <FloatingUndo />
+            </div>
+            <TabBar />
+          </main>
+        </GeoProvider>
       </FieldDataProvider>
     </SyncProvider>
   );
