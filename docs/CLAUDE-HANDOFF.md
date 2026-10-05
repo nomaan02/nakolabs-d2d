@@ -2,15 +2,15 @@
 
 ## Current state
 
-- Last updated: 2026-10-04 (UI-6 Session B2b). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- The Logger has scrollable `Logging` and `Survey` pills under the prop name and the visit line. Survey replaces the door panel, stats, mini map and note bar with the list from `surveyRows`. Header, team strip and sheets stay. Tapping a row returns to Logging on that door.
-- The chosen view is kept in `sessionStorage` (`d2d.loggerView`). A storage failure stays on Logging.
-- The existing route-door local in `logger-tab.tsx` was renamed from `view` to `routeDoor` so it does not collide with the new view state. The pasted blocks were not rewritten.
-- `npx tsc --noEmit` exited 0. eslint on the three field files exited 0. `npm run verify:ui1` and `npm run verify:ui6` exited 0.
+- Last updated: 2026-10-05 (UI-7 Session C1a). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Pure position maths is in `lib/field/geo.ts`. `npm run verify:ui7` checks it. No React, no browser API, no network, no storage. No coordinate is stored or sent.
+- Snapping keeps the pass you are already on. A backward move costs 4 times a forward one, so the end of a street turns onto the return pass. Every along value is server metres, scaled to the last step's `cumulative_m`.
+- `npx tsc --noEmit` exited 0. eslint on `lib/field/geo.ts` and `scripts/verify-ui-7-geo.ts` exited 0. `npm run verify:ui7` exited 0.
+- `git grep navigator.geolocation` has no call site. `components/field/geo-provider.tsx` does not exist yet (C1b).
 - No migration. No database row. No `client_event_id`.
-- UI-6 B2 Status is DONE. Result is `B2a done: surveyRows + verify:ui6. B2b done: view pills + Survey Overview.`
-- A3c is not started. Routes are not regenerated (H8). The 20 old open assignments were left as they are (H9). The tenure layer stays deferred until after UI-7 (H10).
-- Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until A3c regenerates routes. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
+- UI-7 C1 Status stays TODO. Result is `C1a done: lib/field/geo.ts + verify:ui7.`
+- UI-6 B2 stays DONE. A3c is not started. Routes are not regenerated (H8). The 20 old open assignments were left as they are (H9). The tenure layer stays deferred until after UI-7 (H10).
+- Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
 - External settings changed since handover: none. No browser. No dev server.
 
@@ -1525,3 +1525,32 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Decided by:** owner (U7-1..U7-5); Claude (violet marker, session split).
 - **Database:** none.
 - **Open:** DPIA, LIA, canvasser notice and a solicitor before anyone but the owner shares a position.
+
+### 2026-10-05 — UI-7 Session C1a (uncommitted)
+
+- **Item:** UI-7 — position maths (pure)
+- **What changed:** `lib/field/geo.ts` is the position maths for the field app: snap a fix onto a route that walks each street twice, distance along that route in server metres, the near-you chip's two-fix hysteresis, the 30-second send rule, and heading. `npm run verify:ui7` checks it with synthetic fixtures. No React and no GPS call.
+- **Files:**
+  - Changed: `package.json` (one script, `verify:ui7`), `docs/FIELD-TEST-BUILD-PLAN.md` (UI-7 C1 Result and date only; Status stays TODO), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `lib/field/geo.ts`, `scripts/verify-ui-7-geo.ts`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** new `lib/field/geo.ts` (pure maths; no browser, no network, no storage). `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - OWNER — H3 (2026-10-03): continuous GPS while the app is open; a direction arrow on both maps; a "near you" door chip; the route position goes to the partner.
+  - OWNER — H5 (2026-10-03): raw current position to admins, overwritten, no trail, cleared at close, visible indicator, foreground only.
+  - OWNER — U7-1 (2026-10-04): sharing on by default, with a Stop pill.
+  - OWNER — U7-2 (2026-10-04): one send every 30 s (scalar and admin position together), skipped under 10 m, 2-minute heartbeat.
+  - OWNER — U7-3 (2026-10-04): admins see position off the route too.
+  - OWNER — U7-4 (2026-10-04): mini map recentre goes to you (heading-up) when the fix is 30 m or better, else the door.
+  - OWNER — U7-5 (2026-10-04): admin "Live now" panel on `/admin/dashboard` until UI-10.
+  - CLAUDE — Figma page "Logger — clean build" (5:2), section "UI-7 GPS (2026-10-04)". The "you" marker is violet (`#6741d9` light, `#a58bff` dark), never an outcome colour.
+  - CLAUDE — this session is the pure maths and the check script only. C1b and C2 use it.
+  - CLAUDE — snapping uses continuity from the previous place. A backward move costs 4 times a forward one, so the end of a street turns onto the return pass.
+  - CLAUDE — every along value is server metres, scaled to the last step's `cumulative_m`.
+- **Deviations from plan or brief:** none
+- **Invariants:** No `navigator.geolocation` call. No coordinate is stored or sent. The new file is maths only. No quality scoring in `/field`. No field write. `lib/sync/queue.ts` was not edited. Coverage is still derived. No database row. No `client_event_id`.
+- **Verified:** `npx tsc --noEmit` exit 0. eslint on `lib/field/geo.ts` and `scripts/verify-ui-7-geo.ts` exit 0. `npm run verify:ui7` exit 0 (route length 500 m; pass 1 at ~50 m; pass 2 at ~350 m; spur ~460 m; off-route scalar null; on-route scalar 100; door alongs 20..480; no-steps walk forward; server length 450 scales 100 m local to 90; turnaround ~210 m; same-side step-back stays at ~60 m; nearest door, chip walks both ways with no backward flicker; hysteresis; send throttle; compass and course; weak accuracy; partner gap labels; weak fix drops heading). `git grep -n "navigator.geolocation"` lists comments and documents only. `components/field/geo-provider.tsx` is absent.
+- **Not verified:** A browser. A phone. No phone check in this session.
+- **External settings:** none
+- **Open questions for Claude:** none

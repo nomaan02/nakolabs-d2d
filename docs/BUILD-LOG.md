@@ -2069,3 +2069,35 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Claude decisions:** the "you" marker is violet (never an outcome colour); Figma section "UI-7 GPS (2026-10-04)" on page 5:2.
 - **Acceptance:** owner read-through: **NOT VERIFIED** yet.
 - **Not done / deferred:** DPIA, legitimate interests assessment, canvasser notice, solicitor (Section 8 to-do).
+
+---
+
+### UI-7 Session C1a — position maths (pure)
+- **Date:** 2026-10-05
+- **Model:** Grok 4.7
+- **Built:** Pure position maths in `lib/field/geo.ts`: route snap with continuity, distance along the route in server metres, near-you chip hysteresis, the 30 s send throttle, and heading. Checked by `npm run verify:ui7`. No React, no browser API, no network, no storage. Nothing in this file stores or sends a coordinate.
+- **Owner decisions:**
+  - OWNER — H3 (2026-10-03): continuous GPS while the app is open; a direction arrow on both maps; a "near you" door chip; the route position goes to the partner.
+  - OWNER — H5 (2026-10-03): raw current position to admins, overwritten, no trail, cleared at close, visible indicator, foreground only.
+  - OWNER — U7-1 (2026-10-04): sharing on by default, with a Stop pill.
+  - OWNER — U7-2 (2026-10-04): one send every 30 s (scalar and admin position together), skipped under 10 m, 2-minute heartbeat.
+  - OWNER — U7-3 (2026-10-04): admins see position off the route too.
+  - OWNER — U7-4 (2026-10-04): mini map recentre goes to you (heading-up) when the fix is 30 m or better, else the door.
+  - OWNER — U7-5 (2026-10-04): admin "Live now" panel on `/admin/dashboard` until UI-10.
+- **Claude decisions:**
+  - CLAUDE — Figma page "Logger — clean build" (5:2), section "UI-7 GPS (2026-10-04)". The "you" marker is violet (`#6741d9` light, `#a58bff` dark), never an outcome colour.
+  - CLAUDE — this session builds only the pure maths and its check script. C1b and C2 use it.
+  - CLAUDE — `route_geom` walks most streets twice, so snapping uses continuity from the previous place. A backward move costs 4 times a forward one, so the end of a street turns onto the return pass.
+  - CLAUDE — every along value is in server metres, scaled to the last step's `cumulative_m`, so the partner scalar matches `assignments.route_length_m`.
+- **Acceptance:**
+  - EDIT 1 DONE. `lib/field/geo.ts` pasted as given. `npx tsc --noEmit` exit 0.
+  - EDIT 2 DONE. `scripts/verify-ui-7-geo.ts` pasted as given. Same `check()` style as `scripts/verify-ui-6-survey.ts`.
+  - EDIT 3 DONE. `package.json` gained `"verify:ui7": "tsx scripts/verify-ui-7-geo.ts"` on the line after `verify:ui6`. No other change. No new dependency.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on `lib/field/geo.ts` and `scripts/verify-ui-7-geo.ts`: **PASS** — exit 0.
+  - `npm run verify:ui7`: **PASS** — exit 0. Route length 500 m, both street passes, spur, server scale 450→90, turnaround onto the return pass, chip walk both ways, hysteresis, send throttle, heading, weak fix, partner gap, map position.
+  - `git grep -n "navigator.geolocation"`: **PASS** — no call site. `components/field/geo-provider.tsx` is not in the repo yet. Hits are comments and documents only.
+  - Phone: **NOT VERIFIED**. This session is pure maths. No phone check.
+- **Deviations from brief:** none
+- **Not done / deferred:** GPS provider, arrow, recentre and the location-off notice (C1b). The near-you chip in the Logger (C2). Position sharing (C3). A browser. A phone. Did not commit.
+- **Follow-ups:** UI-7 C1b uses this maths for the watch and the arrow.
