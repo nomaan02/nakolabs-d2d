@@ -4,6 +4,7 @@ import { Sora } from "next/font/google";
 import { FieldDataProvider } from "@/components/field/field-data-provider";
 import { FieldThemeSync } from "@/components/field/field-theme-sync";
 import { GeoProvider } from "@/components/field/geo-provider";
+import { PositionSharer } from "@/components/field/position-sharer";
 import { SyncProvider } from "@/components/field/sync-provider";
 import { TabBar } from "@/components/field/tab-bar";
 import { FloatingUndo } from "@/components/field/undo-toast";
@@ -55,6 +56,7 @@ export default async function FieldLayout({ children }: { children: ReactNode })
         role={profile?.role ?? "canvasser"}
       >
         <GeoProvider>
+          <PositionSharer />
           <main
             className={`${sora.variable} field-root relative flex h-dvh flex-col overflow-hidden bg-field-bg pt-[env(safe-area-inset-top)] font-body text-ink`}
           >

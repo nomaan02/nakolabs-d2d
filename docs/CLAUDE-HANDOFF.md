@@ -2,13 +2,17 @@
 
 ## Current state
 
-- Last updated: 2026-10-05 (UI-7 Session C3c). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- `/admin/dashboard` now opens with a "Live now" panel. It polls `admin_live_positions()` every 30 s while the tab is visible. No realtime channel. One violet dot per canvasser (first-name initial) and an accuracy ring. List line: name · prop, then "On route · …" / "Off route" / "Last seen", and an "ago" label. Rows older than 10 min fade. Tap a row to centre. Current position only. No trail is drawn.
-- `--color-you` is `#6741d9` in `@theme` and `#a58bff` on the field dark root. Same values as `MAP_UI.light.you` and `MAP_UI.dark.you`. The panel map uses the field light style and `MAP_UI.light`.
-- Field sender, Sharing pill and partner distance are still not built. `lib/field/position-share.ts` does not exist yet.
-- UI-7 C3 Status stays TODO. Result: `C3a done: migration 027 + types. C3c done: admin Live now panel.`
-- Migration `027_live_positions.sql` is applied (C3a). `live_positions` is one row per canvasser, updated in place, nulled on close, leave and Stop. After the C3a proof, `live_positions` count is 0. Assignment `1bd12662-2b3e-4e9d-ac0f-09913906ca4b` is still `work_date` 2026-10-04 and `closed_at` null. This session wrote no database row.
-- `npx tsc --noEmit` exit 0. eslint on `lib/admin/live.ts`, `components/admin/live-panel.tsx` and `components/admin/dashboard-view.tsx` exit 0. `app/globals.css` is ignored by eslint (warning, exit 0). `npm run verify:ui7` exit 0.
+- Last updated: 2026-10-05 (UI-7 Session C3b). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- The field shell now sends position from `lib/field/position-share.ts` only. `PositionSharer` is mounted inside `GeoProvider` in `app/(field)/layout.tsx`. It calls `report_position` on each fix and on a 15 s check, throttled by `shouldSend` (30 s, under 10 m skipped, 2-minute heartbeat), only while the page is visible and online. A failed send is dropped. It is never queued and never written to Dexie.
+- Sharing is on by default per assignment. Stop writes `d2d.shareStopped:<assignmentId>` = `1` in localStorage. That flag holds no coordinate. Stop also calls `stop_sharing_position`. An offline Stop is repeated the next time the app opens online.
+- The Sharing pill is under the Logger ID chip and in the Map header. Tap opens a sheet: Stop sharing / Keep sharing, or Share location / Not now. Hidden when location is denied or unavailable.
+- Until the canvasser's first log, and while sharing is on and GPS is active, the Logger status line says "Sharing your location with partner + admins" with Stop. That line sits below errors, instructions and offline.
+- The Logger team strip appends the partner gap from the scalar `report_position` returns (`partnerGapLabel`). A scalar, never a pin.
+- `/admin/dashboard` still opens with the C3c "Live now" panel. It polls `admin_live_positions()` every 30 s while the tab is visible. No realtime channel. One violet dot per canvasser. Current position only. No trail.
+- `--color-you` is `#6741d9` in `@theme` and `#a58bff` on the field dark root. The Sharing pill uses `bg-you`.
+- UI-7 C3 Status is DONE (2026-10-05). Result: `C3a migration 027 + types. C3b position sender, Sharing pill + notice, partner distance. C3c admin Live now panel.`
+- Migration `027_live_positions.sql` is applied (C3a). This session wrote no database row. No `client_event_id`.
+- `npx tsc --noEmit` exit 0. eslint exit 0 on `lib/field/position-share.ts`, `components/field/position-sharer.tsx`, `components/field/sharing-pill.tsx`, `app/(field)/layout.tsx`, `components/field/logger-tab.tsx` and `components/field/map-tab.tsx`. `npm run verify:ui7`, `npm run verify:ui1` and `npm run verify:ui6` exit 0.
 - Executable `navigator.geolocation` calls remain only in `components/field/geo-provider.tsx` line 132 (`clearWatch`) and line 138 (`watchPosition`).
 - `admin_live_positions` in `components` and `lib`: `lib/admin/live.ts` lines 8 and 36, `lib/supabase/types.ts` line 1369. Plain `git grep` misses `lib/admin/live.ts` because that file is untracked. `git grep --untracked` lists those three lines only.
 - Field GPS from C2 is unchanged. `GeoProvider` snaps each good fix onto the frozen route line on the device. `routePlace.alongM` is server metres. It is null more than 100 m from the route, before the first good fix, or when the prop is unrouted. A weak fix (worse than 30 m) does not move it. The snapped coordinate is not kept.
@@ -19,7 +23,7 @@
 - UI-6 B2 stays DONE. A3c is not started. Routes are not regenerated (H8). The 20 old open assignments were left as they are (H9). The tenure layer stays deferred until after UI-7 (H10).
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
-- External settings: none. No browser. No dev server. Phone checks are not done. Map point count not tested (headless; this layer is one dot per canvasser, not a door layer).
+- External settings: none. No browser. No dev server. The six C3b phone checks are not done. No database row.
 
 ## Log
 
@@ -1684,3 +1688,34 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. A phone. The two dashboard checks in the session brief. Map point count and device (headless; this layer is one dot per canvasser).
 - **External settings:** none
 - **Open questions for Claude:** The pasted initial layer uses paint `text-color` `#ffffff`. That matches `MAP_UI.light.youRing`. The map-layer rule says paint colours live in `lib/map/map-palette.ts`. The session said to paste the code exactly, so it was left as given.
+
+### 2026-10-05 — UI-7 Session C3b (uncommitted)
+
+- **Item:** UI-7
+- **What changed:** The field app now sends the canvasser's current position while the page is open, visible and online. Sharing starts on. A Sharing pill in the Logger and on the Map lets them stop, and that choice is remembered for the prop on this phone. Until their first log, the Logger says it is sharing with the partner and admins. The team strip adds how far ahead or behind the partner is, from a distance along the route.
+- **Files:**
+  - Changed: `app/(field)/layout.tsx`, `components/field/logger-tab.tsx`, `components/field/map-tab.tsx`, `docs/FIELD-TEST-BUILD-PLAN.md` (UI-7 C3 row), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `lib/field/position-share.ts`, `components/field/position-sharer.tsx`, `components/field/sharing-pill.tsx`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none. `lib/sync/queue.ts` was not edited. `lib/field/geo.ts` was not edited. The sender imports `shouldSend` and `partnerGapLabel` from it. `lib/map/route-layers.ts` was not edited.
+- **Decided by:**
+  - OWNER — H3 (2026-10-03): continuous GPS while the app is open; a direction arrow on both maps; a "near you" door chip; the route position goes to the partner.
+  - OWNER — H5 (2026-10-03): raw current position to admins, overwritten, no trail, cleared at close, visible indicator, foreground only.
+  - OWNER — U7-1 (2026-10-04): sharing on by default, with a Stop pill.
+  - OWNER — U7-2 (2026-10-04): one send every 30 s (scalar and admin position together), skipped under 10 m, 2-minute heartbeat.
+  - OWNER — U7-3 (2026-10-04): admins see position off the route too.
+  - OWNER — U7-4 (2026-10-04): mini map recentre goes to you (heading-up) when the fix is 30 m or better, else the door.
+  - OWNER — U7-5 (2026-10-04): admin "Live now" panel on `/admin/dashboard` until UI-10.
+  - CLAUDE — Figma page "Logger — clean build" (5:2), section "UI-7 GPS (2026-10-04)". The "you" marker is violet (`#6741d9` light, `#a58bff` dark), never an outcome colour.
+  - CLAUDE — `lib/field/position-share.ts` is the only code that sends a position (rule 30-sync exception). Never queued, never in Dexie. Offline or failed sends are dropped. The only thing stored is the per-assignment "stopped" flag in localStorage (no coordinate).
+  - CLAUDE — `components/field/position-sharer.tsx` (renderless, in the field layout) sends on each fix and on a 15 s check, throttled by `shouldSend`, only when visible and online. A failing server is tried at most every 30 s.
+  - CLAUDE — The Sharing pill opens a sheet: Stop sharing / Keep sharing, or Share location / Not now. Hidden when location is denied.
+  - CLAUDE — Until the first log, the Logger status line says "Sharing your location with partner + admins" with Stop, below errors, instructions and offline.
+  - CLAUDE — The team strip appends the partner distance from the scalar `report_position` returns. A scalar, never a pin.
+- **Deviations from plan or brief:** none
+- **Invariants:** The one `navigator.geolocation` call remains in `components/field/geo-provider.tsx` (`clearWatch` line 132, `watchPosition` line 138). The only network payload that carries a coordinate is `report_position` in `lib/field/position-share.ts`, and only while sharing is on. Nothing is written to Dexie or the outbox. localStorage stores only `d2d.shareStopped:<id>` = `1`. No trail. No history table. No quality scoring in `/field`. Knocks still go through `lib/sync/queue.ts`. `git diff --stat -- lib/sync` is empty. Coverage is still derived. No database row. No `client_event_id`.
+- **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on the six session files. `npm run verify:ui7` exit 0. `npm run verify:ui1` exit 0. `npm run verify:ui6` exit 0. `git grep` for `sharingNotice|showSharingNotice|shareState` in `logger-tab.tsx` before EDIT 5 returned nothing. Executable `navigator.geolocation` calls only in `components/field/geo-provider.tsx` lines 132 and 138. `git grep -n --untracked "report_position|stop_sharing_position" -- components lib app` lists `lib/field/position-share.ts` lines 11, 98 and 129, and `lib/supabase/types.ts` lines 1634 and 2246.
+- **Not verified:** A browser. A phone. The six phone checks in the session brief.
+- **External settings:** none
+- **Open questions for Claude:** none

@@ -9,6 +9,7 @@ import { useFieldData } from "@/components/field/field-data-provider";
 import { useGeo } from "@/components/field/geo-provider";
 import { LocateIcon } from "@/components/field/icons";
 import { LocationOffNotice } from "@/components/field/location-off-notice";
+import { SharingPill } from "@/components/field/sharing-pill";
 import { mapPositionOf } from "@/lib/field/geo";
 import { OutcomeButtons } from "@/components/field/outcome-buttons";
 import { TeammateLines } from "@/components/field/teammate-lines";
@@ -123,9 +124,12 @@ export function MapTab() {
   return (
     <div className="relative flex h-full flex-col" data-testid="map-tab">
       <header className={`z-10 border-b border-ink/15 bg-paper px-3 pb-3 pt-3 ${undoTarget ? "pr-14" : ""}`}>
-        <h1 className="px-1 font-display text-lg leading-snug tracking-tight">
-          {assignment.territory_name}
-        </h1>
+        <div className="flex items-start justify-between gap-2">
+          <h1 className="min-w-0 truncate px-1 font-display text-lg leading-snug tracking-tight">
+            {assignment.territory_name}
+          </h1>
+          <SharingPill assignmentId={assignment.assignment_id} />
+        </div>
         <p className="px-1 font-data text-xs leading-relaxed text-ink-soft">
           {formatFieldHeader(assignment, routeProgress)}
         </p>

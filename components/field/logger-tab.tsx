@@ -13,6 +13,8 @@ import { HouseNumberSheet, NotesSheet, OtherOutcomeSheet } from "@/components/fi
 import { LeadSheet } from "@/components/field/lead-sheet";
 import { MiniMap } from "@/components/field/mini-map";
 import { NearYouChip, useNearYouIndex } from "@/components/field/near-you-chip";
+import { useGeo } from "@/components/field/geo-provider";
+import { SharingPill } from "@/components/field/sharing-pill";
 import { OutcomeColumn } from "@/components/field/outcome-column";
 import { Sheet } from "@/components/field/sheet";
 import { useSharedDoors } from "@/components/field/shared-knock-notice";
@@ -43,6 +45,8 @@ import {
 } from "@/lib/field/route-display";
 import { getCurrentStreetLabel, sequenceIsRouteDerived } from "@/lib/field/sequence";
 import { surveyAddress, surveyRows, surveyStreet } from "@/lib/field/survey-rows";
+import { partnerGapLabel } from "@/lib/field/geo";
+import { setSharing, useShareState } from "@/lib/field/position-share";
 import { sharedKnockMessage } from "@/lib/field/shared-knock";
 import { countBookableContacts, countDoorsLogged, countLeads } from "@/lib/field/today-stats";
 import { offerUndo } from "@/lib/field/undo";
@@ -150,8 +154,10 @@ function computeBanner(input: {
   dismissedShared: number;
   onDismissShared: () => void;
   onRetryAll: () => void;
+  /** UI-7 C3b (owner U7-1): shown on a prop until the canvasser's first log. */
+  sharingNotice: { onStop: () => void } | null;
 }): BannerView | null {
-  const { status, cards, shared, dismissedShared, onDismissShared, onRetryAll } = input;
+  const { status, cards, shared, dismissedShared, onDismissShared, onRetryAll, sharingNotice } = input;
 
   if (status.failedRows.length > 0) {
     const n = status.failedRows.length;
@@ -172,6 +178,14 @@ function computeBanner(input: {
   }
   if (status.state === "offline" || status.state === "backoff" || status.state === "auth_required") {
     return { kind: "offline", glyph: "\u25cb", message: formatSyncLine(status) };
+  }
+  if (sharingNotice) {
+    return {
+      kind: "info",
+      glyph: <span className="inline-block size-2 rounded-full bg-you" />,
+      message: "Sharing your location with partner + admins",
+      action: { label: "Stop", onPress: sharingNotice.onStop },
+    };
   }
   if (shared.count > dismissedShared) {
     return {
@@ -248,6 +262,15 @@ export function LoggerTab() {
   const assignmentId = phase.kind === "ready" ? phase.assignment.assignment_id : null;
   const status = useSyncStatus();
   const shared = useSharedDoors(assignmentId);
+  const geo = useGeo();
+  const shareState = useShareState();
+  const showSharingNotice =
+    assignmentId !== null &&
+    canvasserId !== null &&
+    geo.status === "active" &&
+    shareState.assignmentId === assignmentId &&
+    !shareState.stopped &&
+    countDoorsLogged(outcomes, canvasserId) === 0;
 
   // Only ticks while there is a teammate line to keep fresh — matches the
   // old TeammateLines primitive's own rule, and stops entirely when solo.
@@ -322,8 +345,12 @@ export function LoggerTab() {
         dismissedShared,
         onDismissShared: () => setDismissedShared(shared.count),
         onRetryAll: retryAllFailed,
+        sharingNotice:
+          showSharingNotice && assignmentId
+            ? { onStop: () => void setSharing(assignmentId, false) }
+            : null,
       }),
-    [status, routeDoor, shared, dismissedShared, retryAllFailed],
+    [status, routeDoor, shared, dismissedShared, retryAllFailed, showSharingNotice, assignmentId],
   );
 
   // UI-7 C2 (owner H3). Suggests the door nearest the canvasser along the
@@ -360,12 +387,18 @@ export function LoggerTab() {
   const noteDraft = noteDrafts.get(door.uprn) ?? "";
   const leadDraft = leadDrafts.get(door.uprn);
 
-  const teamRows = team.teammates.map((row) => ({
-    id: row.canvasserId,
-    initial: row.name.charAt(0).toUpperCase() || "?",
-    label: formatTeammateLine(row, row.uprn !== null ? labelFor(row.uprn) : undefined, now),
-    stale: row.stale,
-  }));
+  const teamRows = team.teammates.map((row) => {
+    // UI-7 C3b: the partner's distance along the route (a scalar, never a map pin).
+    const place = shareState.teammates.get(row.canvasserId);
+    const gap = partnerGapLabel(geo.routePlace?.alongM ?? null, place?.routeM ?? null, place?.at ?? null, now);
+    const line = formatTeammateLine(row, row.uprn !== null ? labelFor(row.uprn) : undefined, now);
+    return {
+      id: row.canvasserId,
+      initial: row.name.charAt(0).toUpperCase() || "?",
+      label: gap ? `${line} · ${gap}` : line,
+      stale: row.stale,
+    };
+  });
 
   const commit = async (
     outcome: PrimaryOutcome | OtherOutcome,
@@ -426,11 +459,14 @@ export function LoggerTab() {
               {assignment.territory_name}
             </h1>
           </div>
-          <IdChip
-            username={signedInAs}
-            sync={idChipSync(status)}
-            onOpen={() => setSheet({ kind: "sync" })}
-          />
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <IdChip
+              username={signedInAs}
+              sync={idChipSync(status)}
+              onOpen={() => setSheet({ kind: "sync" })}
+            />
+            <SharingPill assignmentId={assignment.assignment_id} />
+          </div>
         </div>
         <p className="mt-0.5 truncate text-field-body text-ink-soft" data-testid="logger-area-line">
           {formatLoggerAreaLine(fieldHeaderParts(assignment, routeProgress))}
