@@ -26,6 +26,7 @@ import { ensureRoute, readRoute } from "@/lib/field/route-cache";
 import {
   describeRoute,
   fieldRoutePaintModel,
+  type FieldRouteStep,
   type RouteDescription,
 } from "@/lib/field/route-display";
 import { anchorDoorCollection } from "@/lib/map/anchor-doors-collection";
@@ -79,6 +80,12 @@ type FieldData = {
    * are ready, so the map does not flash "all done" while loading.
    */
   routeTiers: RouteTiers | null;
+  /**
+   * UI-7 C2. The frozen `route_geom` line and its steps (by step_index), for
+   * on-device snapping in GeoProvider only. Null / empty when unrouted.
+   */
+  routeLine: GeoJSON.LineString | null;
+  routeSteps: FieldRouteStep[];
   /**
    * Door dots projected onto each work step's pavement walkline.
    * Display only. `phase.assignment.doors` is the sequence and the write source. Knockable doors only since UI-5 A2 (knockableOnly).
@@ -304,6 +311,12 @@ export function FieldDataProvider({
   });
 
   const routeModel = useMemo(() => fieldRoutePaintModel(route), [route]);
+  // UI-7 C2. The raw frozen line and its steps, for on-device snapping only.
+  const routeLine = route?.line ?? null;
+  const routeSteps = useMemo(
+    () => (route ? [...route.steps].sort((a, b) => a.step_index - b.step_index) : []),
+    [route],
+  );
   // Amended 2026-09-28: the highlight follows the cursor, not a claimed
   // "next door" — claims are gone, and the cursor already behaves the same
   // online and offline.
@@ -375,6 +388,8 @@ export function FieldDataProvider({
       routeProgress,
       routeModel,
       routeTiers,
+      routeLine,
+      routeSteps,
       anchoredDoors,
       footprints: shownFootprints,
       labels,
@@ -401,6 +416,8 @@ export function FieldDataProvider({
       routeProgress,
       routeModel,
       routeTiers,
+      routeLine,
+      routeSteps,
       anchoredDoors,
       shownFootprints,
       labels,

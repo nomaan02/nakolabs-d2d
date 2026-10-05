@@ -2,15 +2,15 @@
 
 ## Current state
 
-- Last updated: 2026-10-05 (UI-7 Session C1b). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- `components/field/geo-provider.tsx` is the one `watchPosition` and the one orientation listener, mounted from `app/(field)/layout.tsx`. The watch runs while the page is visible and stops when it is hidden. Fixes stay in React state.
-- Both maps draw a violet "you" marker: accuracy ring, heading cone, dot. A fix worse than 30 m is a grey dot, a faint ring and no cone. Mini-map recentre goes to you, heading-up, when the fix is 30 m or better; otherwise to the current door, north-up. The Map tab has a locate button. iOS compass permission is asked from those taps.
-- Location denied or unavailable shows a quiet "Location off" pill. Logging is unchanged.
-- `lib/field/position.ts`: `positionEnabled` stays false and `getRoutePosition()` stays null, so the Logger does not auto-advance. Comment only; exports unchanged.
-- No coordinate is stored or sent. No network request was added. `lib/field/geo.ts` from C1a is unchanged.
-- `npx tsc --noEmit` exited 0. eslint on the eight session files exited 0. `npm run verify:ui7`, `npm run verify:ui1` and `npm run verify:anchors` exited 0.
-- The only `watchPosition` / `clearWatch` calls are in `components/field/geo-provider.tsx` (lines 95 and 89). The file is new, so plain `git grep` on tracked files does not list it until it is committed. `git grep --untracked` does. `git grep` for storage APIs in that file returned nothing.
+- Last updated: 2026-10-05 (UI-7 Session C2). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- `GeoProvider` snaps each good fix onto the frozen route line on the device. `routePlace.alongM` is server metres (`route_steps.cumulative_m`). It is null more than 100 m from the route, before the first good fix, or when the prop is unrouted. A weak fix (worse than 30 m) does not move it. The snapped coordinate is not kept. The first fix is seeded from the current door's place along the route.
+- The Logger mini map shows "Near you · <address> Jump ›" after 2 agreeing fixes. It is hidden when that door is already the current door, or when the canvasser is off route, the fix is weak, or the prop is unrouted. Tap jumps the cursor there. The cursor never moves on its own. The label uses `surveyAddress` / `surveyStreet`, including the `<street> · door N` fallback.
+- `components/field/geo-provider.tsx` is still the one `watchPosition` and the one orientation listener. Executable calls are `clearWatch` at line 132 and `watchPosition` at line 138. Fixes stay in React state. `routePlace` stores only `alongM` and `at`.
+- Both maps still draw the violet "you" marker from C1b. Mini-map recentre is unchanged. Location denied or unavailable still shows "Location off" when the chip is not in the overlay slot.
+- `lib/field/position.ts`: `positionEnabled` stays false and `getRoutePosition()` stays null. This session did not edit that file. No network request was added. `lib/field/geo.ts` was not edited.
+- `npx tsc --noEmit` exited 0. eslint on the four session files exited 0. `npm run verify:ui7`, `npm run verify:ui1` and `npm run verify:ui6` exited 0.
 - No migration. No database row. No `client_event_id`.
+- UI-7 C2 Status is DONE (2026-10-05). Result: `Route snapping on device + near-you chip (2 agreeing fixes, tap to jump).`
 - UI-7 C1 Status stays TODO. Result is `C1a done: geo maths + verify:ui7. C1b done: GeoProvider, you marker, recentre, Location off.`
 - UI-6 B2 stays DONE. A3c is not started. Routes are not regenerated (H8). The 20 old open assignments were left as they are (H9). The tenure layer stays deferred until after UI-7 (H10).
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
@@ -1587,5 +1587,35 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Invariants:** The one `navigator.geolocation` call is in `components/field/geo-provider.tsx`. Coordinates stay in React state. They are not written to Dexie, localStorage, sessionStorage, the outbox or a network request. No quality scoring in `/field`. No field write. `lib/sync/queue.ts` was not edited. Coverage is still derived. `positionEnabled` stays false. No database row. No `client_event_id`. Layer id `you-are-here` and `FIELD_LAYER_ORDER` were left as they were.
 - **Verified:** `npx tsc --noEmit` exit 0. eslint on the eight session files exit 0. `npm run verify:ui7` exit 0. `npm run verify:ui1` exit 0. `npm run verify:anchors` exit 0 (2,000-door anchor timing 4.53 ms; that check is the existing anchor maths, not the new marker). `git grep --untracked` for `navigator.geolocation`: executable calls only in `components/field/geo-provider.tsx` lines 89 and 95. Storage-API grep on that file: no lines.
 - **Not verified:** A browser. A phone. The five phone checks in the brief. The new marker layers were not timed at 2,000 doors on a device. Sun, wet thumb, one-handed use.
+- **External settings:** none
+- **Open questions for Claude:** none
+
+### 2026-10-05 — UI-7 Session C2 (uncommitted)
+
+- **Item:** UI-7
+- **What changed:** The phone snaps each good GPS fix onto the frozen route and keeps only the distance along it. The Logger mini map shows a "Near you" chip for the nearest door after two agreeing fixes. Tapping it jumps the cursor. The cursor does not move by itself. Off the route, a weak fix, or an unrouted prop hides the chip.
+- **Files:**
+  - Changed: `components/field/field-data-provider.tsx`, `components/field/geo-provider.tsx`, `components/field/logger-tab.tsx`, `docs/FIELD-TEST-BUILD-PLAN.md` (UI-7 C2 row), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `components/field/near-you-chip.tsx`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none. `lib/field/geo.ts`, `lib/field/survey-rows.ts` and `lib/field/route-display.ts` are read, not edited. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - OWNER — H3 (2026-10-03): continuous GPS while the app is open; a direction arrow on both maps; a "near you" door chip; the route position goes to the partner.
+  - OWNER — H5 (2026-10-03): raw current position to admins, overwritten, no trail, cleared at close, visible indicator, foreground only.
+  - OWNER — U7-1 (2026-10-04): sharing on by default, with a Stop pill.
+  - OWNER — U7-2 (2026-10-04): one send every 30 s (scalar and admin position together), skipped under 10 m, 2-minute heartbeat.
+  - OWNER — U7-3 (2026-10-04): admins see position off the route too.
+  - OWNER — U7-4 (2026-10-04): mini map recentre goes to you (heading-up) when the fix is 30 m or better, else the door.
+  - OWNER — U7-5 (2026-10-04): admin "Live now" panel on `/admin/dashboard` until UI-10.
+  - CLAUDE — Figma page "Logger — clean build" (5:2), section "UI-7 GPS (2026-10-04)". The "you" marker is violet (`#6741d9` light, `#a58bff` dark), never an outcome colour.
+  - CLAUDE — GeoProvider snaps each good fix onto the frozen route line on the device and keeps only the scalar (`routePlace.alongM`, server metres). Null more than 100 m from the route. The coordinate is never kept.
+  - CLAUDE — The first fix is seeded from the current door's place, so the right pass of the street is picked.
+  - CLAUDE — The chip shows the door nearest you along the route after 2 agreeing fixes. It hides when that door is already the current door, or when off route, weak or unrouted. Tap jumps the cursor there. It never moves the cursor on its own.
+  - CLAUDE — The chip label reuses the Survey address (`surveyAddress` / `surveyStreet`), including the `<street> · door N` fallback.
+- **Deviations from plan or brief:** none
+- **Invariants:** The one `navigator.geolocation` call remains in `components/field/geo-provider.tsx` (`clearWatch` line 132, `watchPosition` line 138). The snap stores `alongM` and `at` only. Coordinates stay in the existing React fix state from C1b. They are not written to Dexie, localStorage, sessionStorage, the outbox or a network request. No quality scoring in `/field`. No field write. `lib/sync/queue.ts` was not edited. Coverage is still derived. No database row. No `client_event_id`.
+- **Verified:** `npx tsc --noEmit` exit 0. eslint on `components/field/field-data-provider.tsx`, `components/field/geo-provider.tsx`, `components/field/near-you-chip.tsx` and `components/field/logger-tab.tsx` exit 0. `npm run verify:ui7` exit 0. `npm run verify:ui1` exit 0. `npm run verify:ui6` exit 0. `git grep -n "nearIndex\|nearOverlay" components/field/logger-tab.tsx` before EDIT 4 returned nothing. `git grep -n "navigator.geolocation"` executable calls are only in `components/field/geo-provider.tsx`.
+- **Not verified:** A browser. A phone. Walking past 3 doors (chip moves, no flicker). Tap-to-jump and no chip at the current door. Walking 150 m off the route (chip disappears). Sun, wet thumb, one-handed use.
 - **External settings:** none
 - **Open questions for Claude:** none

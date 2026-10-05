@@ -11,7 +11,17 @@ import {
   type ReactNode,
 } from "react";
 
-import { compassHeading, courseHeading, isWeakFix, type GeoFix } from "@/lib/field/geo";
+import { useFieldData } from "@/components/field/field-data-provider";
+import {
+  buildRouteIndex,
+  compassHeading,
+  courseHeading,
+  doorAlongs,
+  isWeakFix,
+  routeScalar,
+  snapToRoute,
+  type GeoFix,
+} from "@/lib/field/geo";
 
 /**
  * UI-7 C1b (owner H3, 2026-10-04). The ONE `watchPosition` and the ONE
@@ -38,7 +48,18 @@ export type GeoState = {
   compass: CompassState;
   /** Call from a tap. iOS needs it for the compass; elsewhere it does nothing. */
   requestCompass: () => void;
+  /**
+   * UI-7 C2. Where the last good fix sits on the route, in server metres
+   * (`route_steps.cumulative_m`). `alongM` is null more than 100 m from the
+   * route (Stage 16 rule 7). Null before the first good fix, or unrouted.
+   * `at` is that fix's timestamp, so a consumer can step once per fix.
+   */
+  routePlace: RoutePlace | null;
+  /** UI-7 C2. Each sequence door's distance along the route, index-aligned with `sequence`. */
+  doorAlongsM: number[];
 };
+
+export type RoutePlace = { alongM: number | null; at: number };
 
 type OrientationCtor = typeof DeviceOrientationEvent & {
   requestPermission?: () => Promise<"granted" | "denied">;
@@ -76,6 +97,28 @@ export function GeoProvider({ children }: { children: ReactNode }) {
   const [compass, setCompass] = useState<CompassState>("unknown");
   const [compassDeg, setCompassDeg] = useState<number | null>(null);
   const lastHeading = useRef<{ deg: number; at: number } | null>(null);
+  const { routeLine, routeSteps, sequence, cursor } = useFieldData();
+  const [routePlace, setRoutePlace] = useState<RoutePlace | null>(null);
+  const previousAlong = useRef<number | null>(null);
+  const cursorIndex = useRef(cursor.index);
+  cursorIndex.current = cursor.index;
+
+  const routeIndex = useMemo(() => {
+    const last = routeSteps[routeSteps.length - 1];
+    return buildRouteIndex(routeLine?.coordinates, last ? last.cumulative_m : null);
+  }, [routeLine, routeSteps]);
+
+  const doorAlongsM = useMemo(
+    () =>
+      routeIndex
+        ? doorAlongs(
+            routeIndex,
+            sequence.map((door) => ({ lngLat: door.lngLat, position: door.position })),
+            routeSteps,
+          )
+        : [],
+    [routeIndex, sequence, routeSteps],
+  );
 
   // Position: one watch, foreground only, high accuracy.
   useEffect(() => {
@@ -166,6 +209,21 @@ export function GeoProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener(name, onReading);
   }, [compass]);
 
+  // UI-7 C2. Snap each good fix onto the route, on the device. Weak fixes
+  // leave the last place alone. The coordinate is never kept.
+  useEffect(() => {
+    if (!routeIndex || !fix) {
+      previousAlong.current = null;
+      setRoutePlace(null);
+      return;
+    }
+    if (isWeakFix(fix)) return;
+    const seed = previousAlong.current ?? doorAlongsM[cursorIndex.current] ?? null;
+    const alongM = routeScalar(snapToRoute(routeIndex, [fix.lng, fix.lat], seed));
+    if (alongM !== null) previousAlong.current = alongM;
+    setRoutePlace({ alongM, at: fix.at });
+  }, [routeIndex, doorAlongsM, fix]);
+
   const requestCompass = useCallback(() => {
     const ctor = orientationCtor();
     if (!ctor || typeof ctor.requestPermission !== "function") return;
@@ -179,8 +237,8 @@ export function GeoProvider({ children }: { children: ReactNode }) {
   const weak = fix ? isWeakFix(fix) : false;
 
   const value = useMemo<GeoState>(
-    () => ({ status, fix, heading, weak, compass, requestCompass }),
-    [status, fix, heading, weak, compass, requestCompass],
+    () => ({ status, fix, heading, weak, compass, requestCompass, routePlace, doorAlongsM }),
+    [status, fix, heading, weak, compass, requestCompass, routePlace, doorAlongsM],
   );
 
   return <GeoContext.Provider value={value}>{children}</GeoContext.Provider>;

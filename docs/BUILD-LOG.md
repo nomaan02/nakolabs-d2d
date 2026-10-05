@@ -2144,3 +2144,39 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Deviations from brief:** none
 - **Not done / deferred:** The near-you chip (C2). Position sharing, the Sharing pill and the admin live panel (C3). A browser. A phone. Did not commit.
 - **Follow-ups:** UI-7 C2 adds the near-you chip in the mini-map `overlay` slot and the route-position scalar.
+
+---
+
+### UI-7 Session C2 — route snapping on the device and the near-you chip
+- **Date:** 2026-10-05
+- **Model:** Grok 4.7
+- **Built:** On-device route snapping and the Logger "near you" chip. `FieldData` now exposes the frozen route line and its steps. `GeoProvider` snaps each good fix onto that line and keeps only the scalar (`routePlace.alongM`, server metres). Null more than 100 m from the route. The first fix is seeded from the current door. The chip shows the nearest door along the route after 2 agreeing fixes, and hides when that door is already current, or when off route, weak or unrouted. Tap jumps the cursor. The cursor does not move on its own. The label reuses the Survey address.
+- **Owner decisions:**
+  - OWNER — H3 (2026-10-03): continuous GPS while the app is open; a direction arrow on both maps; a "near you" door chip; the route position goes to the partner.
+  - OWNER — H5 (2026-10-03): raw current position to admins, overwritten, no trail, cleared at close, visible indicator, foreground only.
+  - OWNER — U7-1 (2026-10-04): sharing on by default, with a Stop pill.
+  - OWNER — U7-2 (2026-10-04): one send every 30 s (scalar and admin position together), skipped under 10 m, 2-minute heartbeat.
+  - OWNER — U7-3 (2026-10-04): admins see position off the route too.
+  - OWNER — U7-4 (2026-10-04): mini map recentre goes to you (heading-up) when the fix is 30 m or better, else the door.
+  - OWNER — U7-5 (2026-10-04): admin "Live now" panel on `/admin/dashboard` until UI-10.
+- **Claude decisions:**
+  - CLAUDE — Figma page "Logger — clean build" (5:2), section "UI-7 GPS (2026-10-04)". The "you" marker is violet (`#6741d9` light, `#a58bff` dark), never an outcome colour.
+  - CLAUDE — GeoProvider snaps each good fix onto the frozen route line on the device and keeps only the scalar (`routePlace.alongM`, server metres). Null more than 100 m from the route. The coordinate is never kept.
+  - CLAUDE — The first fix is seeded from the current door's place, so the right pass of the street is picked.
+  - CLAUDE — The chip shows the door nearest you along the route after 2 agreeing fixes. It hides when that door is already the current door, or when off route, weak or unrouted. Tap jumps the cursor there. It never moves the cursor on its own.
+  - CLAUDE — The chip label reuses the Survey address (`surveyAddress` / `surveyStreet`), including the `<street> · door N` fallback.
+- **Acceptance:**
+  - EDIT 1 DONE. `components/field/field-data-provider.tsx` exposes `routeLine` and `routeSteps`.
+  - EDIT 2 DONE. `components/field/geo-provider.tsx` adds `routePlace` and `doorAlongsM`, and snaps each good fix on the device.
+  - EDIT 3 DONE. New `components/field/near-you-chip.tsx`, pasted as given.
+  - EDIT 4 DONE. `components/field/logger-tab.tsx` shows the chip on the mini map. `git grep` for `nearIndex` / `nearOverlay` before the paste returned nothing.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on the four session files: **PASS** — exit 0.
+  - `npm run verify:ui7`: **PASS** — exit 0.
+  - `npm run verify:ui1`: **PASS** — exit 0.
+  - `npm run verify:ui6`: **PASS** — exit 0.
+  - `git grep -n "navigator.geolocation"`: **PASS** for call sites. Executable calls are only in `components/field/geo-provider.tsx` line 132 (`clearWatch`) and line 138 (`watchPosition`). Other hits are comments and documents.
+  - Phone: **NOT VERIFIED**. Headless session. No browser.
+- **Deviations from brief:** none
+- **Not done / deferred:** Position sharing, the Sharing pill and the admin live panel (C3). A browser. A phone. The three phone checks. Did not commit.
+- **Follow-ups:** UI-7 C3 sends the scalar and the admin position.

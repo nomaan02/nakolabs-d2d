@@ -12,6 +12,7 @@ import { TurnIcon } from "@/components/field/icons";
 import { HouseNumberSheet, NotesSheet, OtherOutcomeSheet } from "@/components/field/door-sheets";
 import { LeadSheet } from "@/components/field/lead-sheet";
 import { MiniMap } from "@/components/field/mini-map";
+import { NearYouChip, useNearYouIndex } from "@/components/field/near-you-chip";
 import { OutcomeColumn } from "@/components/field/outcome-column";
 import { Sheet } from "@/components/field/sheet";
 import { useSharedDoors } from "@/components/field/shared-knock-notice";
@@ -41,7 +42,7 @@ import {
   type InstructionCard,
 } from "@/lib/field/route-display";
 import { getCurrentStreetLabel, sequenceIsRouteDerived } from "@/lib/field/sequence";
-import { surveyRows } from "@/lib/field/survey-rows";
+import { surveyAddress, surveyRows, surveyStreet } from "@/lib/field/survey-rows";
 import { sharedKnockMessage } from "@/lib/field/shared-knock";
 import { countBookableContacts, countDoorsLogged, countLeads } from "@/lib/field/today-stats";
 import { offerUndo } from "@/lib/field/undo";
@@ -325,6 +326,19 @@ export function LoggerTab() {
     [status, routeDoor, shared, dismissedShared, retryAllFailed],
   );
 
+  // UI-7 C2 (owner H3). Suggests the door nearest the canvasser along the
+  // route; hidden when that is already the current door. Tap = jump.
+  const nearIndex = useNearYouIndex();
+  const nearOverlay = useMemo(() => {
+    if (nearIndex === null || nearIndex === cursor.index) return undefined;
+    const nearDoor = sequence[nearIndex];
+    if (!nearDoor) return undefined;
+    const nearLabel = labelFor(nearDoor.uprn);
+    const nearStreet = surveyStreet(routeProgress.doors[nearIndex]?.routeStreet, nearLabel);
+    const { address } = surveyAddress(nearLabel, nearStreet, nearIndex);
+    return <NearYouChip label={address} onJump={() => cursor.goTo(nearIndex)} />;
+  }, [nearIndex, cursor, sequence, labelFor, routeProgress.doors]);
+
   if (phase.kind !== "ready") return <PhaseNotice phase={phase} />;
 
   const assignment = phase.assignment;
@@ -443,6 +457,7 @@ export function LoggerTab() {
               footprints={footprints}
               currentUprn={door.uprn}
               onOpenMap={handleOpenMap}
+              overlay={nearOverlay}
             />
           </div>
         </div>
