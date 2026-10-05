@@ -58,6 +58,8 @@
   --color-warn-bg: #fdf3e3;
   --color-error-bg: #f8e9ea;
   --color-scrim: #1c2226;
+  /* UI-7 (2026-10-04): "you" / a live position. Never an outcome colour. */
+  --color-you: #6741d9;
 
   --radius-field-sm: 8px;
   --radius-field-md: 12px;
@@ -145,6 +147,7 @@
   --color-outcome-notin: #6d7480; --color-outcome-on-pill: #ffffff;
   --color-warn-bg: #3a2e1c;      --color-error-bg: #3d2326;
   --color-scrim: #000000;
+  --color-you: #a58bff;
 }
 
 :root[data-field-theme="dark"] .field-root [data-theme-island="light"] {

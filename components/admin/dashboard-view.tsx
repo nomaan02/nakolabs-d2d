@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 
 import { AdminNav } from "@/components/admin/admin-nav";
+import { LivePanel } from "@/components/admin/live-panel";
 import { PropCompletionList } from "@/components/admin/prop-completion-list";
 import { ThreeNumbers } from "@/components/admin/three-numbers";
 import { SignOutButton } from "@/components/auth/sign-out-button";
@@ -85,6 +86,10 @@ export function DashboardView({
 
       <main className="flex flex-1 flex-col bg-ink p-3 lg:h-full lg:overflow-y-auto">
         <div className="grid flex-1 gap-3 bg-paper p-4 lg:grid-cols-2 lg:p-6">
+          {/* UI-7 C3c (owner U7-5): until UI-10's Today screen. */}
+          <Panel title="Live now" wide>
+            <LivePanel />
+          </Panel>
           <Panel title="Prop completion — this visit" wide>
             <p className="mb-4 text-[13px] leading-relaxed text-ink-soft">
               Worked, answered and doors remaining for every allocation. Answered

@@ -2,24 +2,24 @@
 
 ## Current state
 
-- Last updated: 2026-10-05 (UI-7 Session C3a). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Migration `027_live_positions.sql` is applied. `live_positions` is one row per canvasser, updated in place, nulled on close, leave and Stop. RLS is select-only: admin reads every row, a canvasser reads only their own. No insert, update or delete policy. Writes go through `report_position`, `stop_sharing_position` and the close/leave triggers.
-- `report_position` writes the partner scalar and the admin row together and returns teammates' scalars. In `lib/supabase/types.ts`, `p_route_position_m`, `p_accuracy_m` and `p_heading_deg` are optional (`?:`). `p_lat` and `p_lon` are required.
-- The rolled-back proof returned `TEST_RESULT visible=1 admin_row=0 not_admin=42501 half=22023 cx_rows=1 scalar=140.0 admin_sees=2 stop_row_null=1 leave_scalar_null=1 leave_row_null=1 close_scalar_null=1 close_row_null=1 total_rows=2`. After it, `select count(*) from public.live_positions` is 0. Assignment `1bd12662-2b3e-4e9d-ac0f-09913906ca4b` is still `work_date` 2026-10-04 and `closed_at` null.
-- No app code. No field sender, no Sharing pill, no admin Live now panel. `lib/field/position-share.ts` does not exist yet.
-- `npx tsc --noEmit` exited 0. eslint on `lib/supabase/types.ts` exited 0.
-- UI-7 C3 Status stays TODO. Result: `C3a done: migration 027 applied, RLS/upsert/stop/leave/close test passed, types regenerated.`
-- Field GPS from C2 is unchanged. `GeoProvider` snaps each good fix onto the frozen route line on the device. `routePlace.alongM` is server metres (`route_steps.cumulative_m`). It is null more than 100 m from the route, before the first good fix, or when the prop is unrouted. A weak fix (worse than 30 m) does not move it. The snapped coordinate is not kept. The first fix is seeded from the current door's place along the route.
-- The Logger mini map shows "Near you · <address> Jump ›" after 2 agreeing fixes. It is hidden when that door is already the current door, or when the canvasser is off route, the fix is weak, or the prop is unrouted. Tap jumps the cursor there. The cursor never moves on its own. The label uses `surveyAddress` / `surveyStreet`, including the `<street> · door N` fallback.
-- `components/field/geo-provider.tsx` is still the one `watchPosition` and the one orientation listener. Executable calls are `clearWatch` at line 132 and `watchPosition` at line 138. Fixes stay in React state. `routePlace` stores only `alongM` and `at`.
+- Last updated: 2026-10-05 (UI-7 Session C3c). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- `/admin/dashboard` now opens with a "Live now" panel. It polls `admin_live_positions()` every 30 s while the tab is visible. No realtime channel. One violet dot per canvasser (first-name initial) and an accuracy ring. List line: name · prop, then "On route · …" / "Off route" / "Last seen", and an "ago" label. Rows older than 10 min fade. Tap a row to centre. Current position only. No trail is drawn.
+- `--color-you` is `#6741d9` in `@theme` and `#a58bff` on the field dark root. Same values as `MAP_UI.light.you` and `MAP_UI.dark.you`. The panel map uses the field light style and `MAP_UI.light`.
+- Field sender, Sharing pill and partner distance are still not built. `lib/field/position-share.ts` does not exist yet.
+- UI-7 C3 Status stays TODO. Result: `C3a done: migration 027 + types. C3c done: admin Live now panel.`
+- Migration `027_live_positions.sql` is applied (C3a). `live_positions` is one row per canvasser, updated in place, nulled on close, leave and Stop. After the C3a proof, `live_positions` count is 0. Assignment `1bd12662-2b3e-4e9d-ac0f-09913906ca4b` is still `work_date` 2026-10-04 and `closed_at` null. This session wrote no database row.
+- `npx tsc --noEmit` exit 0. eslint on `lib/admin/live.ts`, `components/admin/live-panel.tsx` and `components/admin/dashboard-view.tsx` exit 0. `app/globals.css` is ignored by eslint (warning, exit 0). `npm run verify:ui7` exit 0.
+- Executable `navigator.geolocation` calls remain only in `components/field/geo-provider.tsx` line 132 (`clearWatch`) and line 138 (`watchPosition`).
+- `admin_live_positions` in `components` and `lib`: `lib/admin/live.ts` lines 8 and 36, `lib/supabase/types.ts` line 1369. Plain `git grep` misses `lib/admin/live.ts` because that file is untracked. `git grep --untracked` lists those three lines only.
+- Field GPS from C2 is unchanged. `GeoProvider` snaps each good fix onto the frozen route line on the device. `routePlace.alongM` is server metres. It is null more than 100 m from the route, before the first good fix, or when the prop is unrouted. A weak fix (worse than 30 m) does not move it. The snapped coordinate is not kept.
+- The Logger mini map still shows the near-you chip after 2 agreeing fixes. Tap jumps the cursor. The cursor never moves on its own.
 - Both maps still draw the violet "you" marker from C1b. Mini-map recentre is unchanged. Location denied or unavailable still shows "Location off" when the chip is not in the overlay slot.
-- `lib/field/position.ts`: `positionEnabled` stays false and `getRoutePosition()` stays null. This session did not edit that file. No network request was added. `lib/field/geo.ts` was not edited.
-- UI-7 C2 Status is DONE (2026-10-05). Result: `Route snapping on device + near-you chip (2 agreeing fixes, tap to jump).`
-- UI-7 C1 Status stays TODO. Result is `C1a done: geo maths + verify:ui7. C1b done: GeoProvider, you marker, recentre, Location off.`
+- `lib/field/position.ts`: `positionEnabled` stays false and `getRoutePosition()` stays null. `lib/field/geo.ts`, `lib/sync/queue.ts` and `lib/map/route-layers.ts` were not edited.
+- UI-7 C2 Status is DONE (2026-10-05). UI-7 C1 Status stays TODO.
 - UI-6 B2 stays DONE. A3c is not started. Routes are not regenerated (H8). The 20 old open assignments were left as they are (H9). The tenure layer stays deferred until after UI-7 (H10).
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
-- External settings changed since handover: none. No browser. No dev server. Phone checks are not done.
+- External settings: none. No browser. No dev server. Phone checks are not done. Map point count not tested (headless; this layer is one dot per canvasser, not a door layer).
 
 ## Log
 
@@ -1654,3 +1654,33 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. A phone. None for this session (database only).
 - **External settings:** none
 - **Open questions for Claude:** none
+
+### 2026-10-05 — UI-7 Session C3c (uncommitted)
+
+- **Item:** UI-7
+- **What changed:** The admin dashboard now has a "Live now" panel at the top of the grid. It reads today's current positions from `admin_live_positions()` every 30 seconds while the tab is visible, and draws one violet dot per canvasser with an accuracy ring. The list shows name, prop, on-route or off-route or last seen, and how long ago. Nothing older than 10 minutes stays solid. Tapping a row centres the map. No trail. A `--color-you` token was added for the list badge, light and field dark.
+- **Files:**
+  - Changed: `app/globals.css`, `components/admin/dashboard-view.tsx`, `docs/FIELD-TEST-BUILD-PLAN.md` (UI-7 C3 row), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `lib/admin/live.ts`, `components/admin/live-panel.tsx`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none. The panel imports existing `accuracyPxAtZoom22`, `fieldMapStyle`, `ATTRIBUTION_LINES` and `MAP_UI`. Those files were not edited. `lib/sync/queue.ts` was not edited.
+- **Decided by:**
+  - OWNER — H3 (2026-10-03): continuous GPS while the app is open; a direction arrow on both maps; a "near you" door chip; the route position goes to the partner.
+  - OWNER — H5 (2026-10-03): raw current position to admins, overwritten, no trail, cleared at close, visible indicator, foreground only.
+  - OWNER — U7-1 (2026-10-04): sharing on by default, with a Stop pill.
+  - OWNER — U7-2 (2026-10-04): one send every 30 s (scalar and admin position together), skipped under 10 m, 2-minute heartbeat.
+  - OWNER — U7-3 (2026-10-04): admins see position off the route too.
+  - OWNER — U7-4 (2026-10-04): mini map recentre goes to you (heading-up) when the fix is 30 m or better, else the door.
+  - OWNER — U7-5 (2026-10-04): admin "Live now" panel on `/admin/dashboard` until UI-10.
+  - CLAUDE — Figma page "Logger — clean build" (5:2), section "UI-7 GPS (2026-10-04)". The "you" marker is violet (`#6741d9` light, `#a58bff` dark), never an outcome colour.
+  - CLAUDE — A "Live now" panel at the top of `/admin/dashboard`: a MapLibre map (field light style) with one violet dot per canvasser (first-name initial) and an accuracy ring, plus a list: name · prop, "On route · 1.2 km of 1.9 km" / "Off route" / "Last seen", and "30 s ago".
+  - CLAUDE — Polls `admin_live_positions()` every 30 s while the tab is visible. No realtime channel. Rows older than 10 min fade. Tap a row to centre on it.
+  - CLAUDE — Current position only; no trail is drawn because none is stored.
+  - CLAUDE — Adds the `--color-you` token (light + field dark) to `app/globals.css`, used here and by C3b.
+- **Deviations from plan or brief:** none
+- **Invariants:** This session does not call `navigator.geolocation`. It reads the admin RPC only. No coordinate is written to Dexie, localStorage, sessionStorage, the outbox or any other write path. No history table. No trail. No quality scoring in `/field`. No field write. `lib/sync/queue.ts` was not edited. Coverage is still derived. No database row. No `client_event_id`.
+- **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on the three TypeScript files (`app/globals.css` ignored, one warning, exit 0). `npm run verify:ui7` exit 0. `git grep -n "navigator.geolocation"` executable calls only in `components/field/geo-provider.tsx` lines 132 and 138. `git grep -n --untracked "admin_live_positions" -- components lib` lists `lib/admin/live.ts` lines 8 and 36 and `lib/supabase/types.ts` line 1369.
+- **Not verified:** A browser. A phone. The two dashboard checks in the session brief. Map point count and device (headless; this layer is one dot per canvasser).
+- **External settings:** none
+- **Open questions for Claude:** The pasted initial layer uses paint `text-color` `#ffffff`. That matches `MAP_UI.light.youRing`. The map-layer rule says paint colours live in `lib/map/map-palette.ts`. The session said to paste the code exactly, so it was left as given.

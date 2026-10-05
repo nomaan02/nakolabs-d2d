@@ -2214,3 +2214,37 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Deviations from brief:** none
 - **Not done / deferred:** Field sender, Sharing pill and admin Live now panel (C3b, C3c). A browser. A phone. Did not commit.
 - **Follow-ups:** UI-7 C3b sends positions. UI-7 C3c is the admin Live now panel. C3b depends on the optional `report_position` arguments, which the generated types mark optional.
+
+### UI-7 Session C3c — admin Live now panel
+- **Date:** 2026-10-05
+- **Model:** Grok 4.7
+- **Built:** "Live now" is the first panel on `/admin/dashboard`. It polls `admin_live_positions()` every 30 s while the tab is visible and draws one violet dot per canvasser (first-name initial) with an accuracy ring. The list shows name · prop, on route / off route / last seen, and an ago label. Rows older than 10 min fade. Tap centres the map. No trail. `--color-you` added in light (`#6741d9`) and field dark (`#a58bff`).
+- **Owner decisions:**
+  - OWNER — H3 (2026-10-03): continuous GPS while the app is open; a direction arrow on both maps; a "near you" door chip; the route position goes to the partner.
+  - OWNER — H5 (2026-10-03): raw current position to admins, overwritten, no trail, cleared at close, visible indicator, foreground only.
+  - OWNER — U7-1 (2026-10-04): sharing on by default, with a Stop pill.
+  - OWNER — U7-2 (2026-10-04): one send every 30 s (scalar and admin position together), skipped under 10 m, 2-minute heartbeat.
+  - OWNER — U7-3 (2026-10-04): admins see position off the route too.
+  - OWNER — U7-4 (2026-10-04): mini map recentre goes to you (heading-up) when the fix is 30 m or better, else the door.
+  - OWNER — U7-5 (2026-10-04): admin "Live now" panel on `/admin/dashboard` until UI-10.
+- **Claude decisions:**
+  - CLAUDE — Figma page "Logger — clean build" (5:2), section "UI-7 GPS (2026-10-04)". The "you" marker is violet (`#6741d9` light, `#a58bff` dark), never an outcome colour.
+  - CLAUDE — A "Live now" panel at the top of `/admin/dashboard`: MapLibre, field light style, one violet dot per canvasser (first-name initial) and an accuracy ring, plus a list: name · prop, "On route · 1.2 km of 1.9 km" / "Off route" / "Last seen", and "30 s ago".
+  - CLAUDE — Polls `admin_live_positions()` every 30 s while the tab is visible. No realtime channel. Rows older than 10 min fade. Tap a row to centre on it.
+  - CLAUDE — Current position only; no trail is drawn because none is stored.
+  - CLAUDE — Adds the `--color-you` token (light + field dark) to `app/globals.css`, used here and by C3b.
+- **Acceptance:**
+  - EDIT 1 DONE. `--color-you: #6741d9` in `@theme`. `--color-you: #a58bff` on the field dark root. Both find-blocks occurred once.
+  - EDIT 2 DONE. `lib/admin/live.ts` pasted as given.
+  - EDIT 3 DONE. `components/admin/live-panel.tsx` pasted as given.
+  - EDIT 4 DONE. `LivePanel` imported and placed as the first panel, titled "Live now", above "Prop completion — this visit".
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on the three TypeScript files: **PASS** — exit 0. `app/globals.css` ignored (one warning, exit 0).
+  - `npm run verify:ui7`: **PASS** — exit 0. All UI-7 geo checks passed.
+  - `git grep -n "navigator.geolocation"`: **PASS** for call sites. Executable calls are only in `components/field/geo-provider.tsx` line 132 (`clearWatch`) and line 138 (`watchPosition`). Other hits are comments and documents.
+  - `git grep -n "admin_live_positions" -- components lib`: plain git grep lists only `lib/supabase/types.ts:1369` because `lib/admin/live.ts` is untracked. `git grep -n --untracked` lists `lib/admin/live.ts` lines 8 and 36 and `lib/supabase/types.ts` line 1369. No other file under `components` or `lib`.
+  - Phone: **NOT VERIFIED**. Headless session. No browser.
+  - Map point count: **NOT VERIFIED**. No device. This layer is one dot per canvasser, not a 2,000-door layer.
+- **Deviations from brief:** none. The pasted symbol layer uses `text-color` `#ffffff`, which matches `MAP_UI.light.youRing`. Left as given.
+- **Not done / deferred:** Field sender and Sharing pill (C3b). A browser. A phone. Did not commit.
+- **Follow-ups:** UI-7 C3b sends positions. The owner does the dashboard phone check once for the phase.
