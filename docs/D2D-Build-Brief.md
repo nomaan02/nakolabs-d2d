@@ -185,6 +185,18 @@ Seven rules. Every one of them exists because breaking it costs more later.
 
 7. **Position is a scalar, never a coordinate.** Location may be used to place a canvasser on their route. The raw fix is snapped to the route line on the device and discarded there; only the distance along the route is transmitted. No coordinate history is ever stored, and no view renders a movement trail. See Stage 16 and Section 8.
 
+> **Amended 2026-10-04 (UI-7; owner decisions H3, H5, U7-1..U7-5).** The phone now
+> takes continuous fixes while the app is open and visible: a direction arrow and a
+> "near you" chip, both computed on the device. Exactly one request may carry a
+> position, the `report_position` RPC, and it carries two things: the scalar
+> `route_position_m` for the partner (null more than 100 m from the route), and, by
+> owner decision, the raw current position (lat, lon, accuracy, heading) for admins
+> in `live_positions` — one row per canvasser, overwritten on every send, cleared
+> when the visit closes or the canvasser taps Stop. Still banned, no exceptions:
+> any coordinate history, any append-only positions table, any trail on any map,
+> background collection, and any coordinate in IndexedDB, the outbox or any other
+> write path. See the Section 8 and Stage 16 amendments.
+
 ---
 
 ## 4. Prerequisites
@@ -2207,6 +2219,25 @@ This is the least intrusive means of getting the outcome, which is the standard 
 > Stage 8 contains **zero** `navigator.geolocation` calls. The first one in the
 > repo belongs to Stage 16.
 
+> **Amended 2026-10-04 (UI-7, sessions C1a–C3b; owner decisions H3, H5, U7-1..U7-5).**
+>
+> | # | Original requirement | Now |
+> |---|---|---|
+> | 1 | Snapping on device; no raw coordinate in any request | Snapping stays on the device. The ONE exception is `report_position`, which also carries the raw fix for admins while sharing is on. No other request may contain a coordinate. |
+> | 2 | Opt-in per assignment, default off | On by default per assignment (U7-1). Stop is one tap and is remembered for that assignment on that phone. With sharing stopped or location denied, everything works from knock data as before. |
+> | 3 | One fix per 60 s | Continuous `watchPosition` while the page is visible (H3). Sends at most every 30 s, skipped when moved under 10 m, with a 2-minute heartbeat (U7-2). Foreground only: iOS stops GPS when the screen locks. |
+> | 4 | Visible while active | "Sharing" pill in the Logger and Map headers, plus a status-line notice on a prop until the first log. |
+> | 5 | No history | Unchanged. `assignment_members` and `live_positions` are updated in place and never get a second row per canvasser. |
+> | 6 | Cleared at close | Closing the assignment, leaving it, or Stop nulls both. |
+> | 7 | Off route means off | Still true for the scalar (null beyond 100 m). The admin position is sent off route too (U7-3). |
+>
+> Acceptance changes: "no latitude or longitude in any payload" becomes "only in
+> `report_position`, and only while sharing is on". Added: "a canvasser cannot read
+> another canvasser's `live_positions` row". The seam table above is superseded:
+> the live position comes from `components/field/geo-provider.tsx`, the scalar from
+> `lib/field/use-route-position.ts`, and the Logger cursor still never moves on its
+> own (the "near you" chip suggests, the canvasser taps).
+
 ---
 
 ## 7. Build order
@@ -2253,6 +2284,32 @@ This is also why Stage 16 is opt-in per assignment with a working fallback. A fe
 None of this is legal advice. It is the reasoning behind the constraint, and it is worth twenty minutes with a solicitor before anyone proposes relaxing it.
 
 **The line that must not move:** raw coordinates do not leave the device. Everything else in Stage 16 is a parameter. That one is the design.
+
+> **Amended 2026-10-04 (UI-7; owner decisions H5, U7-1, U7-3).** The owner has moved
+> the line above for one purpose: admins see each canvasser's current position on a
+> live panel. Sharing is on by default for every assignment (U7-1), with a
+> persistent "Sharing" pill and a one-tap Stop that changes nothing else about the
+> shift: the Logger, both maps and the route work exactly the same. Admins see the
+> position off the route too (U7-3).
+>
+> What that does to the reasoning above, stated plainly so nobody has to
+> rediscover it:
+>
+> - **Reason 1.** Continuous position monitoring of workers is the kind of
+>   processing the ICO expects a DPIA for. The basis is legitimate interests, not
+>   consent, and that needs a written legitimate interests assessment.
+> - **Reason 2.** On-by-default sharing of a raw position with managers, including
+>   off the route, reads closer to monitoring than to a navigation aid. The Stop
+>   control with no consequence is what keeps it declinable. It must never be
+>   removed, made admin-controlled, or tied to pay, targets, allocation or any
+>   ranking.
+> - **Reason 3.** A buyer inherits this. A licensed build ships sharing OFF by
+>   default behind a per-organisation setting.
+>
+> **To-do before anyone but the owner is shared with:** (1) a DPIA, (2) a
+> legitimate interests assessment, (3) a short notice to canvassers naming the
+> purpose, the recipients (partner, admins) and the retention (current position
+> only, cleared at close), (4) twenty minutes with a solicitor on Reason 2.
 
 ## 9. Parked — and what unblocks each
 

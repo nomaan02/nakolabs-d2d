@@ -1518,4 +1518,10 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **External settings:** none
 - **Open questions for Claude:** none
 
+### 2026-10-04 — UI-7 C0 brief amendment (Claude, uncommitted)
 
+- **Item:** UI-7 C0
+- **What changed:** brief invariant 7 / Section 8 / Stage 16 amended for continuous on-device GPS (H3) and raw current position to admins (H5, U7-1..U7-5). Plan gets U7-1..U7-5. Rules 20 and 30 get the `lib/field/position-share.ts` exception. New skill `geo-position`.
+- **Decided by:** owner (U7-1..U7-5); Claude (violet marker, session split).
+- **Database:** none.
+- **Open:** DPIA, LIA, canvasser notice and a solicitor before anyone but the owner shares a position.

@@ -10,6 +10,7 @@ Used one-handed, standing on a doorstep, often in rain, often with no signal.
 - Minimum 44px tap targets. Primary actions bottom-anchored within thumb reach.
 - NO scoring, ranking, colour-coding or quality signal of any kind. This is architectural — canvassers who can see which doors score well will cherry-pick, and the coverage data stops meaning anything.
 - Every write goes through `lib/sync/queue.ts`. No direct Supabase calls in field components.
+  - Exception (UI-7): the live position RPCs in `lib/field/position-share.ts`. See rule 30-sync and the `geo-position` skill.
 - Every screen must be usable in airplane mode from the cached assignment snapshot.
 - Stale data is shown greyed with its age. Never render a stale value as if it were live.
 - A door's identity is its UPRN. There is no address text, house number or autocomplete.

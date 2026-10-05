@@ -28,6 +28,11 @@
 | H5 | **Admin location.** Raw GPS goes to admins. Current position only, overwritten on every update: no trail, no history. Cleared when the visit closes. A visible "sharing location" indicator. Foreground only. The brief's invariant 7 and Section 8 get a dated amendment (UI-7 C0), plus a "DPIA before anyone else uses it" to-do. |
 | H6 | The owned/rented (tenure) layer is admin only (invariant 2: no scoring in /field). |
 | H7 | Mode B review sheet: gaps of 25+ doors, or a change of street, always ask. Backtracking never fills. |
+| U7-1 | **2026-10-04. Sharing on by default** per assignment. A "Sharing" pill in the Logger and Map headers; tap it to Stop (or share again). No opt-in question. |
+| U7-2 | **2026-10-04. One send every 30 s**, partner scalar and admin position together (`report_position`). Skipped if moved under 10 m; 2-minute heartbeat. Battery: about +1–3 %/hr on top of GPS. |
+| U7-3 | **2026-10-04. Admins see position even off the route.** The partner scalar is still null beyond 100 m. |
+| U7-4 | **2026-10-04. Mini map recentre** goes to your position, heading-up, when the fix is 30 m or better; otherwise to the current door, north-up. |
+| U7-5 | **2026-10-04. Admin live map** is a "Live now" panel at the top of `/admin/dashboard` until UI-10's Today screen exists. |
 
 ## 2. Facts found on 2026-10-03 (SELECT only, by Claude)
 
@@ -90,12 +95,12 @@
 |---|---|---|---|---|---|
 | UI-5 A0 | Load No Cold Calling Zones | DONE | 2026-10-03 | 26 zones, 13,270 properties flagged (Claude, via MCP) | n/a (data) |
 | UI-5 A1 | Eligibility migration 025 + types + ingest hooks | DONE | 2026-10-03 | 025 applied: 424,952 doors, 110,760 multi-unit, 13,270 NCCZ, 303,003 knockable. Logger loads. | 591913d |
-| UI-5 A2 | Field: hide non-knockable doors (logger, maps, counts) | DONE | 2026-10-04 | Logger and map show 53 of 88 on TEST - dry run. First door is snapshot position 1. Offline Not In wrote sequence_position 1, then undo. No new knock. | — |
-| UI-5 A3 | Admin: 3-state dots and counts, completion/coverage views, route regeneration | TODO | 2026-10-04 | A3a done: migration 026 applied (admin counts follow is_knockable). A3b, A3c to come. A3b done: draw page shows flats and No Cold Calling. | — |
+| UI-5 A2 | Field: hide non-knockable doors (logger, maps, counts) | DONE | 2026-10-04 | Logger and map show 53 of 88 on TEST - dry run. First door is snapshot position 1. Offline Not In wrote sequence_position 1, then undo. No new knock. | 3f3604f |
+| UI-5 A3 | Admin: 3-state dots and counts, completion/coverage views, route regeneration | DONE | 2026-10-04 | A3a: migration 026, admin counts follow is_knockable. A3b: draw page shows knockable, flats and No Cold Calling. A3c (route regeneration) dropped: allocation regenerates routes on snapshot_mismatch. | 65a1917, cd111e7 |
 | UI-5 A4 | Admin tenure layer (optional) | TODO | | | — |
-| UI-6 B1 | Mini map: rotate, recentre | DONE | 2026-10-04 | Compact map rotates; recentre returns north-up. tsc, eslint, verify:ui1 and verify:anchors passed. | — |
-| UI-6 B2 | Logger tabs: Logging View / Survey Overview | DONE | 2026-10-04 | B2a done: surveyRows + verify:ui6. B2b done: view pills + Survey Overview. | — |
-| UI-7 C0 | Brief amendment: invariant 7, Section 8, Stage 16 (H3, H5) | TODO | | | — |
+| UI-6 B1 | Mini map: rotate, recentre | DONE | 2026-10-04 | Compact map rotates; recentre returns north-up. tsc, eslint, verify:ui1 and verify:anchors passed. | 025ccd8 |
+| UI-6 B2 | Logger tabs: Logging View / Survey Overview | DONE | 2026-10-04 | B2a done: surveyRows + verify:ui6. B2b done: view pills + Survey Overview. Phone check 10/10 passed. | 38fdba1, c21a652 |
+| UI-7 C0 | Brief amendment: invariant 7, Section 8, Stage 16 (H3, H5) | DONE | 2026-10-04 | Done by Claude directly (docs only): invariant 7, Section 8 (DPIA/LIA/notice/solicitor to-do), Stage 16 table. Owner read-through pending. | — |
 | UI-7 C1 | On-device GPS + direction arrow (both maps) | TODO | | | — |
 | UI-7 C2 | "Near you" door chip | TODO | | | — |
 | UI-7 C3 | Position sharing: partner scalar + admin live map | TODO | | | — |
@@ -275,3 +280,4 @@
 ## 6. Dated notes
 
 - 2026-10-03 (Claude): plan approved by the owner. "UI item 4" is already used in BUILD-LOG (route focus), so this run starts at UI-5.
+- 2026-10-04 (Claude): UI-7 plan approved by the owner (U7-1..U7-5). Sessions: C0 (Claude, docs) · C1a `lib/field/geo.ts` + `verify:ui7` · C1b GPS provider, arrow, recentre, location-off notice · C2 near-you chip + route position hook · C3a migration 027 (`live_positions`, `report_position`, `stop_sharing_position`, `admin_live_positions`, close triggers) · C3c admin "Live now" panel · C3b field sender, Sharing pill, notice, partner distance. Figma: page 5:2, section "UI-7 GPS (2026-10-04)". "You" marker is violet (never an outcome colour).

@@ -16,3 +16,9 @@ globs: ["lib/sync/**", "app/(field)/**"]
 - The queue must survive a browser restart and a mid-flush kill.
 
 If a task seems to need a second sync implementation, stop and re-read the codebase. It does not.
+
+## Exception: live position (UI-7, owner 2026-10-04)
+
+- `report_position` and `stop_sharing_position` are called from `lib/field/position-share.ts` only, NOT through the queue.
+- A position is ephemeral. Replaying an old one later would be wrong, so it is never queued, never written to Dexie or any storage, and is simply dropped when offline or on error.
+- This is the only field write outside `lib/sync/queue.ts`. Do not add a second one.

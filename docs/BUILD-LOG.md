@@ -2057,4 +2057,15 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not done / deferred:** The seven phone checks. A browser. Did not commit.
 - **Follow-ups:** Owner phone check of the pills, the list, tap-to-jump, offline codes, addressless labels and dark mode.
 
-
+### UI-7 Session C0 — brief amendment and tooling (Claude, docs only)
+- **Date:** 2026-10-04
+- **Model:** Claude (Cowork), edited directly with the owner's permission. No Grok session.
+- **Built:**
+  - `docs/D2D-Build-Brief.md`: dated amendments to invariant 7, Section 8 (Reason 1–3 consequences, DPIA / LIA / notice / solicitor to-do) and Stage 16 (requirement table, acceptance changes).
+  - `docs/FIELD-TEST-BUILD-PLAN.md`: owner decisions U7-1..U7-5, tracker C0 row, §6 note with the UI-7 session list.
+  - `.cursor/rules/30-sync.mdc`, `.cursor/rules/20-field-ui.mdc`: the live-position exception (`lib/field/position-share.ts` only, never queued).
+  - `.cursor/skills/geo-position/SKILL.md`: new skill.
+- **Owner decisions:** U7-1 sharing on by default with a Stop pill; U7-2 one send every 30 s (scalar + admin position together); U7-3 admins see position off route; U7-4 recentre to GPS when the fix is 30 m or better, else the door; U7-5 "Live now" panel on `/admin/dashboard` until UI-10.
+- **Claude decisions:** the "you" marker is violet (never an outcome colour); Figma section "UI-7 GPS (2026-10-04)" on page 5:2.
+- **Acceptance:** owner read-through: **NOT VERIFIED** yet.
+- **Not done / deferred:** DPIA, legitimate interests assessment, canvasser notice, solicitor (Section 8 to-do).
