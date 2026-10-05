@@ -2180,3 +2180,37 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Deviations from brief:** none
 - **Not done / deferred:** Position sharing, the Sharing pill and the admin live panel (C3). A browser. A phone. The three phone checks. Did not commit.
 - **Follow-ups:** UI-7 C3 sends the scalar and the admin position.
+
+---
+
+### UI-7 Session C3a — migration 027 live positions
+- **Date:** 2026-10-05
+- **Model:** Grok 4.7
+- **Built:** Migration 027 and regenerated types. `live_positions` is one row per canvasser, updated in place. `report_position` writes the partner scalar and the admin row together and returns teammates' scalars. `stop_sharing_position` nulls both for the caller. `admin_live_positions` is admin-only, today's open visits, first name only. Triggers null both when an assignment closes and when a member leaves. No app code.
+- **Owner decisions:**
+  - OWNER — H3 (2026-10-03): continuous GPS while the app is open; a direction arrow on both maps; a "near you" door chip; the route position goes to the partner.
+  - OWNER — H5 (2026-10-03): raw current position to admins, overwritten, no trail, cleared at close, visible indicator, foreground only.
+  - OWNER — U7-1 (2026-10-04): sharing on by default, with a Stop pill.
+  - OWNER — U7-2 (2026-10-04): one send every 30 s (scalar and admin position together), skipped under 10 m, 2-minute heartbeat.
+  - OWNER — U7-3 (2026-10-04): admins see position off the route too.
+  - OWNER — U7-4 (2026-10-04): mini map recentre goes to you (heading-up) when the fix is 30 m or better, else the door.
+  - OWNER — U7-5 (2026-10-04): admin "Live now" panel on `/admin/dashboard` until UI-10.
+- **Claude decisions:**
+  - CLAUDE — Figma page "Logger — clean build" (5:2), section "UI-7 GPS (2026-10-04)". The "you" marker is violet (`#6741d9` light, `#a58bff` dark), never an outcome colour.
+  - CLAUDE — `live_positions`: one row per canvasser, updated in place, nulled on close / leave / Stop. No insert, update or delete policy. Writes only through security-definer functions. Admin reads all; a canvasser reads only their own row.
+  - CLAUDE — `report_position(p_assignment_id, p_lat, p_lon, p_route_position_m?, p_accuracy_m?, p_heading_deg?)`: today's (London) open visit only; writes the partner scalar and the admin row together and returns the teammates' scalars. Optional arguments default to null so the generated types mark them optional.
+  - CLAUDE — `stop_sharing_position(p_assignment_id)` and `admin_live_positions()` (admin only, today's open visits, first name only).
+  - CLAUDE — Triggers null both when an assignment closes and when a member leaves.
+  - CLAUDE — This session writes only the migration and the regenerated types. No app code.
+- **Acceptance:**
+  - EDIT 1 DONE. `supabase/migrations/027_live_positions.sql` pasted as given. Last migration before it was `026_eligibility_admin_counts.sql`.
+  - EDIT 2 DONE. `apply_migration` name `027_live_positions` returned success. `to_regclass` is `live_positions`. Policies `live_positions_select_admin`, `live_positions_select_own`. Privileges `anon_report=false`, `auth_report=true`, `anon_admin=false`. Both triggers present.
+  - EDIT 3 DONE. Rolled-back proof message is exactly `TEST_RESULT visible=1 admin_row=0 not_admin=42501 half=22023 cx_rows=1 scalar=140.0 admin_sees=2 stop_row_null=1 leave_scalar_null=1 leave_row_null=1 close_scalar_null=1 close_row_null=1 total_rows=2`. After it, `live_positions` count is 0. Assignment `1bd12662-2b3e-4e9d-ac0f-09913906ca4b` is still `work_date` 2026-10-04, `closed_at` null.
+  - EDIT 4 DONE. `lib/supabase/types.ts` replaced with `generate_typescript_types` output. `report_position` Args mark `p_route_position_m`, `p_accuracy_m` and `p_heading_deg` optional.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on `lib/supabase/types.ts`: **PASS** — exit 0.
+  - `git grep -n "navigator.geolocation"`: **PASS** for call sites. Executable calls are only in `components/field/geo-provider.tsx` line 132 (`clearWatch`) and line 138 (`watchPosition`). Other hits are comments and documents.
+  - Phone: **NOT VERIFIED**. Headless session. No browser. None for this session (database only).
+- **Deviations from brief:** none
+- **Not done / deferred:** Field sender, Sharing pill and admin Live now panel (C3b, C3c). A browser. A phone. Did not commit.
+- **Follow-ups:** UI-7 C3b sends positions. UI-7 C3c is the admin Live now panel. C3b depends on the optional `report_position` arguments, which the generated types mark optional.

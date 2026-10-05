@@ -2,14 +2,18 @@
 
 ## Current state
 
-- Last updated: 2026-10-05 (UI-7 Session C2). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- `GeoProvider` snaps each good fix onto the frozen route line on the device. `routePlace.alongM` is server metres (`route_steps.cumulative_m`). It is null more than 100 m from the route, before the first good fix, or when the prop is unrouted. A weak fix (worse than 30 m) does not move it. The snapped coordinate is not kept. The first fix is seeded from the current door's place along the route.
+- Last updated: 2026-10-05 (UI-7 Session C3a). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Migration `027_live_positions.sql` is applied. `live_positions` is one row per canvasser, updated in place, nulled on close, leave and Stop. RLS is select-only: admin reads every row, a canvasser reads only their own. No insert, update or delete policy. Writes go through `report_position`, `stop_sharing_position` and the close/leave triggers.
+- `report_position` writes the partner scalar and the admin row together and returns teammates' scalars. In `lib/supabase/types.ts`, `p_route_position_m`, `p_accuracy_m` and `p_heading_deg` are optional (`?:`). `p_lat` and `p_lon` are required.
+- The rolled-back proof returned `TEST_RESULT visible=1 admin_row=0 not_admin=42501 half=22023 cx_rows=1 scalar=140.0 admin_sees=2 stop_row_null=1 leave_scalar_null=1 leave_row_null=1 close_scalar_null=1 close_row_null=1 total_rows=2`. After it, `select count(*) from public.live_positions` is 0. Assignment `1bd12662-2b3e-4e9d-ac0f-09913906ca4b` is still `work_date` 2026-10-04 and `closed_at` null.
+- No app code. No field sender, no Sharing pill, no admin Live now panel. `lib/field/position-share.ts` does not exist yet.
+- `npx tsc --noEmit` exited 0. eslint on `lib/supabase/types.ts` exited 0.
+- UI-7 C3 Status stays TODO. Result: `C3a done: migration 027 applied, RLS/upsert/stop/leave/close test passed, types regenerated.`
+- Field GPS from C2 is unchanged. `GeoProvider` snaps each good fix onto the frozen route line on the device. `routePlace.alongM` is server metres (`route_steps.cumulative_m`). It is null more than 100 m from the route, before the first good fix, or when the prop is unrouted. A weak fix (worse than 30 m) does not move it. The snapped coordinate is not kept. The first fix is seeded from the current door's place along the route.
 - The Logger mini map shows "Near you · <address> Jump ›" after 2 agreeing fixes. It is hidden when that door is already the current door, or when the canvasser is off route, the fix is weak, or the prop is unrouted. Tap jumps the cursor there. The cursor never moves on its own. The label uses `surveyAddress` / `surveyStreet`, including the `<street> · door N` fallback.
 - `components/field/geo-provider.tsx` is still the one `watchPosition` and the one orientation listener. Executable calls are `clearWatch` at line 132 and `watchPosition` at line 138. Fixes stay in React state. `routePlace` stores only `alongM` and `at`.
 - Both maps still draw the violet "you" marker from C1b. Mini-map recentre is unchanged. Location denied or unavailable still shows "Location off" when the chip is not in the overlay slot.
 - `lib/field/position.ts`: `positionEnabled` stays false and `getRoutePosition()` stays null. This session did not edit that file. No network request was added. `lib/field/geo.ts` was not edited.
-- `npx tsc --noEmit` exited 0. eslint on the four session files exited 0. `npm run verify:ui7`, `npm run verify:ui1` and `npm run verify:ui6` exited 0.
-- No migration. No database row. No `client_event_id`.
 - UI-7 C2 Status is DONE (2026-10-05). Result: `Route snapping on device + near-you chip (2 agreeing fixes, tap to jump).`
 - UI-7 C1 Status stays TODO. Result is `C1a done: geo maths + verify:ui7. C1b done: GeoProvider, you marker, recentre, Location off.`
 - UI-6 B2 stays DONE. A3c is not started. Routes are not regenerated (H8). The 20 old open assignments were left as they are (H9). The tenure layer stays deferred until after UI-7 (H10).
@@ -1617,5 +1621,36 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Invariants:** The one `navigator.geolocation` call remains in `components/field/geo-provider.tsx` (`clearWatch` line 132, `watchPosition` line 138). The snap stores `alongM` and `at` only. Coordinates stay in the existing React fix state from C1b. They are not written to Dexie, localStorage, sessionStorage, the outbox or a network request. No quality scoring in `/field`. No field write. `lib/sync/queue.ts` was not edited. Coverage is still derived. No database row. No `client_event_id`.
 - **Verified:** `npx tsc --noEmit` exit 0. eslint on `components/field/field-data-provider.tsx`, `components/field/geo-provider.tsx`, `components/field/near-you-chip.tsx` and `components/field/logger-tab.tsx` exit 0. `npm run verify:ui7` exit 0. `npm run verify:ui1` exit 0. `npm run verify:ui6` exit 0. `git grep -n "nearIndex\|nearOverlay" components/field/logger-tab.tsx` before EDIT 4 returned nothing. `git grep -n "navigator.geolocation"` executable calls are only in `components/field/geo-provider.tsx`.
 - **Not verified:** A browser. A phone. Walking past 3 doors (chip moves, no flicker). Tap-to-jump and no chip at the current door. Walking 150 m off the route (chip disappears). Sun, wet thumb, one-handed use.
+- **External settings:** none
+- **Open questions for Claude:** none
+
+### 2026-10-05 — UI-7 Session C3a (uncommitted)
+
+- **Item:** UI-7
+- **What changed:** The database now holds one current position per canvasser. `report_position` is the only way a position is written: it updates the partner's distance along the route and the admin row together, then returns the teammates' distances. Stop, leaving the visit, and closing the visit clear both. Admins can read today's open positions by first name. Types were regenerated. No app code.
+- **Files:**
+  - Changed: `lib/supabase/types.ts`, `docs/FIELD-TEST-BUILD-PLAN.md` (UI-7 C3 row), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `supabase/migrations/027_live_positions.sql`
+  - Deleted: none
+- **Database:** 027 `027_live_positions.sql`. New table `live_positions` (one row per canvasser). Functions `report_position`, `stop_sharing_position`, `admin_live_positions`, `clear_positions_on_close`, `clear_position_on_leave`. Triggers `assignments_clear_positions_on_close` and `assignment_members_clear_position_on_leave`. RLS select policies only. No change to existing table columns. No change to `knock_events`.
+- **Shared modules touched:** `lib/supabase/types.ts` regenerated from the live schema after 027. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/field/*` were not edited.
+- **Decided by:**
+  - OWNER — H3 (2026-10-03): continuous GPS while the app is open; a direction arrow on both maps; a "near you" door chip; the route position goes to the partner.
+  - OWNER — H5 (2026-10-03): raw current position to admins, overwritten, no trail, cleared at close, visible indicator, foreground only.
+  - OWNER — U7-1 (2026-10-04): sharing on by default, with a Stop pill.
+  - OWNER — U7-2 (2026-10-04): one send every 30 s (scalar and admin position together), skipped under 10 m, 2-minute heartbeat.
+  - OWNER — U7-3 (2026-10-04): admins see position off the route too.
+  - OWNER — U7-4 (2026-10-04): mini map recentre goes to you (heading-up) when the fix is 30 m or better, else the door.
+  - OWNER — U7-5 (2026-10-04): admin "Live now" panel on `/admin/dashboard` until UI-10.
+  - CLAUDE — Figma page "Logger — clean build" (5:2), section "UI-7 GPS (2026-10-04)". The "you" marker is violet (`#6741d9` light, `#a58bff` dark), never an outcome colour.
+  - CLAUDE — `live_positions`: one row per canvasser, updated in place, nulled on close / leave / Stop. No insert, update or delete policy. Writes only through security-definer functions. Admin reads all; a canvasser reads only their own row.
+  - CLAUDE — `report_position(p_assignment_id, p_lat, p_lon, p_route_position_m?, p_accuracy_m?, p_heading_deg?)`: today's (London) open visit only; writes the partner scalar and the admin row together and returns the teammates' scalars. Optional arguments default to null so the generated types mark them optional.
+  - CLAUDE — `stop_sharing_position(p_assignment_id)` and `admin_live_positions()` (admin only, today's open visits, first name only).
+  - CLAUDE — Triggers null both when an assignment closes and when a member leaves.
+  - CLAUDE — This session writes only the migration and the regenerated types. No app code.
+- **Deviations from plan or brief:** none
+- **Invariants:** Raw coordinates are stored only in `live_positions`, one current row per canvasser, as the 2026-10-04 amendment to invariant 7 allows. No history table. No trail. No coordinate in the outbox or Dexie. No quality scoring in `/field`. No field write. `lib/sync/queue.ts` was not edited. Coverage is still derived. The proof transaction rolled back. No kept database row. No `client_event_id`.
+- **Verified:** `apply_migration` success. `to_regclass('public.live_positions')` = `live_positions`. Policies `live_positions_select_admin`, `live_positions_select_own`. `has_function_privilege` anon report false, authenticated report true, anon admin_live_positions false. Triggers `assignment_members_clear_position_on_leave` and `assignments_clear_positions_on_close`. Proof error `P0001: TEST_RESULT visible=1 admin_row=0 not_admin=42501 half=22023 cx_rows=1 scalar=140.0 admin_sees=2 stop_row_null=1 leave_scalar_null=1 leave_row_null=1 close_scalar_null=1 close_row_null=1 total_rows=2`. After the proof, `count(*)` from `live_positions` is 0. Assignment `1bd12662-2b3e-4e9d-ac0f-09913906ca4b` before and after: `work_date` 2026-10-04, `closed_at` null. `git grep` in `lib/supabase/types.ts`: `live_positions` line 464, `admin_live_positions` line 1369, `report_position` line 1634, `stop_sharing_position` line 2246. Optional args `p_accuracy_m?`, `p_heading_deg?`, `p_route_position_m?`. `npx tsc --noEmit` exit 0. eslint on `lib/supabase/types.ts` exit 0. Executable `navigator.geolocation` calls remain only in `components/field/geo-provider.tsx` lines 132 and 138.
+- **Not verified:** A browser. A phone. None for this session (database only).
 - **External settings:** none
 - **Open questions for Claude:** none

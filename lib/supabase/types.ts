@@ -461,6 +461,58 @@ export type Database = {
           },
         ]
       }
+      live_positions: {
+        Row: {
+          accuracy_m: number | null
+          assignment_id: string | null
+          canvasser_id: string
+          heading_deg: number | null
+          lat: number | null
+          lon: number | null
+          reported_at: string | null
+        }
+        Insert: {
+          accuracy_m?: number | null
+          assignment_id?: string | null
+          canvasser_id: string
+          heading_deg?: number | null
+          lat?: number | null
+          lon?: number | null
+          reported_at?: string | null
+        }
+        Update: {
+          accuracy_m?: number | null
+          assignment_id?: string | null
+          canvasser_id?: string
+          heading_deg?: number | null
+          lat?: number | null
+          lon?: number | null
+          reported_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_positions_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "live_positions_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "v_prop_completion"
+            referencedColumns: ["assignment_id"]
+          },
+          {
+            foreignKeyName: "live_positions_canvasser_id_fkey"
+            columns: ["canvasser_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       nccz_zones: {
         Row: {
           created_at: string
@@ -1314,6 +1366,22 @@ export type Database = {
         }[]
       }
       admin_dashboard: { Args: { p_stale_weeks?: number }; Returns: Json }
+      admin_live_positions: {
+        Args: never
+        Returns: {
+          accuracy_m: number
+          assignment_id: string
+          canvasser_id: string
+          first_name: string
+          heading_deg: number
+          lat: number
+          lon: number
+          reported_at: string
+          route_length_m: number
+          route_position_m: number
+          territory_name: string
+        }[]
+      }
       allocate_prop: {
         Args: {
           canvasser_ids: string[]
@@ -1563,6 +1631,21 @@ export type Database = {
         Returns: number
       }
       refresh_door_eligibility: { Args: never; Returns: Json }
+      report_position: {
+        Args: {
+          p_accuracy_m?: number
+          p_assignment_id: string
+          p_heading_deg?: number
+          p_lat: number
+          p_lon: number
+          p_route_position_m?: number
+        }
+        Returns: {
+          canvasser_id: string
+          route_position_at: string
+          route_position_m: number
+        }[]
+      }
       route_clipped_subgraph: {
         Args: { p_assignment_id: string }
         Returns: Json
@@ -2159,6 +2242,10 @@ export type Database = {
       st_wrapx: {
         Args: { geom: unknown; move: number; wrap: number }
         Returns: unknown
+      }
+      stop_sharing_position: {
+        Args: { p_assignment_id: string }
+        Returns: undefined
       }
       territory_routes_save: {
         Args: { p_territory_id: string; p_variants: Json }

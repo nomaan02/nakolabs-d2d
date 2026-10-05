@@ -103,7 +103,7 @@
 | UI-7 C0 | Brief amendment: invariant 7, Section 8, Stage 16 (H3, H5) | DONE | 2026-10-04 | Done by Claude directly (docs only): invariant 7, Section 8 (DPIA/LIA/notice/solicitor to-do), Stage 16 table. Owner read-through pending. | — |
 | UI-7 C1 | On-device GPS + direction arrow (both maps) | TODO | 2026-10-05 | C1a done: geo maths + verify:ui7. C1b done: GeoProvider, you marker, recentre, Location off. | — |
 | UI-7 C2 | "Near you" door chip | DONE | 2026-10-05 | Route snapping on device + near-you chip (2 agreeing fixes, tap to jump). | — |
-| UI-7 C3 | Position sharing: partner scalar + admin live map | TODO | | | — |
+| UI-7 C3 | Position sharing: partner scalar + admin live map | TODO | 2026-10-05 | C3a done: migration 027 applied, RLS/upsert/stop/leave/close test passed, types regenerated. | — |
 | UI-8 D1 | `knock_events.origin` + logging-mode setting | TODO | | | — |
 | UI-8 D2 | Mode B inference + review sheet | TODO | | | — |
 | UI-9 E1 | Route door-list editor + server validation | TODO | | | — |
