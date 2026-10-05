@@ -28,7 +28,6 @@ Finish with the BUILD-LOG and CLAUDE-HANDOFF entries the prompt names. Owner dec
 
 - Offline tests: use CDP Network.emulateNetworkConditions { offline: true } and confirm a fetch FAILS before logging. Undo every test log immediately, before any screenshot. Then confirm, with a read-only select, that no knock_events row was written for the test canvasser in the session window.
 
-Finish by writing your full report to .handoff/reports/<session-id>.md." Then you just tell me "review UI-5 A2
 
 ## Headless runner sessions (owner decisions T1-T4, 2026-10-04)
 

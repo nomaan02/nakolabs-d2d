@@ -132,8 +132,26 @@ commit that on `main`, then run again.
 ## Troubleshooting
 
 - No phone pings: check `$env:D2D_NTFY` in a NEW PowerShell window.
-- Supabase tools fail in a migration session: run `agent mcp list`, then
-  `agent mcp login <name>` for the Supabase server.
+- Supabase tools fail: run `agent mcp list`. `supabase-d2d` must be listed
+  and ready. Check `$env:SUPABASE_ACCESS_TOKEN` in a NEW PowerShell window.
+
+## Supabase MCP for headless sessions
+
+- Headless Grok cannot do the MCP OAuth login, so `.cursor/mcp.json` defines
+  `supabase-d2d` with a personal access token instead.
+- It is locked to project `xerxsaptwpvhkkpyvkfi` and to the database,
+  development, docs and debugging tools.
+- The runner sets `D2D_MCP_READONLY` per session: `true` for `gate: auto`
+  (SELECT only, enforced by Supabase), `false` for `gate: human`.
+- One-time setup (owner):
+  1. Create a token at https://supabase.com/dashboard/account/tokens
+  2. `[Environment]::SetEnvironmentVariable('SUPABASE_ACCESS_TOKEN', '<token>', 'User')`
+  3. `[Environment]::SetEnvironmentVariable('D2D_MCP_READONLY', 'true', 'User')`
+     (the IDE default; the runner overrides it)
+  4. Open a NEW PowerShell window, then `agent mcp list`.
+- The log scan FAILS a session that reads stored credentials or tokens, and
+  a `gate: auto` session that reaches the database around the MCP
+  (Management API, Supabase CLI, psql).
 - Shell commands fail with permission or network errors: add
   `-AgentArgs '--sandbox','disabled'`.
 - A session keeps timing out: split the prompt, or raise `-TimeoutMinutes`.

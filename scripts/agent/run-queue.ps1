@@ -100,6 +100,7 @@ $queue = @(Get-ChildItem -LiteralPath $Dir.queue -Filter '*.md' -File | Sort-Obj
 if ($queue.Count -eq 0) { $issues += 'Queue is empty: put prompts in .handoff/queue/ named NN-<session-id>.md' }
 
 if (-not $env:D2D_NTFY) { $warnings += 'D2D_NTFY is not set, so there will be no phone pings.' }
+if (-not $env:SUPABASE_ACCESS_TOKEN) { $warnings += 'SUPABASE_ACCESS_TOKEN is not set, so Grok has no Supabase MCP (see README).' }
 
 $branch = 'run/' + $Batch
 Write-Host ''
@@ -155,6 +156,7 @@ foreach ($file in $queue) {
   Write-Host ('    gate: ' + $block.Gate + '   edits: ' + ($edits -join ',') + '   db-writes: ' + $block.DbWrites)
   Write-Host ('    allow: ' + ($block.Allow -join ' | '))
   Write-Host ('    checks: ' + ($block.Checks -join ' | '))
+  Write-Host ('    supabase mcp: ' + $(if ($block.Gate -eq 'human') { 'read-write' } else { 'read-only' }))
 
   $rel = '.handoff/queue/' + $file.Name
   $reportRel = '.handoff/reports/' + $id + '.md'
@@ -180,6 +182,8 @@ foreach ($file in $queue) {
   if (Test-Path -LiteralPath $reportPath) { Remove-Item -LiteralPath $reportPath -Force }
   $logPath = Join-Path $Dir.logs ($id + '.jsonl')
 
+  # The Supabase MCP in .cursor/mcp.json reads this: read-only unless the session is gate: human.
+  if ($block.Gate -eq 'human') { $env:D2D_MCP_READONLY = 'false' } else { $env:D2D_MCP_READONLY = 'true' }
   Write-Host ('    Grok started ' + (Get-Date -Format 'HH:mm'))
   $run = Invoke-Cmd -CommandLine $commandLine -OutFile $logPath -TimeoutSec ($TimeoutMinutes * 60) -Heartbeat
   if ($run.TimedOut) { $problems += ('timed out after ' + $TimeoutMinutes + ' min') }
