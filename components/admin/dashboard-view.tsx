@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 
-import { AdminNav } from "@/components/admin/admin-nav";
+import { AdminMenuButton } from "@/components/admin/shell/admin-shell";
 import { LivePanel } from "@/components/admin/live-panel";
 import { PropCompletionList } from "@/components/admin/prop-completion-list";
 import { ThreeNumbers } from "@/components/admin/three-numbers";
@@ -65,7 +65,7 @@ export function DashboardView({
             </p>
           </header>
 
-          <AdminNav current="dashboard" />
+          <AdminMenuButton />
 
           <ThreeNumbers
             worked={totals.worked}

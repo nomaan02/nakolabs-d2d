@@ -13,6 +13,8 @@ import {
   parseRailState,
   type AdminNavItem,
 } from "../lib/admin/nav";
+import { ADMIN_THEME_BOOT_SCRIPT } from "../lib/admin/theme-boot";
+import { THEME_BOOT_SCRIPT } from "../lib/field/theme";
 
 let failures = 0;
 function check(name: string, ok: boolean, detail = ""): void {
@@ -82,6 +84,10 @@ check("initial of nothing", initialOf(null) === "?" && initialOf("   ") === "?")
 check("old pages stay light in F1", !isDarkReady("/admin/dashboard") && !isDarkReady("/admin"));
 check("a ready path and its children go dark", isDarkReady("/admin/today/add", ["/admin/today"]));
 check("a ready path does not leak to siblings", !isDarkReady("/admin/todays", ["/admin/today"]));
+
+// --- F1c: shared theme (A51) ---
+check("admin theme boot script matches the field one", ADMIN_THEME_BOOT_SCRIPT === THEME_BOOT_SCRIPT);
+check("theme boot reads the shared d2d.theme key", ADMIN_THEME_BOOT_SCRIPT.includes('"d2d.theme"'));
 
 console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILED`);
 process.exit(failures === 0 ? 0 : 1);

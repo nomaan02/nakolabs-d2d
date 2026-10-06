@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { AllocationManage, type AllocationMember } from "@/components/admin/allocation-manage";
-import { AdminNav } from "@/components/admin/admin-nav";
+import { AdminMenuButton } from "@/components/admin/shell/admin-shell";
 import { FrozenRouteMap } from "@/components/admin/frozen-route-map";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { defaultVariantKey } from "@/lib/geo/walk/freeze";
@@ -302,7 +302,7 @@ export function AllocateForm({
             </h1>
           </header>
 
-          <AdminNav current="allocate" />
+          <AdminMenuButton />
 
           {props.length === 0 ? (
             <p className="text-[14px] leading-relaxed text-ink-soft">

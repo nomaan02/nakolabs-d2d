@@ -2,18 +2,18 @@
 
 ## Current state
 
-- Last updated: 2026-10-06 (UI-10 Session F1b). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Admin tokens live in `app/globals.css`: `text-admin-*`, `--color-warn-ink` (`#8a4e08`, dark `#f1b968`), `shadow-admin-float`, `shadow-admin-sheet`, `rounded-admin-sheet` (20px), `animate-admin-sheet-in`, `animate-admin-drawer-in`, `animate-admin-fade-in`. Dark selector covers `.field-root` and `.admin-root` unless `data-admin-dark="off"`. `.admin-root` maps display, body and data to Sora. Field token values are unchanged.
-- Admin icons are appended in `components/field/icons.tsx` after `LocateIcon`. The kit is `components/admin/ui/` (11 files). Nothing imports the kit yet. F1c builds the shell.
-- `lib/admin/nav.ts` is unchanged from F1a. `DARK_READY_PATHS` is still empty. Old pages stay light.
-- UI-10 F1b tracker Status is DONE. Date 2026-10-06. Result: `admin tokens + icons + components/admin/ui kit.` Commit column still `—`.
-- `npx tsc --noEmit` exit 0. eslint on `components/field/icons.tsx` and `components/admin/ui` exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`).
-- `lib/sync/queue.ts` was not edited. Writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited.
+- Last updated: 2026-10-06 (UI-10 Session F1c). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Every `/admin` page sits in `AdminShell` (`app/(admin)/layout.tsx`): desktop rail (lg and up, 240 expanded or 64 collapsed, key `d2d.admin.rail`), phone drawer from the left (~85% wide), Sora via `--font-sora` on `.admin-root`, shared theme (`FieldThemeSync` plus `lib/admin/theme-boot.ts`, key `d2d.theme`).
+- The shell sets `data-admin-dark="off"` unless the route is in `DARK_READY_PATHS`. That list is still empty, so the five old pages stay light.
+- `components/admin/admin-nav.tsx` is deleted. The five old pages (`allocate-form`, `coverage-view`, `dashboard-view`, `prop-drawer`, `rotation-settings`) now render `<AdminMenuButton />` in its place. Nothing else on those pages changed.
+- UI-10 F1c tracker Status is DONE. Date 2026-10-06. Result: `admin layout + shell (drawer, rail, menu button); AdminNav removed.` Commit column still `—`.
+- `npx tsc --noEmit` exit 0. eslint on the F1c files exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`), including the two shared-theme checks. `git grep -n "components/admin/admin-nav"` and `git grep -n "admin-nav"` both returned no lines.
+- `lib/sync/queue.ts` was not edited. Writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. `lib/admin/nav.ts` was not edited.
 - No database change. No database row. No `client_event_id`.
-- UI-8 is unchanged. UI-7 is unchanged. Drawer, rail and theme boot are F1c, not this session.
+- UI-8 is unchanged. UI-7 is unchanged. F1a and F1b are unchanged apart from the two lines added to `scripts/verify-ui-10-admin.ts`.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
-- External settings: none. No browser. No dev server. Phone checks for this session are NOT VERIFIED.
+- External settings: none. No browser. No dev server. Phone checks for this session are NOT VERIFIED. The owner does them once for the whole F1 phase.
 
 ## Log
 
@@ -1907,5 +1907,34 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. `lib/sync/queue.ts` was not edited. Coverage is still derived. No database row. No `client_event_id`.
 - **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on `components/field/icons.tsx` and `components/admin/ui`. `npm run verify:ui10` exit 0 (`ALL PASS`).
 - **Not verified:** A browser. A phone. None for this session (the owner checks F1 as a whole after F1c).
+- **External settings:** none
+- **Open questions for Claude:** none
+
+### 2026-10-06 — UI-10 Session F1c (uncommitted)
+
+- **Item:** UI-10
+- **What changed:** Every admin page now sits in a shell: a left rail on desktop, a left drawer on a phone, Sora, and the same Light / Dark / System choice as the field app. The old mono-caps nav is gone. The five existing admin pages keep their look and show a menu button where that nav was. They stay light until a later phase rebuilds them.
+- **Files:**
+  - Changed: `components/admin/allocate-form.tsx`, `components/admin/coverage-view.tsx`, `components/admin/dashboard-view.tsx`, `components/admin/prop-drawer.tsx`, `components/admin/rotation-settings.tsx` (import and `<AdminNav>` only), `scripts/verify-ui-10-admin.ts` (two shared-theme checks), `docs/FIELD-TEST-BUILD-PLAN.md` (UI-10 F1c Status DONE and Result), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `lib/admin/theme-boot.ts`, `components/admin/shell/nav-list.tsx`, `components/admin/shell/nav-drawer.tsx`, `components/admin/shell/nav-rail.tsx`, `components/admin/shell/admin-shell.tsx`, `app/(admin)/layout.tsx`
+  - Deleted: `components/admin/admin-nav.tsx`
+- **Database:** none
+- **Shared modules touched:** none. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. `lib/admin/nav.ts` was not edited. The layout imports `FieldThemeSync` and `getOwnProfile`; it does not change them.
+- **Decided by:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved. Figma page 40:289, phone 01–38, desktop D1–D3.
+  - OWNER — A3: admin extends the field system: Sora, d2d tokens, Map style v1. Bricolage, Instrument and Martian Mono go.
+  - OWNER — A14–A16: phone nav is an overlay drawer from the left (about 85% wide, scrim, closes on pick, swipe left to close, no edge-swipe to open), opened from a top-left button in each page header. Desktop is a left rail, expanded 240 or collapsed 64, remembered.
+  - OWNER — A28: dark mode now, same as the field app. A51: admin and field share one Light / Dark / System choice per device (`d2d.theme`).
+  - OWNER — A50: old routes keep working until their replacement lands, then redirect. Deleted in F6.
+  - CLAUDE — Figma frame 02 (drawer, 89:690), D1 (expanded rail, 100:1710), D2/D3 (collapsed rail).
+  - CLAUDE — `AdminShell` wraps every /admin page: rail on lg and up, drawer below lg, Sora via `--font-sora` on `.admin-root`, the shared theme (`FieldThemeSync` plus a pre-paint script). Pages own their header and put `<AdminMenuButton />` top-left (hidden on desktop).
+  - CLAUDE — The pre-paint script lives in plain `lib/admin/theme-boot.ts`. `lib/field/theme.ts` is "use client", and a server layout must not read values out of a client module. `verify:ui10` checks the two strings are identical.
+  - CLAUDE — The shell sets `data-admin-dark="off"` unless the route is in `DARK_READY_PATHS` (empty in F1), so the old pages stay light.
+  - CLAUDE — The five old pages lose `AdminNav` and get `<AdminMenuButton />` in its place. Nothing else on them changes in F1.
+  - CLAUDE — Drawer: scrim, close button, Escape, left swipe (60px) and picking an item close it. Focus is trapped and restored. No edge-swipe to open.
+- **Deviations from plan or brief:** none. The given code was pasted exactly.
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. `lib/sync/queue.ts` was not edited. Coverage is still derived. No database row. No `client_event_id`.
+- **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on `lib/admin/theme-boot.ts`, `components/admin/shell`, `app/(admin)/layout.tsx`, the five old admin components, and `scripts/verify-ui-10-admin.ts`. `npm run verify:ui10` exit 0 (`ALL PASS`), including "admin theme boot script matches the field one" and "theme boot reads the shared d2d.theme key". `git grep -n "components/admin/admin-nav"` empty. `git grep -n "admin-nav"` empty.
+- **Not verified:** A browser. A phone. The nine phone checks in the F1c brief (drawer, rail memory, Sora, old pages stay light, keyboard focus, 375 and 430, sign out). The owner does them once for the whole F1 phase.
 - **External settings:** none
 - **Open questions for Claude:** none

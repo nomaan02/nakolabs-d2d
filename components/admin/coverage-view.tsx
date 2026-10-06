@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 
-import { AdminNav } from "@/components/admin/admin-nav";
+import { AdminMenuButton } from "@/components/admin/shell/admin-shell";
 import { CoverageMap, padDoors } from "@/components/admin/coverage-map";
 import { ThreeNumbers } from "@/components/admin/three-numbers";
 import { SignOutButton } from "@/components/auth/sign-out-button";
@@ -58,7 +58,7 @@ export function CoverageView({
             </p>
           </header>
 
-          <AdminNav current="coverage" />
+          <AdminMenuButton />
 
           <ThreeNumbers
             worked={totals.worked}

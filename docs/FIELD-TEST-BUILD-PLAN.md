@@ -115,7 +115,7 @@
 | UI-9 E2 | Manual route tracing (snapped to roads) | TODO | | | — |
 | UI-10 F1a | Admin nav logic + `verify:ui10` | DONE | 2026-10-06 | lib/admin/nav.ts + verify:ui10; seed-demo prefer-const. | — |
 | UI-10 F1b | Admin tokens, icons, UI kit | DONE | 2026-10-06 | admin tokens + icons + components/admin/ui kit. | — |
-| UI-10 F1c | Admin shell: layout, drawer, rail; old nav removed | TODO | | | — |
+| UI-10 F1c | Admin shell: layout, drawer, rail; old nav removed | DONE | 2026-10-06 | admin layout + shell (drawer, rail, menu button); AdminNav removed. | — |
 | UI-10 F2 | Props + Draw (F2a–F2f; F2f migration 029, human) | TODO | | | — |
 | UI-10 F3 | Today + allocations (F3a–F3d; F3d migration 030, human) | TODO | | | — |
 | UI-10 F4 | Calendar + Coverage (F4a–F4d; F4d migration 031, human) | TODO | | | — |

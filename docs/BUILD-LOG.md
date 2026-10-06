@@ -2517,3 +2517,44 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Deviations from brief:** none. The given code was pasted exactly.
 - **Not done / deferred:** A browser. A phone. Did not commit. No database row. The shell (drawer, rail, theme boot) is F1c.
 - **Follow-ups:** The owner checks F1 as a whole after F1c.
+
+---
+
+### UI-10 Session F1c — admin shell (layout, drawer, rail) + old nav removed
+- **Date:** 2026-10-06
+- **Model:** Grok 4.7
+- **Built:** `app/(admin)/layout.tsx` wraps every admin page in `AdminShell`: desktop rail (240 expanded or 64 collapsed, remembered), phone drawer from the left, Sora, and the shared theme. The five old pages lost `AdminNav` and gained `<AdminMenuButton />`. `components/admin/admin-nav.tsx` is deleted. Old pages stay light (`DARK_READY_PATHS` still empty).
+- **Owner decisions:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved. Figma page 40:289, phone 01–38, desktop D1–D3.
+  - OWNER — A3: admin extends the field system: Sora, d2d tokens, Map style v1. Bricolage, Instrument and Martian Mono go.
+  - OWNER — A14–A16: phone nav is an overlay drawer from the left (about 85% wide, scrim, closes on pick, swipe left to close, no edge-swipe to open), opened from a top-left button in each page header. Desktop is a left rail, expanded 240 or collapsed 64, remembered.
+  - OWNER — A28: dark mode now, same as the field app. A51: admin and field share one Light / Dark / System choice per device (`d2d.theme`).
+  - OWNER — A50: old routes keep working until their replacement lands, then redirect. Deleted in F6.
+- **Claude decisions:**
+  - CLAUDE — Figma frame 02 (drawer, 89:690), D1 (expanded rail, 100:1710), D2/D3 (collapsed rail).
+  - CLAUDE — `AdminShell` wraps every /admin page: rail on lg and up, drawer below lg, Sora via `--font-sora` on `.admin-root`, the shared theme (`FieldThemeSync` plus a pre-paint script). Pages own their header and put `<AdminMenuButton />` top-left (hidden on desktop).
+  - CLAUDE — The pre-paint script lives in plain `lib/admin/theme-boot.ts`. `lib/field/theme.ts` is "use client", and a server layout must not read values out of a client module. `verify:ui10` checks the two strings are identical.
+  - CLAUDE — The shell sets `data-admin-dark="off"` unless the route is in `DARK_READY_PATHS` (empty in F1), so the old pages stay light.
+  - CLAUDE — The five old pages lose `AdminNav` (the mono-caps grid) and get `<AdminMenuButton />` in its place. Nothing else on them changes in F1.
+  - CLAUDE — Drawer: scrim, close button, Escape, left swipe (60px) and picking an item close it. Focus is trapped and restored. No edge-swipe to open.
+- **Acceptance:**
+  - EDIT 1 DONE. New `lib/admin/theme-boot.ts` pasted as given.
+  - EDIT 2 DONE. New `components/admin/shell/nav-list.tsx`.
+  - EDIT 3 DONE. New `components/admin/shell/nav-drawer.tsx`.
+  - EDIT 4 DONE. New `components/admin/shell/nav-rail.tsx`.
+  - EDIT 5 DONE. New `components/admin/shell/admin-shell.tsx`.
+  - EDIT 6 DONE. New `app/(admin)/layout.tsx`.
+  - EDIT 7 DONE. `allocate-form.tsx`: both finds occurred once.
+  - EDIT 8 DONE. `coverage-view.tsx`: both finds occurred once.
+  - EDIT 9 DONE. `dashboard-view.tsx`: both finds occurred once.
+  - EDIT 10 DONE. `prop-drawer.tsx`: both finds occurred once.
+  - EDIT 11 DONE. `rotation-settings.tsx`: both finds occurred once.
+  - EDIT 12 DONE. Deleted `components/admin/admin-nav.tsx`. `git grep` for `admin-nav` returned no lines.
+  - EDIT 13 DONE. `scripts/verify-ui-10-admin.ts`: both finds occurred once. Two shared-theme checks added.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on the F1c files: **PASS** — exit 0.
+  - `npm run verify:ui10`: **PASS** — exit 0. Printed `ALL PASS`, including the two shared-theme checks.
+  - Phone: **NOT VERIFIED**. Headless session. No browser. The owner does the nine phone checks once for the whole F1 phase.
+- **Deviations from brief:** none. The given code was pasted exactly.
+- **Not done / deferred:** A browser. A phone. Did not commit. No database row.
+- **Follow-ups:** The owner phone-checks F1 as a whole (drawer, rail, Sora, old pages stay light, keyboard focus, sign out).

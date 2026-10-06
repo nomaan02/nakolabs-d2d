@@ -3,7 +3,7 @@
 import { useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
-import { AdminNav } from "@/components/admin/admin-nav";
+import { AdminMenuButton } from "@/components/admin/shell/admin-shell";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { saveVisitThresholdAction } from "@/lib/props/reallocation";
 
@@ -82,7 +82,7 @@ export function RotationSettings({
               above this percentage. Exactly this percentage does not count.
             </p>
           </header>
-          <AdminNav current="settings" />
+          <AdminMenuButton />
         </div>
         <footer className="flex items-center justify-between gap-3 border-t border-ink/15 px-6 py-4 lg:px-7">
           <p className="truncate font-data text-[10px] text-ink-soft">{signedInAs}</p>

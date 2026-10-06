@@ -14,7 +14,7 @@ import { TerraDraw, TerraDrawPolygonMode, TerraDrawSelectMode } from "terra-draw
 import { TerraDrawMapLibreGLAdapter } from "terra-draw-maplibre-gl-adapter";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { AdminNav } from "@/components/admin/admin-nav";
+import { AdminMenuButton } from "@/components/admin/shell/admin-shell";
 import { PropTally } from "@/components/admin/prop-tally";
 import { RouteOverlay, type RouteVariantChoice } from "@/components/admin/route-overlay";
 import { SignOutButton } from "@/components/auth/sign-out-button";
@@ -599,7 +599,7 @@ export function PropDrawer({
             </h1>
           </header>
 
-          <AdminNav current="draw" />
+          <AdminMenuButton />
 
           <div className="grid grid-cols-3 gap-px bg-ink/20">
             <ToolButton active={tool === "draw"} disabled={!ready} onClick={startDrawing}>
