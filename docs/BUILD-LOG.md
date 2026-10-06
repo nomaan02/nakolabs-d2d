@@ -2476,3 +2476,44 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Deviations from brief:** none. The given code was pasted exactly.
 - **Not done / deferred:** A browser. A phone. Did not commit. No database row. Drawer, rail and theme boot are F1c.
 - **Follow-ups:** The owner checks F1 as a whole after F1c.
+
+---
+
+### UI-10 Session F1b — admin tokens, icons and UI kit
+- **Date:** 2026-10-06
+- **Model:** Grok 4.7
+- **Built:** Admin type, shadow, radius and motion tokens in `app/globals.css`, including `--color-warn-ink`. The dark selector now covers `.admin-root` (opt-out `data-admin-dark="off"`). `.admin-root` uses Sora for the three font roles. Admin icons appended in `components/field/icons.tsx`. New kit under `components/admin/ui/`: overlay focus, Button, IconButton, Chip, StatusPill, Toggle, Segmented, Avatar, Sheet, ConfirmDialog, AdminIcon. Nothing uses the kit yet.
+- **Owner decisions:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved. Figma page 40:289, phone 01–38, desktop D1–D3.
+  - OWNER — A3: admin extends the field system: Sora, d2d tokens, Map style v1. Bricolage, Instrument and Martian Mono go.
+  - OWNER — A14–A16: phone nav is an overlay drawer from the left (about 85% wide, scrim, closes on pick, swipe left to close, no edge-swipe to open), opened from a top-left button in each page header. Desktop is a left rail, expanded 240 or collapsed 64, remembered.
+  - OWNER — A28: dark mode now, same as the field app. A51: admin and field share one Light / Dark / System choice per device (`d2d.theme`).
+  - OWNER — A50: old routes keep working until their replacement lands, then redirect. Deleted in F6.
+- **Claude decisions:**
+  - CLAUDE — Figma page 40:289, section "Admin / UI-10 — Components" (47:6278): Button, IconButton, Chip, StatusPill, NavItem, Toggle, Segmented, Avatar, SheetGrabber. Text styles `admin/*`. Effect styles `admin/float`, `admin/sheet`.
+  - CLAUDE — Tokens become Tailwind utilities: `text-admin-large-title`, `text-admin-title`, `text-admin-headline`, `text-admin-body`, `text-admin-body-strong`, `text-admin-subhead`, `text-admin-section`, `text-admin-caption`, `text-admin-pill`, `text-admin-figure`, `text-admin-day`, `text-admin-button`, `text-warn-ink`, `shadow-admin-float`, `shadow-admin-sheet`, `rounded-admin-sheet` (20px), `animate-admin-sheet-in`, `animate-admin-drawer-in`, `animate-admin-fade-in` (used with `motion-safe:`).
+  - CLAUDE — Button kinds: primary (ink, like field Button 12:151), secondary, destructive (oxide text), danger (filled oxide, only inside ConfirmDialog), quiet (prop text). Sizes: large 56, compact 44.
+  - CLAUDE — Chip is 36px to look at and 44px to tap. StatusPill is visit state only. Live becomes a button when given `onClick`.
+  - CLAUDE — Overlays share `useOverlayFocus`: focus in on open, Tab trapped, Escape closes, focus restored. ConfirmDialog puts focus on Cancel.
+  - CLAUDE — Nothing uses the kit yet. F1c (shell) and the later phases do.
+- **Acceptance:**
+  - EDIT 1 DONE. Four blocks in `app/globals.css`, each find occurred once.
+  - EDIT 2 DONE. `ReactNode` import and admin icons after `LocateIcon`. Each find occurred once.
+  - EDIT 3 DONE. New `components/admin/ui/use-overlay-focus.ts`.
+  - EDIT 4 DONE. New `components/admin/ui/button.tsx`.
+  - EDIT 5 DONE. New `components/admin/ui/icon-button.tsx`.
+  - EDIT 6 DONE. New `components/admin/ui/chip.tsx`.
+  - EDIT 7 DONE. New `components/admin/ui/status-pill.tsx`.
+  - EDIT 8 DONE. New `components/admin/ui/toggle.tsx`.
+  - EDIT 9 DONE. New `components/admin/ui/segmented.tsx`.
+  - EDIT 10 DONE. New `components/admin/ui/avatar.tsx`.
+  - EDIT 11 DONE. New `components/admin/ui/sheet.tsx`.
+  - EDIT 12 DONE. New `components/admin/ui/confirm-dialog.tsx`.
+  - EDIT 13 DONE. New `components/admin/ui/admin-icon.tsx`.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on `components/field/icons.tsx` and `components/admin/ui`: **PASS** — exit 0.
+  - `npm run verify:ui10`: **PASS** — exit 0. Printed `ALL PASS`.
+  - Phone: **NOT VERIFIED**. Headless session. No browser. None for this session (the owner checks F1 as a whole after F1c).
+- **Deviations from brief:** none. The given code was pasted exactly.
+- **Not done / deferred:** A browser. A phone. Did not commit. No database row. The shell (drawer, rail, theme boot) is F1c.
+- **Follow-ups:** The owner checks F1 as a whole after F1c.

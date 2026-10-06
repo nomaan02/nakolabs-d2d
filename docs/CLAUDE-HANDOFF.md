@@ -2,10 +2,12 @@
 
 ## Current state
 
-- Last updated: 2026-10-06 (UI-10 Session F1a). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- `lib/admin/nav.ts` is the one admin nav list. F1 items: Today → `/admin/dashboard`, Props → `/admin` (exact), temporary Allocate, Coverage, Settings under the divider. Longest matching href wins. `DARK_READY_PATHS` is empty, so old pages stay light. Rail defaults to expanded (`d2d.admin.rail`).
-- UI-10 F1a tracker Status is DONE. Date 2026-10-06. Result: `lib/admin/nav.ts + verify:ui10; seed-demo prefer-const.` Commit column still `—`.
-- `npx tsc --noEmit` exit 0. eslint on `lib/admin/nav.ts`, `scripts/verify-ui-10-admin.ts` and `scripts/seed-demo.ts` exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`).
+- Last updated: 2026-10-06 (UI-10 Session F1b). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Admin tokens live in `app/globals.css`: `text-admin-*`, `--color-warn-ink` (`#8a4e08`, dark `#f1b968`), `shadow-admin-float`, `shadow-admin-sheet`, `rounded-admin-sheet` (20px), `animate-admin-sheet-in`, `animate-admin-drawer-in`, `animate-admin-fade-in`. Dark selector covers `.field-root` and `.admin-root` unless `data-admin-dark="off"`. `.admin-root` maps display, body and data to Sora. Field token values are unchanged.
+- Admin icons are appended in `components/field/icons.tsx` after `LocateIcon`. The kit is `components/admin/ui/` (11 files). Nothing imports the kit yet. F1c builds the shell.
+- `lib/admin/nav.ts` is unchanged from F1a. `DARK_READY_PATHS` is still empty. Old pages stay light.
+- UI-10 F1b tracker Status is DONE. Date 2026-10-06. Result: `admin tokens + icons + components/admin/ui kit.` Commit column still `—`.
+- `npx tsc --noEmit` exit 0. eslint on `components/field/icons.tsx` and `components/admin/ui` exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`).
 - `lib/sync/queue.ts` was not edited. Writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited.
 - No database change. No database row. No `client_event_id`.
 - UI-8 is unchanged. UI-7 is unchanged. Drawer, rail and theme boot are F1c, not this session.
@@ -1875,6 +1877,35 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Deviations from plan or brief:** none. The given code was pasted exactly.
 - **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. `lib/sync/queue.ts` was not edited. Coverage is still derived. No database row. No `client_event_id`.
 - **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on `lib/admin/nav.ts`, `scripts/verify-ui-10-admin.ts` and `scripts/seed-demo.ts`. `npm run verify:ui10` exit 0 (`ALL PASS`).
+- **Not verified:** A browser. A phone. None for this session (the owner checks F1 as a whole after F1c).
+- **External settings:** none
+- **Open questions for Claude:** none
+
+### 2026-10-06 — UI-10 Session F1b (uncommitted)
+
+- **Item:** UI-10
+- **What changed:** Admin type, colour, shadow, radius and motion tokens are in `app/globals.css`. Dark mode applies to `.admin-root` as well as `.field-root`, with an opt-out. `.admin-root` uses Sora. Admin stroke icons were appended after `LocateIcon`. A new kit in `components/admin/ui/` covers buttons, chips, pills, toggle, segmented control, avatar, sheet, confirm dialog and nav icons. No screen uses the kit yet.
+- **Files:**
+  - Changed: `app/globals.css`, `components/field/icons.tsx`, `docs/FIELD-TEST-BUILD-PLAN.md` (UI-10 F1b Status DONE and Result), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `components/admin/ui/use-overlay-focus.ts`, `components/admin/ui/button.tsx`, `components/admin/ui/icon-button.tsx`, `components/admin/ui/chip.tsx`, `components/admin/ui/status-pill.tsx`, `components/admin/ui/toggle.tsx`, `components/admin/ui/segmented.tsx`, `components/admin/ui/avatar.tsx`, `components/admin/ui/sheet.tsx`, `components/admin/ui/confirm-dialog.tsx`, `components/admin/ui/admin-icon.tsx`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none. `components/field/icons.tsx` gained admin icons only; existing field icons are unchanged. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved. Figma page 40:289, phone 01–38, desktop D1–D3.
+  - OWNER — A3: admin extends the field system: Sora, d2d tokens, Map style v1. Bricolage, Instrument and Martian Mono go.
+  - OWNER — A14–A16: phone nav is an overlay drawer from the left (about 85% wide, scrim, closes on pick, swipe left to close, no edge-swipe to open), opened from a top-left button in each page header. Desktop is a left rail, expanded 240 or collapsed 64, remembered.
+  - OWNER — A28: dark mode now, same as the field app. A51: admin and field share one Light / Dark / System choice per device (`d2d.theme`).
+  - OWNER — A50: old routes keep working until their replacement lands, then redirect. Deleted in F6.
+  - CLAUDE — Figma page 40:289, section "Admin / UI-10 — Components" (47:6278): Button, IconButton, Chip, StatusPill, NavItem, Toggle, Segmented, Avatar, SheetGrabber. Text styles `admin/*`. Effect styles `admin/float`, `admin/sheet`.
+  - CLAUDE — Tokens become Tailwind utilities: `text-admin-large-title`, `text-admin-title`, `text-admin-headline`, `text-admin-body`, `text-admin-body-strong`, `text-admin-subhead`, `text-admin-section`, `text-admin-caption`, `text-admin-pill`, `text-admin-figure`, `text-admin-day`, `text-admin-button`, `text-warn-ink`, `shadow-admin-float`, `shadow-admin-sheet`, `rounded-admin-sheet` (20px), `animate-admin-sheet-in`, `animate-admin-drawer-in`, `animate-admin-fade-in` (used with `motion-safe:`).
+  - CLAUDE — Button kinds: primary (ink, like field Button 12:151), secondary, destructive (oxide text), danger (filled oxide, only inside ConfirmDialog), quiet (prop text). Sizes: large 56, compact 44.
+  - CLAUDE — Chip is 36px to look at and 44px to tap. StatusPill is visit state only. Live becomes a button when given `onClick`.
+  - CLAUDE — Overlays share `useOverlayFocus`: focus in on open, Tab trapped, Escape closes, focus restored. ConfirmDialog puts focus on Cancel.
+  - CLAUDE — Nothing uses the kit yet. F1c (shell) and the later phases do.
+- **Deviations from plan or brief:** none. The given code was pasted exactly.
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. `lib/sync/queue.ts` was not edited. Coverage is still derived. No database row. No `client_event_id`.
+- **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on `components/field/icons.tsx` and `components/admin/ui`. `npm run verify:ui10` exit 0 (`ALL PASS`).
 - **Not verified:** A browser. A phone. None for this session (the owner checks F1 as a whole after F1c).
 - **External settings:** none
 - **Open questions for Claude:** none

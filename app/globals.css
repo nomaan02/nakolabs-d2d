@@ -60,6 +60,8 @@
   --color-scrim: #1c2226;
   /* UI-7 (2026-10-04): "you" / a live position. Never an outcome colour. */
   --color-you: #6741d9;
+  /* UI-10 (2026-10-06): admin warning text on warn-bg (7.2:1). Dark value below. */
+  --color-warn-ink: #8a4e08;
 
   --radius-field-sm: 8px;
   --radius-field-md: 12px;
@@ -127,11 +129,90 @@
   --shadow-field-knob: 0 5px 11px 0 rgb(0 0 0 / 0.1);
   --shadow-field-menu: 0 8px 12px rgb(0 0 0 / 0.16);
   --shadow-field-toast: 0 8px 10px rgb(0 0 0 / 0.2);
+
+  /* --- Admin tokens (UI-10 F1b, 2026-10-06). Figma "d2d tokens" + admin/*
+     text styles (page 40:289). Admin reuses every field colour; these are
+     the admin-only type styles, shadows, radius and motion. --- */
+  --text-admin-large-title: 30px;
+  --text-admin-large-title--line-height: 36px;
+  --text-admin-large-title--letter-spacing: -0.02em;
+  --text-admin-large-title--font-weight: 700;
+
+  --text-admin-title: 20px;
+  --text-admin-title--line-height: 26px;
+  --text-admin-title--letter-spacing: -0.01em;
+  --text-admin-title--font-weight: 700;
+
+  --text-admin-headline: 16px;
+  --text-admin-headline--line-height: 22px;
+  --text-admin-headline--letter-spacing: -0.005em;
+  --text-admin-headline--font-weight: 600;
+
+  --text-admin-body: 15px;
+  --text-admin-body--line-height: 22px;
+  --text-admin-body--font-weight: 400;
+
+  --text-admin-body-strong: 15px;
+  --text-admin-body-strong--line-height: 22px;
+  --text-admin-body-strong--font-weight: 600;
+
+  --text-admin-subhead: 13px;
+  --text-admin-subhead--line-height: 18px;
+  --text-admin-subhead--font-weight: 400;
+
+  --text-admin-section: 13px;
+  --text-admin-section--line-height: 18px;
+  --text-admin-section--font-weight: 600;
+
+  --text-admin-caption: 12px;
+  --text-admin-caption--line-height: 16px;
+  --text-admin-caption--font-weight: 400;
+
+  --text-admin-pill: 12px;
+  --text-admin-pill--line-height: 16px;
+  --text-admin-pill--font-weight: 600;
+
+  --text-admin-figure: 26px;
+  --text-admin-figure--line-height: 30px;
+  --text-admin-figure--letter-spacing: -0.01em;
+  --text-admin-figure--font-weight: 400;
+
+  --text-admin-day: 22px;
+  --text-admin-day--line-height: 24px;
+  --text-admin-day--letter-spacing: -0.02em;
+  --text-admin-day--font-weight: 600;
+
+  --text-admin-button: 15px;
+  --text-admin-button--line-height: 20px;
+  --text-admin-button--font-weight: 600;
+
+  --radius-admin-sheet: 20px;
+  --shadow-admin-float: 0 2px 8px rgb(28 34 38 / 0.12), 0 0 1px rgb(28 34 38 / 0.06);
+  --shadow-admin-sheet: 0 -2px 16px rgb(28 34 38 / 0.14);
+
+  --animate-admin-sheet-in: admin-sheet-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-admin-drawer-in: admin-drawer-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-admin-fade-in: admin-fade-in 160ms ease-out;
+
+  @keyframes admin-sheet-in {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  @keyframes admin-drawer-in {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+  }
+  @keyframes admin-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
 }
 
 /* 2026-10-02 owner H1-H4: dark mode. Scope = .field-root only. The light island = outcome buttons (option A). */
-:root[data-field-theme="dark"] .field-root {
+:root[data-field-theme="dark"] .field-root,
+:root[data-field-theme="dark"] .admin-root:not([data-admin-dark="off"]) {
   color-scheme: dark;
+  --color-warn-ink: #f1b968;
   --color-ink: #eef1f4;          --color-ink-soft: #c2c9d2;
   --color-ink-muted: #8c96a3;    --color-ink-faint: #5b6470;
   --color-paper: #1f242c;        --color-surface: #1f242c;
@@ -203,7 +284,8 @@
    time-box) and referencing `--font-sora` directly here — a plain,
    unlayered CSS rule with a lazy `var()` reference resolved at `<main>`,
    where `--font-sora` is actually set — is what verifiably works. */
-.field-root {
+.field-root,
+.admin-root {
   --font-display: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
   --font-body: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
   --font-data: var(--font-sora), ui-sans-serif, system-ui, sans-serif;

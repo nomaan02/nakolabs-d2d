@@ -22,6 +22,8 @@
  * OutcomeButton glyphs, exported the same way from Figma node 6:58.
  */
 
+import type { ReactNode } from "react";
+
 type IconProps = {
   className?: string;
 };
@@ -406,5 +408,276 @@ export function LocateIcon({ className }: IconProps) {
       <circle cx="12" cy="12" r="2.2" fill="currentColor" />
       <path d="M12 2V5M12 19V22M2 12H5M19 12H22" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
     </svg>
+  );
+}
+
+/*
+ * UI-10 F1b (2026-10-06): admin icons. Same grammar as the field set: 24px
+ * grid, 1.7 stroke, round caps and joins, `currentColor`. Figma: page
+ * 40:289, section "Admin / UI-10 — Components" (icon/*).
+ */
+function StrokeIcon({ className, children }: IconProps & { children: ReactNode }) {
+  return (
+    <svg
+      aria-hidden
+      className={className}
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {children}
+    </svg>
+  );
+}
+
+export function MenuIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <path d="M4 6.5h16M4 12h16M4 17.5h16" />
+    </StrokeIcon>
+  );
+}
+
+export function CloseIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" />
+    </StrokeIcon>
+  );
+}
+
+export function TodayIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" />
+      <path d="M8 3v4M16 3v4M3.5 10h17M9 15l2 2 4-4" />
+    </StrokeIcon>
+  );
+}
+
+export function CalendarIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" />
+      <path d="M8 3v4M16 3v4M3.5 10h17" />
+    </StrokeIcon>
+  );
+}
+
+export function AllocateIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" />
+      <path d="M8 3v4M16 3v4M3.5 10h17M12 13v5M9.5 15.5h5" />
+    </StrokeIcon>
+  );
+}
+
+export function TeamIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <circle cx="9" cy="8.5" r="3.5" />
+      <path d="M2.5 19.5c.8-3.3 3.4-5 6.5-5s5.7 1.7 6.5 5M15.5 5.3a2.9 2.9 0 0 1 0 5.4M17.5 14.6c2 .5 3.4 2.1 4 4.9" />
+    </StrokeIcon>
+  );
+}
+
+export function CoverageIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <circle cx="6" cy="6" r="1.6" fill="currentColor" />
+      <circle cx="12" cy="6" r="1.6" fill="currentColor" />
+      <circle cx="18" cy="6" r="1.6" />
+      <circle cx="6" cy="12" r="1.6" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.6" />
+      <circle cx="18" cy="12" r="1.6" />
+      <circle cx="6" cy="18" r="1.6" />
+      <circle cx="12" cy="18" r="1.6" />
+      <circle cx="18" cy="18" r="1.6" />
+    </StrokeIcon>
+  );
+}
+
+export function InsightsIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <path d="M5 20V12M10 20V5M15 20v-7M20 20V9" />
+    </StrokeIcon>
+  );
+}
+
+export function SettingsIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <path d="M4 7h9M17 7h3M4 17h3M11 17h9" />
+      <circle cx="15" cy="7" r="2" />
+      <circle cx="9" cy="17" r="2" />
+    </StrokeIcon>
+  );
+}
+
+export function CanvassIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <path d="M6.5 21V4.5A1.5 1.5 0 0 1 8 3h8a1.5 1.5 0 0 1 1.5 1.5V21M3.5 21h17" />
+      <circle cx="14.5" cy="12.5" r="1" fill="currentColor" stroke="none" />
+    </StrokeIcon>
+  );
+}
+
+export function SignOutIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <path d="M14 4h3.5A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5H14M10 8l-4 4 4 4M6 12h10" />
+    </StrokeIcon>
+  );
+}
+
+export function PlusIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <path d="M12 5v14M5 12h14" />
+    </StrokeIcon>
+  );
+}
+
+export function ChevronLeftIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <path d="M14.5 6l-6 6 6 6" />
+    </StrokeIcon>
+  );
+}
+
+export function ChevronRightIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <path d="M9.5 6l6 6-6 6" />
+    </StrokeIcon>
+  );
+}
+
+export function ChevronDownIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <path d="M6 9.5l6 6 6-6" />
+    </StrokeIcon>
+  );
+}
+
+export function SearchIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="M16 16l4 4" />
+    </StrokeIcon>
+  );
+}
+
+export function LayersIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <path d="M12 4l8.5 4.5L12 13 3.5 8.5z" />
+      <path d="M3.5 12.5L12 17l8.5-4.5M3.5 16.5L12 21l8.5-4.5" />
+    </StrokeIcon>
+  );
+}
+
+export function DrawIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <path d="M5 19l1-4.5L15.8 4.7a1.8 1.8 0 0 1 2.5 0l1 1a1.8 1.8 0 0 1 0 2.5L9.5 18z" />
+      <path d="M13.8 6.7l3.5 3.5" />
+    </StrokeIcon>
+  );
+}
+
+export function RedoIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <path d="M20 7v5.5h-5.5" />
+      <path d="M4 17a8.5 8.5 0 0 1 14.6-5.9l1.4 1.4" />
+    </StrokeIcon>
+  );
+}
+
+export function CheckIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </StrokeIcon>
+  );
+}
+
+export function MoreIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <circle cx="6" cy="12" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="18" cy="12" r="1.6" fill="currentColor" stroke="none" />
+    </StrokeIcon>
+  );
+}
+
+export function WarningIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <path d="M10.3 4.8a2 2 0 0 1 3.4 0l7 12.2a2 2 0 0 1-1.7 3H5a2 2 0 0 1-1.7-3z" />
+      <path d="M12 9.5v4" />
+      <circle cx="12" cy="16.6" r="1" fill="currentColor" stroke="none" />
+    </StrokeIcon>
+  );
+}
+
+export function RouteIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <circle cx="6" cy="18" r="2" />
+      <circle cx="18" cy="6" r="2" />
+      <path d="M8 18h7a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h7" />
+    </StrokeIcon>
+  );
+}
+
+export function LiveIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
+      <path d="M8.2 8.2a5.4 5.4 0 0 0 0 7.6M15.8 8.2a5.4 5.4 0 0 1 0 7.6M5.4 5.4a9.3 9.3 0 0 0 0 13.2M18.6 5.4a9.3 9.3 0 0 1 0 13.2" />
+    </StrokeIcon>
+  );
+}
+
+export function InfoIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 11v5" />
+      <circle cx="12" cy="8" r="1" fill="currentColor" stroke="none" />
+    </StrokeIcon>
+  );
+}
+
+export function MailIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <rect x="3.5" y="5.5" width="17" height="13" rx="2.5" />
+      <path d="M4.5 7.5l7.5 5.5 7.5-5.5" />
+    </StrokeIcon>
+  );
+}
+
+export function ClockIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 2" />
+    </StrokeIcon>
   );
 }
