@@ -33,6 +33,10 @@
 | U7-3 | **2026-10-04. Admins see position even off the route.** The partner scalar is still null beyond 100 m. |
 | U7-4 | **2026-10-04. Mini map recentre** goes to your position, heading-up, when the fix is 30 m or better; otherwise to the current door, north-up. |
 | U7-5 | **2026-10-04. Admin live map** is a "Live now" panel at the top of `/admin/dashboard` until UI-10's Today screen exists. |
+| U8-1 | **2026-10-06. Small gaps fill silently** (amends H4). In exceptions-only mode, a gap of under 25 doors on one street is filled as Not In without a sheet. ONE Undo covers the tapped door and the filled doors ("Contact · 18 Ventnor Rd + 12 Not In"). |
+| U8-2 | **2026-10-06. Big gaps and street changes ask** (H7). 25+ doors, or a change of street, opens the review sheet with every door ticked. Confirm has its own Undo ("12 Not In · Ventnor Road"), which removes only that batch. |
+| U8-3 | **2026-10-06. Only between two real logs.** Any tapped outcome (Lead, Contact, Rented/Council, Not In, Other) is a real log; filled doors never are. Nothing before the first log or after the last, nothing when walking back, never over an existing outcome. |
+| U8-4 | **2026-10-06. Mode setting:** per canvasser, per phone, in the You tab ("Tap every door" / "Exceptions only"), plus an "Exceptions only" badge in the Logger header. Org default `every_door`, set by an admin in Settings. Team props always tap every door. |
 
 ## 2. Facts found on 2026-10-03 (SELECT only, by Claude)
 
@@ -236,6 +240,8 @@
 
 ### UI-8: Exception-only logging (P1.4; H4, H7)
 
+**Amended 2026-10-06 (owner U8-1..U8-4).** Sessions: D1b `lib/field/inference.ts` + `verify:ui8` · D1a migration 028 (`knock_events.origin`, `logging_default()`, `set_logging_default()`) + types · D2b mode setting (You tab, header badge, admin default) · D2c fill on commit, review sheet, batch Undo. Figma: page 5:2, section "UI-8 Exceptions only (2026-10-06)". Where this section and U8-1..U8-4 differ, U8-1..U8-4 win.
+
 **UI-8 D1:**
 - Migration: `knock_events.origin text not null default 'tap' check (origin in ('tap','inferred'))`.
 - A logging-mode setting: per user, stored locally, with an org default in `app_settings`.
@@ -282,3 +288,4 @@
 - 2026-10-03 (Claude): plan approved by the owner. "UI item 4" is already used in BUILD-LOG (route focus), so this run starts at UI-5.
 - 2026-10-04 (Claude): UI-7 plan approved by the owner (U7-1..U7-5). Sessions: C0 (Claude, docs) · C1a `lib/field/geo.ts` + `verify:ui7` · C1b GPS provider, arrow, recentre, location-off notice · C2 near-you chip + route position hook · C3a migration 027 (`live_positions`, `report_position`, `stop_sharing_position`, `admin_live_positions`, close triggers) · C3c admin "Live now" panel · C3b field sender, Sharing pill, notice, partner distance. Figma: page 5:2, section "UI-7 GPS (2026-10-04)". "You" marker is violet (never an outcome colour).
 - 2026-10-06 (Claude): UI-7 phone check passed (owner, all points). One follow-up from it: U7-6 tighter Logger header (session UI-7 C4).
+- 2026-10-06 (Claude): UI-8 plan approved by the owner (U8-1..U8-4). CLAUDE decisions: `origin` is sent only for filled rows (`'inferred'`); filled times are spread evenly between the last real log and the new one; only Logger commits fill (Map tab logs still count as real logs); after going back to fix an earlier door, the next forward log fills only from the furthest real log; batch Undo is in `lib/field/undo.ts` (no `lib/sync/queue.ts` change).
