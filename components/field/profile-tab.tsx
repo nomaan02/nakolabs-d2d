@@ -5,6 +5,7 @@ import { useFieldData } from "@/components/field/field-data-provider";
 import { PropStatus } from "@/components/field/prop-status";
 import { SyncStatus } from "@/components/field/sync-status";
 import { SharedKnockNotice } from "@/components/field/shared-knock-notice";
+import { isTeamProp, LOGGING_MODES, useLoggingMode } from "@/lib/field/logging-mode";
 import { ATTRIBUTION_LINES } from "@/lib/field/map-style";
 import { setThemePref, useThemePref, type ThemePref } from "@/lib/field/theme";
 
@@ -24,8 +25,10 @@ const APPEARANCE: { value: ThemePref; label: string }[] = [
  * mis-tap on this screen that costs the day's work.
  */
 export function ProfileTab() {
-  const { signedInAs, role, phase } = useFieldData();
+  const { signedInAs, role, phase, canvasserId, team } = useFieldData();
   const themePref = useThemePref();
+  const logging = useLoggingMode(canvasserId);
+  const teamProp = isTeamProp(team);
 
   return (
     <div className="h-full overflow-y-auto bg-worksheet" data-testid="profile-tab">
@@ -62,6 +65,46 @@ export function ProfileTab() {
         <p className="mt-2 text-xs leading-relaxed text-ink-muted">
           Auto follows your phone&apos;s light/dark setting. Saved on this phone.
         </p>
+      </section>
+
+      {/* UI-8 D2b (owner U8-4, 2026-10-06). Per canvasser, per phone. */}
+      <section className="border-b border-ink/15 bg-paper px-4 py-3" data-testid="profile-logging">
+        <h2 className="text-sm font-semibold">Logging</h2>
+        <div
+          role="radiogroup"
+          aria-label="Logging"
+          className="mt-2 flex gap-1 rounded-field-md border border-line bg-surface p-1"
+        >
+          {LOGGING_MODES.map((option) => {
+            const selected = logging.mode === option.value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => logging.setChoice(option.value)}
+                data-testid={`logging-mode-${option.value}`}
+                className={`min-h-tap-min flex-1 rounded-field-sm text-sm font-semibold ${
+                  selected ? "bg-prop text-field-bg" : "text-ink"
+                }`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-xs leading-relaxed text-ink-muted">
+          {logging.mode === "exceptions"
+            ? "Tap only the doors that matter. Doors you pass between two logs are marked Not In for you, and Undo takes them back. A gap of 25+ doors or a new street asks first."
+            : "Tap every door you knock."}{" "}
+          {logging.choice === null ? "Your admin\u2019s default. " : ""}Saved on this phone.
+        </p>
+        {teamProp && logging.mode === "exceptions" ? (
+          <p className="mt-1 text-xs leading-relaxed text-ink-soft" data-testid="profile-logging-team">
+            Today&apos;s prop is a team prop, so every door is tapped there.
+          </p>
+        ) : null}
       </section>
 
       <section className="border-b border-ink/15 bg-paper px-4 py-3">

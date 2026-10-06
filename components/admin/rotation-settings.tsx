@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, type FormEvent } from "react";
+import { useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import { AdminNav } from "@/components/admin/admin-nav";
@@ -13,10 +13,13 @@ export function RotationSettings({
   signedInAs,
   initialPct,
   detail,
+  extra,
 }: {
   signedInAs: string;
   initialPct: number;
   detail: string;
+  /** UI-8 D2b: further settings, shown under the threshold form. */
+  extra?: ReactNode;
 }) {
   const router = useRouter();
   const [input, setInput] = useState(String(initialPct));
@@ -130,6 +133,7 @@ export function RotationSettings({
               </p>
             ) : null}
           </form>
+          {extra ? <div className="mt-10 max-w-md border-t border-ink/15 pt-8">{extra}</div> : null}
         </div>
       </main>
     </div>

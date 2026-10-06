@@ -2370,3 +2370,77 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not done / deferred:** The rolled-back origin / Not In / default proof. Mode setting, review sheet and Logger fill (D2b, D2c). A browser. A phone. Did not commit. No `logging` row.
 - **Follow-ups:** Re-run the proof when REF - Speedwell can take today's London date, or when the block does not move `work_date` onto a date that territory already has. Territory `f2e26db8-7279-4b13-b525-542597d55a81`, date `2026-10-06`.
 - **Claude follow-up (2026-10-06, owner-approved write):** the proof failed on Claude's test setup, not on 028. Its first line moved REF - Speedwell to today, which clashes with another visit on that territory. The insert policy only needs membership, so Claude removed the setup lines and ran the fixed block once via the Supabase MCP. Result, exactly as expected: `TEST_RESULT old_not_tap=0 default=every_door inferred_answered=23514 bad_origin=23514 cx_set=42501 rows=tap,inferred bad_mode=22023 admin_set=exceptions cx_reads=exceptions stored=exceptions`. After: knock count 1,273, `app_settings` keys `rotation` only. Nothing kept. EDIT 3 is DONE.
+
+### UI-8 Session D2b — the logging mode (You tab, header badge, admin default)
+- **Date:** 2026-10-06
+- **Model:** Grok 4.7
+- **Built:** The logging mode is stored on the phone per canvasser (`d2d.loggingMode:<id>`). Until they choose, the org default from `logging_default()` applies, cached as `d2d.loggingDefault` for offline. The You tab has a Logging section with "Tap every door" / "Exceptions only". The Logger header shows an "Exceptions only" badge before the visit line only on a solo prop with that mode on. Admin Settings has a Logging default block under the visit threshold, saved with `set_logging_default`. No knock is written differently.
+- **Owner decisions:**
+  - OWNER — H4 (2026-10-03): exception-only logging (Mode B), stored with `knock_events.origin = 'inferred'`, solo props only.
+  - OWNER — H7 (2026-10-03): gaps of 25+ doors, or a change of street, always ask. Backtracking never fills.
+  - OWNER — U8-1 (2026-10-06): under 25 doors on one street fill silently, with one Undo for the tap and the fill.
+  - OWNER — U8-2 (2026-10-06): 25+ doors, or a street change, opens the review sheet, all ticked, with its own Undo.
+  - OWNER — U8-3 (2026-10-06): only between two real (tapped) logs, never over an existing outcome.
+  - OWNER — U8-4 (2026-10-06): mode per canvasser per phone in the You tab, plus an "Exceptions only" header badge. Org default `every_door`, set by an admin. Team props always tap every door.
+- **Claude decisions:**
+  - CLAUDE — Figma page "Logger — clean build" (5:2), section "UI-8 Exceptions only (2026-10-06)".
+  - CLAUDE — `lib/field/logging-mode.ts`: the mode per canvasser per phone in localStorage (`d2d.loggingMode:<id>`). Until they choose, the org default from `logging_default()` (cached as `d2d.loggingDefault` for offline). `isTeamProp()` is any other active member or any teammate knock.
+  - CLAUDE — You tab: a Logging section with the same segmented control as Appearance: "Tap every door" / "Exceptions only", with a one-line explanation.
+  - CLAUDE — Logger header: an "Exceptions only" badge (prop-soft fill, prop text) leading the visit line, only when the mode is on and the prop is solo.
+  - CLAUDE — Admin Settings: a Logging default block under the visit threshold, saved with `set_logging_default`.
+  - CLAUDE — No knock is written differently in this session. Session 04 does the filling.
+- **Acceptance:**
+  - EDIT 1 DONE. New `lib/field/logging-mode.ts` pasted as given.
+  - EDIT 2 DONE. Three find-blocks in `components/field/profile-tab.tsx` each occurred once and were replaced as given.
+  - EDIT 3 DONE. Three find-blocks in `components/field/logger-tab.tsx` each occurred once and were replaced as given.
+  - EDIT 4 DONE. New `components/admin/logging-default-setting.tsx` pasted as given.
+  - EDIT 5 DONE. Three find-blocks in `components/admin/rotation-settings.tsx` each occurred once (import, `extra` prop, slot under the form) and were replaced as given.
+  - EDIT 6 DONE. Two find-blocks in `app/(admin)/admin/settings/page.tsx` each occurred once and were replaced as given.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on the six session files: **PASS** — exit 0.
+  - `npm run verify:ui8`: **PASS** — exit 0. Printed `ALL PASS`.
+  - `npm run verify:ui1`: **PASS** — exit 0. Printed `OK`.
+  - `npm run verify:ui6`: **PASS** — exit 0. Printed `OK`.
+  - `git grep -n --untracked "logging_default\|set_logging_default" -- components lib app`: **PASS**. Hits only `lib/field/logging-mode.ts`, `components/admin/logging-default-setting.tsx`, `app/(admin)/admin/settings/page.tsx` and `lib/supabase/types.ts`. Plain `git grep` omits the two untracked files.
+  - `git diff --stat -- lib/sync`: **PASS** — empty.
+  - Phone: **NOT VERIFIED**. Headless session. No browser.
+- **Deviations from brief:** none. The given code was pasted exactly. EDIT 5's heading said two replacements; the body listed three find-blocks, and all three were applied.
+- **Not done / deferred:** The review sheet and the Logger fill (D2c). A browser. A phone. The three phone checks. Did not commit. No database row.
+- **Follow-ups:** D2c uses `exceptionsOnly` to fill. The owner does the three phone checks once for the phase.
+
+### UI-8 Session D2b — the logging mode (You tab, header badge, admin default)
+- **Date:** 2026-10-06
+- **Model:** Grok 4.7
+- **Built:** The logging mode is stored on the phone per canvasser (`d2d.loggingMode:<id>`). Until they choose, the org default from `logging_default()` applies, cached as `d2d.loggingDefault` for offline. The You tab has a Logging section with "Tap every door" / "Exceptions only". The Logger header shows an "Exceptions only" badge before the visit line only on a solo prop with that mode on. Admin Settings has a Logging default block under the visit threshold, saved with `set_logging_default`. No knock is written differently.
+- **Owner decisions:**
+  - OWNER — H4 (2026-10-03): exception-only logging (Mode B), stored with `knock_events.origin = 'inferred'`, solo props only.
+  - OWNER — H7 (2026-10-03): gaps of 25+ doors, or a change of street, always ask. Backtracking never fills.
+  - OWNER — U8-1 (2026-10-06): under 25 doors on one street fill silently, with one Undo for the tap and the fill.
+  - OWNER — U8-2 (2026-10-06): 25+ doors, or a street change, opens the review sheet, all ticked, with its own Undo.
+  - OWNER — U8-3 (2026-10-06): only between two real (tapped) logs, never over an existing outcome.
+  - OWNER — U8-4 (2026-10-06): mode per canvasser per phone in the You tab, plus an "Exceptions only" header badge. Org default `every_door`, set by an admin. Team props always tap every door.
+- **Claude decisions:**
+  - CLAUDE — Figma page "Logger — clean build" (5:2), section "UI-8 Exceptions only (2026-10-06)".
+  - CLAUDE — `lib/field/logging-mode.ts`: the mode per canvasser per phone in localStorage (`d2d.loggingMode:<id>`). Until they choose, the org default from `logging_default()` (cached as `d2d.loggingDefault` for offline). `isTeamProp()` is any other active member or any teammate knock.
+  - CLAUDE — You tab: a Logging section with the same segmented control as Appearance: "Tap every door" / "Exceptions only", with a one-line explanation.
+  - CLAUDE — Logger header: an "Exceptions only" badge (prop-soft fill, prop text) leading the visit line, only when the mode is on and the prop is solo.
+  - CLAUDE — Admin Settings: a Logging default block under the visit threshold, saved with `set_logging_default`.
+  - CLAUDE — No knock is written differently in this session. Session 04 does the filling.
+- **Acceptance:**
+  - EDIT 1 DONE. New `lib/field/logging-mode.ts` pasted as given.
+  - EDIT 2 DONE. Three find-blocks in `components/field/profile-tab.tsx` each occurred once and were replaced as given.
+  - EDIT 3 DONE. Three find-blocks in `components/field/logger-tab.tsx` each occurred once and were replaced as given.
+  - EDIT 4 DONE. New `components/admin/logging-default-setting.tsx` pasted as given.
+  - EDIT 5 DONE. Three find-blocks in `components/admin/rotation-settings.tsx` each occurred once (import, `extra` prop, slot under the form) and were replaced as given.
+  - EDIT 6 DONE. Two find-blocks in `app/(admin)/admin/settings/page.tsx` each occurred once and were replaced as given.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on the six session files: **PASS** — exit 0.
+  - `npm run verify:ui8`: **PASS** — exit 0. Printed `ALL PASS`.
+  - `npm run verify:ui1`: **PASS** — exit 0. Printed `OK`.
+  - `npm run verify:ui6`: **PASS** — exit 0. Printed `OK`.
+  - `git grep -n --untracked "logging_default\|set_logging_default" -- components lib app`: **PASS**. Hits only `lib/field/logging-mode.ts`, `components/admin/logging-default-setting.tsx`, `app/(admin)/admin/settings/page.tsx` and `lib/supabase/types.ts`. Plain `git grep` omits the two untracked files.
+  - `git diff --stat -- lib/sync`: **PASS** — empty.
+  - Phone: **NOT VERIFIED**. Headless session. No browser.
+- **Deviations from brief:** none. The given code was pasted exactly. EDIT 5's heading said two replacements; the body listed three find-blocks, and all three were applied.
+- **Not done / deferred:** The review sheet and the Logger fill (D2c). A browser. A phone. The three phone checks. Did not commit. No database row.
+- **Follow-ups:** D2c uses `exceptionsOnly` to fill. The owner does the three phone checks once for the phase.

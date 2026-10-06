@@ -36,6 +36,7 @@ import { scrollPlate } from "@/lib/field/door-window";
 import { pulse, useInputLock } from "@/lib/field/feedback";
 import { doorPlate } from "@/lib/field/labels";
 import { logHouseNumber, logOutcome } from "@/lib/field/log-outcome";
+import { isTeamProp, useLoggingMode } from "@/lib/field/logging-mode";
 import { outcomeSpec, type OtherOutcome, type PrimaryOutcome } from "@/lib/field/outcomes";
 import { useResolvedTheme } from "@/lib/field/theme";
 import {
@@ -264,6 +265,9 @@ export function LoggerTab() {
   const shared = useSharedDoors(assignmentId);
   const geo = useGeo();
   const shareState = useShareState();
+  // UI-8 (owner U8-4): exceptions-only logging, never on a team prop.
+  const logging = useLoggingMode(canvasserId);
+  const exceptionsOnly = logging.mode === "exceptions" && !isTeamProp(team);
   const showSharingNotice =
     assignmentId !== null &&
     canvasserId !== null &&
@@ -468,9 +472,20 @@ export function LoggerTab() {
             />
           </div>
         </div>
-        <p className="mt-0.5 truncate text-field-body text-ink-soft" data-testid="logger-area-line">
-          {formatLoggerAreaLine(fieldHeaderParts(assignment, routeProgress))}
-        </p>
+        {/* UI-8 D2b (owner U8-4): the mode badge leads the visit line. */}
+        <div className="mt-0.5 flex min-w-0 items-center gap-2">
+          {exceptionsOnly ? (
+            <span
+              className="inline-flex h-5 shrink-0 items-center rounded-full bg-prop-soft px-2 text-field-eyebrow text-prop"
+              data-testid="logging-mode-badge"
+            >
+              Exceptions only
+            </span>
+          ) : null}
+          <p className="min-w-0 truncate text-field-body text-ink-soft" data-testid="logger-area-line">
+            {formatLoggerAreaLine(fieldHeaderParts(assignment, routeProgress))}
+          </p>
+        </div>
         <div className="mt-1.5 flex items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
             <ViewTabs views={LOGGER_VIEWS} active={view} onChange={setView} />
