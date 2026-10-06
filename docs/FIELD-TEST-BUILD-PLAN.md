@@ -109,7 +109,7 @@
 | UI-7 C2 | "Near you" door chip | DONE | 2026-10-05 | Route snapping on device + near-you chip (2 agreeing fixes, tap to jump). | d5cd445 |
 | UI-7 C3 | Position sharing: partner scalar + admin live map | DONE | 2026-10-06 | C3a migration 027 + types. C3b position sender, Sharing pill + notice, partner distance. C3c admin Live now panel. | 94afa8c, 5c0532e, 11788c4 |
 | UI-8 D1 | `knock_events.origin` + logging-mode setting | TODO | | | — |
-| UI-8 D2 | Mode B inference + review sheet | TODO | | | — |
+| UI-8 D2 | Mode B inference + review sheet | TODO | 2026-10-06 | D1b done: lib/field/inference.ts + verify:ui8. | — |
 | UI-9 E1 | Route door-list editor + server validation | TODO | | | — |
 | UI-9 E2 | Manual route tracing (snapped to roads) | TODO | | | — |
 | UI-10 F* | Mobile admin, screen by screen (after admin design Phases 2–3) | TODO | | | — |

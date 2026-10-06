@@ -2,30 +2,19 @@
 
 ## Current state
 
-- Last updated: 2026-10-06 (UI-7 Session C4). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Logger header only (owner U7-6). Row 1 is the prop name and the ID chip. Row 2 is the visit line, full width, still truncated with the existing class. Row 3 is the Logging / Survey pills and the Sharing pill. The ID chip stays a 44px target. `-my-1.5` stops it making the title row taller. The mini map band is still `flex-1` and takes the height that frees. The Map tab header is unchanged.
-- `data-testid`s on the Logger header are unchanged: `logger-header`, `logger-territory`, `logger-area-line`. No logic, state, hook or import change in `components/field/logger-tab.tsx`.
-- The Sharing pill is on the same row as the view pills in the Logger, and still in the Map header. Tap still opens the Stop / share sheet. Hidden when location is denied or unavailable.
-- The UI-7 C1 tracker row stays DONE. Its Result now ends ` C4 done: tighter Logger header (U7-6).` Status was left as it was. No new tracker row.
-- This session wrote no database row. No `client_event_id`.
-- `npx tsc --noEmit` exit 0. eslint exit 0 on `components/field/logger-tab.tsx`. `npm run verify:ui1`, `npm run verify:ui6` and `npm run verify:ui7` exit 0.
-- The field shell still sends position from `lib/field/position-share.ts` only. `PositionSharer` is mounted inside `GeoProvider` in `app/(field)/layout.tsx`. It calls `report_position` on each fix and on a 15 s check, throttled by `shouldSend` (30 s, under 10 m skipped, 2-minute heartbeat), only while the page is visible and online. A failed send is dropped. It is never queued and never written to Dexie.
-- Sharing is on by default per assignment. Stop writes `d2d.shareStopped:<assignmentId>` = `1` in localStorage. That flag holds no coordinate. Stop also calls `stop_sharing_position`. An offline Stop is repeated the next time the app opens online.
-- Until the canvasser's first log, and while sharing is on and GPS is active, the Logger status line says "Sharing your location with partner + admins" with Stop. That line sits below errors, instructions and offline.
-- The Logger team strip appends the partner gap from the scalar `report_position` returns (`partnerGapLabel`). A scalar, never a pin.
-- `/admin/dashboard` still opens with the C3c "Live now" panel. It polls `admin_live_positions()` every 30 s while the tab is visible. No realtime channel. One violet dot per canvasser. Current position only. No trail.
-- `--color-you` is `#6741d9` in `@theme` and `#a58bff` on the field dark root. The Sharing pill uses `bg-you`.
-- UI-7 C3 Status is DONE. Result: `C3a migration 027 + types. C3b position sender, Sharing pill + notice, partner distance. C3c admin Live now panel.`
-- Migration `027_live_positions.sql` is applied (C3a).
-- Field GPS from C2 is unchanged. `GeoProvider` snaps each good fix onto the frozen route line on the device. `routePlace.alongM` is server metres. It is null more than 100 m from the route, before the first good fix, or when the prop is unrouted. A weak fix (worse than 30 m) does not move it. The snapped coordinate is not kept.
-- The Logger mini map still shows the near-you chip after 2 agreeing fixes. Tap jumps the cursor. The cursor never moves on its own.
-- Both maps still draw the violet "you" marker from C1b. Mini-map recentre is unchanged. Location denied or unavailable still shows "Location off" when the chip is not in the overlay slot.
-- `lib/field/position.ts`: `positionEnabled` stays false and `getRoutePosition()` stays null. `lib/field/geo.ts`, `lib/sync/queue.ts` and `lib/map/route-layers.ts` were not edited this session.
-- UI-7 C2 Status is DONE. UI-7 C1 Status stays DONE.
-- UI-6 B2 stays DONE. A3c is not started. Routes are not regenerated (H8). The 20 old open assignments were left as they are (H9). The tenure layer stays deferred until after UI-7 (H10).
+- Last updated: 2026-10-06 (UI-8 Session D1b). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Pure logic only. `lib/field/inference.ts` exports `planInference()`, `crossesStreet` and `ASK_AT_DOORS` (25). No React, no Dexie, no network, no storage. Nothing calls it yet. D2c (session 04) calls it from the Logger.
+- `planInference()` returns `none`, `fill` (under 25 doors, one street) or `ask` (`big_gap` at 25+, or `street_change`). Each door has its sequence index, UPRN, snapshot position and an `occurredAt` spread evenly between the last real log and the new one.
+- A real log is a tapped row by this canvasser (`inferred` false). Logging at or behind the latest real log fills nothing. After a correction, the next forward log fills only from the furthest real log. A door with any outcome on this phone, or a teammate's knock, is never filled.
+- UI-8 D2 tracker Status stays TODO. Result: `D1b done: lib/field/inference.ts + verify:ui8.` Date 2026-10-06. Commit column still `—`.
+- `npx tsc --noEmit` exit 0. eslint exit 0 on `lib/field/inference.ts` and `scripts/verify-ui-8-inference.ts`. `npm run verify:ui8` exit 0, printed `ALL PASS` (25 checks).
+- This session wrote no database row. No `client_event_id`. No migration.
+- `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited. `lib/field/geo.ts` and `lib/field/position.ts` were not edited. `positionEnabled` stays false.
+- UI-7 is unchanged. The field shell still sends position from `lib/field/position-share.ts` only. Sharing is on by default. The Logger header is the C4 three-row layout. The near-you chip, violet "you" marker and admin Live now panel are unchanged. Migration 027 is applied.
+- UI-6 B2 stays DONE. A3c is not started. Routes are not regenerated. The tenure layer stays deferred.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
-- External settings: none. No browser. No dev server. The five C4 phone checks are not done. No database row.
+- External settings: none. No browser. No dev server. No phone check for this session (pure logic).
 
 ## Log
 
@@ -1742,5 +1731,34 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Invariants:** No GPS and no coordinates in this change. No quality scoring in `/field`. No field write. `lib/sync/queue.ts` was not edited. Coverage is still derived. No database row. No `client_event_id`.
 - **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on `components/field/logger-tab.tsx`. `npm run verify:ui1` exit 0. `npm run verify:ui6` exit 0. `npm run verify:ui7` exit 0.
 - **Not verified:** A browser. A phone. The five phone checks in the session brief (390×763, 375×667, 430×850; long prop name; 44px taps; Survey view; dark and light).
+- **External settings:** none
+- **Open questions for Claude:** none
+
+### 2026-10-06 — UI-8 Session D1b (uncommitted)
+
+- **Item:** UI-8
+- **What changed:** Pure logic for which doors exceptions-only logging would mark Not In. `planInference()` returns nothing, a silent fill, or an ask. A silent fill is under 25 doors on one street. An ask is 25 or more doors, or a change of street. Times are spread evenly between the last real log and the new one. Nothing is wired to the Logger yet.
+- **Files:**
+  - Changed: `package.json` (`verify:ui8`), `docs/FIELD-TEST-BUILD-PLAN.md` (UI-8 D2 Result only; Status stays TODO), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `lib/field/inference.ts`, `scripts/verify-ui-8-inference.ts`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** new `lib/field/inference.ts` (pure maths; no browser, no network, no storage). `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - OWNER — H4 (2026-10-03): exception-only logging (Mode B), stored with `knock_events.origin = 'inferred'`, solo props only.
+  - OWNER — H7 (2026-10-03): gaps of 25+ doors, or a change of street, always ask. Backtracking never fills.
+  - OWNER — U8-1 (2026-10-06): under 25 doors on one street fill silently, with one Undo for the tap and the fill.
+  - OWNER — U8-2 (2026-10-06): 25+ doors, or a street change, opens the review sheet, all ticked, with its own Undo.
+  - OWNER — U8-3 (2026-10-06): only between two real (tapped) logs, never over an existing outcome.
+  - OWNER — U8-4 (2026-10-06): mode per canvasser per phone in the You tab, plus an "Exceptions only" header badge. Org default `every_door`, set by an admin. Team props always tap every door.
+  - CLAUDE — Figma page "Logger — clean build" (5:2), section "UI-8 Exceptions only (2026-10-06)".
+  - CLAUDE — this session is the pure maths and the check script only. D2c calls it from the Logger.
+  - CLAUDE — `planInference()` returns `none`, `fill` or `ask`, with each door's index, UPRN, snapshot position and an `occurredAt` spread evenly between the last real log and the new one.
+  - CLAUDE — a real log is a tapped row by this canvasser (`inferred` false). Logging at or behind the latest real log fills nothing. After going back to fix an earlier door, the next forward log fills only from the furthest real log.
+  - CLAUDE — never filled: a door with any outcome on this phone, or a teammate's knock.
+- **Deviations from plan or brief:** none. The given files were pasted exactly. The `verify:ui7` line in `package.json` occurred once.
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. No field write. `lib/sync/queue.ts` was not edited. Coverage is still derived. No database row. No `client_event_id`.
+- **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on `lib/field/inference.ts` and `scripts/verify-ui-8-inference.ts`. `npm run verify:ui8` exit 0 and printed `ALL PASS` (25 checks: #5 then #18 fills #6–#17; skipped logged and teammate doors; no anchor from an inferred or partner row; no fill when walking back; correction fills from the furthest log; 24 fill and 25 ask; street change asks; clock skew keeps times valid).
+- **Not verified:** A browser. A phone. None for this session (pure logic).
 - **External settings:** none
 - **Open questions for Claude:** none

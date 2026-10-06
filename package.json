@@ -33,6 +33,7 @@
     "verify:ui1": "tsx scripts/verify-ui-1-logger.ts",
     "verify:ui6": "tsx scripts/verify-ui-6-survey.ts",
     "verify:ui7": "tsx scripts/verify-ui-7-geo.ts",
+    "verify:ui8": "tsx scripts/verify-ui-8-inference.ts",
     "verify:anchors": "tsx scripts/verify-map-anchors.ts",
     "verify:stage5cb": "tsx scripts/verify-stage-5c-b.ts",
     "verify:geom": "tsx scripts/verify-route-geom.ts",

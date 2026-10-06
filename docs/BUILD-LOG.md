@@ -2310,3 +2310,32 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Deviations from brief:** none
 - **Not done / deferred:** A browser. A phone. The five phone checks. Did not commit. No database row.
 - **Follow-ups:** The owner checks the Logger header on a phone at 390×763, 375×667 and 430×850.
+
+### UI-8 Session D1b — which doors to fill
+- **Date:** 2026-10-06
+- **Model:** Grok 4.7
+- **Built:** Pure logic for exceptions-only logging. `planInference()` returns `none`, `fill` (under 25 doors, one street) or `ask` (25 or more, or a street change). Each door carries its sequence index, UPRN, snapshot position and a time spread evenly between the last real log and the new one. A real log is a tapped row by this canvasser. Logging at or behind the latest real log fills nothing. After a correction, the next forward log fills only from the furthest real log. A door with any outcome on this phone, or a teammate's knock, is never filled. No React, no browser API, no network, no storage. Checked by `npm run verify:ui8`.
+- **Owner decisions:**
+  - OWNER — H4 (2026-10-03): exception-only logging (Mode B), stored with `knock_events.origin = 'inferred'`, solo props only.
+  - OWNER — H7 (2026-10-03): gaps of 25+ doors, or a change of street, always ask. Backtracking never fills.
+  - OWNER — U8-1 (2026-10-06): under 25 doors on one street fill silently, with one Undo for the tap and the fill.
+  - OWNER — U8-2 (2026-10-06): 25+ doors, or a street change, opens the review sheet, all ticked, with its own Undo.
+  - OWNER — U8-3 (2026-10-06): only between two real (tapped) logs, never over an existing outcome.
+  - OWNER — U8-4 (2026-10-06): mode per canvasser per phone in the You tab, plus an "Exceptions only" header badge. Org default `every_door`, set by an admin. Team props always tap every door.
+- **Claude decisions:**
+  - CLAUDE — Figma page "Logger — clean build" (5:2), section "UI-8 Exceptions only (2026-10-06)".
+  - CLAUDE — this session is the pure maths and the check script only. D2c calls it from the Logger.
+  - CLAUDE — `planInference()` returns `none`, `fill` or `ask`, with each door's index, UPRN, snapshot position and an `occurredAt` spread evenly between the last real log and the new one.
+  - CLAUDE — a real log is a tapped row by this canvasser (`inferred` false). Logging at or behind the latest real log fills nothing. After going back to fix an earlier door, the next forward log fills only from the furthest real log.
+  - CLAUDE — never filled: a door with any outcome on this phone, or a teammate's knock.
+- **Acceptance:**
+  - EDIT 1 DONE. New `lib/field/inference.ts` pasted as given.
+  - EDIT 2 DONE. New `scripts/verify-ui-8-inference.ts` pasted as given.
+  - EDIT 3 DONE. `package.json` `verify:ui7` line occurred once and `verify:ui8` was added after it.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on `lib/field/inference.ts` and `scripts/verify-ui-8-inference.ts`: **PASS** — exit 0.
+  - `npm run verify:ui8`: **PASS** — exit 0. Printed `ALL PASS` (25 checks).
+  - Phone: **NOT VERIFIED**. Headless session. No browser. None for this session (pure logic).
+- **Deviations from brief:** none
+- **Not done / deferred:** Migration 028, the mode setting, the review sheet and the Logger fill (D1a, D2b, D2c). A browser. A phone. Did not commit. No database row.
+- **Follow-ups:** D2c calls `planInference()` from the Logger.
