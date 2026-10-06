@@ -10,6 +10,7 @@ import {
 } from "@/components/field/field-data-provider";
 import { TurnIcon } from "@/components/field/icons";
 import { HouseNumberSheet, NotesSheet, OtherOutcomeSheet } from "@/components/field/door-sheets";
+import { InferSheet } from "@/components/field/infer-sheet";
 import { LeadSheet } from "@/components/field/lead-sheet";
 import { MiniMap } from "@/components/field/mini-map";
 import { NearYouChip, useNearYouIndex } from "@/components/field/near-you-chip";
@@ -35,7 +36,8 @@ import { formatTeammateLine } from "@/lib/field/door-signals";
 import { scrollPlate } from "@/lib/field/door-window";
 import { pulse, useInputLock } from "@/lib/field/feedback";
 import { doorPlate } from "@/lib/field/labels";
-import { logHouseNumber, logOutcome } from "@/lib/field/log-outcome";
+import { planInference, type InferencePlan, type InferredDoor } from "@/lib/field/inference";
+import { logHouseNumber, logInferredNotIn, logOutcome } from "@/lib/field/log-outcome";
 import { isTeamProp, useLoggingMode } from "@/lib/field/logging-mode";
 import { outcomeSpec, type OtherOutcome, type PrimaryOutcome } from "@/lib/field/outcomes";
 import { useResolvedTheme } from "@/lib/field/theme";
@@ -93,7 +95,8 @@ type SheetState =
   | { kind: "notes" }
   | { kind: "house_number" }
   | { kind: "lead"; uprn: number }
-  | { kind: "sync" };
+  | { kind: "sync" }
+  | { kind: "infer"; doors: InferredDoor[]; reason: "big_gap" | "street_change" };
 
 const LOGGED_TIME = new Intl.DateTimeFormat("en-GB", {
   hour: "2-digit",
@@ -408,6 +411,23 @@ export function LoggerTab() {
     outcome: PrimaryOutcome | OtherOutcome,
     extras: { lead?: LeadDraft } = {},
   ) => {
+    // UI-8 D2c (owner H4, U8-1..U8-3). Planned from what this phone knew
+    // BEFORE this log; `outcomes` here is that render's map.
+    const occurredAt = new Date().toISOString();
+    const plan: InferencePlan = exceptionsOnly
+      ? planInference({
+          sequence,
+          outcomes,
+          knockedByTeam: team.knockedBy,
+          streets: sequence.map(
+            (entry, i) => routeProgress.doors[i]?.routeStreet ?? labelFor(entry.uprn)?.street_name ?? null,
+          ),
+          canvasserId,
+          triggerIndex: sequence.findIndex((entry) => entry.uprn === door.uprn),
+          triggerAt: occurredAt,
+        })
+      : { kind: "none" };
+
     const result = await logOutcome({
       assignmentId: assignment.assignment_id,
       canvasserId,
@@ -419,7 +439,13 @@ export function LoggerTab() {
       lead: extras.lead
         ? { booked_for: extras.lead.bookedFor, notes: extras.lead.notes || null }
         : undefined,
+      occurredAt,
     });
+
+    const filled =
+      result.queued && plan.kind === "fill"
+        ? await logInferredNotIn({ assignmentId: assignment.assignment_id, canvasserId, doors: plan.doors })
+        : [];
 
     pulse(40);
     if (result.queued) team.markKnocked(door, result.clientEventId);
@@ -428,13 +454,19 @@ export function LoggerTab() {
     if (isPrimaryOutcome(outcome)) {
       setConfirmKeys((current) => ({ ...current, [outcome]: current[outcome] + 1 }));
     }
+    const doorText = `${outcomeSpec(outcome).logged} \u00b7 ${scrollPlate(plate, door.position).text}${street ? ` ${street}` : ""}`;
     offerUndo(
       result.clientEventId,
-      `${outcomeSpec(outcome).logged} \u00b7 ${scrollPlate(plate, door.position).text}${street ? ` ${street}` : ""}`,
+      filled.length > 0 ? `${doorText} + ${filled.length} Not In` : doorText,
+      filled,
     );
     setNoteDraft(door.uprn, "");
     setLeadDraft(door.uprn, null);
-    setSheet({ kind: "none" });
+    setSheet(
+      result.queued && plan.kind === "ask"
+        ? { kind: "infer", doors: plan.doors, reason: plan.reason }
+        : { kind: "none" },
+    );
     const blocked = new Set(team.knockedUprns);
     blocked.add(door.uprn);
     // A1: forward from here, wrapping to the lowest open door.
@@ -450,6 +482,26 @@ export function LoggerTab() {
       setLeadDraft(door.uprn, { clientEventId: newClientEventId(), bookedFor: null, notes: "" });
     }
     setSheet({ kind: "lead", uprn: door.uprn });
+  };
+
+  const sheetStreet = (entry: InferredDoor) =>
+    surveyStreet(routeProgress.doors[entry.index]?.routeStreet, labelFor(entry.uprn));
+
+  // UI-8 D2c (owner U8-2): the sheet's Confirm. Its own Undo removes only this batch.
+  const confirmInferred = async (doors: InferredDoor[]) => {
+    setSheet({ kind: "none" });
+    const open = doors.filter((entry) => !outcomes.has(entry.uprn));
+    if (open.length === 0) return;
+    const ids = await logInferredNotIn({ assignmentId: assignment.assignment_id, canvasserId, doors: open });
+    const first = ids[0];
+    if (!first) return;
+    pulse(25);
+    const streets = [...new Set(open.map(sheetStreet))];
+    offerUndo(
+      first,
+      `${ids.length} Not In \u00b7 ${streets.length === 1 ? streets[0] : `${streets.length} streets`}`,
+      ids.slice(1),
+    );
   };
 
   const notePlaceholder = `Add a note for door ${scrollPlate(plate, door.position).text}`;
@@ -685,6 +737,22 @@ export function LoggerTab() {
           onChange={(draft) => setLeadDraft(door.uprn, draft)}
           onDismiss={() => setSheet({ kind: "none" })}
           onSubmit={(draft) => void commit("lead", { lead: draft })}
+        />
+      ) : null}
+
+      {sheet.kind === "infer" ? (
+        <InferSheet
+          reason={sheet.reason}
+          rows={sheet.doors.map((entry) => {
+            const rowStreet = sheetStreet(entry);
+            return {
+              door: entry,
+              street: rowStreet,
+              address: surveyAddress(labelFor(entry.uprn), rowStreet, entry.index).address,
+            };
+          })}
+          onConfirm={(doors) => void confirmInferred(doors)}
+          onDismiss={() => setSheet({ kind: "none" })}
         />
       ) : null}
 

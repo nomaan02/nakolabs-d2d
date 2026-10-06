@@ -2,18 +2,17 @@
 
 ## Current state
 
-- Last updated: 2026-10-06 (UI-8 Session D2b). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Logging mode is per canvasser per phone in `localStorage` (`d2d.loggingMode:<id>`). Until they choose, the org default from `logging_default()` applies, cached as `d2d.loggingDefault`. `isTeamProp()` is any other active member or any teammate knock. Team props stay `every_door`.
-- You tab has a Logging section: "Tap every door" / "Exceptions only". The Logger header shows an "Exceptions only" badge only when that mode is on and the prop is solo. Admin Settings has a Logging default block under the visit threshold, saved with `set_logging_default`.
-- No knock is written differently. `exceptionsOnly` is computed in the Logger and not yet used to fill. D2c does the filling. `lib/field/inference.ts` is unchanged.
-- UI-8 D1 tracker Status is DONE. Date 2026-10-06. Result: `D1a migration 028 + types. D2b mode setting: You tab, header badge, admin default.` Commit column still `—`. UI-8 D2 stays TODO (D1b inference only).
-- Migration 028 is applied. `knock_events.origin` is `text not null default 'tap'`. Checks: `knock_events_origin_check` (`tap | inferred`) and `knock_events_inferred_is_no_answer`. `logging_default()` and `set_logging_default(text)` exist. No `logging` row was seeded. Keys are still only `rotation`. Proof (Claude, owner-approved): `TEST_RESULT old_not_tap=0 default=every_door inferred_answered=23514 bad_origin=23514 cx_set=42501 rows=tap,inferred bad_mode=22023 admin_set=exceptions cx_reads=exceptions stored=exceptions`. Nothing kept. Knock count 1,273.
-- `npx tsc --noEmit` exit 0. eslint on the six session files exit 0. `npm run verify:ui8` exit 0 (`ALL PASS`). `npm run verify:ui1` exit 0. `npm run verify:ui6` exit 0. `git diff --stat -- lib/sync` empty.
-- `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/geo.ts` and `lib/field/position.ts` were not edited. `positionEnabled` stays false.
-- UI-7 is unchanged. Sharing is on by default. The Logger header is still the C4 three-row layout, with the badge now leading the visit line. Migration 027 is applied.
-- UI-6 B2 stays DONE. A3c is not started. Routes are not regenerated. The tenure layer stays deferred.
+- Last updated: 2026-10-06 (UI-8 Session D2c). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Logger `commit` fills only when `exceptionsOnly` (mode on, solo prop). It plans from the outcomes this phone already had, writes the tapped knock, then the filled doors. Under 25 doors on one street fills silently. 25+ or a street change opens the review sheet, all ticked. A replayed tap (`queued: false`) does not fill. Notes corrections and the Map tab do not fill.
+- Filled doors are queued knocks: outcome `no_answer`, `origin: 'inferred'`, `sequence_position` the snapshot position, each with its own `client_event_id`, held in the same 60 s undo window. `validateOp` refuses an inferred knock that is not Not In or that carries a lead or observation.
+- Undo is still one target and one button. It can carry a batch. Silent fill: "Contact · 18 Ventnor Rd + 12 Not In" removes the tap and the fill. Sheet Confirm: "12 Not In · Ventnor Road" removes only that batch. `LocalOutcome.inferred` marks filled rows so they are not real logs.
+- UI-8 D2 tracker Status is DONE. Date 2026-10-06. Result: `D1b inference + verify:ui8. D2c fill on commit (silent under 25), review sheet (25+ / street change), batch Undo, origin inferred.` Commit column still `—`.
+- `npx tsc --noEmit` exit 0. eslint on the six session files exit 0. `npm run verify:ui8` exit 0 (`ALL PASS`). `npm run verify:ui1` exit 0 (`OK`). `npm run verify:ui6` exit 0 (`OK`). `git diff --stat -- lib/sync/queue.ts` empty. `git grep -n 'origin: "inferred"' -- lib components` hits only `lib/field/log-outcome.ts:197`.
+- `lib/sync/queue.ts` was not edited. Writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/geo.ts` and `lib/field/position.ts` were not edited. `positionEnabled` stays false.
+- Migration 028 is unchanged. Knock count was not re-read. No database row. No `client_event_id`.
+- UI-7 is unchanged. UI-6 B2 stays DONE. A3c is not started. Routes are not regenerated. The tenure layer stays deferred.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
-- No magic link this session. Password, profile and role were not changed. No database row. No `client_event_id`.
+- No magic link this session. Password, profile and role were not changed.
 - External settings: none. No browser. No dev server. Phone checks for this session are NOT VERIFIED.
 
 ## Log
@@ -1823,16 +1822,16 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **External settings:** none
 - **Open questions for Claude:** none
 
-### 2026-10-06 — UI-8 Session D2b (uncommitted)
+### 2026-10-06 — UI-8 Session D2c (uncommitted)
 
 - **Item:** UI-8
-- **What changed:** Canvassers can pick Tap every door or Exceptions only in the You tab. The choice is stored on that phone. Until they choose, the org default from `logging_default()` applies. The Logger shows an Exceptions only badge on a solo prop. An admin sets the org default under the visit threshold. No knock is written differently.
+- **What changed:** The Logger fills Not In doors when exceptions-only mode is on and the prop is solo. A gap under 25 doors on one street fills at the tap, with one Undo for the tap and the fill. A gap of 25 or more, or a street change, opens a review sheet with every door ticked. Confirm writes that batch and its own Undo, which removes only the batch. Filled knocks go through the existing queue with `origin: 'inferred'`.
 - **Files:**
-  - Changed: `components/field/profile-tab.tsx`, `components/field/logger-tab.tsx`, `components/admin/rotation-settings.tsx`, `app/(admin)/admin/settings/page.tsx`, `docs/FIELD-TEST-BUILD-PLAN.md` (UI-8 D1 Status DONE and Result), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
-  - New: `lib/field/logging-mode.ts`, `components/admin/logging-default-setting.tsx`
+  - Changed: `lib/sync/ops.ts`, `lib/field/log-outcome.ts`, `lib/field/undo.ts`, `lib/field/local-outcomes.ts`, `components/field/logger-tab.tsx`, `docs/FIELD-TEST-BUILD-PLAN.md` (UI-8 D2 Status DONE and Result), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `components/field/infer-sheet.tsx`
   - Deleted: none
-- **Database:** none. Reads `logging_default()`. The admin control calls `set_logging_default`. This session did not call it.
-- **Shared modules touched:** new `lib/field/logging-mode.ts` (localStorage plus a read of `logging_default()`). `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
+- **Database:** none
+- **Shared modules touched:** `lib/sync/ops.ts` (optional `origin` on the knock, sent only for a filled door; `validateOp` refuses a bad inferred knock). `lib/field/log-outcome.ts`, `lib/field/undo.ts` and `lib/field/local-outcomes.ts`. `lib/sync/queue.ts` was not edited. Writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
 - **Decided by:**
   - OWNER — H4 (2026-10-03): exception-only logging (Mode B), stored with `knock_events.origin = 'inferred'`, solo props only.
   - OWNER — H7 (2026-10-03): gaps of 25+ doors, or a change of street, always ask. Backtracking never fills.
@@ -1841,14 +1840,14 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
   - OWNER — U8-3 (2026-10-06): only between two real (tapped) logs, never over an existing outcome.
   - OWNER — U8-4 (2026-10-06): mode per canvasser per phone in the You tab, plus an "Exceptions only" header badge. Org default `every_door`, set by an admin. Team props always tap every door.
   - CLAUDE — Figma page "Logger — clean build" (5:2), section "UI-8 Exceptions only (2026-10-06)".
-  - CLAUDE — `lib/field/logging-mode.ts`: the mode per canvasser per phone in localStorage (`d2d.loggingMode:<id>`). Until they choose, the org default from `logging_default()` (cached as `d2d.loggingDefault` for offline). `isTeamProp()` is any other active member or any teammate knock.
-  - CLAUDE — You tab: a Logging section with the same segmented control as Appearance: "Tap every door" / "Exceptions only", with a one-line explanation.
-  - CLAUDE — Logger header: an "Exceptions only" badge (prop-soft fill, prop text) leading the visit line, only when the mode is on and the prop is solo.
-  - CLAUDE — Admin Settings: a Logging default block under the visit threshold, saved with `set_logging_default`.
-  - CLAUDE — No knock is written differently in this session. Session 04 does the filling.
-- **Deviations from plan or brief:** none. The given code was pasted exactly. EDIT 5's heading said two replacements; the body listed three find-blocks, and all three were applied.
-- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. No field write. `lib/sync/queue.ts` was not edited. Coverage is still derived. No database row. No `client_event_id`.
-- **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on the six session files. `npm run verify:ui8` exit 0 (`ALL PASS`). `npm run verify:ui1` exit 0 (`OK`). `npm run verify:ui6` exit 0 (`OK`). `git diff --stat -- lib/sync` empty. `git grep -n --untracked` for `logging_default` and `set_logging_default` under `components`, `lib` and `app` hits only `lib/field/logging-mode.ts`, `components/admin/logging-default-setting.tsx`, `app/(admin)/admin/settings/page.tsx` and `lib/supabase/types.ts`.
-- **Not verified:** A browser. A phone. You tab Logging selection. The Logger badge on a solo prop. Admin Settings save, then a phone that never chose.
+  - CLAUDE — Only the Logger's `commit` fills, and only when `exceptionsOnly` (mode on, solo prop). It plans from what the phone knew before the tap, writes the tapped knock, then the filled doors.
+  - CLAUDE — Filled doors are ordinary queued knocks (`lib/sync/queue.ts`), outcome `no_answer`, `origin: 'inferred'`, `sequence_position` the door's snapshot position, each with its own `client_event_id`, held in the same 60 s undo window.
+  - CLAUDE — `validateOp` refuses an inferred knock that is not Not In or carries a lead or observation (mirrors migration 028).
+  - CLAUDE — Undo stays one target and one button. It can carry a batch of ids. Under 25: "Contact · 18 Ventnor Rd + 12 Not In" removes all. Sheet Confirm: "12 Not In · Ventnor Road" removes only that batch.
+  - CLAUDE — `LocalOutcome.inferred` marks filled rows so they never count as a real log.
+- **Deviations from plan or brief:** none. The given code was pasted exactly.
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. `lib/sync/queue.ts` was not edited. Coverage is still derived. No database row. No `client_event_id`.
+- **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on the six session files. `npm run verify:ui8` exit 0 (`ALL PASS`). `npm run verify:ui1` exit 0 (`OK`). `npm run verify:ui6` exit 0 (`OK`). `git diff --stat -- lib/sync/queue.ts` empty. `git grep -n 'origin: "inferred"' -- lib components` hits only `lib/field/log-outcome.ts:197`.
+- **Not verified:** A browser. A phone. The seven phone checks in the session prompt (silent fill, batch Undo, review sheet, street change, backtracking, airplane mode, team prop).
 - **External settings:** none
 - **Open questions for Claude:** none

@@ -18,6 +18,8 @@ export type UndoTarget = {
   /** "No answer · 38 Small Street" — what the canvasser will recognise. */
   description: string;
   expiresAt: number;
+  /** UI-8: further held rows undone together with this one (filled doors). */
+  batch: ReadonlyArray<string>;
 };
 
 let target: UndoTarget | null = null;
@@ -44,9 +46,13 @@ function clearExpiry() {
   }
 }
 
-export function offerUndo(clientEventId: string, description: string): void {
+export function offerUndo(
+  clientEventId: string,
+  description: string,
+  batch: ReadonlyArray<string> = [],
+): void {
   clearExpiry();
-  target = { clientEventId, description, expiresAt: Date.now() + UNDO_WINDOW_MS };
+  target = { clientEventId, description, expiresAt: Date.now() + UNDO_WINDOW_MS, batch };
   emit();
   expiryTimer = setTimeout(() => {
     expiryTimer = null;
@@ -64,16 +70,18 @@ export function dismissUndo(): void {
   emit();
 }
 
-/** Delete the held row. Returns false if the window had already closed. */
+/** Delete the held row(s). Returns false if the window had already closed. */
 export async function takeUndo(): Promise<boolean> {
   const current = target;
   if (!current) return false;
-  const undone = await cancelHeld(current.clientEventId);
+  const ids = [current.clientEventId, ...current.batch];
+  const results = await Promise.all(ids.map((id) => cancelHeld(id)));
   dismissUndo();
-  if (undone) {
-    for (const listener of undoListeners) listener(current.clientEventId);
-  }
-  return undone;
+  ids.forEach((id, i) => {
+    if (!results[i]) return;
+    for (const listener of undoListeners) listener(id);
+  });
+  return results.some(Boolean);
 }
 
 function subscribe(listener: () => void): () => void {

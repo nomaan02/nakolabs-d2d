@@ -65,6 +65,11 @@ export type KnockEventWrite = Required<
   outcome: KnockOutcome;
   sequence_position: number | null;
   notes: string | null;
+  /**
+   * UI-8 (owner H4, 2026-10-06; migration 028). Sent ONLY for a door filled
+   * as Not In by exceptions-only logging. Absent = the server default 'tap'.
+   */
+  origin?: "inferred";
 };
 
 /**
@@ -174,6 +179,11 @@ export function validateOp(op: SyncOp): string | null {
     if (!KNOCK_OUTCOMES.includes(knock.outcome)) return `unknown outcome ${String(knock.outcome)}`;
     if (knock.notes !== null && knock.notes.length > NOTES_MAX) {
       return `knock.notes is longer than ${NOTES_MAX} characters`;
+    }
+    if (knock.origin !== undefined) {
+      if (knock.origin !== "inferred") return `unknown origin ${String(knock.origin)}`;
+      if (knock.outcome !== "no_answer") return "an inferred knock must be Not In (no_answer)";
+      if (lead || observation) return "an inferred knock carries no lead or observation";
     }
     if (lead) {
       if (lead.client_event_id !== op.client_event_id) {

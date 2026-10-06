@@ -38,6 +38,8 @@ export type LocalOutcome = {
    * a previous signed-in canvasser's rows into the current one's count.
    */
   canvasserId: string;
+  /** UI-8: filled as Not In by exceptions-only logging (`origin = 'inferred'`). */
+  inferred?: boolean;
 };
 
 export type LocalOutcomes = Map<number, LocalOutcome>;
@@ -48,6 +50,7 @@ type KnockPayload = {
     outcome: KnockOutcome;
     occurred_at: string;
     notes: string | null;
+    origin?: string;
   };
   lead?: { booked_for: string | null };
 };
@@ -75,6 +78,7 @@ export function foldOutcomes(rows: OutboxRow[]): LocalOutcomes {
       bookedFor: payload.lead?.booked_for ?? null,
       isLead: payload.knock.outcome === "lead",
       canvasserId: row.canvasser_id,
+      inferred: payload.knock.origin === "inferred",
     });
   }
   return map;

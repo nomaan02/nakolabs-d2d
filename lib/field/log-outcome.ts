@@ -166,3 +166,45 @@ export async function logHouseNumber(input: {
   if (result.queued) await applyLocalHouseNumber(input.uprn, houseNumber).catch(() => undefined);
   return { clientEventId, queued: result.queued };
 }
+
+/**
+ * UI-8 D2c (owner H4, U8-1..U8-3; 2026-10-06). Doors passed between two
+ * tapped logs in exceptions-only mode, recorded as Not In with origin
+ * 'inferred'. Which doors is decided by `lib/field/inference.ts`.
+ *
+ * Each door is its own knock with its own client_event_id, held in the same
+ * undo window as a tap, so Undo deletes them before anything is sent. Returns
+ * the ids that were queued, in route order.
+ */
+export async function logInferredNotIn(input: {
+  assignmentId: string;
+  canvasserId: string;
+  doors: ReadonlyArray<{ uprn: number; position: number; occurredAt: string }>;
+}): Promise<string[]> {
+  const queued: string[] = [];
+  for (const door of input.doors) {
+    const clientEventId = newClientEventId();
+    const knock: KnockEventWrite = {
+      id: newRowId(),
+      client_event_id: clientEventId,
+      assignment_id: input.assignmentId,
+      canvasser_id: input.canvasserId,
+      uprn: door.uprn,
+      outcome: "no_answer",
+      sequence_position: door.position,
+      occurred_at: door.occurredAt,
+      notes: null,
+      origin: "inferred",
+    };
+    const op: KnockEventOp = {
+      kind: "knock_event",
+      client_event_id: clientEventId,
+      assignment_id: input.assignmentId,
+      canvasser_id: input.canvasserId,
+      payload: { knock },
+    };
+    const result = await enqueue(op, { undoWindowMs: UNDO_WINDOW_MS });
+    if (result.queued) queued.push(clientEventId);
+  }
+  return queued;
+}

@@ -2408,10 +2408,10 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not done / deferred:** The review sheet and the Logger fill (D2c). A browser. A phone. The three phone checks. Did not commit. No database row.
 - **Follow-ups:** D2c uses `exceptionsOnly` to fill. The owner does the three phone checks once for the phase.
 
-### UI-8 Session D2b — the logging mode (You tab, header badge, admin default)
+### UI-8 Session D2c — filling on commit, the review sheet, batch Undo
 - **Date:** 2026-10-06
 - **Model:** Grok 4.7
-- **Built:** The logging mode is stored on the phone per canvasser (`d2d.loggingMode:<id>`). Until they choose, the org default from `logging_default()` applies, cached as `d2d.loggingDefault` for offline. The You tab has a Logging section with "Tap every door" / "Exceptions only". The Logger header shows an "Exceptions only" badge before the visit line only on a solo prop with that mode on. Admin Settings has a Logging default block under the visit threshold, saved with `set_logging_default`. No knock is written differently.
+- **Built:** The Logger fills Not In doors only when exceptions-only mode is on and the prop is solo. `commit` plans from the outcomes already on the phone, writes the tapped knock, then the filled doors. Under 25 doors on one street fills at once, and one Undo removes the tap and the fill. 25 or more, or a street change, opens the review sheet with every door ticked. Confirm writes that batch with its own Undo, which removes only the batch. Each filled door is a queued knock, outcome `no_answer`, `origin: 'inferred'`, held for 60 seconds. A replayed tap does not fill. Notes and the Map tab do not fill.
 - **Owner decisions:**
   - OWNER — H4 (2026-10-03): exception-only logging (Mode B), stored with `knock_events.origin = 'inferred'`, solo props only.
   - OWNER — H7 (2026-10-03): gaps of 25+ doors, or a change of street, always ask. Backtracking never fills.
@@ -2421,26 +2421,26 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
   - OWNER — U8-4 (2026-10-06): mode per canvasser per phone in the You tab, plus an "Exceptions only" header badge. Org default `every_door`, set by an admin. Team props always tap every door.
 - **Claude decisions:**
   - CLAUDE — Figma page "Logger — clean build" (5:2), section "UI-8 Exceptions only (2026-10-06)".
-  - CLAUDE — `lib/field/logging-mode.ts`: the mode per canvasser per phone in localStorage (`d2d.loggingMode:<id>`). Until they choose, the org default from `logging_default()` (cached as `d2d.loggingDefault` for offline). `isTeamProp()` is any other active member or any teammate knock.
-  - CLAUDE — You tab: a Logging section with the same segmented control as Appearance: "Tap every door" / "Exceptions only", with a one-line explanation.
-  - CLAUDE — Logger header: an "Exceptions only" badge (prop-soft fill, prop text) leading the visit line, only when the mode is on and the prop is solo.
-  - CLAUDE — Admin Settings: a Logging default block under the visit threshold, saved with `set_logging_default`.
-  - CLAUDE — No knock is written differently in this session. Session 04 does the filling.
+  - CLAUDE — Only the Logger's `commit` fills, and only when `exceptionsOnly` (mode on, solo prop). It plans from what the phone knew before the tap, writes the tapped knock, then the filled doors.
+  - CLAUDE — Filled doors are ordinary queued knocks (`lib/sync/queue.ts`), outcome `no_answer`, `origin: 'inferred'`, `sequence_position` the door's snapshot position, each with its own `client_event_id`, held in the same 60 s undo window.
+  - CLAUDE — `validateOp` refuses an inferred knock that is not Not In or carries a lead or observation (mirrors migration 028).
+  - CLAUDE — Undo stays one target and one button. It can carry a batch of ids. Under 25: "Contact · 18 Ventnor Rd + 12 Not In" removes all. Sheet Confirm: "12 Not In · Ventnor Road" removes only that batch.
+  - CLAUDE — `LocalOutcome.inferred` marks filled rows so they never count as a real log.
 - **Acceptance:**
-  - EDIT 1 DONE. New `lib/field/logging-mode.ts` pasted as given.
-  - EDIT 2 DONE. Three find-blocks in `components/field/profile-tab.tsx` each occurred once and were replaced as given.
-  - EDIT 3 DONE. Three find-blocks in `components/field/logger-tab.tsx` each occurred once and were replaced as given.
-  - EDIT 4 DONE. New `components/admin/logging-default-setting.tsx` pasted as given.
-  - EDIT 5 DONE. Three find-blocks in `components/admin/rotation-settings.tsx` each occurred once (import, `extra` prop, slot under the form) and were replaced as given.
-  - EDIT 6 DONE. Two find-blocks in `app/(admin)/admin/settings/page.tsx` each occurred once and were replaced as given.
+  - EDIT 1 DONE. Two find-blocks in `lib/sync/ops.ts` each occurred once and were replaced as given.
+  - EDIT 2 DONE. The end of `logHouseNumber` in `lib/field/log-outcome.ts` occurred once. `logInferredNotIn` was appended as given.
+  - EDIT 3 DONE. Three find-blocks in `lib/field/undo.ts` each occurred once and were replaced as given.
+  - EDIT 4 DONE. Three find-blocks in `lib/field/local-outcomes.ts` each occurred once and were replaced as given.
+  - EDIT 5 DONE. New `components/field/infer-sheet.tsx` pasted as given.
+  - EDIT 6 DONE. Seven find-blocks in `components/field/logger-tab.tsx` each occurred once and were replaced as given.
   - `npx tsc --noEmit`: **PASS** — exit 0.
   - eslint on the six session files: **PASS** — exit 0.
   - `npm run verify:ui8`: **PASS** — exit 0. Printed `ALL PASS`.
   - `npm run verify:ui1`: **PASS** — exit 0. Printed `OK`.
   - `npm run verify:ui6`: **PASS** — exit 0. Printed `OK`.
-  - `git grep -n --untracked "logging_default\|set_logging_default" -- components lib app`: **PASS**. Hits only `lib/field/logging-mode.ts`, `components/admin/logging-default-setting.tsx`, `app/(admin)/admin/settings/page.tsx` and `lib/supabase/types.ts`. Plain `git grep` omits the two untracked files.
-  - `git diff --stat -- lib/sync`: **PASS** — empty.
+  - `git diff --stat -- lib/sync/queue.ts`: **PASS** — empty.
+  - `git grep -n 'origin: "inferred"' -- lib components`: **PASS**. One hit, `lib/field/log-outcome.ts:197`.
   - Phone: **NOT VERIFIED**. Headless session. No browser.
-- **Deviations from brief:** none. The given code was pasted exactly. EDIT 5's heading said two replacements; the body listed three find-blocks, and all three were applied.
-- **Not done / deferred:** The review sheet and the Logger fill (D2c). A browser. A phone. The three phone checks. Did not commit. No database row.
-- **Follow-ups:** D2c uses `exceptionsOnly` to fill. The owner does the three phone checks once for the phase.
+- **Deviations from brief:** none. The given code was pasted exactly.
+- **Not done / deferred:** A browser. A phone. The seven phone checks. Did not commit. No database row.
+- **Follow-ups:** The owner does the seven phone checks once for the phase.
