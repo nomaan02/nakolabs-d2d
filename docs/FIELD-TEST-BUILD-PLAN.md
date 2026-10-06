@@ -36,6 +36,7 @@
 | U8-1 | **2026-10-06. Small gaps fill silently** (amends H4). In exceptions-only mode, a gap of under 25 doors on one street is filled as Not In without a sheet. ONE Undo covers the tapped door and the filled doors ("Contact · 18 Ventnor Rd + 12 Not In"). |
 | U8-2 | **2026-10-06. Big gaps and street changes ask** (H7). 25+ doors, or a change of street, opens the review sheet with every door ticked. Confirm has its own Undo ("12 Not In · Ventnor Road"), which removes only that batch. |
 | U8-3 | **2026-10-06. Only between two real logs.** Any tapped outcome (Lead, Contact, Rented/Council, Not In, Other) is a real log; filled doors never are. Nothing before the first log or after the last, nothing when walking back, never over an existing outcome. |
+| UI-10 | **2026-10-06. Admin redesign.** Owner decisions A1–A51 live in project doc `claude/admin-design-HANDBACK.md` (§3, §12, §14, §15). Headlines: drawer on phone, collapsible rail on desktop (A14–A16) · full-screen Props map + Draw with undo/redo/drag (A19–A23) · Today = schedule, allocate date-first (A17, A24–A27) · Calendar page (A38–A46) · field look, Sora, light + dark now (A3, A28) · office out of UI-10 (A29) · admin into /field (A30) · one batch per phase (A49) · old routes redirect then go (A50) · one shared theme setting (A51). Designs approved 2026-10-06 (A47). |
 | U8-4 | **2026-10-06. Mode setting:** per canvasser, per phone, in the You tab ("Tap every door" / "Exceptions only"), plus an "Exceptions only" badge in the Logger header. Org default `every_door`, set by an admin in Settings. Team props always tap every door. |
 
 ## 2. Facts found on 2026-10-03 (SELECT only, by Claude)
@@ -112,7 +113,14 @@
 | UI-8 D2 | Mode B inference + review sheet | DONE | 2026-10-06 | D1b inference + verify:ui8. D2c fill on commit (silent under 25), review sheet (25+ / street change), batch Undo, origin inferred. | fafc47d, 5078457 |
 | UI-9 E1 | Route door-list editor + server validation | TODO | | | — |
 | UI-9 E2 | Manual route tracing (snapped to roads) | TODO | | | — |
-| UI-10 F* | Mobile admin, screen by screen (after admin design Phases 2–3) | TODO | | | — |
+| UI-10 F1a | Admin nav logic + `verify:ui10` | TODO | | | — |
+| UI-10 F1b | Admin tokens, icons, UI kit | TODO | | | — |
+| UI-10 F1c | Admin shell: layout, drawer, rail; old nav removed | TODO | | | — |
+| UI-10 F2 | Props + Draw (F2a–F2f; F2f migration 029, human) | TODO | | | — |
+| UI-10 F3 | Today + allocations (F3a–F3d; F3d migration 030, human) | TODO | | | — |
+| UI-10 F4 | Calendar + Coverage (F4a–F4d; F4d migration 031, human) | TODO | | | — |
+| UI-10 F5 | Team, Leads, Settings, Insights (F5a–F5c; F5c migration 032, human) | TODO | | | — |
+| UI-10 F6 | Admin into /field + delete old routes (human) | TODO | | | — |
 
 ---
 
@@ -275,11 +283,27 @@
 
 ### UI-10: Mobile admin (P1.3)
 
-- Built to the admin design chat's approved IA (`claude/admin-design-HANDBACK.md`), after its Phases 2–3.
-- Small RPCs from its §8: Today numbers, per-canvasser stats, needs-attention.
+**Amended 2026-10-06 (owner A1–A51, designs approved A47).** Figma: page "Admin — design" (40:289), phone section 89:295 (frames 01–38), desktop section 100:1709 (D1–D3), components 47:6278. Rule `.cursor/rules/25-admin-ui.mdc`, skill `admin-ui`, profile `.ux-profile.md`. One queue batch per phase (`-Batch ui-10`), phone check after each phase. Every migration / RPC session is `gate: human` and last in its phase.
+
+**F1 Shell (M1, M4)**
+- F1a: `lib/admin/nav.ts` (nav items, active-route matching, rail state, dark-ready paths, initials) + `verify:ui10`. Folds in `seed-demo.ts` let→const.
+- F1b: admin tokens in `app/globals.css` (`text-admin-*`, `warn-ink`, shadows, sheet radius, motion; dark block extended to `.admin-root`), admin icons in `components/field/icons.tsx`, UI kit `components/admin/ui/*`.
+- F1c: `app/(admin)/layout.tsx` (Sora, shared theme), `components/admin/shell/*` (drawer, rail, menu button), `AdminNav` removed from the five old pages. Old pages stay light until rebuilt.
+
+**F2 Props + Draw (M2):** F2a pure (draw history, sheet detents, map fit) · F2b `/admin/props` map + sheet + layers + prop detail · F2c Draw mode · F2d route choice + Edit shape · F2e magnifier (droppable) · F2f human: migration 029 (`prop_archive`, footprints grant).
+
+**F3 Today (M3):** F3a pure (schedule grouping, stale end/delete split, CTA labels) · F3b Today page + Live chip · F3c visit sheet, Add visit (`/admin/today/add`), past-visits review · F3d human: migration 030 (`admin_day_board`, `admin_needs_attention`, `assignment_close_bulk`).
+
+**F4 Calendar + Coverage:** F4a pure (month grid, URL state) · F4b `/admin/calendar` + day overlay · F4c Coverage restyle, filters, focus from Calendar + Back · F4d human: migration 031 (`admin_calendar_month`, coverage filter args).
+
+**F5 Team, Leads, Settings, Insights:** F5a Team + Leads · F5b Settings (+ invite sheet) and Insights (old dashboard panels restyled, A48) · F5c human: migration 032 (`admin_canvasser_stats`, `admin_set_profile_active`) + invite server action.
+
+**F6:** human: admin allowed into /field ("Go canvassing"); old routes deleted.
+
 - **Acceptance:**
-  - no horizontal overflow at 375, 390 or 430 px
+  - no horizontal overflow at 375, 390 or 430 px; desktop works at 1440
   - draw → route → edit → allocate is completed end to end on the iPhone
+  - light and dark both readable on every rebuilt page
 
 ---
 
@@ -290,3 +314,4 @@
 - 2026-10-06 (Claude): UI-7 phone check passed (owner, all points). One follow-up from it: U7-6 tighter Logger header (session UI-7 C4).
 - 2026-10-06 (Claude): UI-8 plan approved by the owner (U8-1..U8-4). CLAUDE decisions: `origin` is sent only for filled rows (`'inferred'`); filled times are spread evenly between the last real log and the new one; only Logger commits fill (Map tab logs still count as real logs); after going back to fix an earlier door, the next forward log fills only from the furthest real log; batch Undo is in `lib/field/undo.ts` (no `lib/sync/queue.ts` change).
 - 2026-10-06 (Claude): UI-8 landed (fafc47d, b367097, 31108f3, 5078457) and the owner phone check passed (all points). Migration 028 proof: Claude re-ran it with owner approval after fixing its own test setup (the first run moved REF - Speedwell onto a date its territory already had). No `logging` row is stored, so the org default is `every_door`. Security advisor: only the expected new entries (`logging_default`, `set_logging_default` callable by signed-in users; the setter checks admin itself).
+- 2026-10-06 (Claude): UI-10 designs approved (A47) and the phase plan approved by the owner. Owner tooling written directly by Claude: `.ux-profile.md`, AGENTS.md "UI/UX skills" block, `.cursor/rules/25-admin-ui.mdc`, `.cursor/skills/admin-ui/SKILL.md`. CLAUDE decisions for F1: nav items appear only once their page exists (F1: Today→old dashboard, Props→old draw page, temporary Allocate item, Coverage, Settings); dark mode is opt-in per rebuilt route via `DARK_READY_PATHS` so the old worksheet pages never render dark; the admin theme boot script lives in a plain module (`lib/admin/theme-boot.ts`) because `lib/field/theme.ts` is "use client", and `verify:ui10` checks the two strings match.

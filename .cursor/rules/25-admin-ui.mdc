@@ -1,0 +1,45 @@
+---
+description: Rules for the admin app (UI-10 redesign, 2026-10-06)
+globs: ["app/(admin)/**", "components/admin/**", "lib/admin/**"]
+---
+
+# Admin UI
+
+Used by the owner on an iPhone (often outdoors, between doors) and at a desk at 1440. Figma: file EHxBRxJZGVAU1MuSU59RTH, page "Admin — design" (40:289). Profile: `.ux-profile.md`. Decisions: `claude/admin-design-HANDBACK.md` (project doc) A1–A51.
+
+## Look
+
+- Sora only (`.admin-root` maps the font roles). Never Bricolage, Instrument Sans or Martian Mono, never `font-data` mono labels, never the `worksheet` colours.
+- Colours are d2d tokens only (`field-bg`, `surface`, `line`, `ink`, `ink-soft`, `ink-muted`, `ink-faint`, `prop`, `prop-soft`, `warn-bg`, `warn-ink`, `error-bg`, `oxide`, `lead`, `scrim`). No hex in components. No `dark:` classes: dark mode comes from the token block in `app/globals.css`.
+- Primary action = ink fill (`Button kind="primary"`). Prop blue = selection, active nav, links, prop outlines. Destructive = `oxide`.
+- Type: the `text-admin-*` utilities (large-title, title, headline, body, body-strong, subhead, section, caption, pill, figure, day, button). Sentence case. No all-caps eyebrows.
+- Numbers that change in place use `tabular-nums`.
+- Elevation: 1px `line` border first. `shadow-admin-float` only for things floating over a map; `shadow-admin-sheet` for sheets, drawer, dialogs. Never `backdrop-blur`.
+- Outcome colours mean outcomes (Map style v1, `lib/map/map-palette.ts`). Never decorative.
+
+## Structure
+
+- Every admin page sits in `AdminShell` (app/(admin)/layout.tsx). Pages own their header and put `<AdminMenuButton />` top-left (floating on full-screen maps). Never build a page-level nav.
+- Navigation lives in `lib/admin/nav.ts` only. Add a page there when it exists; point old routes at new ones (A50).
+- A rebuilt page adds its route to `DARK_READY_PATHS` in `lib/admin/nav.ts`; until then it stays light.
+- Use the kit in `components/admin/ui/*` (Button, IconButton, Chip, StatusPill, Toggle, Segmented, Avatar, Sheet, ConfirmDialog). Do not restyle a field component for admin.
+- Icons: `components/field/icons.tsx` only (24px, stroke 1.7). No icon packages, no emoji.
+
+## Behaviour
+
+- 44px minimum targets (chips are 36 to look at, 44 to tap).
+- Under ~10 s with up to two fields: a Sheet. Multi-step: its own route. One field (rename): inline, no layout shift.
+- Destructive actions: `ConfirmDialog`, title names the thing ("End visit 3 of Whitechurch Lane - Hartcliffe?"), confirm repeats the verb, Cancel has the focus.
+- Buttons name the result ("Allocate Tom and Ada · Wed 7 Oct", "End 6 and delete 15"). Never OK / Submit / Proceed.
+- Errors say what happened and what to do next, never blame. British English.
+- Loading over ~1 s: skeleton in the real layout. No spinners for page loads.
+- Motion: transform and opacity only, `motion-safe:` animations, nothing decorative.
+- Layout must work at 375, 390, 430 and 1440 with no horizontal page scroll.
+
+## Data rules (unchanged invariants)
+
+- Admin never gets a lead-status control: settling leads is office only.
+- No resident names anywhere. Doors are an address label or UPRN.
+- Live positions: current position only, no trail, no history (H5).
+- Per-canvasser numbers are admin only, never in /field.
+- Eligibility comes only from the database (`is_knockable`).
