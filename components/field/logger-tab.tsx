@@ -452,27 +452,30 @@ export function LoggerTab() {
 
   return (
     <div className="flex h-full flex-col bg-field-bg" data-testid="logger-tab">
+      {/* UI-7 C4 (owner U7-6, 2026-10-06): the visit line sits right under the prop
+          name, the view pills share a row with the Sharing pill, and the map band
+          below (flex-1) takes the height that frees up. */}
       <header className="shrink-0 px-4 pt-2 pb-1.5" data-testid="logger-header">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="truncate text-field-title-sm text-ink" data-testid="logger-territory">
-              {assignment.territory_name}
-            </h1>
-          </div>
-          <div className="flex shrink-0 flex-col items-end gap-1">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="min-w-0 truncate text-field-title-sm text-ink" data-testid="logger-territory">
+            {assignment.territory_name}
+          </h1>
+          <div className="-my-1.5 shrink-0">
             <IdChip
               username={signedInAs}
               sync={idChipSync(status)}
               onOpen={() => setSheet({ kind: "sync" })}
             />
-            <SharingPill assignmentId={assignment.assignment_id} />
           </div>
         </div>
         <p className="mt-0.5 truncate text-field-body text-ink-soft" data-testid="logger-area-line">
           {formatLoggerAreaLine(fieldHeaderParts(assignment, routeProgress))}
         </p>
-        <div className="mt-1.5">
-          <ViewTabs views={LOGGER_VIEWS} active={view} onChange={setView} />
+        <div className="mt-1.5 flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <ViewTabs views={LOGGER_VIEWS} active={view} onChange={setView} />
+          </div>
+          <SharingPill assignmentId={assignment.assignment_id} />
         </div>
       </header>
 

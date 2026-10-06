@@ -2,28 +2,30 @@
 
 ## Current state
 
-- Last updated: 2026-10-05 (UI-7 Session C3b). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- The field shell now sends position from `lib/field/position-share.ts` only. `PositionSharer` is mounted inside `GeoProvider` in `app/(field)/layout.tsx`. It calls `report_position` on each fix and on a 15 s check, throttled by `shouldSend` (30 s, under 10 m skipped, 2-minute heartbeat), only while the page is visible and online. A failed send is dropped. It is never queued and never written to Dexie.
+- Last updated: 2026-10-06 (UI-7 Session C4). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Logger header only (owner U7-6). Row 1 is the prop name and the ID chip. Row 2 is the visit line, full width, still truncated with the existing class. Row 3 is the Logging / Survey pills and the Sharing pill. The ID chip stays a 44px target. `-my-1.5` stops it making the title row taller. The mini map band is still `flex-1` and takes the height that frees. The Map tab header is unchanged.
+- `data-testid`s on the Logger header are unchanged: `logger-header`, `logger-territory`, `logger-area-line`. No logic, state, hook or import change in `components/field/logger-tab.tsx`.
+- The Sharing pill is on the same row as the view pills in the Logger, and still in the Map header. Tap still opens the Stop / share sheet. Hidden when location is denied or unavailable.
+- The UI-7 C1 tracker row stays DONE. Its Result now ends ` C4 done: tighter Logger header (U7-6).` Status was left as it was. No new tracker row.
+- This session wrote no database row. No `client_event_id`.
+- `npx tsc --noEmit` exit 0. eslint exit 0 on `components/field/logger-tab.tsx`. `npm run verify:ui1`, `npm run verify:ui6` and `npm run verify:ui7` exit 0.
+- The field shell still sends position from `lib/field/position-share.ts` only. `PositionSharer` is mounted inside `GeoProvider` in `app/(field)/layout.tsx`. It calls `report_position` on each fix and on a 15 s check, throttled by `shouldSend` (30 s, under 10 m skipped, 2-minute heartbeat), only while the page is visible and online. A failed send is dropped. It is never queued and never written to Dexie.
 - Sharing is on by default per assignment. Stop writes `d2d.shareStopped:<assignmentId>` = `1` in localStorage. That flag holds no coordinate. Stop also calls `stop_sharing_position`. An offline Stop is repeated the next time the app opens online.
-- The Sharing pill is under the Logger ID chip and in the Map header. Tap opens a sheet: Stop sharing / Keep sharing, or Share location / Not now. Hidden when location is denied or unavailable.
 - Until the canvasser's first log, and while sharing is on and GPS is active, the Logger status line says "Sharing your location with partner + admins" with Stop. That line sits below errors, instructions and offline.
 - The Logger team strip appends the partner gap from the scalar `report_position` returns (`partnerGapLabel`). A scalar, never a pin.
 - `/admin/dashboard` still opens with the C3c "Live now" panel. It polls `admin_live_positions()` every 30 s while the tab is visible. No realtime channel. One violet dot per canvasser. Current position only. No trail.
 - `--color-you` is `#6741d9` in `@theme` and `#a58bff` on the field dark root. The Sharing pill uses `bg-you`.
-- UI-7 C3 Status is DONE (2026-10-05). Result: `C3a migration 027 + types. C3b position sender, Sharing pill + notice, partner distance. C3c admin Live now panel.`
-- Migration `027_live_positions.sql` is applied (C3a). This session wrote no database row. No `client_event_id`.
-- `npx tsc --noEmit` exit 0. eslint exit 0 on `lib/field/position-share.ts`, `components/field/position-sharer.tsx`, `components/field/sharing-pill.tsx`, `app/(field)/layout.tsx`, `components/field/logger-tab.tsx` and `components/field/map-tab.tsx`. `npm run verify:ui7`, `npm run verify:ui1` and `npm run verify:ui6` exit 0.
-- Executable `navigator.geolocation` calls remain only in `components/field/geo-provider.tsx` line 132 (`clearWatch`) and line 138 (`watchPosition`).
-- `admin_live_positions` in `components` and `lib`: `lib/admin/live.ts` lines 8 and 36, `lib/supabase/types.ts` line 1369. Plain `git grep` misses `lib/admin/live.ts` because that file is untracked. `git grep --untracked` lists those three lines only.
+- UI-7 C3 Status is DONE. Result: `C3a migration 027 + types. C3b position sender, Sharing pill + notice, partner distance. C3c admin Live now panel.`
+- Migration `027_live_positions.sql` is applied (C3a).
 - Field GPS from C2 is unchanged. `GeoProvider` snaps each good fix onto the frozen route line on the device. `routePlace.alongM` is server metres. It is null more than 100 m from the route, before the first good fix, or when the prop is unrouted. A weak fix (worse than 30 m) does not move it. The snapped coordinate is not kept.
 - The Logger mini map still shows the near-you chip after 2 agreeing fixes. Tap jumps the cursor. The cursor never moves on its own.
 - Both maps still draw the violet "you" marker from C1b. Mini-map recentre is unchanged. Location denied or unavailable still shows "Location off" when the chip is not in the overlay slot.
-- `lib/field/position.ts`: `positionEnabled` stays false and `getRoutePosition()` stays null. `lib/field/geo.ts`, `lib/sync/queue.ts` and `lib/map/route-layers.ts` were not edited.
-- UI-7 C2 Status is DONE (2026-10-05). UI-7 C1 Status stays TODO.
+- `lib/field/position.ts`: `positionEnabled` stays false and `getRoutePosition()` stays null. `lib/field/geo.ts`, `lib/sync/queue.ts` and `lib/map/route-layers.ts` were not edited this session.
+- UI-7 C2 Status is DONE. UI-7 C1 Status stays DONE.
 - UI-6 B2 stays DONE. A3c is not started. Routes are not regenerated (H8). The 20 old open assignments were left as they are (H9). The tenure layer stays deferred until after UI-7 (H10).
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
-- External settings: none. No browser. No dev server. The six C3b phone checks are not done. No database row.
+- External settings: none. No browser. No dev server. The five C4 phone checks are not done. No database row.
 
 ## Log
 
@@ -1717,5 +1719,28 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Invariants:** The one `navigator.geolocation` call remains in `components/field/geo-provider.tsx` (`clearWatch` line 132, `watchPosition` line 138). The only network payload that carries a coordinate is `report_position` in `lib/field/position-share.ts`, and only while sharing is on. Nothing is written to Dexie or the outbox. localStorage stores only `d2d.shareStopped:<id>` = `1`. No trail. No history table. No quality scoring in `/field`. Knocks still go through `lib/sync/queue.ts`. `git diff --stat -- lib/sync` is empty. Coverage is still derived. No database row. No `client_event_id`.
 - **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on the six session files. `npm run verify:ui7` exit 0. `npm run verify:ui1` exit 0. `npm run verify:ui6` exit 0. `git grep` for `sharingNotice|showSharingNotice|shareState` in `logger-tab.tsx` before EDIT 5 returned nothing. Executable `navigator.geolocation` calls only in `components/field/geo-provider.tsx` lines 132 and 138. `git grep -n --untracked "report_position|stop_sharing_position" -- components lib app` lists `lib/field/position-share.ts` lines 11, 98 and 129, and `lib/supabase/types.ts` lines 1634 and 2246.
 - **Not verified:** A browser. A phone. The six phone checks in the session brief.
+- **External settings:** none
+- **Open questions for Claude:** none
+
+### 2026-10-06 — UI-7 Session C4 (uncommitted)
+
+- **Item:** UI-7
+- **What changed:** The Logger header is shorter. The visit line sits tight under the prop name. The Logging and Survey pills sit on the same row as the Sharing pill. The mini map band below is still `flex-1`, so it takes the height that frees. The Map tab header is unchanged.
+- **Files:**
+  - Changed: `components/field/logger-tab.tsx`, `docs/FIELD-TEST-BUILD-PLAN.md` (UI-7 C1 Result only), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: none
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none. `lib/sync/queue.ts`, `lib/field/geo.ts` and `lib/map/route-layers.ts` were not edited.
+- **Decided by:**
+  - OWNER — U7-6 (2026-10-06, from the UI-7 phone check): the visit line sat too low and wasted map space. Move it up tight under the prop name. Put the Logging / Survey pills on the same row as the Sharing pill. The mini map grows into the freed height.
+  - CLAUDE — the right column stacked the ID chip (44px) and the Sharing pill, so the visit line and pills only started below both.
+  - CLAUDE — row 1 is the prop name and the ID chip. Row 2 is the visit line, full width, with no new truncation. Row 3 is the view pills and the Sharing pill.
+  - CLAUDE — the ID chip keeps its 44px tap target. `-my-1.5` stops it adding height. That saves about 45px. The existing `flex-1` map band takes it. No other change.
+  - CLAUDE — Logger header only. The Map tab header is unchanged.
+- **Deviations from plan or brief:** none. The given header block was pasted exactly. The find block occurred once.
+- **Invariants:** No GPS and no coordinates in this change. No quality scoring in `/field`. No field write. `lib/sync/queue.ts` was not edited. Coverage is still derived. No database row. No `client_event_id`.
+- **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on `components/field/logger-tab.tsx`. `npm run verify:ui1` exit 0. `npm run verify:ui6` exit 0. `npm run verify:ui7` exit 0.
+- **Not verified:** A browser. A phone. The five phone checks in the session brief (390×763, 375×667, 430×850; long prop name; 44px taps; Survey view; dark and light).
 - **External settings:** none
 - **Open questions for Claude:** none

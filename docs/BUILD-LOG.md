@@ -2287,3 +2287,26 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Deviations from brief:** none
 - **Not done / deferred:** A browser. A phone. Did not commit. No database row.
 - **Follow-ups:** The owner does the six phone checks once for the phase.
+
+### UI-7 Session C4 — tighter Logger header
+- **Date:** 2026-10-06
+- **Model:** Grok 4.7
+- **Built:** The Logger header is three rows. Row 1 is the prop name and the ID chip. Row 2 is the visit line, full width. Row 3 is the Logging / Survey pills and the Sharing pill. The ID chip keeps a 44px tap target. `-my-1.5` stops it making the title row taller. The mini map band stays `flex-1` and takes the freed height. The Map tab header is unchanged. Header markup only. No logic, state, hook or import change. `data-testid`s are unchanged.
+- **Owner decisions:**
+  - OWNER — U7-6 (2026-10-06, from the UI-7 phone check): the visit line sat too low and wasted map space. Move it up tight under the prop name. Put the Logging / Survey pills on the same row as the Sharing pill. The mini map grows into the freed height.
+- **Claude decisions:**
+  - CLAUDE — the right column stacked the ID chip (44px) and the Sharing pill, so the visit line and pills only started below both.
+  - CLAUDE — row 1 is the prop name and the ID chip. Row 2 is the visit line, full width, with no new truncation. Row 3 is the view pills and the Sharing pill.
+  - CLAUDE — the ID chip keeps its 44px tap target. `-my-1.5` stops it adding height. That saves about 45px. The existing `flex-1` map band takes it. No other change.
+  - CLAUDE — Logger header only. The Map tab header is unchanged.
+- **Acceptance:**
+  - EDIT 1 DONE. The header find-block in `components/field/logger-tab.tsx` occurred once and was replaced with the given markup.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on `components/field/logger-tab.tsx`: **PASS** — exit 0.
+  - `npm run verify:ui1`: **PASS** — exit 0.
+  - `npm run verify:ui6`: **PASS** — exit 0.
+  - `npm run verify:ui7`: **PASS** — exit 0. All UI-7 geo checks passed.
+  - Phone: **NOT VERIFIED**. Headless session. No browser.
+- **Deviations from brief:** none
+- **Not done / deferred:** A browser. A phone. The five phone checks. Did not commit. No database row.
+- **Follow-ups:** The owner checks the Logger header on a phone at 390×763, 375×667 and 430×850.
