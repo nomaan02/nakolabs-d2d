@@ -100,10 +100,10 @@
 | UI-5 A4 | Admin tenure layer (optional) | TODO | | | — |
 | UI-6 B1 | Mini map: rotate, recentre | DONE | 2026-10-04 | Compact map rotates; recentre returns north-up. tsc, eslint, verify:ui1 and verify:anchors passed. | 025ccd8 |
 | UI-6 B2 | Logger tabs: Logging View / Survey Overview | DONE | 2026-10-04 | B2a done: surveyRows + verify:ui6. B2b done: view pills + Survey Overview. Phone check 10/10 passed. | 38fdba1, c21a652 |
-| UI-7 C0 | Brief amendment: invariant 7, Section 8, Stage 16 (H3, H5) | DONE | 2026-10-04 | Done by Claude directly (docs only): invariant 7, Section 8 (DPIA/LIA/notice/solicitor to-do), Stage 16 table. Owner read-through pending. | — |
-| UI-7 C1 | On-device GPS + direction arrow (both maps) | TODO | 2026-10-05 | C1a done: geo maths + verify:ui7. C1b done: GeoProvider, you marker, recentre, Location off. | — |
-| UI-7 C2 | "Near you" door chip | DONE | 2026-10-05 | Route snapping on device + near-you chip (2 agreeing fixes, tap to jump). | — |
-| UI-7 C3 | Position sharing: partner scalar + admin live map | DONE | 2026-10-05 | C3a migration 027 + types. C3b position sender, Sharing pill + notice, partner distance. C3c admin Live now panel. | — |
+| UI-7 C0 | Brief amendment: invariant 7, Section 8, Stage 16 (H3, H5) | DONE | 2026-10-04 | Done by Claude directly (docs only): invariant 7, Section 8 (DPIA/LIA/notice/solicitor to-do), Stage 16 table. Owner read-through pending. | b41a1c3 |
+| UI-7 C1 | On-device GPS + direction arrow (both maps) | DONE | 2026-10-06 | C1a done: geo maths + verify:ui7. C1b done: GeoProvider, you marker, recentre, Location off. | 7ad0c10, 8d67f60 |
+| UI-7 C2 | "Near you" door chip | DONE | 2026-10-05 | Route snapping on device + near-you chip (2 agreeing fixes, tap to jump). | d5cd445 |
+| UI-7 C3 | Position sharing: partner scalar + admin live map | DONE | 2026-10-06 | C3a migration 027 + types. C3b position sender, Sharing pill + notice, partner distance. C3c admin Live now panel. | 94afa8c, 5c0532e, 11788c4 |
 | UI-8 D1 | `knock_events.origin` + logging-mode setting | TODO | | | — |
 | UI-8 D2 | Mode B inference + review sheet | TODO | | | — |
 | UI-9 E1 | Route door-list editor + server validation | TODO | | | — |
@@ -281,3 +281,4 @@
 
 - 2026-10-03 (Claude): plan approved by the owner. "UI item 4" is already used in BUILD-LOG (route focus), so this run starts at UI-5.
 - 2026-10-04 (Claude): UI-7 plan approved by the owner (U7-1..U7-5). Sessions: C0 (Claude, docs) · C1a `lib/field/geo.ts` + `verify:ui7` · C1b GPS provider, arrow, recentre, location-off notice · C2 near-you chip + route position hook · C3a migration 027 (`live_positions`, `report_position`, `stop_sharing_position`, `admin_live_positions`, close triggers) · C3c admin "Live now" panel · C3b field sender, Sharing pill, notice, partner distance. Figma: page 5:2, section "UI-7 GPS (2026-10-04)". "You" marker is violet (never an outcome colour).
+- 2026-10-06 (Claude): UI-7 phone check passed (owner, all points). One follow-up from it: U7-6 tighter Logger header (session UI-7 C4).
