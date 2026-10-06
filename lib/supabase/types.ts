@@ -310,6 +310,7 @@ export type Database = {
           id: string
           notes: string | null
           occurred_at: string
+          origin: string
           outcome: string
           sequence_position: number | null
           synced_at: string
@@ -322,6 +323,7 @@ export type Database = {
           id?: string
           notes?: string | null
           occurred_at: string
+          origin?: string
           outcome: string
           sequence_position?: number | null
           synced_at?: string
@@ -334,6 +336,7 @@ export type Database = {
           id?: string
           notes?: string | null
           occurred_at?: string
+          origin?: string
           outcome?: string
           sequence_position?: number | null
           synced_at?: string
@@ -1580,6 +1583,7 @@ export type Database = {
         Args: { p_after?: number; p_limit?: number }
         Returns: Json
       }
+      logging_default: { Args: never; Returns: string }
       longtransactionsenabled: { Args: never; Returns: boolean }
       nccz_zones_geojson: { Args: never; Returns: Json }
       populate_geometry_columns:
@@ -1662,6 +1666,7 @@ export type Database = {
         Returns: Json
       }
       route_walk_inputs: { Args: { p_territory_id: string }; Returns: Json }
+      set_logging_default: { Args: { p_mode: string }; Returns: string }
       st_3dclosestpoint: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: unknown

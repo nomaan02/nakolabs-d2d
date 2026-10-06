@@ -2,19 +2,19 @@
 
 ## Current state
 
-- Last updated: 2026-10-06 (UI-8 Session D1b). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Pure logic only. `lib/field/inference.ts` exports `planInference()`, `crossesStreet` and `ASK_AT_DOORS` (25). No React, no Dexie, no network, no storage. Nothing calls it yet. D2c (session 04) calls it from the Logger.
-- `planInference()` returns `none`, `fill` (under 25 doors, one street) or `ask` (`big_gap` at 25+, or `street_change`). Each door has its sequence index, UPRN, snapshot position and an `occurredAt` spread evenly between the last real log and the new one.
-- A real log is a tapped row by this canvasser (`inferred` false). Logging at or behind the latest real log fills nothing. After a correction, the next forward log fills only from the furthest real log. A door with any outcome on this phone, or a teammate's knock, is never filled.
-- UI-8 D2 tracker Status stays TODO. Result: `D1b done: lib/field/inference.ts + verify:ui8.` Date 2026-10-06. Commit column still `—`.
-- `npx tsc --noEmit` exit 0. eslint exit 0 on `lib/field/inference.ts` and `scripts/verify-ui-8-inference.ts`. `npm run verify:ui8` exit 0, printed `ALL PASS` (25 checks).
-- This session wrote no database row. No `client_event_id`. No migration.
-- `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited. `lib/field/geo.ts` and `lib/field/position.ts` were not edited. `positionEnabled` stays false.
+- Last updated: 2026-10-06 (UI-8 Session D1a). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Migration 028 is applied. `knock_events.origin` is `text not null default 'tap'`. Checks: `knock_events_origin_check` (`tap | inferred`) and `knock_events_inferred_is_no_answer` (`origin = 'tap' or outcome = 'no_answer'`). `authenticated` has column `INSERT` on `origin`.
+- `logging_default()` is executable by `authenticated` and not by `anon`. With no `logging` key it is specified to return `every_door`. `set_logging_default(text)` is not executable by `anon`. `app_settings` is still admin only. No `logging` row was seeded. Keys are still only `rotation`.
+- Every existing knock is `tap`: 1,273 rows, 1,273 `tap`. The proof block first failed on its own setup (Claude's test bug); Claude fixed it and re-ran it with owner approval: `TEST_RESULT old_not_tap=0 default=every_door inferred_answered=23514 bad_origin=23514 cx_set=42501 rows=tap,inferred bad_mode=22023 admin_set=exceptions cx_reads=exceptions stored=exceptions`. Nothing kept. Original failure: It raised `23505` `assignments_territory_id_work_date_key` on the setup update of assignment `1bd12662-2b3e-4e9d-ac0f-09913906ca4b` to London date `2026-10-06` (territory `f2e26db8-7279-4b13-b525-542597d55a81`). Nothing was kept. Knock count still 1,273. No `client_event_id`.
+- `lib/supabase/types.ts` was replaced from `generate_typescript_types`. `origin` is on knock_events Row, Insert and Update. Functions `logging_default` and `set_logging_default` are present. `npx tsc --noEmit` exit 0. eslint on that file exit 0.
+- UI-8 D1 tracker Status stays TODO. Date 2026-10-06. Result records that 028 and the types are in, and that the proof did not reach `TEST_RESULT`. Commit column still `—`.
+- D1b is unchanged. `lib/field/inference.ts` still exports `planInference()`, `crossesStreet` and `ASK_AT_DOORS` (25). Nothing calls it yet. D2c calls it from the Logger.
+- `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/geo.ts` and `lib/field/position.ts` were not edited. `positionEnabled` stays false. `lib/supabase/types.ts` was regenerated. No app code.
 - UI-7 is unchanged. The field shell still sends position from `lib/field/position-share.ts` only. Sharing is on by default. The Logger header is the C4 three-row layout. The near-you chip, violet "you" marker and admin Live now panel are unchanged. Migration 027 is applied.
 - UI-6 B2 stays DONE. A3c is not started. Routes are not regenerated. The tenure layer stays deferred.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
-- External settings: none. No browser. No dev server. No phone check for this session (pure logic).
+- External settings: none. No browser. No dev server. No phone check for this session (database only).
 
 ## Log
 
@@ -1762,3 +1762,33 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. A phone. None for this session (pure logic).
 - **External settings:** none
 - **Open questions for Claude:** none
+
+### 2026-10-06 — UI-8 Session D1a (uncommitted)
+
+- **Item:** UI-8
+- **What changed:** Migration 028 adds `knock_events.origin` (`tap` or `inferred`, default `tap`) and requires an inferred row to be Not In. `logging_default()` and `set_logging_default()` store the org logging mode. Types were regenerated. The canvasser proof did not run: moving REF - Speedwell to today hit a unique date on that territory.
+- **Files:**
+  - Changed: `lib/supabase/types.ts`, `docs/FIELD-TEST-BUILD-PLAN.md` (UI-8 D1 Result and date only; Status stays TODO), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `supabase/migrations/028_exceptions_logging.sql`
+  - Deleted: none
+- **Database:** 028 `028_exceptions_logging.sql`. Adds `knock_events.origin`, two checks, `grant insert (origin)` to `authenticated`, `logging_default()` and `set_logging_default(text)`. No RLS change. No `logging` row. The proof wrote nothing that was kept.
+- **Shared modules touched:** `lib/supabase/types.ts` regenerated after 028. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/field/*` were not edited.
+- **Decided by:**
+  - OWNER — H4 (2026-10-03): exception-only logging (Mode B), stored with `knock_events.origin = 'inferred'`, solo props only.
+  - OWNER — H7 (2026-10-03): gaps of 25+ doors, or a change of street, always ask. Backtracking never fills.
+  - OWNER — U8-1 (2026-10-06): under 25 doors on one street fill silently, with one Undo for the tap and the fill.
+  - OWNER — U8-2 (2026-10-06): 25+ doors, or a street change, opens the review sheet, all ticked, with its own Undo.
+  - OWNER — U8-3 (2026-10-06): only between two real (tapped) logs, never over an existing outcome.
+  - OWNER — U8-4 (2026-10-06): mode per canvasser per phone in the You tab, plus an "Exceptions only" header badge. Org default `every_door`, set by an admin. Team props always tap every door.
+  - CLAUDE — Figma page "Logger — clean build" (5:2), section "UI-8 Exceptions only (2026-10-06)".
+  - CLAUDE — `knock_events.origin text not null default 'tap'`, check `tap | inferred`, plus `origin = 'tap' or outcome = 'no_answer'`. Every existing row becomes `tap`. Canvassers get `grant insert (origin)`.
+  - CLAUDE — `logging_default()`: security definer, any signed-in user, returns `every_door` unless `app_settings` key `logging` says `{"default_mode": "exceptions"}`. `app_settings` itself stays admin only.
+  - CLAUDE — `set_logging_default(p_mode)`: admin only (42501 otherwise), validates the mode (22023), upserts the `logging` key.
+  - CLAUDE — this session writes only the migration and the regenerated types. No app code.
+- **Deviations from plan or brief:** The tracker result is not the prescribed success sentence. The proof did not return `TEST_RESULT`. The SQL block was not edited. It was not re-run. Types were still regenerated because they do not depend on that proof.
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. No field write path. `lib/sync/queue.ts` was not edited. Coverage is still derived. No kept database row. No `client_event_id`.
+- **Verified:** `apply_migration` success. Column `origin`, default `'tap'::text`, `is_nullable` NO. Both constraint names. Insert grant count 1. Function privileges anon read false, authenticated read true, anon set false. Knock counts 1,273 and 1,273 tap, before and after the failed proof. `app_settings` keys before and after: `rotation` only. `git grep` shows `origin` on knock_events Row, Insert and Update, plus both functions. `npx tsc --noEmit` exit 0. eslint on `lib/supabase/types.ts` exit 0.
+- **Not verified:** The canvasser insert, the Not In check, the canvasser denial of `set_logging_default`, and the admin set. A browser. A phone. None for this session (database only).
+- **External settings:** none
+- **Open questions for Claude:** The proof's first statement sets REF - Speedwell (`1bd12662-2b3e-4e9d-ac0f-09913906ca4b`) `work_date` to London today. That territory (`f2e26db8-7279-4b13-b525-542597d55a81`) already has an assignment on `2026-10-06`, so Postgres raises `23505` `assignments_territory_id_work_date_key`. The origin checks never ran. Say how that block should be re-run.
+- **Claude follow-up (2026-10-06, owner-approved write):** the proof failed on Claude's test setup, not on 028. Its first line moved REF - Speedwell to today, which clashes with another visit on that territory. The insert policy only needs membership, so Claude removed the setup lines and ran the fixed block once via the Supabase MCP. Result, exactly as expected: `TEST_RESULT old_not_tap=0 default=every_door inferred_answered=23514 bad_origin=23514 cx_set=42501 rows=tap,inferred bad_mode=22023 admin_set=exceptions cx_reads=exceptions stored=exceptions`. After: knock count 1,273, `app_settings` keys `rotation` only. Nothing kept. EDIT 3 is DONE.
