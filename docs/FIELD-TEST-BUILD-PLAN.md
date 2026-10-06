@@ -113,7 +113,7 @@
 | UI-8 D2 | Mode B inference + review sheet | DONE | 2026-10-06 | D1b inference + verify:ui8. D2c fill on commit (silent under 25), review sheet (25+ / street change), batch Undo, origin inferred. | fafc47d, 5078457 |
 | UI-9 E1 | Route door-list editor + server validation | TODO | | | — |
 | UI-9 E2 | Manual route tracing (snapped to roads) | TODO | | | — |
-| UI-10 F1a | Admin nav logic + `verify:ui10` | TODO | | | — |
+| UI-10 F1a | Admin nav logic + `verify:ui10` | DONE | 2026-10-06 | lib/admin/nav.ts + verify:ui10; seed-demo prefer-const. | — |
 | UI-10 F1b | Admin tokens, icons, UI kit | TODO | | | — |
 | UI-10 F1c | Admin shell: layout, drawer, rail; old nav removed | TODO | | | — |
 | UI-10 F2 | Props + Draw (F2a–F2f; F2f migration 029, human) | TODO | | | — |

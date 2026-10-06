@@ -239,7 +239,7 @@ function outcomeBag(n: number, rng: DemoRng): KnockOutcome[] {
     const exact = (weight / 100) * n;
     return { outcome, n: Math.floor(exact), frac: exact - Math.floor(exact) };
   });
-  let leftover = n - rows.reduce((sum, row) => sum + row.n, 0);
+  const leftover = n - rows.reduce((sum, row) => sum + row.n, 0);
   const ranked = [...rows].sort((a, b) => b.frac - a.frac);
   for (let i = 0; i < leftover; i += 1) ranked[i]!.n += 1;
   const bag: KnockOutcome[] = [];

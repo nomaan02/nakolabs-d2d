@@ -2,15 +2,13 @@
 
 ## Current state
 
-- Last updated: 2026-10-06 (UI-8 Session D2c). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Logger `commit` fills only when `exceptionsOnly` (mode on, solo prop). It plans from the outcomes this phone already had, writes the tapped knock, then the filled doors. Under 25 doors on one street fills silently. 25+ or a street change opens the review sheet, all ticked. A replayed tap (`queued: false`) does not fill. Notes corrections and the Map tab do not fill.
-- Filled doors are queued knocks: outcome `no_answer`, `origin: 'inferred'`, `sequence_position` the snapshot position, each with its own `client_event_id`, held in the same 60 s undo window. `validateOp` refuses an inferred knock that is not Not In or that carries a lead or observation.
-- Undo is still one target and one button. It can carry a batch. Silent fill: "Contact · 18 Ventnor Rd + 12 Not In" removes the tap and the fill. Sheet Confirm: "12 Not In · Ventnor Road" removes only that batch. `LocalOutcome.inferred` marks filled rows so they are not real logs.
-- UI-8 D2 tracker Status is DONE. Date 2026-10-06. Result: `D1b inference + verify:ui8. D2c fill on commit (silent under 25), review sheet (25+ / street change), batch Undo, origin inferred.` Commit column still `—`.
-- `npx tsc --noEmit` exit 0. eslint on the six session files exit 0. `npm run verify:ui8` exit 0 (`ALL PASS`). `npm run verify:ui1` exit 0 (`OK`). `npm run verify:ui6` exit 0 (`OK`). `git diff --stat -- lib/sync/queue.ts` empty. `git grep -n 'origin: "inferred"' -- lib components` hits only `lib/field/log-outcome.ts:197`.
-- `lib/sync/queue.ts` was not edited. Writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/geo.ts` and `lib/field/position.ts` were not edited. `positionEnabled` stays false.
-- Migration 028 is unchanged. Knock count was not re-read. No database row. No `client_event_id`.
-- UI-7 is unchanged. UI-6 B2 stays DONE. A3c is not started. Routes are not regenerated. The tenure layer stays deferred.
+- Last updated: 2026-10-06 (UI-10 Session F1a). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- `lib/admin/nav.ts` is the one admin nav list. F1 items: Today → `/admin/dashboard`, Props → `/admin` (exact), temporary Allocate, Coverage, Settings under the divider. Longest matching href wins. `DARK_READY_PATHS` is empty, so old pages stay light. Rail defaults to expanded (`d2d.admin.rail`).
+- UI-10 F1a tracker Status is DONE. Date 2026-10-06. Result: `lib/admin/nav.ts + verify:ui10; seed-demo prefer-const.` Commit column still `—`.
+- `npx tsc --noEmit` exit 0. eslint on `lib/admin/nav.ts`, `scripts/verify-ui-10-admin.ts` and `scripts/seed-demo.ts` exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`).
+- `lib/sync/queue.ts` was not edited. Writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited.
+- No database change. No database row. No `client_event_id`.
+- UI-8 is unchanged. UI-7 is unchanged. Drawer, rail and theme boot are F1c, not this session.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
 - External settings: none. No browser. No dev server. Phone checks for this session are NOT VERIFIED.
@@ -1849,5 +1847,34 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. `lib/sync/queue.ts` was not edited. Coverage is still derived. No database row. No `client_event_id`.
 - **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on the six session files. `npm run verify:ui8` exit 0 (`ALL PASS`). `npm run verify:ui1` exit 0 (`OK`). `npm run verify:ui6` exit 0 (`OK`). `git diff --stat -- lib/sync/queue.ts` empty. `git grep -n 'origin: "inferred"' -- lib components` hits only `lib/field/log-outcome.ts:197`.
 - **Not verified:** A browser. A phone. The seven phone checks in the session prompt (silent fill, batch Undo, review sheet, street change, backtracking, airplane mode, team prop).
+- **External settings:** none
+- **Open questions for Claude:** none
+
+### 2026-10-06 — UI-10 Session F1a (uncommitted)
+
+- **Item:** UI-10
+- **What changed:** Admin navigation is one pure list in `lib/admin/nav.ts`. It names the F1 items, picks the active item by the longest matching href, splits main and tools, reads the rail state, and keeps dark mode off until a route is listed. `npm run verify:ui10` checks that list. `scripts/seed-demo.ts` now uses `const leftover`.
+- **Files:**
+  - Changed: `package.json` (`verify:ui10`), `scripts/seed-demo.ts` (`let leftover` → `const`), `docs/FIELD-TEST-BUILD-PLAN.md` (UI-10 F1a Status DONE and Result), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `lib/admin/nav.ts`, `scripts/verify-ui-10-admin.ts`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none. `lib/admin/nav.ts` is new and pure. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved. Figma page 40:289, phone 01–38, desktop D1–D3.
+  - OWNER — A3: admin extends the field system: Sora, d2d tokens, Map style v1. Bricolage, Instrument and Martian Mono go.
+  - OWNER — A14–A16: phone nav is an overlay drawer from the left (about 85% wide, scrim, closes on pick, swipe left to close, no edge-swipe to open), opened from a top-left button in each page header. Desktop is a left rail, expanded 240 or collapsed 64, remembered.
+  - OWNER — A28: dark mode now, same as the field app. A51: admin and field share one Light / Dark / System choice per device (`d2d.theme`).
+  - OWNER — A50: old routes keep working until their replacement lands, then redirect. Deleted in F6.
+  - CLAUDE — One list (`ADMIN_NAV`) drives both the phone drawer and the desktop rail (built in F1c).
+  - CLAUDE — An item appears only once its page exists. F1: Today → `/admin/dashboard` (Live now panel), Props → `/admin` (old draw page, exact match only), a temporary Allocate item (removed in F3 when allocating moves into Today), Coverage, and Settings under the divider. Later phases change hrefs as new pages land.
+  - CLAUDE — The active item is the longest matching href. `exact` stops `/admin` swallowing its children.
+  - CLAUDE — Dark mode is opt-in per rebuilt route (`DARK_READY_PATHS`, empty in F1) so the old worksheet pages never render dark.
+  - CLAUDE — The rail state is `expanded` unless `collapsed` was stored under `d2d.admin.rail`.
+  - CLAUDE — Follow-up folded in: `scripts/seed-demo.ts` `let leftover` → `const` (eslint prefer-const).
+- **Deviations from plan or brief:** none. The given code was pasted exactly.
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. `lib/sync/queue.ts` was not edited. Coverage is still derived. No database row. No `client_event_id`.
+- **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on `lib/admin/nav.ts`, `scripts/verify-ui-10-admin.ts` and `scripts/seed-demo.ts`. `npm run verify:ui10` exit 0 (`ALL PASS`).
+- **Not verified:** A browser. A phone. None for this session (the owner checks F1 as a whole after F1c).
 - **External settings:** none
 - **Open questions for Claude:** none

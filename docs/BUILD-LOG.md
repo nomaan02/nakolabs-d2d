@@ -2444,3 +2444,35 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Deviations from brief:** none. The given code was pasted exactly.
 - **Not done / deferred:** A browser. A phone. The seven phone checks. Did not commit. No database row.
 - **Follow-ups:** The owner does the seven phone checks once for the phase.
+
+---
+
+### UI-10 Session F1a — admin nav logic (pure) + verify:ui10
+- **Date:** 2026-10-06
+- **Model:** Grok 4.7
+- **Built:** `lib/admin/nav.ts` is the one list for the phone drawer and the desktop rail (both built in F1c). F1 items: Today → `/admin/dashboard`, Props → `/admin` (exact), a temporary Allocate item, Coverage, and Settings under the divider. The active item is the longest matching href. Dark mode is opt-in via `DARK_READY_PATHS` (empty in F1). The rail is expanded unless `collapsed` is stored under `d2d.admin.rail`. `scripts/seed-demo.ts` `leftover` is now `const`.
+- **Owner decisions:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved. Figma page 40:289, phone 01–38, desktop D1–D3.
+  - OWNER — A3: admin extends the field system: Sora, d2d tokens, Map style v1. Bricolage, Instrument and Martian Mono go.
+  - OWNER — A14–A16: phone nav is an overlay drawer from the left (about 85% wide, scrim, closes on pick, swipe left to close, no edge-swipe to open), opened from a top-left button in each page header. Desktop is a left rail, expanded 240 or collapsed 64, remembered.
+  - OWNER — A28: dark mode now, same as the field app. A51: admin and field share one Light / Dark / System choice per device (`d2d.theme`).
+  - OWNER — A50: old routes keep working until their replacement lands, then redirect. Deleted in F6.
+- **Claude decisions:**
+  - CLAUDE — One list (`ADMIN_NAV`) drives both the phone drawer and the desktop rail (built in F1c).
+  - CLAUDE — An item appears only once its page exists. F1: Today → `/admin/dashboard` (Live now panel), Props → `/admin` (old draw page, exact match only), a temporary Allocate item (removed in F3 when allocating moves into Today), Coverage, and Settings under the divider. Later phases change hrefs as new pages land.
+  - CLAUDE — The active item is the longest matching href. `exact` stops `/admin` swallowing its children.
+  - CLAUDE — Dark mode is opt-in per rebuilt route (`DARK_READY_PATHS`, empty in F1) so the old worksheet pages never render dark.
+  - CLAUDE — The rail state is `expanded` unless `collapsed` was stored under `d2d.admin.rail`.
+  - CLAUDE — Follow-up folded in: `scripts/seed-demo.ts` `let leftover` → `const` (eslint prefer-const).
+- **Acceptance:**
+  - EDIT 1 DONE. New `lib/admin/nav.ts` pasted as given.
+  - EDIT 2 DONE. New `scripts/verify-ui-10-admin.ts` pasted as given.
+  - EDIT 3 DONE. `verify:ui8` in `package.json` occurred once. `verify:ui10` was added after it.
+  - EDIT 4 DONE. `let leftover` in `scripts/seed-demo.ts` occurred once and became `const`.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on `lib/admin/nav.ts`, `scripts/verify-ui-10-admin.ts`, `scripts/seed-demo.ts`: **PASS** — exit 0.
+  - `npm run verify:ui10`: **PASS** — exit 0. Printed `ALL PASS`.
+  - Phone: **NOT VERIFIED**. Headless session. No browser. None for this session (the owner checks F1 as a whole after F1c).
+- **Deviations from brief:** none. The given code was pasted exactly.
+- **Not done / deferred:** A browser. A phone. Did not commit. No database row. Drawer, rail and theme boot are F1c.
+- **Follow-ups:** The owner checks F1 as a whole after F1c.
