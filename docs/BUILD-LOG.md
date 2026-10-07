@@ -2694,3 +2694,51 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Deviations from brief:** none. The given code was pasted exactly.
 - **Not done / deferred:** A browser. A phone. Did not commit. No database row. Draw, Edit shape, the Routes step, the nav switch and `/admin` → Props are F2d. The magnifier is F2e. `DARK_READY_PATHS` is still empty: this session's `nav.ts` edit was only the two hrefs.
 - **Follow-ups:** The owner checks F2 as a whole after F2e.
+
+---
+
+### UI-10 Session F2d — Draw, Edit shape, Routes step, nav switch, /admin → Props
+- **Date:** 2026-10-07
+- **Model:** Grok 4.7
+- **Built:** Draw and Edit shape on the Props map (the same map, no Terra Draw). Tap drops a corner, corner 1 closes, Undo and Redo, drag a corner, drag an edge dot to add one. The door count settles 350 ms after the shape stops, then the doors draw. A new prop names and saves, then the Routes step previews Route A and Route B. Edit shape saves the new ring and does the same; if the new routes fail, the old ones are cleared. Props in the nav points at `/admin/props` and that path is dark-ready. `/admin` redirects to Props. The old draw components stay on disk until F6.
+- **Owner decisions:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved. Figma page 40:289, phone 03–13 and desktop D2–D3 for this phase.
+  - OWNER — M2 / A22: Props is one full-screen map (no boxed map, no buttons under it) with a sheet: three heights on a phone (peek / half / full), a floating panel on desktop. Default layers: prop outlines, latest outcomes (light dots), leads / pitches / sales (one pin per lead door, coloured by office status, read-only). No Cold Calling zones only when switched on.
+  - OWNER — A19–A21: Draw = tap to drop a corner, a magnifier under the finger while dragging, Undo, Redo, drag a corner to move it. After closing: count → name → Save → routes. Edit shape = the same editor with the corners loaded; Save shows the door change.
+  - OWNER — A23: route internals hidden behind "Route details"; the route step shows a map preview and km, not keys.
+  - OWNER — A25: prop detail has no Allocate button (visits start from a date on Today, F3).
+  - OWNER — A50: old routes redirect as replacements land (`/admin` → Props now, Today in F3); old files are deleted in F6.
+  - OWNER — A28 / A51: dark mode, one Light / Dark / System choice shared with the field app.
+- **Claude decisions:**
+  - CLAUDE — Figma frames (phone section 89:295): 03 peek 90:416, 04 half 90:752, 05 prop detail 91:535, 06 actions 91:928, 07 layers 91:1274, 08–10 draw 92:718 / 92:799 / 92:875, 11 name 93:896, 12 routes 93:1028, 13 edit shape 93:1106; desktop D2 101:1809, D3 101:2216.
+  - CLAUDE — No migration in F2 (the old F2f is dropped): rename and archive are plain `territories` updates under `territories_update_admin`; outlines from `territories.geom` (PostgREST returns GeoJSON); outcome dots from `coverage_map_payload`; lead pins from `leads` (admin SELECT); per-visit figures from `v_prop_completion` + head-only counts on `v_latest_knock`.
+  - CLAUDE — Due rule (no owner rule existed): a prop is Due when nothing is planned and its last visit that counted for rotation is 28+ days old, or it was never visited (`PROP_DUE_AFTER_DAYS`, one constant; 28 = the old dashboard's "not visited in over 4 weeks").
+  - CLAUDE — Routes step, made truthful: visits take turns between Route A (`best`, odd visits) and Route B (`best_reversed`, even visits). The rotation picks, so the step previews A/B rather than "choosing"; spares sit under Route details. Routes are generated and saved straight after Save prop / Save shape. If Edit shape's new routes fail, the old (now wrong) routes are deleted so the next allocation makes fresh ones.
+  - CLAUDE — Admin never reads location: the bottom-right locate control of the mock becomes "Show all props" (four-corner icon).
+  - CLAUDE — Routes layer = the selected prop only (its frozen visit route, else saved Route A).
+  - CLAUDE — Archive is refused while a visit is today or planned; archived props show under Archived with Restore.
+  - CLAUDE — Door counts per prop: `count_door_eligibility` per live prop, in parallel on the server, streamed after the list renders (no new RPC).
+  - CLAUDE — Draw and Edit shape are modes of the same map (no second map, no Terra Draw). Tap = drop a corner; tap corner 1 = close; press on a corner = drag it; drag an edge dot = add a corner. Double-tap zoom is off while drawing. Every step is one history entry. The live drag commits once on release.
+  - CLAUDE — The door count runs 350 ms after the shape settles, then the doors are drawn (knockable solid, zone / flats hollow). A newer shape always wins over a slower older count.
+  - CLAUDE — Phone: header (Cancel, title, layers), one hint at the top, toolbar at the bottom. Desktop: one toolbar at the top with ⌘Z / ⇧⌘Z / ↵, hint at the bottom. Escape cancels.
+  - CLAUDE — New prop: closing opens the name sheet. Save prop → `saveProp` → routes generated and saved → Routes step → Done opens the new prop. Edit shape loads the saved corners; Save shows "+N since last save"; a visit today or planned shows the frozen-visit note. Save → `updatePropRing` → routes.
+  - CLAUDE — Cancel with work on screen asks first (named confirm, Cancel focused).
+  - CLAUDE — Gesture details: under 4px of finger wobble is a tap; the corner keeps its offset from the finger; a release off the map still ends the drag; a finished drag is never also a tap; Escape in the layers panel closes only the panel; Enter on a focused button never closes the shape; a slow route result never lands on another prop or moves the map after Done.
+- **Acceptance:**
+  - EDIT 1 DONE. New `components/admin/props/draw-layers.ts` pasted as given.
+  - EDIT 2 DONE. New `components/admin/props/use-draw-gestures.ts` pasted as given.
+  - EDIT 3 DONE. New `components/admin/props/use-shape-count.ts` pasted as given.
+  - EDIT 4 DONE. New `components/admin/props/draw-panel.tsx` pasted as given.
+  - EDIT 5 DONE. New `components/admin/props/route-panel.tsx` pasted as given.
+  - EDIT 6 DONE. `components/admin/props/props-screen.tsx` replaced in full with the given file.
+  - EDIT 7 DONE. `lib/admin/nav.ts`: both find blocks occurred once. Props href is `/admin/props`. `DARK_READY_PATHS` is `["/admin/props"]`.
+  - EDIT 8 DONE. `scripts/verify-ui-10-admin.ts`: both find blocks occurred once. `/admin` expects null. `/admin/props` expects props and is dark-ready.
+  - EDIT 9 DONE. `app/(admin)/admin/page.tsx` replaced in full. It redirects to `/admin/props`.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on the nine TypeScript files: **PASS** — exit 0.
+  - `npm run verify:ui10`: **PASS** — exit 0. Printed `ALL PASS`, including `active item for /admin` (got null), `active item for /admin/props` (got props), `old pages stay light`, `Props is dark-ready (F2)`.
+  - `git grep -n "navigator.geolocation" -- components/admin lib/admin`: **PASS** — printed nothing (git grep exit 1, no match).
+  - Phone: **NOT VERIFIED**. Headless session. No browser. None for this session (the owner checks F2 as a whole after F2e).
+- **Deviations from brief:** none. The given code was pasted exactly.
+- **Not done / deferred:** A browser. A phone. Did not commit. No database row. The magnifier is F2e. Old draw components stay until F6.
+- **Follow-ups:** The owner checks F2 as a whole after F2e.

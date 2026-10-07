@@ -2,16 +2,17 @@
 
 ## Current state
 
-- Last updated: 2026-10-07 (UI-10 Session F2c). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- `/admin/props` is on screen: full-screen map, phone sheet (peek / half / full), desktop panel, list, search, filters, prop detail (inline rename, archive / restore), layers popover. New: `components/admin/props/layers-popover.tsx`, `components/admin/props/props-list.tsx`, `components/admin/props/prop-detail.tsx`, `components/admin/props/props-screen.tsx` (browse only; F2d replaces it), `app/(admin)/admin/props/page.tsx`. `lib/admin/nav.ts` gained `visitHref` and `coverageHref`. Coverage takes `?prop=` (`initialPropId`). Nav items are unchanged. `/admin` still opens the old draw page until F2d.
-- UI-10 F2c tracker Status is DONE. Date 2026-10-07. Result: `/admin/props: full-screen map, sheet, list, search, filters, prop detail, rename, archive/restore, layers.` Commit column still `—`.
-- `npx tsc --noEmit` exit 0. eslint on the nine TypeScript files exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`), including `visit and coverage links carry the prop`.
-- The F1 shell is unchanged: every `/admin` page sits in `AdminShell`. `DARK_READY_PATHS` is still empty, so `/admin/props` and the five old pages stay light. This session's `nav.ts` edit was only the two hrefs.
-- `lib/sync/queue.ts` was not edited. Field writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. Rename and archive still go through `lib/props/manage.ts` (admin session), not a field write path.
+- Last updated: 2026-10-07 (UI-10 Session F2d). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Props now draws and edits on the same map. New: `components/admin/props/draw-layers.ts`, `use-draw-gestures.ts`, `use-shape-count.ts`, `draw-panel.tsx`, `route-panel.tsx`. `props-screen.tsx` was replaced: Draw, Edit shape, count, name, Save, then the Routes step. Nav: Props → `/admin/props`, and `DARK_READY_PATHS` is `["/admin/props"]`. `app/(admin)/admin/page.tsx` redirects to `/admin/props`. Old draw files (`prop-drawer.tsx`, `route-overlay.tsx`, `prop-tally.tsx`) stay until F6. `terra-draw` packages stay.
+- UI-10 F2d tracker Status is DONE. Date 2026-10-07. Result: `Draw (tap, close, undo/redo, drag, add corner), Edit shape, count + name + Save, Routes step (A/B preview), nav switch, /admin → Props.` Commit column still `—`.
+- `npx tsc --noEmit` exit 0. eslint on the nine TypeScript files exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`), including `active item for /admin` (null), `active item for /admin/props` (props), `old pages stay light`, `Props is dark-ready (F2)`.
+- `git grep -n "navigator.geolocation" -- components/admin lib/admin` printed nothing (exit 1).
+- The F1 shell is unchanged. `/admin/dashboard`, `/admin` and `/admin/allocate` stay light. `/admin/props` is dark-ready.
+- `lib/sync/queue.ts` was not edited. Field writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. Save prop and Save shape call `saveProp` / `updatePropRing` (`lib/props/actions.ts`). Routes call `saveTerritoryRoutes`. A failed Edit-shape route clear calls `clearPropRoutes` (`lib/props/manage.ts`). Admin session, not a field write path.
 - No database change. No database row. No `client_event_id`. No migration.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
-- External settings: none. No browser. No dev server. Phone checks for this session are NOT VERIFIED. None for this session (the owner checks F2 as a whole after F2e).
+- External settings: none. No browser. No dev server. Phone checks for this session are NOT VERIFIED. None for this session (the owner checks F2 as a whole after F2e). The magnifier is F2e.
 
 ## Log
 
@@ -2046,3 +2047,42 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. A phone. None for this session (the owner checks F2 as a whole after F2e).
 - **External settings:** none
 - **Open questions for Claude:** `DARK_READY_PATHS` is still empty, so `/admin/props` stays light. Say if F2d should add it.
+
+### 2026-10-07 — UI-10 Session F2d (uncommitted)
+
+- **Item:** UI-10
+- **What changed:** Draw and Edit shape are modes of the Props map. Tap drops a corner, corner 1 closes, Undo and Redo step the history, a drag moves a corner or adds one from an edge dot. Closing a new shape opens the name sheet (count, flats, No Cold Calling warning). Save prop or Save shape then generates routes and shows Route A and Route B. Props in the nav goes to `/admin/props`. `/admin` redirects there. `/admin/props` is dark-ready.
+- **Files:**
+  - Changed: `components/admin/props/props-screen.tsx` (replaced), `lib/admin/nav.ts` (Props href, `DARK_READY_PATHS`), `scripts/verify-ui-10-admin.ts` (nav cases), `app/(admin)/admin/page.tsx` (redirect), `docs/FIELD-TEST-BUILD-PLAN.md` (UI-10 F2d Status DONE and Result), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `components/admin/props/draw-layers.ts`, `components/admin/props/use-draw-gestures.ts`, `components/admin/props/use-shape-count.ts`, `components/admin/props/draw-panel.tsx`, `components/admin/props/route-panel.tsx`
+  - Deleted: none. `components/admin/prop-drawer.tsx`, `route-overlay.tsx` and `prop-tally.tsx` stay until F6.
+- **Database:** none
+- **Shared modules touched:** none. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. The screen imports `lib/map/route-layers.ts`, `lib/map/route-load.ts`, `lib/geo/walk/save.ts`, `lib/geo/walk/validate.ts`, `lib/geo/properties-in-polygon.ts`, `lib/props/actions.ts` and `lib/props/manage.ts`.
+- **Decided by:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved. Figma page 40:289, phone 03–13 and desktop D2–D3 for this phase.
+  - OWNER — M2 / A22: Props is one full-screen map with a sheet (peek / half / full on a phone, a floating panel on desktop). Default layers: prop outlines, latest outcomes (light dots), one pin per lead door coloured by office status (read-only). No Cold Calling zones only when switched on.
+  - OWNER — A19–A21: Draw = tap to drop a corner, magnifier while dragging, Undo, Redo, drag a corner to move it. After closing: count, name, Save, routes. Edit shape loads the same corners; Save shows the door change.
+  - OWNER — A23: route internals sit behind "Route details". The route step shows a map preview and km, not keys.
+  - OWNER — A25: prop detail has no Allocate button. Visits start from a date on Today (F3).
+  - OWNER — A50: old routes redirect as replacements land (`/admin` → Props now, Today in F3). Old files are deleted in F6.
+  - OWNER — A28 / A51: dark mode, one Light / Dark / System choice shared with the field app.
+  - CLAUDE — Figma frames (phone section 89:295): 03 peek 90:416, 04 half 90:752, 05 prop detail 91:535, 06 actions 91:928, 07 layers 91:1274, 08–10 draw 92:718 / 92:799 / 92:875, 11 name 93:896, 12 routes 93:1028, 13 edit shape 93:1106; desktop D2 101:1809, D3 101:2216.
+  - CLAUDE — No migration in F2. Rename and archive are plain `territories` updates under `territories_update_admin`. Outlines from `territories.geom`. Outcome dots from `coverage_map_payload`. Lead pins from `leads`. Per-visit figures from `v_prop_completion` and head-only counts on `v_latest_knock`.
+  - CLAUDE — Due when nothing is planned and the last visit that counted for rotation is 28+ days old, or never visited (`PROP_DUE_AFTER_DAYS`). 28 matches the old dashboard's "not visited in over 4 weeks".
+  - CLAUDE — Route A is `best` (odd visits) and Route B is `best_reversed` (even visits). The step previews them. The rotation picks. Spares sit under Route details. Routes are generated and saved straight after Save. If Edit shape's new routes fail, the old ones are deleted.
+  - CLAUDE — Admin never reads location. The mock's locate control becomes "Show all props".
+  - CLAUDE — Routes layer is the selected prop only (frozen visit route, else saved Route A).
+  - CLAUDE — Archive is refused while a visit is today or planned. Archived props show under Archived with Restore.
+  - CLAUDE — Door counts: `count_door_eligibility` per live prop, streamed after the list renders. No new RPC.
+  - CLAUDE — Draw and Edit shape are modes of the same map. Tap drops a corner. Tap corner 1 (solid once 3+ corners) closes. Press on a corner drags it. Drag an edge dot adds a corner. Double-tap zoom is off while drawing. Every step is one history entry. The live drag commits once on release.
+  - CLAUDE — The door count runs 350 ms after the shape settles (`count_door_eligibility`), then the doors are drawn. A newer shape wins over a slower older count.
+  - CLAUDE — Phone: header (Cancel, title, layers), one hint at the top, toolbar at the bottom. Desktop: one toolbar at the top with ⌘Z / ⇧⌘Z / ↵, hint at the bottom. Escape cancels.
+  - CLAUDE — New prop: closing opens the name sheet. Save prop → `saveProp` → routes → Routes step → Done opens the new prop. Edit shape: Save once the ring differs and is counted, showing "+N since last save". Save → `updatePropRing` → routes.
+  - CLAUDE — Cancel with work on screen asks first (named confirm, Cancel focused).
+  - CLAUDE — Under 4px of finger wobble is a tap. The corner keeps its offset from the finger. A release off the map still ends the drag. A finished drag is never also a tap. Escape in the layers panel closes only the panel. Enter on a focused button never closes the shape. A slow route result never lands on another prop or moves the map after Done.
+- **Deviations from plan or brief:** none. The given code was pasted exactly.
+- **Invariants:** No GPS and no `navigator.geolocation` in `components/admin` or `lib/admin` (`git grep` printed nothing). The remembered map camera (lng, lat, zoom) stays in session storage on the device. No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. `lib/sync/queue.ts` was not edited. Admin save, rename, archive and route-clear go through `lib/props/actions.ts` and `lib/props/manage.ts` with the admin session. Coverage is still derived. No database row. No `client_event_id`.
+- **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on `components/admin/props/draw-layers.ts`, `use-draw-gestures.ts`, `use-shape-count.ts`, `draw-panel.tsx`, `route-panel.tsx`, `props-screen.tsx`, `lib/admin/nav.ts`, `scripts/verify-ui-10-admin.ts` and `app/(admin)/admin/page.tsx`. `npm run verify:ui10` exit 0 (`ALL PASS`), including `/admin` matching nothing, `/admin/props` matching Props, and Props dark-ready. `git grep -n "navigator.geolocation" -- components/admin lib/admin` printed nothing.
+- **Not verified:** A browser. A phone. None for this session (the owner checks F2 as a whole after F2e).
+- **External settings:** none
+- **Open questions for Claude:** none

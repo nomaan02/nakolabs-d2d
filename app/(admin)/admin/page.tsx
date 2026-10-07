@@ -1,26 +1,10 @@
-import { PropDrawer, type SavedProp } from "@/components/admin/prop-drawer";
-import { getOwnProfile } from "@/lib/auth/profile";
-import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
-export default async function AdminPage() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const profile = user ? await getOwnProfile(supabase, user.id) : null;
-
-  const { data } = await supabase
-    .from("territories")
-    .select("id, name, created_at")
-    .is("archived_at", null)
-    .order("created_at", { ascending: false })
-    .limit(8);
-
-  return (
-    <PropDrawer
-      savedProps={(data ?? []) as SavedProp[]}
-      signedInAs={profile?.full_name ?? user?.email ?? ""}
-    />
-  );
+/**
+ * UI-10 F2 (owner A50). The old draw page is replaced by Props. `/admin`
+ * stays the admin home (lib/auth/roles.ts) and redirects; F3 points it at
+ * Today. The old components are deleted in F6.
+ */
+export default function AdminHome() {
+  redirect("/admin/props");
 }

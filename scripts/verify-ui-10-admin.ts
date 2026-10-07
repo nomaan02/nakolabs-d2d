@@ -91,8 +91,9 @@ check(
 check("Today is the first item", ADMIN_NAV[0]?.key === "today");
 
 const cases: Array<[string, string | null]> = [
-  ["/admin", "props"],
-  ["/admin/", "props"],
+  ["/admin", null],
+  ["/admin/props", "props"],
+  ["/admin/props/", "props"],
   ["/admin/dashboard", "today"],
   ["/admin/allocate", "allocate"],
   ["/admin/allocate/anything", "allocate"],
@@ -132,7 +133,8 @@ check("initial of a name", initialOf("nomaan") === "N");
 check("initial trims spaces", initialOf("  ada ") === "A");
 check("initial of nothing", initialOf(null) === "?" && initialOf("   ") === "?");
 
-check("old pages stay light in F1", !isDarkReady("/admin/dashboard") && !isDarkReady("/admin"));
+check("old pages stay light", !isDarkReady("/admin/dashboard") && !isDarkReady("/admin") && !isDarkReady("/admin/allocate"));
+check("Props is dark-ready (F2)", isDarkReady("/admin/props"));
 check("a ready path and its children go dark", isDarkReady("/admin/today/add", ["/admin/today"]));
 check("a ready path does not leak to siblings", !isDarkReady("/admin/todays", ["/admin/today"]));
 

@@ -37,13 +37,13 @@ export type AdminNavItem = {
 export const BRANCH_LABEL = "Bristol";
 
 /**
- * F1 state. Today points at the old dashboard (it carries the Live now panel)
- * until F3; Props points at the old draw page until F2; Allocate is a
- * temporary item that F3 removes (allocating moves into Today, A24).
+ * F2 state. Today points at the old dashboard (it carries the Live now panel)
+ * until F3; Props is the new full-screen map (F2); Allocate is a temporary
+ * item that F3 removes (allocating moves into Today, A24).
  */
 export const ADMIN_NAV: readonly AdminNavItem[] = [
   { key: "today", label: "Today", href: "/admin/dashboard", icon: "today", group: "main" },
-  { key: "props", label: "Props", href: "/admin", icon: "props", group: "main", exact: true },
+  { key: "props", label: "Props", href: "/admin/props", icon: "props", group: "main" },
   { key: "allocate", label: "Allocate", href: "/admin/allocate", icon: "allocate", group: "main" },
   { key: "coverage", label: "Coverage", href: "/admin/coverage", icon: "coverage", group: "main" },
   { key: "settings", label: "Settings", href: "/admin/settings", icon: "settings", group: "tools" },
@@ -93,7 +93,7 @@ export function parseRailState(value: string | null | undefined): RailState {
  * to pages rebuilt in the new design. Each phase adds its routes here; until
  * then the old "worksheet" pages stay light.
  */
-export const DARK_READY_PATHS: readonly string[] = [];
+export const DARK_READY_PATHS: readonly string[] = ["/admin/props"];
 
 export function isDarkReady(
   pathname: string,

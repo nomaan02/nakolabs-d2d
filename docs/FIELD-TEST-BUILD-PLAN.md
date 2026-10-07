@@ -119,7 +119,7 @@
 | UI-10 F2a | Props + Draw logic (pure) + verify:ui10 | DONE | 2026-10-07 | Props and Draw pure logic + verify:ui10 checks. | — |
 | UI-10 F2b | Admin map kit, Props layers, prop data + actions | DONE | 2026-10-07 | admin map kit (map, sheet), Props layers, prop data loaders, rename/archive/clear-routes actions. | — |
 | UI-10 F2c | `/admin/props`: map, sheet, list, detail, layers | DONE | 2026-10-07 | `/admin/props: full-screen map, sheet, list, search, filters, prop detail, rename, archive/restore, layers.` | — |
-| UI-10 F2d | Draw, Edit shape, Routes step; nav switch; `/admin` → Props | TODO | | | — |
+| UI-10 F2d | Draw, Edit shape, Routes step; nav switch; `/admin` → Props | DONE | 2026-10-07 | Draw (tap, close, undo/redo, drag, add corner), Edit shape, count + name + Save, Routes step (A/B preview), nav switch, /admin → Props. | — |
 | UI-10 F2e | Magnifier while dragging a corner (touch, droppable) | TODO | | | — |
 | UI-10 F3 | Today + allocations (F3a–F3d; F3d migration 030, human) | TODO | | | — |
 | UI-10 F4 | Calendar + Coverage (F4a–F4d; F4d migration 031, human) | TODO | | | — |

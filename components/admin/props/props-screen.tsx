@@ -7,6 +7,8 @@ import type { MapLayerMouseEvent, PaddingOptions } from "maplibre-gl";
 import { MapSheet } from "@/components/admin/map/map-sheet";
 import { useAdminMap } from "@/components/admin/map/use-admin-map";
 import { useIsDesktop } from "@/components/admin/map/use-is-desktop";
+import { DrawPanel } from "@/components/admin/props/draw-panel";
+import { ensureDrawLayers, setDrawShape, type DragState } from "@/components/admin/props/draw-layers";
 import { LayersPopover } from "@/components/admin/props/layers-popover";
 import { PropDetail } from "@/components/admin/props/prop-detail";
 import {
@@ -15,6 +17,7 @@ import {
   PROPS_FILL,
   applyLayerVisibility,
   ensurePropLayers,
+  setDrawDoors,
   setLeadPins,
   setNcczZones,
   setOutcomeDoors,
@@ -24,18 +27,37 @@ import {
   type MapProp,
 } from "@/components/admin/props/prop-layers";
 import { PropsList, PropsListHeader } from "@/components/admin/props/props-list";
+import { RoutePanel, type RoutePhase } from "@/components/admin/props/route-panel";
+import { useDrawGestures } from "@/components/admin/props/use-draw-gestures";
+import { useShapeCount } from "@/components/admin/props/use-shape-count";
 import { AdminMenuButton } from "@/components/admin/shell/admin-shell";
 import { ConfirmDialog } from "@/components/admin/ui/confirm-dialog";
 import { IconButton } from "@/components/admin/ui/icon-button";
 import { FitIcon, LayersIcon, MinusIcon, PlusIcon, SearchIcon } from "@/components/field/icons";
 import { fetchCoverageMap, type CoveragePayload } from "@/lib/admin/coverage";
 import { doorsLine } from "@/lib/admin/draw-copy";
+import {
+  addPoint,
+  canRedo,
+  canUndo,
+  closeShape,
+  insertPoint,
+  movePoint,
+  redo,
+  ringKey,
+  ringOfShape,
+  shapeFromRing,
+  startHistory,
+  undo,
+  type DrawHistory,
+} from "@/lib/admin/draw-history";
 import { loadLeadPins } from "@/lib/admin/lead-pins";
-import { boxOf, outerRing, type LngLatBox } from "@/lib/admin/map-fit";
+import { boxOf, boxOfRing, outerRing, type LngLatBox } from "@/lib/admin/map-fit";
 import { coverageHref, visitHref } from "@/lib/admin/nav";
 import { loadVisitStats } from "@/lib/admin/prop-visit-stats";
 import {
   filterCounts,
+  frozenVisitNote,
   matchesFilter,
   matchesQuery,
   propState,
@@ -49,12 +71,44 @@ import { detentHeights, type Detent } from "@/lib/admin/sheet-detents";
 import { useResolvedTheme } from "@/lib/field/theme";
 import { countKnockable, type KnockableCount } from "@/lib/geo/count-knockable";
 import { fetchNcczZones } from "@/lib/geo/nccz-zones";
+import { saveTerritoryRoutes } from "@/lib/geo/walk/save";
+import { describeGeometryIssues } from "@/lib/geo/walk/validate";
 import { loadAssignmentRouteModel, loadTerritoryRouteModel } from "@/lib/map/route-load";
-import { emptyRouteModel, paintRouteLayers, type RoutePaintModel } from "@/lib/map/route-layers";
-import { renameProp, setPropArchived } from "@/lib/props/manage";
+import {
+  emptyRouteModel,
+  paintRouteLayers,
+  routeBounds,
+  toRoutePaintModel,
+  walkResultToPaintInput,
+  type RoutePaintModel,
+} from "@/lib/map/route-layers";
+import { saveProp, updatePropRing } from "@/lib/props/actions";
+import { clearPropRoutes, renameProp, setPropArchived } from "@/lib/props/manage";
 import { createClient } from "@/lib/supabase/client";
 
 const VIEW_KEY = "d2d.admin.props-view";
+
+type DrawSession = {
+  kind: "new" | "edit";
+  propId: string | null;
+  history: DrawHistory;
+  /** Edit shape: the saved ring, to tell whether anything changed. */
+  originalKey: string;
+  naming: boolean;
+  name: string;
+  baselineDoors: number | null;
+  note: string | null;
+};
+
+type RouteStep = {
+  propId: string;
+  title: string;
+  savedLine: string;
+  edit: boolean;
+  phase: RoutePhase;
+  previewKey: string | null;
+  model: RoutePaintModel | null;
+};
 
 function onlyVariant(model: RoutePaintModel, key: string): RoutePaintModel {
   return {
@@ -67,11 +121,15 @@ function isTyping(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
 }
 
+/** Enter on a focused button or link activates it; it must not also close the shape. */
+function isControl(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest("button, a, [role=switch], [role=menuitem]") !== null;
+}
+
 /**
- * UI-10 F2 (owner A19-A23, A25, M2; frames 03-07, D2). Props: one
+ * UI-10 F2 (owner A19-A23, A25, M2; frames 03-13, D2-D3). Props: one
  * full-screen map with a sheet (phone) or floating panel (desktop) listing
- * every prop and its detail. F2d adds Draw and Edit shape as modes of the
- * same map.
+ * every prop, its detail, and Draw / Edit shape as modes of the same map.
  */
 export function PropsScreen({
   today,
@@ -110,6 +168,19 @@ export function PropsScreen({
   const [notice, setNotice] = useState<string | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const [session, setSession] = useState<DrawSession | null>(null);
+  const [drag, setDrag] = useState<DragState | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [discardOpen, setDiscardOpen] = useState(false);
+  const [routeStep, setRouteStep] = useState<RouteStep | null>(null);
+  // The prop whose routes are on screen. A slower, older generation never lands on another prop.
+  const routeFor = useRef<string | null>(null);
+
+  const browsing = session === null && routeStep === null;
+  const browsingRef = useRef(browsing);
+  browsingRef.current = browsing;
 
   // ---- data -------------------------------------------------------------
 
@@ -158,10 +229,11 @@ export function PropsScreen({
 
   const padding = useCallback(
     (bottom?: number): PaddingOptions => {
-      if (desktop) return { top: 72, right: 72, bottom: 48, left: 400 };
+      if (desktop) return { top: 72, right: 72, bottom: 48, left: browsingRef.current || routeStep ? 400 : 72 };
+      if (!browsingRef.current && !routeStep) return { top: 120, right: 32, bottom: 120, left: 32 };
       return { top: 72, right: 32, bottom: (bottom ?? sheetHeight) + 24, left: 32 };
     },
-    [desktop, sheetHeight],
+    [desktop, routeStep, sheetHeight],
   );
 
   const fitBox = useCallback(
@@ -175,17 +247,19 @@ export function PropsScreen({
   useEffect(() => {
     if (!map) return;
     ensurePropLayers(map, mode);
+    ensureDrawLayers(map, mode);
     const onPropClick = (event: MapLayerMouseEvent) => {
+      if (!browsingRef.current) return;
       const id = event.features?.[0]?.properties?.id;
       if (typeof id !== "string") return;
       setSelectedId(id);
       setDetent((current) => (current === "peek" ? "half" : current));
     };
     const onEnter = () => {
-      map.getCanvas().style.cursor = "pointer";
+      if (browsingRef.current) map.getCanvas().style.cursor = "pointer";
     };
     const onLeave = () => {
-      map.getCanvas().style.cursor = "";
+      if (browsingRef.current) map.getCanvas().style.cursor = "";
     };
     map.on("click", PROPS_FILL, onPropClick);
     map.on("mouseenter", PROPS_FILL, onEnter);
@@ -235,8 +309,8 @@ export function PropsScreen({
   }, [map, coverage, pins]);
 
   useEffect(() => {
-    if (map) applyLayerVisibility(map, layers, false);
-  }, [map, layers]);
+    if (map) applyLayerVisibility(map, layers, session !== null);
+  }, [map, layers, session]);
 
   // First view: the remembered one, else every live prop.
   const framed = useRef(false);
@@ -315,7 +389,14 @@ export function PropsScreen({
     const paint = (model: RoutePaintModel, key: string) => {
       if (live) paintRouteLayers(map, model, key, DOORS_LAYER, null, mode);
     };
-    if (!layers.routes || !selected) {
+    if (routeStep) {
+      if (routeStep.model && routeStep.previewKey) paint(onlyVariant(routeStep.model, routeStep.previewKey), routeStep.previewKey);
+      else paint(emptyRouteModel(), "");
+      return () => {
+        live = false;
+      };
+    }
+    if (!layers.routes || !selected || session) {
       paint(emptyRouteModel(), "");
       return () => {
         live = false;
@@ -337,20 +418,202 @@ export function PropsScreen({
     return () => {
       live = false;
     };
-  }, [map, mode, layers.routes, selected]);
+  }, [map, mode, routeStep, layers.routes, selected, session]);
 
-  // Keyboard: "/" to search (D2).
+  // ---- draw and edit ----------------------------------------------------
+
+  const shape = session?.history.present ?? { points: [], closed: false };
+  const ring = session ? ringOfShape(shape) : null;
+  const count = useShapeCount(map, ring);
+  const naming = session !== null && session.naming && shape.closed;
+  const dirty = session
+    ? session.kind === "new"
+      ? shape.points.length > 0
+      : ringKey(ring) !== session.originalKey
+    : false;
+
+  useEffect(() => {
+    if (!map) return;
+    setDrawShape(map, session ? session.history.present : null, drag, session?.kind === "edit" || (session?.history.present.closed ?? false));
+  }, [map, session, drag]);
+
+  const update = (change: (history: DrawHistory) => DrawHistory) => {
+    setSaveError(null);
+    setSession((current) => {
+      if (!current) return current;
+      const history = change(current.history);
+      return { ...current, history, naming: current.naming && history.present.closed };
+    });
+  };
+
+  useDrawGestures(map, session !== null && !naming && !saving, shape, {
+    onAdd: (point) => update((history) => addPoint(history, point)),
+    onClose: () => {
+      update(closeShape);
+      setSession((current) => (current && current.kind === "new" ? { ...current, naming: true } : current));
+    },
+    onMove: (index, point) => update((history) => movePoint(history, index, point)),
+    onInsert: (afterIndex, point) => update((history) => insertPoint(history, afterIndex, point)),
+    onDrag: setDrag,
+  });
+
+  const startDraw = () => {
+    setLayersOpen(false);
+    setSelectedId(null);
+    setSaveError(null);
+    setSession({
+      kind: "new",
+      propId: null,
+      history: startHistory(),
+      originalKey: "",
+      naming: false,
+      name: "",
+      baselineDoors: null,
+      note: null,
+    });
+  };
+
+  const startEdit = () => {
+    if (!selected) return;
+    const saved = outerRing(selected.row.geometry);
+    if (!saved) return;
+    setLayersOpen(false);
+    setSaveError(null);
+    setSession({
+      kind: "edit",
+      propId: selected.row.id,
+      history: startHistory(shapeFromRing(saved)),
+      originalKey: ringKey(saved),
+      naming: false,
+      name: selected.row.name,
+      baselineDoors: detailCount?.id === selected.row.id ? detailCount.count.knockable : null,
+      note: frozenVisitNote(selected.state),
+    });
+    if (map) {
+      map.fitBounds(boxOfRing(saved)!, { padding: desktop ? { top: 96, right: 96, bottom: 72, left: 96 } : { top: 120, right: 40, bottom: 120, left: 40 }, maxZoom: 18, duration: 400 });
+    }
+  };
+
+  const leaveDraw = () => {
+    setSession(null);
+    setDrag(null);
+    setSaving(false);
+    setSaveError(null);
+    setDiscardOpen(false);
+    if (map) setDrawDoors(map, null);
+  };
+
+  const cancelDraw = () => {
+    if (dirty) setDiscardOpen(true);
+    else leaveDraw();
+  };
+
+  const makeRoutes = async (propId: string, edit: boolean) => {
+    const mine = (current: RouteStep | null) => current !== null && current.propId === propId;
+    setRouteStep((current) => (current && mine(current) ? { ...current, phase: { status: "working" } } : current));
+    const saved = await saveTerritoryRoutes(createClient(), propId);
+    if (!saved.ok) {
+      let message = saved.message;
+      if (edit) {
+        const cleared = await clearPropRoutes({ id: propId });
+        message = cleared.ok
+          ? `${saved.message} The old routes no longer fit, so they were removed. New ones are made when the prop is next allocated.`
+          : `${saved.message} The old routes still match the old shape. Make new ones before the next visit.`;
+      } else {
+        message = `${saved.message} A route is made when the prop is first allocated.`;
+      }
+      setRouteStep((current) => (current && mine(current) ? { ...current, phase: { status: "failed", message } } : current));
+      return;
+    }
+    const model = toRoutePaintModel(walkResultToPaintInput(saved.result));
+    const notice = saved.issues.length > 0 ? describeGeometryIssues(saved.issues) : null;
+    setRouteStep((current) =>
+      current && mine(current)
+        ? { ...current, phase: { status: "ready", variants: saved.result.variants, notice }, previewKey: "best", model }
+        : current,
+    );
+    const box = routeBounds(model, "best");
+    // The route panel covers the left (desktop) or the lower part (phone, frame 12).
+    const clear = desktop ? { top: 72, right: 72, bottom: 48, left: 400 } : { top: 72, right: 32, bottom: Math.min(460, Math.round(available * 0.6)), left: 32 };
+    if (map && box && routeFor.current === propId) map.fitBounds(box, { padding: clear, maxZoom: 17, duration: 400 });
+  };
+
+  const save = async () => {
+    if (!session || !ring || saving) return;
+    setSaving(true);
+    setSaveError(null);
+    if (session.kind === "new") {
+      const result = await saveProp({ name: session.name, ring });
+      if (!result.ok) {
+        setSaving(false);
+        setSaveError(result.message);
+        return;
+      }
+      leaveDraw();
+      routeFor.current = result.id;
+      setRouteStep({ propId: result.id, title: result.name, savedLine: `Saved ${result.name}.`, edit: false, phase: { status: "working" }, previewKey: null, model: null });
+      router.refresh();
+      void makeRoutes(result.id, false);
+      return;
+    }
+    if (!session.propId) return;
+    const result = await updatePropRing({ id: session.propId, ring });
+    if (!result.ok) {
+      setSaving(false);
+      setSaveError(result.message);
+      return;
+    }
+    const propId = session.propId;
+    leaveDraw();
+    routeFor.current = propId;
+    setRouteStep({ propId, title: result.name, savedLine: "New shape saved.", edit: true, phase: { status: "working" }, previewKey: null, model: null });
+    router.refresh();
+    void makeRoutes(propId, true);
+  };
+
+  const finishRoutes = () => {
+    const propId = routeStep?.propId ?? null;
+    routeFor.current = null;
+    setRouteStep(null);
+    if (propId) {
+      setFilter("all");
+      setSelectedId(propId);
+      setDetent("half");
+    }
+    router.refresh();
+  };
+
+  // Keyboard: "/" to search; while drawing ⌘Z, ⇧⌘Z, Enter, Escape (D3).
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (archiveOpen) return;
-      if (event.key === "/" && searchRef.current && !isTyping(event.target)) {
+      if (discardOpen || archiveOpen || layersOpen) return;
+      if (browsing) {
+        if (event.key === "/" && searchRef.current && !isTyping(event.target)) {
+          event.preventDefault();
+          searchRef.current?.focus();
+        }
+        return;
+      }
+      if (!session || naming) return;
+      const mod = event.metaKey || event.ctrlKey;
+      if (mod && event.key.toLowerCase() === "z") {
         event.preventDefault();
-        searchRef.current?.focus();
+        update(event.shiftKey ? redo : undo);
+      } else if (mod && event.key.toLowerCase() === "y") {
+        event.preventDefault();
+        update(redo);
+      } else if (event.key === "Enter" && !isTyping(event.target) && !isControl(event.target) && !shape.closed) {
+        event.preventDefault();
+        update(closeShape);
+        if (session.kind === "new") setSession((current) => (current ? { ...current, naming: true } : current));
+      } else if (event.key === "Escape" && !isTyping(event.target)) {
+        event.preventDefault();
+        cancelDraw();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [archiveOpen]);
+  });
 
   // ---- actions on a prop -------------------------------------------------
 
@@ -404,97 +667,150 @@ export function PropsScreen({
         </p>
       ) : null}
 
-      <div className="absolute inset-x-3 top-3 z-10 flex items-center gap-2 lg:hidden">
-        <AdminMenuButton floating />
-        <label className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-full border border-line bg-surface px-4 text-ink-muted shadow-admin-float focus-within:outline-2 focus-within:outline-prop">
-          <SearchIcon className="size-5 shrink-0" />
-          <span className="sr-only">Search props</span>
-          <input
-            value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              if (selectedId) setSelectedId(null);
-              setDetent((current) => (current === "peek" ? "half" : current));
-            }}
-            placeholder="Search props"
-            className="min-w-0 flex-1 bg-transparent text-admin-body text-ink outline-none placeholder:text-ink-muted"
-          />
-        </label>
-        <IconButton kind="floating" label="Map layers" onClick={() => setLayersOpen((open) => !open)} data-layers-button>
-          <LayersIcon className="size-6" />
-        </IconButton>
-      </div>
-      <div className="absolute top-3 right-3 z-10 hidden lg:block">
-        <IconButton kind="floating" label="Map layers" onClick={() => setLayersOpen((open) => !open)} data-layers-button>
-          <LayersIcon className="size-6" />
-        </IconButton>
-      </div>
-      <div
-        className="absolute right-3 z-10 flex flex-col gap-2 transition-[bottom] duration-200 motion-reduce:transition-none"
-        style={{ bottom: (desktop ? 0 : sheetHeight) + 12 }}
-      >
-        {desktop ? (
-          <div className="flex flex-col overflow-hidden rounded-full border border-line bg-surface shadow-admin-float">
-            <IconButton label="Zoom in" onClick={() => zoom(1)}>
-              <PlusIcon className="size-5" />
-            </IconButton>
-            <span aria-hidden className="mx-2.5 border-t border-line" />
-            <IconButton label="Zoom out" onClick={() => zoom(-1)}>
-              <MinusIcon className="size-5" />
+      {browsing ? (
+        <>
+          <div className="absolute inset-x-3 top-3 z-10 flex items-center gap-2 lg:hidden">
+            <AdminMenuButton floating />
+            <label className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-full border border-line bg-surface px-4 text-ink-muted shadow-admin-float focus-within:outline-2 focus-within:outline-prop">
+              <SearchIcon className="size-5 shrink-0" />
+              <span className="sr-only">Search props</span>
+              <input
+                value={query}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  if (selectedId) setSelectedId(null);
+                  setDetent((current) => (current === "peek" ? "half" : current));
+                }}
+                placeholder="Search props"
+                className="min-w-0 flex-1 bg-transparent text-admin-body text-ink outline-none placeholder:text-ink-muted"
+              />
+            </label>
+            <IconButton kind="floating" label="Map layers" onClick={() => setLayersOpen((open) => !open)} data-layers-button>
+              <LayersIcon className="size-6" />
             </IconButton>
           </div>
-        ) : null}
-        <IconButton
-          kind="floating"
-          label="Show all props"
-          onClick={() => fitBox(boxOf(mapProps.map((prop) => prop.geometry)))}
-        >
-          <FitIcon className="size-6" />
-        </IconButton>
-      </div>
+          <div className="absolute top-3 right-3 z-10 hidden lg:block">
+            <IconButton kind="floating" label="Map layers" onClick={() => setLayersOpen((open) => !open)} data-layers-button>
+              <LayersIcon className="size-6" />
+            </IconButton>
+          </div>
+          <div
+            className="absolute right-3 z-10 flex flex-col gap-2 transition-[bottom] duration-200 motion-reduce:transition-none"
+            style={{ bottom: (desktop ? 0 : sheetHeight) + 12 }}
+          >
+            {desktop ? (
+              <div className="flex flex-col overflow-hidden rounded-full border border-line bg-surface shadow-admin-float">
+                <IconButton label="Zoom in" onClick={() => zoom(1)}>
+                  <PlusIcon className="size-5" />
+                </IconButton>
+                <span aria-hidden className="mx-2.5 border-t border-line" />
+                <IconButton label="Zoom out" onClick={() => zoom(-1)}>
+                  <MinusIcon className="size-5" />
+                </IconButton>
+              </div>
+            ) : null}
+            <IconButton
+              kind="floating"
+              label="Show all props"
+              onClick={() => fitBox(boxOf(mapProps.map((prop) => prop.geometry)))}
+            >
+              <FitIcon className="size-6" />
+            </IconButton>
+          </div>
 
-      <MapSheet
-        label="Props"
-        detent={detent}
-        onDetent={setDetent}
-        available={available}
-        onHeight={setSheetHeight}
-        header={
-          selected ? null : (
-            <PropsListHeader
-              counts={counts}
-              filter={filter}
-              onFilter={(next) => {
-                setFilter(next);
-                setDetent((current) => (current === "peek" ? "half" : current));
-              }}
-              query={query}
-              onQuery={setQuery}
-              searchRef={searchRef}
-            />
-          )
-        }
-      >
-        {selected ? (
-          <PropDetail
-            key={selected.row.id}
-            row={selected.row}
-            state={selected.state}
-            today={today}
-            doorsText={detailCount?.id === selected.row.id ? doorsLine(detailCount.count) : null}
-            stats={stats?.id === selected.row.id ? stats.stats : null}
-            statsError={notice}
-            visitHref={visitHref(selected.row.id)}
-            coverageHref={coverageHref(selected.row.id)}
-            onClose={closeDetail}
-            onRename={rename}
-            onArchive={() => setArchiveOpen(true)}
-            onRestore={() => void restore()}
+          <MapSheet
+            label="Props"
+            detent={detent}
+            onDetent={setDetent}
+            available={available}
+            onHeight={setSheetHeight}
+            header={
+              selected ? null : (
+                <PropsListHeader
+                  counts={counts}
+                  filter={filter}
+                  onFilter={(next) => {
+                    setFilter(next);
+                    setDetent((current) => (current === "peek" ? "half" : current));
+                  }}
+                  onDraw={startDraw}
+                  query={query}
+                  onQuery={setQuery}
+                  searchRef={searchRef}
+                />
+              )
+            }
+          >
+            {selected ? (
+              <PropDetail
+                key={selected.row.id}
+                row={selected.row}
+                state={selected.state}
+                today={today}
+                doorsText={detailCount?.id === selected.row.id ? doorsLine(detailCount.count) : null}
+                stats={stats?.id === selected.row.id ? stats.stats : null}
+                statsError={notice}
+                visitHref={visitHref(selected.row.id)}
+                coverageHref={coverageHref(selected.row.id)}
+                onClose={closeDetail}
+                onRename={rename}
+                onEditShape={startEdit}
+                onArchive={() => setArchiveOpen(true)}
+                onRestore={() => void restore()}
+              />
+            ) : (
+              <PropsList items={visible} selectedId={selectedId} onSelect={selectProp} emptyText={emptyText} />
+            )}
+          </MapSheet>
+        </>
+      ) : null}
+
+      {session ? (
+        <>
+          <DrawPanel
+            kind={session.kind}
+            shape={shape}
+            canUndo={canUndo(session.history)}
+            canRedo={canRedo(session.history)}
+            count={count}
+            baselineDoors={session.baselineDoors}
+            note={session.note}
+            naming={naming}
+            dirty={dirty}
+            name={session.name}
+            saving={saving}
+            error={saveError}
+            onName={(name) => setSession((current) => (current ? { ...current, name } : current))}
+            onUndo={() => update(undo)}
+            onRedo={() => update(redo)}
+            onCloseShape={() => {
+              update(closeShape);
+              if (session.kind === "new") setSession((current) => (current ? { ...current, naming: true } : current));
+            }}
+            onCancel={cancelDraw}
+            onSave={() => void save()}
+            onKeepEditing={() => setSession((current) => (current ? { ...current, naming: false } : current))}
+            onNameIt={() => setSession((current) => (current ? { ...current, naming: true } : current))}
+            onShowZones={() => setLayers((current) => ({ ...current, nccz: true }))}
+            zonesOn={layers.nccz}
+            onLayers={() => setLayersOpen((open) => !open)}
           />
-        ) : (
-          <PropsList items={visible} selectedId={selectedId} onSelect={selectProp} emptyText={emptyText} />
-        )}
-      </MapSheet>
+        </>
+      ) : null}
+
+      {routeStep ? (
+        <RoutePanel
+          title={routeStep.title}
+          savedLine={routeStep.savedLine}
+          phase={routeStep.phase}
+          previewKey={routeStep.previewKey}
+          onPreview={(key) => {
+            setRouteStep((current) => (current ? { ...current, previewKey: key } : current));
+          }}
+          onRetry={() => void makeRoutes(routeStep.propId, routeStep.edit)}
+          onDone={finishRoutes}
+        />
+      ) : null}
 
       <LayersPopover
         open={layersOpen}
@@ -512,6 +828,14 @@ export function PropsScreen({
         busy={busy}
         onConfirm={() => void archive()}
         onCancel={() => setArchiveOpen(false)}
+      />
+      <ConfirmDialog
+        open={discardOpen}
+        title={session?.kind === "edit" ? "Discard your changes?" : "Discard this prop?"}
+        body={session?.kind === "edit" ? "The shape goes back to how it was saved." : "The corners you have placed will be lost."}
+        confirmLabel={session?.kind === "edit" ? "Discard changes" : "Discard prop"}
+        onConfirm={leaveDraw}
+        onCancel={() => setDiscardOpen(false)}
       />
     </div>
   );
