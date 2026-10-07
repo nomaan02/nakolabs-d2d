@@ -7,6 +7,7 @@ import type { MapLayerMouseEvent, PaddingOptions } from "maplibre-gl";
 import { MapSheet } from "@/components/admin/map/map-sheet";
 import { useAdminMap } from "@/components/admin/map/use-admin-map";
 import { useIsDesktop } from "@/components/admin/map/use-is-desktop";
+import { DrawMagnifier } from "@/components/admin/props/draw-magnifier";
 import { DrawPanel } from "@/components/admin/props/draw-panel";
 import { ensureDrawLayers, setDrawShape, type DragState } from "@/components/admin/props/draw-layers";
 import { LayersPopover } from "@/components/admin/props/layers-popover";
@@ -795,6 +796,7 @@ export function PropsScreen({
             zonesOn={layers.nccz}
             onLayers={() => setLayersOpen((open) => !open)}
           />
+          <DrawMagnifier map={map} mode={mode} shape={shape} drag={drag} />
         </>
       ) : null}
 

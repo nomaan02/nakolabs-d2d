@@ -2742,3 +2742,41 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Deviations from brief:** none. The given code was pasted exactly.
 - **Not done / deferred:** A browser. A phone. Did not commit. No database row. The magnifier is F2e. Old draw components stay until F6.
 - **Follow-ups:** The owner checks F2 as a whole after F2e.
+
+---
+
+### UI-10 Session F2e — Magnifier while dragging a corner (touch)
+- **Date:** 2026-10-07
+- **Model:** Grok 4.7
+- **Built:** On a touch screen, dragging a corner shows a 120px round lens above the finger. The lens is a second, non-interactive map of the shape only, two zoom levels closer, with a crosshair. Near the top edge it sits beside the finger. It is built when drawing starts and removed when drawing ends. A mouse does not show it.
+- **Owner decisions:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved. Figma page 40:289, phone 03–13 and desktop D2–D3 for this phase.
+  - OWNER — M2 / A22: Props is one full-screen map (no boxed map, no buttons under it) with a sheet: three heights on a phone (peek / half / full), a floating panel on desktop. Default layers: prop outlines, latest outcomes (light dots), leads / pitches / sales (one pin per lead door, coloured by office status, read-only). No Cold Calling zones only when switched on.
+  - OWNER — A19–A21: Draw = tap to drop a corner, a magnifier under the finger while dragging, Undo, Redo, drag a corner to move it. After closing: count → name → Save → routes. Edit shape = the same editor with the corners loaded; Save shows the door change.
+  - OWNER — A23: route internals hidden behind "Route details"; the route step shows a map preview and km, not keys.
+  - OWNER — A25: prop detail has no Allocate button (visits start from a date on Today, F3).
+  - OWNER — A50: old routes redirect as replacements land (`/admin` → Props now, Today in F3); old files are deleted in F6.
+  - OWNER — A28 / A51: dark mode, one Light / Dark / System choice shared with the field app.
+- **Claude decisions:**
+  - CLAUDE — Figma frames (phone section 89:295): 03 peek 90:416, 04 half 90:752, 05 prop detail 91:535, 06 actions 91:928, 07 layers 91:1274, 08–10 draw 92:718 / 92:799 / 92:875, 11 name 93:896, 12 routes 93:1028, 13 edit shape 93:1106; desktop D2 101:1809, D3 101:2216.
+  - CLAUDE — No migration in F2 (the old F2f is dropped): rename and archive are plain `territories` updates under `territories_update_admin`; outlines from `territories.geom` (PostgREST returns GeoJSON); outcome dots from `coverage_map_payload`; lead pins from `leads` (admin SELECT); per-visit figures from `v_prop_completion` + head-only counts on `v_latest_knock`.
+  - CLAUDE — Due rule (no owner rule existed): a prop is Due when nothing is planned and its last visit that counted for rotation is 28+ days old, or it was never visited (`PROP_DUE_AFTER_DAYS`, one constant; 28 = the old dashboard's "not visited in over 4 weeks").
+  - CLAUDE — Routes step, made truthful: visits take turns between Route A (`best`, odd visits) and Route B (`best_reversed`, even visits). The rotation picks, so the step previews A/B rather than "choosing"; spares sit under Route details. Routes are generated and saved straight after Save prop / Save shape. If Edit shape's new routes fail, the old (now wrong) routes are deleted so the next allocation makes fresh ones.
+  - CLAUDE — Admin never reads location: the bottom-right locate control of the mock becomes "Show all props" (four-corner icon).
+  - CLAUDE — Routes layer = the selected prop only (its frozen visit route, else saved Route A).
+  - CLAUDE — Archive is refused while a visit is today or planned; archived props show under Archived with Restore.
+  - CLAUDE — Door counts per prop: `count_door_eligibility` per live prop, in parallel on the server, streamed after the list renders (no new RPC).
+  - CLAUDE — Frame 10: a 120px round lens above the finger shows the dragged corner two zoom levels closer, with a crosshair; near the top edge it moves beside the finger. A second, non-interactive map that only carries the shape, built when drawing starts so it is ready on the first drag, removed when drawing ends.
+  - CLAUDE — Touch screens only (`(pointer: coarse)`): with a mouse the pointer never hides the corner.
+  - CLAUDE — Droppable: if this session fails, F2 still works without it. This session landed, so the lens is in the draw fragment.
+- **Acceptance:**
+  - EDIT 1 DONE. New `components/admin/props/draw-magnifier.tsx` pasted as given. `ensureDrawLayers`, `setDrawShape` and `DragState` are exported from `draw-layers.ts`. `fieldMapStyle` is exported from `lib/field/map-style.ts`.
+  - EDIT 2 DONE. Both find blocks in `props-screen.tsx` occurred once. Import added. `<DrawMagnifier map={map} mode={mode} shape={shape} drag={drag} />` sits inside the draw fragment.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on `draw-magnifier.tsx` and `props-screen.tsx`: **PASS** — exit 0.
+  - `npm run verify:ui10`: **PASS** — exit 0. Printed `ALL PASS`.
+  - `git grep -n "navigator.geolocation" -- components/admin lib/admin`: **PASS** — printed nothing (git grep exit 1, no match).
+  - Phone: **NOT VERIFIED**. Headless session. No browser. The owner checks F2 as a whole.
+- **Deviations from brief:** none. The given code was pasted exactly.
+- **Not done / deferred:** A browser. A phone. Did not commit. No database row. Old draw components stay until F6.
+- **Follow-ups:** The owner checks F2 as a whole (phone items 1–15 in the F2e brief).

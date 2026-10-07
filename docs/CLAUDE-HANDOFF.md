@@ -2,17 +2,17 @@
 
 ## Current state
 
-- Last updated: 2026-10-07 (UI-10 Session F2d). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Props now draws and edits on the same map. New: `components/admin/props/draw-layers.ts`, `use-draw-gestures.ts`, `use-shape-count.ts`, `draw-panel.tsx`, `route-panel.tsx`. `props-screen.tsx` was replaced: Draw, Edit shape, count, name, Save, then the Routes step. Nav: Props → `/admin/props`, and `DARK_READY_PATHS` is `["/admin/props"]`. `app/(admin)/admin/page.tsx` redirects to `/admin/props`. Old draw files (`prop-drawer.tsx`, `route-overlay.tsx`, `prop-tally.tsx`) stay until F6. `terra-draw` packages stay.
-- UI-10 F2d tracker Status is DONE. Date 2026-10-07. Result: `Draw (tap, close, undo/redo, drag, add corner), Edit shape, count + name + Save, Routes step (A/B preview), nav switch, /admin → Props.` Commit column still `—`.
-- `npx tsc --noEmit` exit 0. eslint on the nine TypeScript files exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`), including `active item for /admin` (null), `active item for /admin/props` (props), `old pages stay light`, `Props is dark-ready (F2)`.
+- Last updated: 2026-10-07 (UI-10 Session F2e). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- While drawing on a touch screen, a 120px round lens sits above the finger and shows the dragged corner two zoom levels closer, with a crosshair. Near the top edge the lens moves beside the finger. It is a second, non-interactive map that only carries the shape: built when drawing starts, removed when drawing ends. A mouse does not show it (`(pointer: coarse)`). New file: `components/admin/props/draw-magnifier.tsx`. `props-screen.tsx` renders it inside the draw fragment.
+- UI-10 F2e tracker Status is DONE. Date 2026-10-07. Result: `touch magnifier while dragging a corner.` Commit column still `—`.
+- `npx tsc --noEmit` exit 0. eslint on `draw-magnifier.tsx` and `props-screen.tsx` exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`).
 - `git grep -n "navigator.geolocation" -- components/admin lib/admin` printed nothing (exit 1).
-- The F1 shell is unchanged. `/admin/dashboard`, `/admin` and `/admin/allocate` stay light. `/admin/props` is dark-ready.
-- `lib/sync/queue.ts` was not edited. Field writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. Save prop and Save shape call `saveProp` / `updatePropRing` (`lib/props/actions.ts`). Routes call `saveTerritoryRoutes`. A failed Edit-shape route clear calls `clearPropRoutes` (`lib/props/manage.ts`). Admin session, not a field write path.
+- The F1 shell is unchanged. `/admin/dashboard` and `/admin/allocate` stay light. `/admin` redirects to Props. `/admin/props` is dark-ready.
+- `lib/sync/queue.ts` was not edited. Field writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. The magnifier imports `fieldMapStyle` from `lib/field/map-style.ts` and does not change that file. The dated comment there still describes one field MapLibre instance (Map tab and Logger are separate routes). The lens is a second instance on the admin Props screen, only while drawing.
 - No database change. No database row. No `client_event_id`. No migration.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
-- External settings: none. No browser. No dev server. Phone checks for this session are NOT VERIFIED. None for this session (the owner checks F2 as a whole after F2e). The magnifier is F2e.
+- External settings: none. No browser. No dev server. Phone checks for this session are NOT VERIFIED. The owner checks F2 as a whole after this session.
 
 ## Log
 
@@ -2084,5 +2084,41 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Invariants:** No GPS and no `navigator.geolocation` in `components/admin` or `lib/admin` (`git grep` printed nothing). The remembered map camera (lng, lat, zoom) stays in session storage on the device. No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. `lib/sync/queue.ts` was not edited. Admin save, rename, archive and route-clear go through `lib/props/actions.ts` and `lib/props/manage.ts` with the admin session. Coverage is still derived. No database row. No `client_event_id`.
 - **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on `components/admin/props/draw-layers.ts`, `use-draw-gestures.ts`, `use-shape-count.ts`, `draw-panel.tsx`, `route-panel.tsx`, `props-screen.tsx`, `lib/admin/nav.ts`, `scripts/verify-ui-10-admin.ts` and `app/(admin)/admin/page.tsx`. `npm run verify:ui10` exit 0 (`ALL PASS`), including `/admin` matching nothing, `/admin/props` matching Props, and Props dark-ready. `git grep -n "navigator.geolocation" -- components/admin lib/admin` printed nothing.
 - **Not verified:** A browser. A phone. None for this session (the owner checks F2 as a whole after F2e).
+- **External settings:** none
+- **Open questions for Claude:** none
+
+### 2026-10-07 — UI-10 Session F2e (uncommitted)
+
+- **Item:** UI-10
+- **What changed:** While a corner is dragged on a touch screen, a 120px round lens above the finger shows that corner two zoom levels closer, with a crosshair. Near the top of the map the lens sits beside the finger. It is a second, non-interactive map that only carries the shape. It is built when drawing starts and removed when drawing ends. A mouse does not show it.
+- **Files:**
+  - Changed: `components/admin/props/props-screen.tsx` (import and one line in the draw fragment), `docs/FIELD-TEST-BUILD-PLAN.md` (UI-10 F2e Status DONE and Result), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `components/admin/props/draw-magnifier.tsx`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. The new component imports `fieldMapStyle` from `lib/field/map-style.ts`.
+- **Decided by:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved. Figma page 40:289, phone 03–13 and desktop D2–D3 for this phase.
+  - OWNER — M2 / A22: Props is one full-screen map with a sheet (peek / half / full on a phone, a floating panel on desktop). Default layers: prop outlines, latest outcomes (light dots), one pin per lead door coloured by office status (read-only). No Cold Calling zones only when switched on.
+  - OWNER — A19–A21: Draw = tap to drop a corner, magnifier while dragging, Undo, Redo, drag a corner to move it. After closing: count, name, Save, routes. Edit shape loads the same corners; Save shows the door change.
+  - OWNER — A23: route internals sit behind "Route details". The route step shows a map preview and km, not keys.
+  - OWNER — A25: prop detail has no Allocate button. Visits start from a date on Today (F3).
+  - OWNER — A50: old routes redirect as replacements land (`/admin` → Props now, Today in F3). Old files are deleted in F6.
+  - OWNER — A28 / A51: dark mode, one Light / Dark / System choice shared with the field app.
+  - CLAUDE — Figma frames (phone section 89:295): 03 peek 90:416, 04 half 90:752, 05 prop detail 91:535, 06 actions 91:928, 07 layers 91:1274, 08–10 draw 92:718 / 92:799 / 92:875, 11 name 93:896, 12 routes 93:1028, 13 edit shape 93:1106; desktop D2 101:1809, D3 101:2216.
+  - CLAUDE — No migration in F2. Rename and archive are plain `territories` updates under `territories_update_admin`. Outlines from `territories.geom`. Outcome dots from `coverage_map_payload`. Lead pins from `leads`. Per-visit figures from `v_prop_completion` and head-only counts on `v_latest_knock`.
+  - CLAUDE — Due when nothing is planned and the last visit that counted for rotation is 28+ days old, or never visited (`PROP_DUE_AFTER_DAYS`). 28 matches the old dashboard's "not visited in over 4 weeks".
+  - CLAUDE — Route A is `best` (odd visits) and Route B is `best_reversed` (even visits). The step previews them. The rotation picks. Spares sit under Route details. Routes are generated and saved straight after Save. If Edit shape's new routes fail, the old ones are deleted.
+  - CLAUDE — Admin never reads location. The mock's locate control becomes "Show all props".
+  - CLAUDE — Routes layer is the selected prop only (frozen visit route, else saved Route A).
+  - CLAUDE — Archive is refused while a visit is today or planned. Archived props show under Archived with Restore.
+  - CLAUDE — Door counts: `count_door_eligibility` per live prop, streamed after the list renders. No new RPC.
+  - CLAUDE — Frame 10: a 120px round lens above the finger shows the dragged corner two zoom levels closer, with a crosshair. Near the top edge it moves beside the finger. A second, non-interactive map that only carries the shape, built when drawing starts so it is ready on the first drag, removed when drawing ends.
+  - CLAUDE — Touch screens only (`(pointer: coarse)`). With a mouse the pointer never hides the corner.
+  - CLAUDE — Droppable: if this session fails, F2 still works without it. This session landed, so the lens is in the draw fragment.
+- **Deviations from plan or brief:** none. The given code was pasted exactly.
+- **Invariants:** No GPS and no `navigator.geolocation` in `components/admin` or `lib/admin` (`git grep` printed nothing). No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. `lib/sync/queue.ts` was not edited. No database row. No `client_event_id`.
+- **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on `components/admin/props/draw-magnifier.tsx` and `components/admin/props/props-screen.tsx`. `npm run verify:ui10` exit 0 (`ALL PASS`). `git grep -n "navigator.geolocation" -- components/admin lib/admin` printed nothing.
+- **Not verified:** A browser. A phone. The owner checks F2 as a whole (the 15 phone-check items in the F2e brief).
 - **External settings:** none
 - **Open questions for Claude:** none
