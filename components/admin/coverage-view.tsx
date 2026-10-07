@@ -19,14 +19,19 @@ export function CoverageView({
   props,
   signedInAs,
   stressDots,
+  initialPropId = null,
 }: {
   doors: CoverageDoorCollection;
   outcomes: CoverageOutcome[];
   props: CoverageProp[];
   signedInAs: string;
   stressDots: number | null;
+  /** UI-10 F2: Props' "Show on Coverage" opens with this prop selected. */
+  initialPropId?: string | null;
 }) {
-  const [selectedPropId, setSelectedPropId] = useState<string | null>(null);
+  const [selectedPropId, setSelectedPropId] = useState<string | null>(
+    initialPropId && props.some((row) => row.id === initialPropId) ? initialPropId : null,
+  );
   const mapDoors = useMemo(
     () => (stressDots ? padDoors(doors, stressDots) : doors),
     [doors, stressDots],

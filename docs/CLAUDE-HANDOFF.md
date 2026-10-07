@@ -2,12 +2,12 @@
 
 ## Current state
 
-- Last updated: 2026-10-07 (UI-10 Session F2b). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Admin map kit and Props data, nothing on screen yet. New: `components/admin/map/use-admin-map.ts`, `components/admin/map/use-is-desktop.ts`, `components/admin/map/map-sheet.tsx`, `components/admin/props/prop-layers.ts`, `lib/admin/prop-visit-stats.ts`, `lib/admin/props-data.ts`, `lib/admin/lead-pins.ts`, `lib/props/manage.ts` (rename, archive/restore, clear routes). `MinusIcon` and `FitIcon` appended to `components/field/icons.tsx`. `.admin-map` licence position in `app/globals.css`. Overlay focus in `components/admin/ui/use-overlay-focus.ts` reads `onClose` from a ref.
-- UI-10 F2b tracker Status is DONE. Date 2026-10-07. Result: `admin map kit (map, sheet), Props layers, prop data loaders, rename/archive/clear-routes actions.` Commit column still `—`.
-- `npx tsc --noEmit` exit 0. eslint on the ten TypeScript files exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`). No new checks. `git grep` for `service_role` / `SERVICE_ROLE` in the four data and action modules printed nothing.
-- The F1 shell is unchanged: every `/admin` page sits in `AdminShell`. `DARK_READY_PATHS` is still empty, so the five old pages stay light. `lib/admin/nav.ts` was not edited. Nothing renders the F2b files until F2c.
-- `lib/sync/queue.ts` was not edited. Field writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. `lib/props/manage.ts` is an admin server action, not a field write path.
+- Last updated: 2026-10-07 (UI-10 Session F2c). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- `/admin/props` is on screen: full-screen map, phone sheet (peek / half / full), desktop panel, list, search, filters, prop detail (inline rename, archive / restore), layers popover. New: `components/admin/props/layers-popover.tsx`, `components/admin/props/props-list.tsx`, `components/admin/props/prop-detail.tsx`, `components/admin/props/props-screen.tsx` (browse only; F2d replaces it), `app/(admin)/admin/props/page.tsx`. `lib/admin/nav.ts` gained `visitHref` and `coverageHref`. Coverage takes `?prop=` (`initialPropId`). Nav items are unchanged. `/admin` still opens the old draw page until F2d.
+- UI-10 F2c tracker Status is DONE. Date 2026-10-07. Result: `/admin/props: full-screen map, sheet, list, search, filters, prop detail, rename, archive/restore, layers.` Commit column still `—`.
+- `npx tsc --noEmit` exit 0. eslint on the nine TypeScript files exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`), including `visit and coverage links carry the prop`.
+- The F1 shell is unchanged: every `/admin` page sits in `AdminShell`. `DARK_READY_PATHS` is still empty, so `/admin/props` and the five old pages stay light. This session's `nav.ts` edit was only the two hrefs.
+- `lib/sync/queue.ts` was not edited. Field writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. Rename and archive still go through `lib/props/manage.ts` (admin session), not a field write path.
 - No database change. No database row. No `client_event_id`. No migration.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
@@ -2008,3 +2008,41 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. A phone. None for this session (the owner checks F2 as a whole after F2e).
 - **External settings:** none
 - **Open questions for Claude:** none
+
+### 2026-10-07 — UI-10 Session F2c (uncommitted)
+
+- **Item:** UI-10
+- **What changed:** `/admin/props` is a full-screen map with a sheet on a phone and a floating panel on desktop. The sheet lists props (search, All / Due / Out today / Archived) or one prop's detail. Rename is inline on the title. Archive and restore go through the shared confirm, or Restore on an archived prop. Layers open from the top-right button. "Show all props" frames the outlines. The selected prop's route paints when Routes is on. Coverage opens on `?prop=`. "Open visit" still goes to the old allocate page. Draw is not in this screen.
+- **Files:**
+  - Changed: `lib/admin/nav.ts` (`visitHref`, `coverageHref`), `scripts/verify-ui-10-admin.ts` (link check), `components/admin/coverage-view.tsx` (`initialPropId`), `app/(admin)/admin/coverage/page.tsx` (`?prop`), `docs/FIELD-TEST-BUILD-PLAN.md` (UI-10 F2c Status DONE and Result), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `components/admin/props/layers-popover.tsx`, `components/admin/props/props-list.tsx`, `components/admin/props/prop-detail.tsx`, `components/admin/props/props-screen.tsx`, `app/(admin)/admin/props/page.tsx`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. The new screen imports `lib/map/route-layers.ts`, `lib/map/route-load.ts`, `lib/field/theme.ts` and `lib/geo/count-knockable.ts`. `lib/admin/nav.ts` gained two href helpers. Nav items and `DARK_READY_PATHS` were not changed.
+- **Decided by:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved. Figma page 40:289, phone 03–13 and desktop D2–D3 for this phase.
+  - OWNER — M2 / A22: Props is one full-screen map with a sheet (peek / half / full on a phone, a floating panel on desktop). Default layers: prop outlines, latest outcomes (light dots), one pin per lead door coloured by office status (read-only). No Cold Calling zones only when switched on.
+  - OWNER — A19–A21: Draw = tap to drop a corner, magnifier while dragging, Undo, Redo, drag a corner to move it. After closing: count, name, Save, routes. Edit shape loads the same corners; Save shows the door change.
+  - OWNER — A23: route internals sit behind "Route details". The route step shows a map preview and km, not keys.
+  - OWNER — A25: prop detail has no Allocate button. Visits start from a date on Today (F3).
+  - OWNER — A50: old routes redirect as replacements land (`/admin` → Props now, Today in F3). Old files are deleted in F6.
+  - OWNER — A28 / A51: dark mode, one Light / Dark / System choice shared with the field app.
+  - CLAUDE — Figma frames (phone section 89:295): 03 peek 90:416, 04 half 90:752, 05 prop detail 91:535, 06 actions 91:928, 07 layers 91:1274, 08–10 draw 92:718 / 92:799 / 92:875, 11 name 93:896, 12 routes 93:1028, 13 edit shape 93:1106; desktop D2 101:1809, D3 101:2216.
+  - CLAUDE — No migration in F2. Rename and archive are plain `territories` updates under `territories_update_admin`. Outlines from `territories.geom`. Outcome dots from `coverage_map_payload`. Lead pins from `leads`. Per-visit figures from `v_prop_completion` and head-only counts on `v_latest_knock`.
+  - CLAUDE — Due when nothing is planned and the last visit that counted for rotation is 28+ days old, or never visited (`PROP_DUE_AFTER_DAYS`). 28 matches the old dashboard's "not visited in over 4 weeks".
+  - CLAUDE — Route A is `best` (odd visits) and Route B is `best_reversed` (even visits). The step previews them. The rotation picks. Spares sit under Route details. Routes are generated and saved straight after Save. If Edit shape's new routes fail, the old ones are deleted.
+  - CLAUDE — Admin never reads location. The mock's locate control becomes "Show all props".
+  - CLAUDE — Routes layer is the selected prop only (frozen visit route, else saved Route A).
+  - CLAUDE — Archive is refused while a visit is today or planned. Archived props show under Archived with Restore.
+  - CLAUDE — Door counts: `count_door_eligibility` per live prop, streamed after the list renders. No new RPC.
+  - CLAUDE — `/admin/props` (`?prop=<id>` opens a prop; `replaceState` follows the selection). Not in the nav yet.
+  - CLAUDE — Phone: menu, search pill and layers at the top; the sheet holds the list or the detail. Desktop: title, search ("/" focuses it), chips and the list in the panel.
+  - CLAUDE — Prop detail: inline rename; ⋯ menu (Rename, Show on Coverage, Archive / Restore). "Open visit" goes to `/admin/allocate?prop=` until F3.
+  - CLAUDE — Archive uses ConfirmDialog. Rename and archive errors show in the detail.
+  - CLAUDE — Coverage takes `?prop=<id>` and opens with that prop selected.
+- **Deviations from plan or brief:** none. The given code was pasted exactly.
+- **Invariants:** No GPS and no `navigator.geolocation`. The remembered map camera (lng, lat, zoom) stays in session storage on the device. No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. `lib/sync/queue.ts` was not edited. Admin rename and archive go through `lib/props/manage.ts` with the admin session. Coverage is still derived. No database row. No `client_event_id`.
+- **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on `components/admin/props/layers-popover.tsx`, `components/admin/props/props-list.tsx`, `components/admin/props/prop-detail.tsx`, `components/admin/props/props-screen.tsx`, `app/(admin)/admin/props/page.tsx`, `lib/admin/nav.ts`, `scripts/verify-ui-10-admin.ts`, `components/admin/coverage-view.tsx` and `app/(admin)/admin/coverage/page.tsx`. `npm run verify:ui10` exit 0 (`ALL PASS`), including `visit and coverage links carry the prop`.
+- **Not verified:** A browser. A phone. None for this session (the owner checks F2 as a whole after F2e).
+- **External settings:** none
+- **Open questions for Claude:** `DARK_READY_PATHS` is still empty, so `/admin/props` stays light. Say if F2d should add it.

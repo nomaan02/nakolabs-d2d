@@ -8,9 +8,11 @@ import {
   ADMIN_NAV,
   activeNavKey,
   initialOf,
+  coverageHref,
   isDarkReady,
   navGroups,
   parseRailState,
+  visitHref,
   type AdminNavItem,
 } from "../lib/admin/nav";
 import { ADMIN_THEME_BOOT_SCRIPT } from "../lib/admin/theme-boot";
@@ -133,6 +135,8 @@ check("initial of nothing", initialOf(null) === "?" && initialOf("   ") === "?")
 check("old pages stay light in F1", !isDarkReady("/admin/dashboard") && !isDarkReady("/admin"));
 check("a ready path and its children go dark", isDarkReady("/admin/today/add", ["/admin/today"]));
 check("a ready path does not leak to siblings", !isDarkReady("/admin/todays", ["/admin/today"]));
+
+check("visit and coverage links carry the prop", visitHref("a b") === "/admin/allocate?prop=a%20b" && coverageHref("x") === "/admin/coverage?prop=x");
 
 // --- F1c: shared theme (A51) ---
 check("admin theme boot script matches the field one", ADMIN_THEME_BOOT_SCRIPT === THEME_BOOT_SCRIPT);

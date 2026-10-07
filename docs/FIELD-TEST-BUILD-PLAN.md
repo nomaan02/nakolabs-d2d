@@ -118,7 +118,7 @@
 | UI-10 F1c | Admin shell: layout, drawer, rail; old nav removed | DONE | 2026-10-06 | admin layout + shell (drawer, rail, menu button); AdminNav removed. Phone check passed 2026-10-07. | 7d0e68e |
 | UI-10 F2a | Props + Draw logic (pure) + verify:ui10 | DONE | 2026-10-07 | Props and Draw pure logic + verify:ui10 checks. | — |
 | UI-10 F2b | Admin map kit, Props layers, prop data + actions | DONE | 2026-10-07 | admin map kit (map, sheet), Props layers, prop data loaders, rename/archive/clear-routes actions. | — |
-| UI-10 F2c | `/admin/props`: map, sheet, list, detail, layers | TODO | | | — |
+| UI-10 F2c | `/admin/props`: map, sheet, list, detail, layers | DONE | 2026-10-07 | `/admin/props: full-screen map, sheet, list, search, filters, prop detail, rename, archive/restore, layers.` | — |
 | UI-10 F2d | Draw, Edit shape, Routes step; nav switch; `/admin` → Props | TODO | | | — |
 | UI-10 F2e | Magnifier while dragging a corner (touch, droppable) | TODO | | | — |
 | UI-10 F3 | Today + allocations (F3a–F3d; F3d migration 030, human) | TODO | | | — |

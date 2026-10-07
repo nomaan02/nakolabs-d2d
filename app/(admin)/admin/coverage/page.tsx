@@ -9,7 +9,7 @@ export const metadata = { title: "Coverage · nakolabs-d2d" };
 export default async function CoveragePage({
   searchParams,
 }: {
-  searchParams: Promise<{ stress?: string }>;
+  searchParams: Promise<{ stress?: string; prop?: string }>;
 }) {
   const supabase = await createClient();
   const {
@@ -41,6 +41,7 @@ export default async function CoveragePage({
       props={result.payload.props}
       signedInAs={profile?.full_name ?? user?.email ?? ""}
       stressDots={stressDots}
+      initialPropId={params.prop ?? null}
     />
   );
 }

@@ -107,3 +107,17 @@ export function initialOf(name: string | null | undefined): string {
   const first = (name ?? "").trim().charAt(0);
   return first ? first.toLocaleUpperCase("en-GB") : "?";
 }
+
+/**
+ * Where a prop's "Open visit" goes. F2: the old allocate page for that prop
+ * (it manages the visit's team and route). F3 points this at the visit sheet
+ * on Today (A26).
+ */
+export function visitHref(propId: string): string {
+  return `/admin/allocate?prop=${encodeURIComponent(propId)}`;
+}
+
+/** Prop detail's "Show on Coverage" (frame 06). */
+export function coverageHref(propId: string): string {
+  return `/admin/coverage?prop=${encodeURIComponent(propId)}`;
+}
