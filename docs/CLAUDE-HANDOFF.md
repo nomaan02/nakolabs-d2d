@@ -2,18 +2,16 @@
 
 ## Current state
 
-- Last updated: 2026-10-06 (UI-10 Session F1c). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Every `/admin` page sits in `AdminShell` (`app/(admin)/layout.tsx`): desktop rail (lg and up, 240 expanded or 64 collapsed, key `d2d.admin.rail`), phone drawer from the left (~85% wide), Sora via `--font-sora` on `.admin-root`, shared theme (`FieldThemeSync` plus `lib/admin/theme-boot.ts`, key `d2d.theme`).
-- The shell sets `data-admin-dark="off"` unless the route is in `DARK_READY_PATHS`. That list is still empty, so the five old pages stay light.
-- `components/admin/admin-nav.tsx` is deleted. The five old pages (`allocate-form`, `coverage-view`, `dashboard-view`, `prop-drawer`, `rotation-settings`) now render `<AdminMenuButton />` in its place. Nothing else on those pages changed.
-- UI-10 F1c tracker Status is DONE. Date 2026-10-06. Result: `admin layout + shell (drawer, rail, menu button); AdminNav removed.` Commit column still `—`.
-- `npx tsc --noEmit` exit 0. eslint on the F1c files exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`), including the two shared-theme checks. `git grep -n "components/admin/admin-nav"` and `git grep -n "admin-nav"` both returned no lines.
-- `lib/sync/queue.ts` was not edited. Writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. `lib/admin/nav.ts` was not edited.
-- No database change. No database row. No `client_event_id`.
-- UI-8 is unchanged. UI-7 is unchanged. F1a and F1b are unchanged apart from the two lines added to `scripts/verify-ui-10-admin.ts`.
+- Last updated: 2026-10-07 (UI-10 Session F2a). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Pure Props and Draw logic only. Nothing renders yet. New: `lib/admin/draw-history.ts` (Undo / Redo / move / midpoint, cap 100), `lib/admin/sheet-detents.ts` (peek / half / full), `lib/admin/props.ts` (list states, due after 28 days), `lib/admin/map-fit.ts`, `lib/admin/draw-copy.ts`. `scripts/verify-ui-10-admin.ts` gained the F2a checks. F1 checks are unchanged.
+- UI-10 F2a tracker Status is DONE. Date 2026-10-07. Result: `Props and Draw pure logic + verify:ui10 checks.` Commit column still `—`.
+- `npx tsc --noEmit` exit 0. eslint on the five new modules and `scripts/verify-ui-10-admin.ts` exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`).
+- The F1 shell is unchanged: every `/admin` page sits in `AdminShell`. `DARK_READY_PATHS` is still empty, so the five old pages stay light. `lib/admin/nav.ts` was not edited.
+- `lib/sync/queue.ts` was not edited. Writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited.
+- No database change. No database row. No `client_event_id`. No migration.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
-- External settings: none. No browser. No dev server. Phone checks for this session are NOT VERIFIED. The owner does them once for the whole F1 phase.
+- External settings: none. No browser. No dev server. Phone checks for this session are NOT VERIFIED. None for this session (the owner checks F2 as a whole after F2e).
 
 ## Log
 
@@ -1936,5 +1934,38 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. `lib/sync/queue.ts` was not edited. Coverage is still derived. No database row. No `client_event_id`.
 - **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on `lib/admin/theme-boot.ts`, `components/admin/shell`, `app/(admin)/layout.tsx`, the five old admin components, and `scripts/verify-ui-10-admin.ts`. `npm run verify:ui10` exit 0 (`ALL PASS`), including "admin theme boot script matches the field one" and "theme boot reads the shared d2d.theme key". `git grep -n "components/admin/admin-nav"` empty. `git grep -n "admin-nav"` empty.
 - **Not verified:** A browser. A phone. The nine phone checks in the F1c brief (drawer, rail memory, Sora, old pages stay light, keyboard focus, 375 and 430, sign out). The owner does them once for the whole F1 phase.
+- **External settings:** none
+- **Open questions for Claude:** none
+
+### 2026-10-07 — UI-10 Session F2a (uncommitted)
+
+- **Item:** UI-10
+- **What changed:** Pure logic for the Props map and Draw. A drawing history with Undo, Redo, moving a corner and adding one from a midpoint (100 steps). Sheet heights and how a drag settles. Prop list states and the words on each row. Geometry helpers for a saved prop and the box around props. Copy for door counts and the two route cards. Nothing on screen yet. `npm run verify:ui10` checks it.
+- **Files:**
+  - Changed: `scripts/verify-ui-10-admin.ts` (F2a checks; F1 checks unchanged), `docs/FIELD-TEST-BUILD-PLAN.md` (UI-10 F2a Status DONE and Result), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `lib/admin/draw-history.ts`, `lib/admin/sheet-detents.ts`, `lib/admin/props.ts`, `lib/admin/map-fit.ts`, `lib/admin/draw-copy.ts`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none. The new modules only import types from `lib/geo/prop-polygon.ts`, `lib/geo/rotation.ts`, `lib/geo/count-knockable.ts` and `lib/geo/walk/types.ts`. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. `lib/admin/nav.ts` was not edited.
+- **Decided by:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved. Figma page 40:289, phone 03–13 and desktop D2–D3 for this phase.
+  - OWNER — M2 / A22: Props is one full-screen map with a sheet (peek / half / full on a phone, a floating panel on desktop). Default layers: prop outlines, latest outcomes (light dots), one pin per lead door coloured by office status (read-only). No Cold Calling zones only when switched on.
+  - OWNER — A19–A21: Draw = tap to drop a corner, magnifier while dragging, Undo, Redo, drag a corner to move it. After closing: count, name, Save, routes. Edit shape loads the same corners; Save shows the door change.
+  - OWNER — A23: route internals sit behind "Route details". The route step shows a map preview and km, not keys.
+  - OWNER — A25: prop detail has no Allocate button. Visits start from a date on Today (F3).
+  - OWNER — A50: old routes redirect as replacements land (`/admin` → Props now, Today in F3). Old files are deleted in F6.
+  - OWNER — A28 / A51: dark mode, one Light / Dark / System choice shared with the field app.
+  - CLAUDE — Figma frames (phone section 89:295): 03 peek 90:416, 04 half 90:752, 05 prop detail 91:535, 06 actions 91:928, 07 layers 91:1274, 08–10 draw 92:718 / 92:799 / 92:875, 11 name 93:896, 12 routes 93:1028, 13 edit shape 93:1106; desktop D2 101:1809, D3 101:2216.
+  - CLAUDE — No migration in F2. Rename and archive are plain `territories` updates under `territories_update_admin`. Outlines from `territories.geom`. Outcome dots from `coverage_map_payload`. Lead pins from `leads`. Per-visit figures from `v_prop_completion` and head-only counts on `v_latest_knock`.
+  - CLAUDE — Due when nothing is planned and the last visit that counted for rotation is 28+ days old, or never visited (`PROP_DUE_AFTER_DAYS`). 28 matches the old dashboard's "not visited in over 4 weeks".
+  - CLAUDE — Route A is `best` (odd visits) and Route B is `best_reversed` (even visits). The step previews them. The rotation picks. Spares sit under Route details.
+  - CLAUDE — Admin never reads location. The mock's locate control becomes "Show all props".
+  - CLAUDE — Routes layer is the selected prop only (frozen visit route, else saved Route A).
+  - CLAUDE — Archive is refused while a visit is today or planned. Archived props show under Archived with Restore.
+  - CLAUDE — Door counts: `count_door_eligibility` per live prop, streamed after the list renders. No new RPC.
+- **Deviations from plan or brief:** none. The given code was pasted exactly.
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. `lib/sync/queue.ts` was not edited. Coverage is still derived. No database row. No `client_event_id`.
+- **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on `lib/admin/draw-history.ts`, `lib/admin/sheet-detents.ts`, `lib/admin/props.ts`, `lib/admin/map-fit.ts`, `lib/admin/draw-copy.ts` and `scripts/verify-ui-10-admin.ts`. `npm run verify:ui10` exit 0 (`ALL PASS`), including the F2a draw, detent, props, geometry and copy checks.
+- **Not verified:** A browser. A phone. None for this session (the owner checks F2 as a whole after F2e).
 - **External settings:** none
 - **Open questions for Claude:** none

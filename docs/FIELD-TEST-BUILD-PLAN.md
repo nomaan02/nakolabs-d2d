@@ -116,7 +116,7 @@
 | UI-10 F1a | Admin nav logic + `verify:ui10` | DONE | 2026-10-06 | lib/admin/nav.ts + verify:ui10; seed-demo prefer-const. | 54d40d1 |
 | UI-10 F1b | Admin tokens, icons, UI kit | DONE | 2026-10-06 | admin tokens + icons + components/admin/ui kit. | c3b3e5a |
 | UI-10 F1c | Admin shell: layout, drawer, rail; old nav removed | DONE | 2026-10-06 | admin layout + shell (drawer, rail, menu button); AdminNav removed. Phone check passed 2026-10-07. | 7d0e68e |
-| UI-10 F2a | Props + Draw logic (pure) + verify:ui10 | TODO | | | — |
+| UI-10 F2a | Props + Draw logic (pure) + verify:ui10 | DONE | 2026-10-07 | Props and Draw pure logic + verify:ui10 checks. | — |
 | UI-10 F2b | Admin map kit, Props layers, prop data + actions | TODO | | | — |
 | UI-10 F2c | `/admin/props`: map, sheet, list, detail, layers | TODO | | | — |
 | UI-10 F2d | Draw, Edit shape, Routes step; nav switch; `/admin` → Props | TODO | | | — |
