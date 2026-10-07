@@ -2,12 +2,12 @@
 
 ## Current state
 
-- Last updated: 2026-10-07 (UI-10 Session F2a). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Pure Props and Draw logic only. Nothing renders yet. New: `lib/admin/draw-history.ts` (Undo / Redo / move / midpoint, cap 100), `lib/admin/sheet-detents.ts` (peek / half / full), `lib/admin/props.ts` (list states, due after 28 days), `lib/admin/map-fit.ts`, `lib/admin/draw-copy.ts`. `scripts/verify-ui-10-admin.ts` gained the F2a checks. F1 checks are unchanged.
-- UI-10 F2a tracker Status is DONE. Date 2026-10-07. Result: `Props and Draw pure logic + verify:ui10 checks.` Commit column still `—`.
-- `npx tsc --noEmit` exit 0. eslint on the five new modules and `scripts/verify-ui-10-admin.ts` exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`).
-- The F1 shell is unchanged: every `/admin` page sits in `AdminShell`. `DARK_READY_PATHS` is still empty, so the five old pages stay light. `lib/admin/nav.ts` was not edited.
-- `lib/sync/queue.ts` was not edited. Writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited.
+- Last updated: 2026-10-07 (UI-10 Session F2b). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Admin map kit and Props data, nothing on screen yet. New: `components/admin/map/use-admin-map.ts`, `components/admin/map/use-is-desktop.ts`, `components/admin/map/map-sheet.tsx`, `components/admin/props/prop-layers.ts`, `lib/admin/prop-visit-stats.ts`, `lib/admin/props-data.ts`, `lib/admin/lead-pins.ts`, `lib/props/manage.ts` (rename, archive/restore, clear routes). `MinusIcon` and `FitIcon` appended to `components/field/icons.tsx`. `.admin-map` licence position in `app/globals.css`. Overlay focus in `components/admin/ui/use-overlay-focus.ts` reads `onClose` from a ref.
+- UI-10 F2b tracker Status is DONE. Date 2026-10-07. Result: `admin map kit (map, sheet), Props layers, prop data loaders, rename/archive/clear-routes actions.` Commit column still `—`.
+- `npx tsc --noEmit` exit 0. eslint on the ten TypeScript files exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`). No new checks. `git grep` for `service_role` / `SERVICE_ROLE` in the four data and action modules printed nothing.
+- The F1 shell is unchanged: every `/admin` page sits in `AdminShell`. `DARK_READY_PATHS` is still empty, so the five old pages stay light. `lib/admin/nav.ts` was not edited. Nothing renders the F2b files until F2c.
+- `lib/sync/queue.ts` was not edited. Field writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. `lib/props/manage.ts` is an admin server action, not a field write path.
 - No database change. No database row. No `client_event_id`. No migration.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
@@ -1966,6 +1966,45 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Deviations from plan or brief:** none. The given code was pasted exactly.
 - **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. `lib/sync/queue.ts` was not edited. Coverage is still derived. No database row. No `client_event_id`.
 - **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on `lib/admin/draw-history.ts`, `lib/admin/sheet-detents.ts`, `lib/admin/props.ts`, `lib/admin/map-fit.ts`, `lib/admin/draw-copy.ts` and `scripts/verify-ui-10-admin.ts`. `npm run verify:ui10` exit 0 (`ALL PASS`), including the F2a draw, detent, props, geometry and copy checks.
+- **Not verified:** A browser. A phone. None for this session (the owner checks F2 as a whole after F2e).
+- **External settings:** none
+- **Open questions for Claude:** none
+
+### 2026-10-07 — UI-10 Session F2b (uncommitted)
+
+- **Item:** UI-10
+- **What changed:** The admin map kit and the Props data behind it. A full-bleed map (field basemap, light or dark, view remembered in session storage). A phone sheet with three heights and a 360px desktop panel. Map layers for zones, prop outlines, outcome dots, doors being drawn, and one pin per lead door. Prop rows, streamed door counts, head-only visit figures, and lead pins (door, status, two timestamps). Rename, archive, restore, and clear saved routes, with the admin's own session. Nothing on screen until F2c.
+- **Files:**
+  - Changed: `components/field/icons.tsx` (`MinusIcon`, `FitIcon`), `app/globals.css` (`.admin-map` licence position), `components/admin/ui/use-overlay-focus.ts` (`onClose` ref, Escape stops), `docs/FIELD-TEST-BUILD-PLAN.md` (UI-10 F2b Status DONE and Result), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `components/admin/map/use-admin-map.ts`, `components/admin/map/use-is-desktop.ts`, `components/admin/map/map-sheet.tsx`, `components/admin/props/prop-layers.ts`, `lib/admin/prop-visit-stats.ts`, `lib/admin/props-data.ts`, `lib/admin/lead-pins.ts`, `lib/props/manage.ts`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. The new modules import `lib/field/map-style`, `lib/field/london-date`, `lib/geo/count-knockable`, `lib/geo/properties-in-polygon`, `lib/supabase/server` and `lib/supabase/types`. `lib/admin/nav.ts` was not edited.
+- **Decided by:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved. Figma page 40:289, phone 03–13 and desktop D2–D3 for this phase.
+  - OWNER — M2 / A22: Props is one full-screen map with a sheet (peek / half / full on a phone, a floating panel on desktop). Default layers: prop outlines, latest outcomes (light dots), one pin per lead door coloured by office status (read-only). No Cold Calling zones only when switched on.
+  - OWNER — A19–A21: Draw = tap to drop a corner, magnifier while dragging, Undo, Redo, drag a corner to move it. After closing: count, name, Save, routes. Edit shape loads the same corners; Save shows the door change.
+  - OWNER — A23: route internals sit behind "Route details". The route step shows a map preview and km, not keys.
+  - OWNER — A25: prop detail has no Allocate button. Visits start from a date on Today (F3).
+  - OWNER — A50: old routes redirect as replacements land (`/admin` → Props now, Today in F3). Old files are deleted in F6.
+  - OWNER — A28 / A51: dark mode, one Light / Dark / System choice shared with the field app.
+  - CLAUDE — Figma frames (phone section 89:295): 03 peek 90:416, 04 half 90:752, 05 prop detail 91:535, 06 actions 91:928, 07 layers 91:1274, 08–10 draw 92:718 / 92:799 / 92:875, 11 name 93:896, 12 routes 93:1028, 13 edit shape 93:1106; desktop D2 101:1809, D3 101:2216.
+  - CLAUDE — No migration in F2. Rename and archive are plain `territories` updates under `territories_update_admin`. Outlines from `territories.geom`. Outcome dots from `coverage_map_payload`. Lead pins from `leads`. Per-visit figures from `v_prop_completion` and head-only counts on `v_latest_knock`.
+  - CLAUDE — Due when nothing is planned and the last visit that counted for rotation is 28+ days old, or never visited (`PROP_DUE_AFTER_DAYS`). 28 matches the old dashboard's "not visited in over 4 weeks".
+  - CLAUDE — Route A is `best` (odd visits) and Route B is `best_reversed` (even visits). The step previews them. The rotation picks. Spares sit under Route details. Routes are generated and saved straight after Save. If Edit shape's new routes fail, the old ones are deleted.
+  - CLAUDE — Admin never reads location. The mock's locate control becomes "Show all props" (`FitIcon`).
+  - CLAUDE — Routes layer is the selected prop only (frozen visit route, else saved Route A).
+  - CLAUDE — Archive is refused while a visit is today or planned. Archived props show under Archived with Restore.
+  - CLAUDE — Door counts: `count_door_eligibility` per live prop, streamed after the list renders. No new RPC.
+  - CLAUDE — `useAdminMap` uses the field basemap, no MapLibre buttons, rotation off, licence ⓘ under the page's top-right button, view in session storage.
+  - CLAUDE — `MapSheet`: phone peek / half / full, header drag only, 6px slop; desktop panel 360 wide on the left.
+  - CLAUDE — Layer order: zones (off) → outlines → outcome dots → draw doors → lead pins. `["zoom"]` only at the top of an interpolate.
+  - CLAUDE — `loadPropRows`, `loadDoorCounts`, `loadVisitStats` (contacts = `answered` only), `loadLeadPins` (no notes, no CRM ref).
+  - CLAUDE — `lib/props/manage.ts` is "use server", admin session, no service role: `renameProp`, `setPropArchived`, `clearPropRoutes`.
+  - CLAUDE — Review fixes (2026-10-07): selection clears the old highlight; a sheet drag does not swallow the next tap; a pause before release is a placement; overlay focus does not bounce on parent re-renders.
+- **Deviations from plan or brief:** none. The given code was pasted exactly.
+- **Invariants:** No GPS and no `navigator.geolocation`. The remembered map camera (lng, lat, zoom) stays in session storage on the device. No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. `lib/sync/queue.ts` was not edited. Admin rename, archive and route-clear go through `lib/props/manage.ts` with the admin session. Coverage is still derived. No database row. No `client_event_id`.
+- **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on `components/admin/map/use-admin-map.ts`, `components/admin/map/use-is-desktop.ts`, `components/admin/map/map-sheet.tsx`, `components/admin/props/prop-layers.ts`, `lib/admin/prop-visit-stats.ts`, `lib/admin/props-data.ts`, `lib/admin/lead-pins.ts`, `lib/props/manage.ts`, `components/field/icons.tsx` and `components/admin/ui/use-overlay-focus.ts`. `npm run verify:ui10` exit 0 (`ALL PASS`). `git grep -n "service_role\|SERVICE_ROLE"` on the four data and action modules printed nothing.
 - **Not verified:** A browser. A phone. None for this session (the owner checks F2 as a whole after F2e).
 - **External settings:** none
 - **Open questions for Claude:** none

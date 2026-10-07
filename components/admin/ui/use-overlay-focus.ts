@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -16,6 +16,11 @@ export function useOverlayFocus(
   open: boolean,
   onClose: () => void,
 ): void {
+  // UI-10 F2b: held in a ref, so a parent re-render (an inline onClose) never
+  // re-runs the effect, which would bounce focus to the opener and back.
+  const close = useRef(onClose);
+  close.current = onClose;
+
   useEffect(() => {
     if (!open) return;
     const panel = panelRef.current;
@@ -29,7 +34,8 @@ export function useOverlayFocus(
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose();
+        event.stopPropagation();
+        close.current();
         return;
       }
       if (event.key !== "Tab") return;
@@ -54,5 +60,5 @@ export function useOverlayFocus(
       document.removeEventListener("keydown", onKey);
       opener?.focus();
     };
-  }, [open, onClose, panelRef]);
+  }, [open, panelRef]);
 }

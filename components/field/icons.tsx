@@ -681,3 +681,21 @@ export function ClockIcon({ className }: IconProps) {
     </StrokeIcon>
   );
 }
+
+/** UI-10 F2b: zoom out on the desktop map. */
+export function MinusIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <path d="M5 12h14" />
+    </StrokeIcon>
+  );
+}
+
+/** UI-10 F2b: frame every prop (four corners). Admin has no "my location". */
+export function FitIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <path d="M4.5 9V5.5a1 1 0 0 1 1-1H9M15 4.5h3.5a1 1 0 0 1 1 1V9M19.5 15v3.5a1 1 0 0 1-1 1H15M9 19.5H5.5a1 1 0 0 1-1-1V15" />
+    </StrokeIcon>
+  );
+}

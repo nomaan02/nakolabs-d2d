@@ -303,6 +303,12 @@
   max-width: min(100%, 22rem);
 }
 
+/* UI-10 F2b: on the admin maps the licence ⓘ sits below the page's own
+   top-right button, so the two never overlap. */
+.admin-map .maplibregl-ctrl-top-right {
+  top: 3.5rem;
+}
+
 .maplibregl-ctrl-group {
   border-radius: 0;
   box-shadow: none;

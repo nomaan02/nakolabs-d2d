@@ -2597,3 +2597,54 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Deviations from brief:** none. The given code was pasted exactly.
 - **Not done / deferred:** A browser. A phone. Did not commit. No database row. The map, sheet, list and Draw screens are F2b–F2e.
 - **Follow-ups:** The owner checks F2 as a whole after F2e.
+
+---
+
+### UI-10 Session F2b — admin map kit, Props map layers, prop data and actions
+- **Date:** 2026-10-07
+- **Model:** Grok 4.7
+- **Built:** The admin map kit and the Props data behind it. Nothing renders yet. `useAdminMap` builds the field basemap (light or dark), with no MapLibre buttons, rotation off, and the view remembered per tab in session storage. `MapSheet` is a phone bottom sheet (peek / half / full; only the header drags) and a 360px floating panel on desktop. `prop-layers` stacks zones, outlines, outcome dots, draw doors and lead pins. Server reads: prop rows, streamed door counts, head-only visit figures, lead pins (door, status, two timestamps). `lib/props/manage.ts` renames, archives or restores a prop, and clears saved routes, all with the admin session. `MinusIcon` and `FitIcon` appended. The licence ⓘ on `.admin-map` sits under the page's top-right button. Overlay focus reads `onClose` from a ref, and Escape stops at the overlay.
+- **Owner decisions:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved. Figma page 40:289, phone 03–13 and desktop D2–D3 for this phase.
+  - OWNER — M2 / A22: Props is one full-screen map (no boxed map, no buttons under it) with a sheet: three heights on a phone (peek / half / full), a floating panel on desktop. Default layers: prop outlines, latest outcomes (light dots), leads / pitches / sales (one pin per lead door, coloured by office status, read-only). No Cold Calling zones only when switched on.
+  - OWNER — A19–A21: Draw = tap to drop a corner, a magnifier under the finger while dragging, Undo, Redo, drag a corner to move it. After closing: count → name → Save → routes. Edit shape = the same editor with the corners loaded; Save shows the door change.
+  - OWNER — A23: route internals hidden behind "Route details"; the route step shows a map preview and km, not keys.
+  - OWNER — A25: prop detail has no Allocate button (visits start from a date on Today, F3).
+  - OWNER — A50: old routes redirect as replacements land (`/admin` → Props now, Today in F3); old files are deleted in F6.
+  - OWNER — A28 / A51: dark mode, one Light / Dark / System choice shared with the field app.
+- **Claude decisions:**
+  - CLAUDE — Figma frames (phone section 89:295): 03 peek 90:416, 04 half 90:752, 05 prop detail 91:535, 06 actions 91:928, 07 layers 91:1274, 08–10 draw 92:718 / 92:799 / 92:875, 11 name 93:896, 12 routes 93:1028, 13 edit shape 93:1106; desktop D2 101:1809, D3 101:2216.
+  - CLAUDE — No migration in F2 (the old F2f is dropped): rename and archive are plain `territories` updates under `territories_update_admin`; outlines from `territories.geom` (PostgREST returns GeoJSON); outcome dots from `coverage_map_payload`; lead pins from `leads` (admin SELECT); per-visit figures from `v_prop_completion` + head-only counts on `v_latest_knock`.
+  - CLAUDE — Due rule (no owner rule existed): a prop is Due when nothing is planned and its last visit that counted for rotation is 28+ days old, or it was never visited (`PROP_DUE_AFTER_DAYS`, one constant; 28 = the old dashboard's "not visited in over 4 weeks").
+  - CLAUDE — Routes step, made truthful: visits take turns between Route A (`best`, odd visits) and Route B (`best_reversed`, even visits). The rotation picks, so the step previews A/B rather than "choosing"; spares sit under Route details. Routes are generated and saved straight after Save prop / Save shape. If Edit shape's new routes fail, the old (now wrong) routes are deleted so the next allocation makes fresh ones.
+  - CLAUDE — Admin never reads location: the bottom-right locate control of the mock becomes "Show all props" (four-corner icon).
+  - CLAUDE — Routes layer = the selected prop only (its frozen visit route, else saved Route A).
+  - CLAUDE — Archive is refused while a visit is today or planned; archived props show under Archived with Restore.
+  - CLAUDE — Door counts per prop: `count_door_eligibility` per live prop, in parallel on the server, streamed after the list renders (no new RPC).
+  - CLAUDE — `useAdminMap`: the field basemap (Map style v1, light or dark), no MapLibre buttons, rotation off, the licence lines in the compact ⓘ (moved under the page's top-right button by `.admin-map` in globals.css), view remembered per tab in session storage.
+  - CLAUDE — `MapSheet`: phone = bottom sheet with peek / half / full (only the header drags, so lists scroll; a 6px slop keeps taps on its buttons working); desktop = floating panel on the left, 360 wide.
+  - CLAUDE — `prop-layers`: zones (hidden by default) → outlines (selected = filled, thicker) → outcome dots (feature-state, Map style v1) → doors of a shape being drawn → lead pins. `["zoom"]` only ever at the top of an interpolate.
+  - CLAUDE — Data: `loadPropRows` (server, admin session) and `loadDoorCounts` (not awaited by the page); `loadVisitStats` (head-only counts, contacts = bookable answers only); `loadLeadPins` (door, status and two timestamps only — no notes, no CRM ref).
+  - CLAUDE — `lib/props/manage.ts` ("use server", admin session only, no service role): `renameProp`, `setPropArchived` (refused while a visit is today or planned), `clearPropRoutes`. Only async functions are exported from it.
+  - CLAUDE — Icons: `MinusIcon`, `FitIcon` appended. Nothing renders these files until F2c.
+  - CLAUDE — Review fixes folded in (Claude review agent, 2026-10-07): selection clears the old highlight (feature-state survives `setData`); a sheet drag never swallows the next real tap; a pause before release is a placement, not a flick; overlay focus no longer bounces on parent re-renders.
+- **Acceptance:**
+  - EDIT 1 DONE. New `components/admin/map/use-admin-map.ts` pasted as given.
+  - EDIT 2 DONE. New `components/admin/map/use-is-desktop.ts` pasted as given.
+  - EDIT 3 DONE. New `components/admin/map/map-sheet.tsx` pasted as given.
+  - EDIT 4 DONE. New `components/admin/props/prop-layers.ts` pasted as given.
+  - EDIT 5 DONE. New `lib/admin/prop-visit-stats.ts` pasted as given.
+  - EDIT 6 DONE. New `lib/admin/props-data.ts` pasted as given.
+  - EDIT 7 DONE. New `lib/admin/lead-pins.ts` pasted as given.
+  - EDIT 8 DONE. New `lib/props/manage.ts` pasted as given.
+  - EDIT 9 DONE. `components/field/icons.tsx`: the ClockIcon path block occurred once. `MinusIcon` and `FitIcon` appended.
+  - EDIT 10 DONE. `app/globals.css`: the `.maplibregl-ctrl-group` block occurred once. `.admin-map .maplibregl-ctrl-top-right` added before it.
+  - EDIT 11 DONE. `components/admin/ui/use-overlay-focus.ts`: all four find blocks occurred once. `onClose` is read from a ref. Escape calls `stopPropagation`. The effect depends on `open` and `panelRef`.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on the ten TypeScript files: **PASS** — exit 0.
+  - `npm run verify:ui10`: **PASS** — exit 0. Printed `ALL PASS`. No new checks in this session.
+  - `git grep -n "service_role\|SERVICE_ROLE"` on `lib/props/manage.ts`, `lib/admin/props-data.ts`, `lib/admin/prop-visit-stats.ts`, `lib/admin/lead-pins.ts`: **PASS** — printed nothing (git grep exit 1, no match).
+  - Phone: **NOT VERIFIED**. Headless session. No browser. None for this session (the owner checks F2 as a whole after F2e).
+- **Deviations from brief:** none. The given code was pasted exactly.
+- **Not done / deferred:** A browser. A phone. Did not commit. No database row. The Props page, Draw and magnifier are F2c–F2e. Nothing renders these files until F2c.
+- **Follow-ups:** The owner checks F2 as a whole after F2e.
