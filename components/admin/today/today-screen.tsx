@@ -9,7 +9,7 @@ import { LiveMap } from "@/components/admin/today/live-map";
 import { VisitCard } from "@/components/admin/today/visit-card";
 import { VisitPanel, type VisitChange } from "@/components/admin/today/visit-panel";
 import { Button } from "@/components/admin/ui/button";
-import { ChevronRightIcon, WarningIcon } from "@/components/field/icons";
+import { CalendarIcon, ChevronRightIcon, WarningIcon } from "@/components/field/icons";
 import { fetchLivePositions, LIVE_FADE_MS, type LiveRow } from "@/lib/admin/live";
 import {
   attentionLine,
@@ -196,10 +196,18 @@ export function TodayScreen({
     <div className="flex h-full">
       <main className="min-w-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-2xl px-4 pt-2 pb-[max(2rem,env(safe-area-inset-bottom))] lg:px-10 lg:pt-8">
-          <div className="-ml-1.5 lg:hidden">
+          <div className="-mx-1.5 flex min-h-11 items-center justify-between">
             <AdminMenuButton />
+            <Link
+              href="/admin/calendar"
+              aria-label="Calendar"
+              title="Calendar"
+              className="ml-auto inline-flex size-11 items-center justify-center rounded-full text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-prop"
+            >
+              <CalendarIcon className="size-6" />
+            </Link>
           </div>
-          <h1 className="mt-1 text-admin-large-title">Today</h1>
+          <h1 className="mt-1 text-admin-large-title lg:-mt-11">Today</h1>
           <p className="text-admin-subhead text-ink-muted">{longDate(today)}</p>
 
           {attention ? (
@@ -291,6 +299,18 @@ export function TodayScreen({
               </section>
             );
           })}
+
+          <Link
+            href="/admin/calendar"
+            className="mt-6 flex min-h-16 items-center gap-3 rounded-field-lg bg-surface px-4 py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-prop lg:border lg:border-line"
+          >
+            <CalendarIcon className="size-6 shrink-0 text-prop" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-admin-body-strong">Past days</span>
+              <span className="block text-admin-subhead text-ink-muted">Every day&apos;s visits and numbers</span>
+            </span>
+            <ChevronRightIcon className="size-5 shrink-0 text-ink-muted" />
+          </Link>
         </div>
       </main>
 

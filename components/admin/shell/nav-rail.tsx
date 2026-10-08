@@ -1,5 +1,6 @@
 "use client";
 
+import { AppearanceControl } from "@/components/admin/shell/appearance";
 import { AccountRow, NavList, SignOutRow } from "@/components/admin/shell/nav-list";
 import { IconButton } from "@/components/admin/ui/icon-button";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/field/icons";
@@ -32,6 +33,7 @@ export function NavRail({
       <div className="min-h-0 flex-1 overflow-y-auto">
         <NavList active={active} compact={collapsed} />
       </div>
+      {collapsed ? null : <AppearanceControl />}
       {collapsed ? null : <SignOutRow />}
       <div className={collapsed ? "" : "px-1"}>
         <IconButton label={collapsed ? "Expand menu" : "Collapse menu"} onClick={onToggle}>

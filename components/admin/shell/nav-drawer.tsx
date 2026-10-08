@@ -2,6 +2,7 @@
 
 import { useRef, type TouchEvent } from "react";
 
+import { AppearanceControl } from "@/components/admin/shell/appearance";
 import { AccountRow, NavList, SignOutRow } from "@/components/admin/shell/nav-list";
 import { IconButton } from "@/components/admin/ui/icon-button";
 import { useOverlayFocus } from "@/components/admin/ui/use-overlay-focus";
@@ -73,6 +74,7 @@ export function NavDrawer({
         <div className="min-h-0 flex-1 overflow-y-auto">
           <NavList active={active} onNavigate={onClose} />
         </div>
+        <AppearanceControl />
         <SignOutRow />
       </div>
     </div>

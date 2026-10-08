@@ -127,7 +127,7 @@
 | UI-10 F3d | Add visit, past visits review; nav switch; `/admin` + `/admin/allocate` → Today | DONE | 2026-10-08 | Phone check passed 2026-10-08. `Add visit (date → prop → team → Allocate), past visits review (end/delete), nav switch, /admin and /admin/allocate → Today, Open visit → visit sheet.` | 11bfa01 |
 | UI-10 F4a | Calendar + Coverage logic (pure); visits end once their day comes; verify:ui10 | DONE | 2026-10-08 | Calendar and Coverage pure logic; visits end, never delete, once their day comes; verify:ui10 checks. | — |
 | UI-10 F4b | Calendar + Coverage data loaders | DONE | 2026-10-08 | readAll paging, Calendar month loader, Coverage loader (no migration). | — |
-| UI-10 F4c | `/admin/calendar`; Calendar in nav; Appearance; Today → Calendar | TODO | | | — |
+| UI-10 F4c | `/admin/calendar`; Calendar in nav; Appearance; Today → Calendar | DONE | 2026-10-08 | `/admin/calendar (month grid, swipe, day panel, End for unworked visits, Open on map), Calendar in nav, Appearance control, Today → Calendar.` | — |
 | UI-10 F4d | Coverage rebuilt: map, filters, door popup | TODO | | | — |
 | UI-10 F5 | Team, Leads, Settings, Insights (F5a–F5c; F5c migration 032, human) | TODO | | | — |
 | UI-10 F6 | Admin into /field + delete old routes (human) | TODO | | | — |

@@ -607,3 +607,54 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given code was pasted exactly.
 - **Not done / deferred:** A browser. A phone. Did not commit. No database row. No migration. Calendar and Coverage screens are F4c and F4d. Nothing renders these loaders yet.
 - **Follow-ups:** The owner checks F4 as a whole after F4d.
+
+---
+
+### UI-10 Session F4c — /admin/calendar; Calendar in the nav; Appearance; Today links to Calendar
+- **Date:** 2026-10-08
+- **Model:** Grok 4.7
+- **Built:** `/admin/calendar` shows one month: Monday-first grid, swipe or links between months, month totals, one bar per visit and the doors knocked. Tapping a day opens that day's visits. Worked visits show the day's numbers, who knocked, Outcomes and Lead results (read-only) and Open on map. A past visit nobody worked offers End only. `?month=` and `?day=` are the state. Calendar is second in the drawer and rail and is dark-ready. System / Light / Dark sits above Sign out in the drawer and the expanded rail. Today has a calendar icon and a Past days row, both to Calendar. Coverage is unchanged.
+- **Owner decisions:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved (Figma page 40:289: phone 01, 02, 22, 34–38; desktop D1).
+  - OWNER — A38–A42: Calendar is the history: second in the drawer and rail; month grid, swipe between months, Monday first, one bar per prop per day with the doors knocked, today ringed, month totals on top. Tapping a day opens every visit that day.
+  - OWNER — A43: per visit: worked / left / contacts / leads + outcome bar; team and time on the doors; Outcomes and Lead results (read-only, set by the office) expand. A one-visit day opens fully expanded with Open on map pinned.
+  - OWNER — A44: Open on map → Coverage filtered to that prop, day and visit (removable chips); "Calendar" and Back return to the same month with the same day open.
+  - OWNER — A45: a visit appears on the day its knocks happened; if that differs from the allocated date the card says "Allocated for …".
+  - OWNER — A32 / A33: Coverage filters: days, visit number, canvasser, outcome, and contacts by slot (Early / Mid / Late); legend in Map style v1 outcome colours.
+  - OWNER — 2026-10-08: no migration in F4 (the old F4d / 031 is dropped). Coverage gets a door popup (address label, latest outcome, when, visit; no names, no lead details). BUILD-LOG entries before UI-10 now live in `docs/BUILD-LOG-archive.md`.
+  - OWNER — 2026-10-08: admin gets its Light / Dark / System choice now, in the drawer and rail (the same setting as the field app's You tab; A28, A51).
+  - OWNER — 2026-10-08, amends A27 and A46: once a visit's day has come it is ended, never deleted, even with no knocks on the server. Only a visit whose day is still ahead, with no knocks, can be deleted. This applies to Today's visit sheet, the past visits review and Calendar.
+- **Claude decisions:**
+  - CLAUDE — Figma frames (phone section 89:295): 01 Today (calendar icon, Past days row) 89:308, 02 drawer 89:690, 22 Coverage 97:1436, 34 Calendar 108:2039, 35 one-visit day 109:2055, 36 busy day 109:2358, 37 not worked 109:2690, 38 Coverage from Calendar 110:2139.
+  - CLAUDE — No migration, no new RPC. Calendar and Coverage read `v_latest_knock` (latest outcome per door per visit) a page of 1,000 rows at a time (`readAll`), plus `assignments`, `assignment_members`, `profiles` (first names), `territories`, `v_prop_completion`, `leads` (status only) and `coverage_map_payload`. Rows are de-duplicated per door per visit. London days come from `Intl` (Europe/London), so BST and GMT both work.
+  - CLAUDE — Calendar's day entries are built on the server (`buildCalendar`); Coverage's door colours are resolved on the server (`resolveDoors`). No knock row is sent to the browser beyond one per door.
+  - CLAUDE — A visit knocked only on days outside the grid (`v_prop_completion.worked > 0`) is never shown as "not worked".
+  - CLAUDE — Coverage opens on the last 30 days when no prop is picked (frame 22), and on all time for one prop; neither default counts as a filter. "All time" for everything is `period=all`. Too many knocks → a message with "Show the last 7 days".
+  - CLAUDE — Coverage URL: `prop`, `date` or `from`/`to` or `period=all`, `visit`, `slot`, `outcome`, `who`, `via=calendar`. Clear keeps the way back to Calendar. An archived (or unknown) prop still shows its chip so it can be removed.
+  - CLAUDE — Door popup: tap within 12px of a dot; a ring marks it; shows label, prop, visit, outcome and London time of the knock that paints it.
+  - CLAUDE — Desktop: Calendar cells list prop names; the day opens as the right-hand panel (Today's `DesktopPanel`, now exported). Coverage's sheet is the floating left panel; chips run along the top.
+  - CLAUDE — `not_interested` knocks now paint as "other" on the admin maps (they were drawn as unknocked).
+  - CLAUDE — `/admin/calendar?month=2026-10&day=2026-10-01`: the URL is the state (`replaceState(null, …)` keeps Next in step). Month changes are links (the server reads that month); a swipe sideways changes month.
+  - CLAUDE — Today: a calendar icon top right and a "Past days" row ("Every day's visits and numbers") at the bottom, both to Calendar.
+  - CLAUDE — Appearance: one segmented control (System / Light / Dark) above Sign out in the drawer and the expanded rail, over `lib/field/theme.ts`. Pages not yet rebuilt stay light whatever is picked.
+  - CLAUDE — Nav: Calendar second (A39), dark-ready. Coverage's dark mode comes with its rebuild in F4d.
+- **Acceptance:**
+  - EDIT 1 DONE. New `components/admin/calendar/day-panel.tsx` pasted as given. The file did not exist before.
+  - EDIT 2 DONE. New `components/admin/calendar/calendar-screen.tsx` pasted as given. The file did not exist before.
+  - EDIT 3 DONE. New `app/(admin)/admin/calendar/page.tsx` pasted as given. The file did not exist before.
+  - EDIT 4 DONE. New `app/(admin)/admin/calendar/loading.tsx` pasted as given. The file did not exist before.
+  - EDIT 5 DONE. New `components/admin/shell/appearance.tsx` pasted as given. The file did not exist before.
+  - EDIT 6 DONE. `components/admin/today/visit-panel.tsx`: `DesktopPanel` exported, footer optional. Each find block occurred once.
+  - EDIT 7 DONE. `components/admin/shell/nav-drawer.tsx`: Appearance above Sign out. Each find block occurred once.
+  - EDIT 8 DONE. `components/admin/shell/nav-rail.tsx`: Appearance above Sign out when expanded. Each find block occurred once.
+  - EDIT 9 DONE. `components/admin/today/today-screen.tsx`: calendar icon and Past days row. Each find block occurred once.
+  - EDIT 10 DONE. `lib/admin/nav.ts`: Calendar second, dark-ready, appearance options. Each find block occurred once.
+  - EDIT 11 DONE. `scripts/verify-ui-10-admin.ts`: Calendar and appearance checks. Each find block occurred once.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on the eleven session files: **PASS** — exit 0.
+  - `npm run verify:ui10`: **PASS** — exit 0. Printed `ALL PASS`.
+  - `git grep -n "navigator.geolocation" -- components/admin lib/admin`: **PASS** — printed nothing (exit 1).
+  - Phone: **NOT VERIFIED**. None for this session (the owner checks F4 as a whole after F4d).
+- **Deviations from brief:** none. The given code was pasted exactly.
+- **Not done / deferred:** A browser. A phone. Did not commit. No database row. No migration. Coverage rebuild is F4d.
+- **Follow-ups:** The owner checks F4 as a whole after F4d.

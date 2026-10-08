@@ -312,8 +312,11 @@ export function VisitPanel({
   );
 }
 
-/** D1: the visit fills the right-hand column; Today stays visible beside it. */
-function DesktopPanel({
+/**
+ * D1: the visit fills the right-hand column; Today stays visible beside it.
+ * Calendar's day panel uses it too (UI-10 F4c).
+ */
+export function DesktopPanel({
   title,
   subtitle,
   onClose,
@@ -323,7 +326,7 @@ function DesktopPanel({
   title: string;
   subtitle: string;
   onClose: () => void;
-  footer: ReactNode;
+  footer?: ReactNode;
   children: ReactNode;
 }) {
   const panel = useRef<HTMLElement | null>(null);
@@ -359,7 +362,7 @@ function DesktopPanel({
         </IconButton>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">{children}</div>
-      <div className="border-t border-line px-6 py-4">{footer}</div>
+      {footer ? <div className="border-t border-line px-6 py-4">{footer}</div> : null}
     </aside>
   );
 }

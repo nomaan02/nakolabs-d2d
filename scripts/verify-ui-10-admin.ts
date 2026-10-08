@@ -6,6 +6,7 @@
  */
 import {
   ADMIN_NAV,
+  APPEARANCE_OPTIONS,
   activeNavKey,
   initialOf,
   coverageHref,
@@ -187,6 +188,7 @@ const cases: Array<[string, string | null]> = [
   ["/admin/today/review", "today"],
   ["/admin/dashboard", null],
   ["/admin/allocate", null],
+  ["/admin/calendar", "calendar"],
   ["/admin/coverage", "coverage"],
   ["/admin/settings", "settings"],
   ["/admin/unknown", null],
@@ -227,6 +229,12 @@ check("old pages stay light", !isDarkReady("/admin/dashboard") && !isDarkReady("
 check("Props is dark-ready (F2)", isDarkReady("/admin/props"));
 check("Today and its pages are dark-ready (F3)", isDarkReady("/admin/today") && isDarkReady("/admin/today/add"));
 check("no temporary Allocate item (F3)", !ADMIN_NAV.some((item) => item.key === "allocate"));
+check("Calendar is the second item (A39, F4)", ADMIN_NAV[1]?.key === "calendar" && ADMIN_NAV[1]?.href === "/admin/calendar");
+check("Calendar is dark-ready (F4c)", isDarkReady("/admin/calendar"));
+check(
+  "appearance: System, Light, Dark over the shared theme values",
+  APPEARANCE_OPTIONS.map((option) => `${option.value}:${option.label}`).join() === "auto:System,light:Light,dark:Dark",
+);
 check("a ready path and its children go dark", isDarkReady("/admin/today/add", ["/admin/today"]));
 check("a ready path does not leak to siblings", !isDarkReady("/admin/todays", ["/admin/today"]));
 

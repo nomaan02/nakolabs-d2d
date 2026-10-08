@@ -37,13 +37,13 @@ export type AdminNavItem = {
 export const BRANCH_LABEL = "Bristol";
 
 /**
- * F3 state. Today is the schedule (F3); allocating starts from a date there
- * (A24), so the temporary Allocate item is gone and `/admin/allocate`
- * redirects to Today. The old dashboard stays reachable by URL until it
- * becomes Insights (F5). Calendar arrives in F4.
+ * F4 state. Today is the schedule (F3); Calendar is the history, second
+ * (A38, A39); Coverage is the rebuilt filtered map (F4). The old dashboard
+ * stays reachable by URL until it becomes Insights (F5).
  */
 export const ADMIN_NAV: readonly AdminNavItem[] = [
   { key: "today", label: "Today", href: "/admin/today", icon: "today", group: "main" },
+  { key: "calendar", label: "Calendar", href: "/admin/calendar", icon: "calendar", group: "main" },
   { key: "props", label: "Props", href: "/admin/props", icon: "props", group: "main" },
   { key: "coverage", label: "Coverage", href: "/admin/coverage", icon: "coverage", group: "main" },
   { key: "settings", label: "Settings", href: "/admin/settings", icon: "settings", group: "tools" },
@@ -93,7 +93,7 @@ export function parseRailState(value: string | null | undefined): RailState {
  * to pages rebuilt in the new design. Each phase adds its routes here; until
  * then the old "worksheet" pages stay light.
  */
-export const DARK_READY_PATHS: readonly string[] = ["/admin/props", "/admin/today"];
+export const DARK_READY_PATHS: readonly string[] = ["/admin/props", "/admin/today", "/admin/calendar"];
 
 export function isDarkReady(
   pathname: string,
@@ -117,3 +117,15 @@ export function visitHref(visitId: string): string {
 export function coverageHref(propId: string): string {
   return `/admin/coverage?prop=${encodeURIComponent(propId)}`;
 }
+
+/**
+ * A28, A51 (owner 2026-10-08: "an option for light mode" in admin now, not
+ * only in Settings in F5). The one Light / Dark / System choice shared with
+ * the field app (`lib/field/theme.ts`, key "d2d.theme"), shown in the
+ * drawer and the rail.
+ */
+export const APPEARANCE_OPTIONS = [
+  { value: "auto", label: "System" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+] as const;
