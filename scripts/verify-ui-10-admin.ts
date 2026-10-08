@@ -64,6 +64,41 @@ import {
   type PropVisit,
 } from "../lib/admin/props";
 import { detentHeights, nextDetent, settleDetent, PEEK_HEIGHT } from "../lib/admin/sheet-detents";
+import {
+  activeTeam,
+  addableCanvassers,
+  addVisitGroups,
+  addVisitLine,
+  ago,
+  allocateButton,
+  attentionLine,
+  cardMeta,
+  cardStatus,
+  dayLabel,
+  dayNumeral,
+  dayTotals,
+  defaultVisitDate,
+  doorLabelLine,
+  emptyDayLine,
+  endVisitConfirm,
+  longDate,
+  mustEnd,
+  reviewButton,
+  reviewConfirm,
+  reviewRowMeta,
+  routeLine,
+  scheduleDays,
+  selectionLine,
+  sheetMeta,
+  splitReview,
+  staleGroups,
+  staleVisits,
+  teamLine,
+  teamOptions,
+  NO_FIGURES,
+  type TodayVisit,
+  type VisitFigures,
+} from "../lib/admin/today";
 import type { WalkStep } from "../lib/geo/walk/types";
 import { THEME_BOOT_SCRIPT } from "../lib/field/theme";
 
@@ -320,6 +355,114 @@ const cards = routeCards([
 check("route cards: A then B, alternates hidden", cards.map((c) => c.key).join(",") === "best,best_reversed");
 check("route card copy", cards[0]?.title === "Route A · 2.4 km" && cards[0]?.visits === "Visits 1, 3, 5…" && cards[1]?.start === "Fulford Road");
 check("route detail line", routeDetailLine({ key: "alt_2", hand: "left", total_m: 1900, steps: [step("A")], stranded_count: 2 }) === "Spare 2 · 1.9 km · doors on the left · 1 step · 2 off route");
+
+// --- F3a: Today (A17, A24-A27, A36) ---
+
+const D = "2026-10-07";
+const tv = (id: string, date: string, extra: Partial<TodayVisit> = {}): TodayVisit => ({
+  id,
+  propId: `p-${id}`,
+  propName: `Prop ${id}`,
+  visitNumber: 3,
+  workDate: date,
+  slot: "early",
+  startedAt: null,
+  closedAt: null,
+  routeVariantKey: "best",
+  routeLengthM: 6200,
+  team: [
+    { id: "t", name: "Tom", left: false },
+    { id: "a", name: "Ada", left: false },
+  ],
+  ...extra,
+});
+const figs = (rows: [string, Partial<VisitFigures>][]) => new Map(rows.map(([id, f]) => [id, { ...NO_FIGURES, ...f }]));
+
+check("long date", longDate(D) === "Wednesday 7 October");
+check("day numeral", dayNumeral(D).day === "7" && dayNumeral(D).weekday === "Wed");
+check("day labels", dayLabel(D, D) === "Today" && dayLabel("2026-10-08", D) === "Tomorrow" && dayLabel("2026-10-09", D) === "Fri 9 Oct");
+const sched = scheduleDays(
+  [
+    tv("old", "2026-10-01"),
+    tv("late", D, { slot: "late", propName: "B" }),
+    tv("done", D, { closedAt: "x", propName: "A" }),
+    tv("early", D, { slot: "early", propName: "Z" }),
+    tv("fri", "2026-10-09"),
+    tv("friClosed", "2026-10-10", { closedAt: "x" }),
+  ],
+  D,
+);
+check("schedule: today and tomorrow always, later dates with visits, no past", sched.map((d) => d.date).join(",") === "2026-10-07,2026-10-08,2026-10-09", sched.map((d) => d.date).join(","));
+check("schedule: open by slot, done last", sched[0]?.visits.map((v) => v.id).join(",") === "early,late,done");
+check("schedule: tomorrow empty", sched[1]?.visits.length === 0 && emptyDayLine(sched[1]!.date, D) === "Nothing planned yet" && emptyDayLine(D, D) === "No one is out today");
+check("team ignores people who left", teamLine(tv("x", D, { team: [{ id: "1", name: "Tom", left: false }, { id: "2", name: "Sam", left: true }] })) === "Tom" && activeTeam(tv("y", D)).length === 2);
+check("card status", cardStatus(tv("a", D), D, true) === "live" && cardStatus(tv("b", D, { startedAt: "s" }), D, false) === "out" && cardStatus(tv("c", D), D, false) === "not-started" && cardStatus(tv("d", D, { closedAt: "x" }), D, false) === "done" && cardStatus(tv("e", "2026-10-09"), D, true) === null);
+const NOW = Date.parse("2026-10-07T12:00:00Z");
+check("ago", ago("2026-10-07T11:54:00Z", NOW) === "6 min ago" && ago("2026-10-07T11:59:45Z", NOW) === "20 s ago" && ago("2026-10-07T09:00:00Z", NOW) === "3 h ago" && ago("2026-10-04T12:00:00Z", NOW) === "3 days ago");
+check("card meta", cardMeta(tv("a", D), { lastKnockAt: "2026-10-07T11:54:00Z" }, NOW) === "Visit 3 · Early · 6 min ago" && cardMeta(tv("a", D, { slot: null }), null, NOW) === "Visit 3");
+check("sheet meta", sheetMeta(tv("a", D), D) === "Visit 3 · today · Early slot" && sheetMeta(tv("a", "2026-10-09", { slot: "mid" }), D) === "Visit 3 · Fri 9 Oct · Mid slot");
+const tf = figs([
+  ["t1", { worked: 312, contacts: 22, leads: 4, answered: 88 }],
+  ["t2", { worked: 113, contacts: 14, leads: 2, answered: 30 }],
+  ["f", { worked: 999 }],
+]);
+const totals = dayTotals([tv("t1", D), tv("t2", D), tv("f", "2026-10-09")], tf, D);
+check("day totals: today only", totals.doors === 425 && totals.contacts === 36 && totals.leads === 6 && totals.answered === 118, JSON.stringify(totals));
+
+const stale3 = staleVisits([tv("s1", "2026-10-03"), tv("s2", "2026-10-05", { propName: "B" }), tv("s3", "2026-10-05", { propName: "A" }), tv("closed", "2026-10-01", { closedAt: "x" }), tv("t", D)], D);
+check("stale: open past only, newest first", stale3.map((v) => v.id).join(",") === "s3,s2,s1");
+const sf = figs([["s3", { knocks: 214 }]]);
+check("attention line", attentionLine(stale3, sf)?.title === "3 past visits still open" && attentionLine(stale3, sf)?.detail === "2 have no knocks. Review and end them.");
+check("attention: all empty, one, none", attentionLine([stale3[1]!], sf)?.detail === "It has no knocks. Review and delete it." && attentionLine([stale3[0]!], sf)?.detail === "Review and end it." && attentionLine([], sf) === null);
+const groups3 = staleGroups(stale3);
+check("stale visits grouped by date", groups3.length === 2 && groups3[0]?.label === "Mon 5 October" && groups3[0]?.visits.length === 2);
+const split = splitReview(stale3, new Set(["s3", "s2"]), sf);
+check("review split by knocks, unticked kept", split.end.map((v) => v.id).join() === "s3" && split.remove.map((v) => v.id).join() === "s2");
+const startedEmpty = tv("se", "2026-10-04", { startedAt: "2026-10-04T08:00:00Z" });
+check("a started visit is ended, never deleted", mustEnd(startedEmpty, undefined) && splitReview([startedEmpty], new Set(["se"]), sf).end.length === 1 && !mustEnd(tv("n", D), undefined));
+check("review row for a started empty visit", reviewRowMeta(startedEmpty, undefined) === "Visit 3 · Tom and Ada · started, no knocks synced");
+check("review button", reviewButton(6, 15) === "End 6 and delete 15" && reviewButton(1, 0) === "End 1 visit" && reviewButton(0, 2) === "Delete 2 visits" && reviewButton(0, 0) === "Tick the visits to close");
+const rc = reviewConfirm(6, 15);
+check("review confirm both", rc.title === "End 6 visits and delete 15?" && rc.body === "The 15 never started, so nothing is lost. The 6 ended visits keep all their knocks." && rc.confirm === "End and delete");
+check("review confirm single kinds", reviewConfirm(0, 1).confirm === "Delete visit" && reviewConfirm(2, 0).title === "End 2 visits?");
+check("review row", reviewRowMeta(stale3[0]!, sf.get("s3")) === "Visit 3 · Tom and Ada · 214 knocks" && reviewRowMeta(tv("n", D, { team: [] }), undefined) === "Visit 3 · No one · no knocks");
+check("selection line", selectionLine(21, 21) === "All 21 selected" && selectionLine(3, 21) === "3 of 21 selected");
+
+const ev = endVisitConfirm(tv("w", D, { propName: "Whitechurch Lane - Hartcliffe" }), { kind: "close", worked: 312, total: 1682, countsForRotation: false });
+check("end visit confirm", ev.title === "End visit 3 of Whitechurch Lane - Hartcliffe?" && ev.body === "Tom and Ada stop logging here. 1,370 doors weren't reached. It is under the visit threshold, so the next visit is still visit 3." && ev.confirm === "End visit", ev.body);
+check("end visit counts", endVisitConfirm(tv("w", D), { kind: "close", worked: 10, total: 10, countsForRotation: true }).body === "Tom and Ada stop logging here. Every door was reached. It counts as visit 3.");
+check("end visit, one person, nothing known", endVisitConfirm(tv("w", D, { team: [{ id: "s", name: "Sam", left: false }] }), { kind: "close", worked: 0, total: 0, countsForRotation: false }).body === "Sam stops logging here. It is under the visit threshold, so the next visit is still visit 3.");
+check("delete visit confirm", endVisitConfirm(tv("w", D), { kind: "delete" }).confirm === "Delete visit");
+
+check("default visit date", defaultVisitDate(null, D) === "2026-10-08" && defaultVisitDate("2026-10-01", D) === "2026-10-08" && defaultVisitDate(D, D) === D && defaultVisitDate("junk", D) === "2026-10-08");
+check("allocate button", allocateButton(["Tom", "Ada"], D) === "Allocate Tom and Ada · Wed 7 Oct" && allocateButton([], D) === "Pick the team");
+const opts = teamOptions(
+  [
+    { id: "s", name: "Sam" },
+    { id: "t", name: "Tom" },
+    { id: "l", name: "Leon" },
+  ],
+  [
+    { canvasserId: "s", workDate: D, propName: "REF - Speedwell" },
+    { canvasserId: "l", workDate: "2026-10-09", propName: "X" },
+  ],
+  D,
+);
+check("team options sorted, busy that date only", opts.map((o) => o.name).join() === "Leon,Sam,Tom" && opts[1]?.busyWith === "REF - Speedwell" && opts[0]?.busyWith === null);
+check("add person: free and not already on", addableCanvassers(opts, tv("v", D)).map((o) => o.id).join() === "l");
+check("door label ladder", doorLabelLine({ house_number: "41", street_name: "Bishport Ave" }) === "41 Bishport Ave" && doorLabelLine({ building_name: "Court", street_name: "X St" }) === "Court, X St" && doorLabelLine(null) === null);
+check("route line", routeLine({ routeLengthM: 6200, routeVariantKey: "best_reversed" }) === "Route B · 6.2 km" && routeLine({ routeLengthM: null, routeVariantKey: null }) === "No route yet");
+
+const avRows = [
+  { row: prop("Due one", [visit(1, "2026-08-01", { closedAt: "x" })]), doors: 10 },
+  { row: prop("Booked", [visit(1, "2026-08-01", { closedAt: "x" }), visit(2, "2026-10-08")]), doors: 5 },
+  { row: prop("Ended that day", [visit(1, "2026-08-01", { closedAt: "x" }), visit(2, "2026-10-08", { closedAt: "y", countsForRotation: false })]), doors: 7 },
+  { row: prop("Fresh", [visit(1, "2026-10-06", { closedAt: "x" })]), doors: null },
+  { row: prop("Gone", [], "2026-10-01T00:00:00Z"), doors: 1 },
+].map((item) => ({ ...item, state: propState(item.row, D) }));
+const av = addVisitGroups(avRows, "2026-10-08");
+check("add visit: due first, archived out, ended-that-day still booked", av.due.map((i) => i.row.name).join() === "Due one,Ended that day" && av.due[1]?.booked === true && av.other.map((i) => i.row.name).join() === "Fresh,Booked", av.other.map((i) => i.row.name).join());
+check("add visit lines", addVisitLine(av.due[0]!, "2026-10-08") === "10 doors · visit 2 · last 1 Aug" && addVisitLine(av.other[1]!, "2026-10-08") === "Already booked on 8 Oct");
 
 console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILED`);
 process.exit(failures === 0 ? 0 : 1);

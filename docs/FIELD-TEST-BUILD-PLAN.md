@@ -121,7 +121,7 @@
 | UI-10 F2c | `/admin/props`: map, sheet, list, detail, layers | DONE | 2026-10-07 | `/admin/props: full-screen map, sheet, list, search, filters, prop detail, rename, archive/restore, layers.` | 76169e2 |
 | UI-10 F2d | Draw, Edit shape, Routes step; nav switch; `/admin` → Props | DONE | 2026-10-07 | Draw (tap, close, undo/redo, drag, add corner), Edit shape, count + name + Save, Routes step (A/B preview), nav switch, /admin → Props. | 954f3f0 |
 | UI-10 F2e | Magnifier while dragging a corner (touch, droppable) | DONE | 2026-10-07 | touch magnifier while dragging a corner. Phone check passed 2026-10-07. | 0a646ff |
-| UI-10 F3a | Today logic (pure) + verify:ui10 | TODO | | | — |
+| UI-10 F3a | Today logic (pure) + verify:ui10 | DONE | 2026-10-08 | Today pure logic + verify:ui10 checks. | — |
 | UI-10 F3b | Today data loaders, last knocks, end-visit action | TODO | | | — |
 | UI-10 F3c | `/admin/today`: schedule, visit sheet, live map | TODO | | | — |
 | UI-10 F3d | Add visit, past visits review; nav switch; `/admin` + `/admin/allocate` → Today | TODO | | | — |

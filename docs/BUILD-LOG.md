@@ -2780,3 +2780,34 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Deviations from brief:** none. The given code was pasted exactly.
 - **Not done / deferred:** A browser. A phone. Did not commit. No database row. Old draw components stay until F6.
 - **Follow-ups:** The owner checks F2 as a whole (phone items 1–15 in the F2e brief).
+
+---
+
+### UI-10 Session F3a — Today logic (pure) + verify:ui10
+- **Date:** 2026-10-08
+- **Model:** Grok 4.7 (edits); log entries written by Claude
+- **Built:** `lib/admin/today.ts` (pure): London dates and day labels, the schedule by date (today and tomorrow always, later dates with visits, no past), card status and meta lines, day totals, stale visits and the end / delete split (`mustEnd`: a started visit is always ended), review and end-visit confirms and buttons, Add visit prop groups and team options. `scripts/verify-ui-10-admin.ts` gains the F3a checks. Nothing renders yet.
+- **Owner decisions:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved (Figma page 40:289: phone 01, 14–19, 25–27, 31, 33; desktop D1 for this phase).
+  - OWNER — M3 / A17: allocations by date live inside Today as a schedule: today at the top, then upcoming dates. (A38: history moves to Calendar in F4.)
+  - OWNER — A24: allocating starts only from a date: "Add visit" → pick prop (due props first) → team → Allocate.
+  - OWNER — A26: tapping a visit opens a visit sheet over Today: team, progress, numbers, route map, add / remove person, End visit, Delete when nothing was worked, a link to the prop.
+  - OWNER — A27: stale visits: a "Needs attention" row on Today → review (by date, untick to keep) → one button ends or deletes them.
+  - OWNER — A36 / H5: a Live chip on a visit opens a map of CURRENT positions only. No trail, no history.
+  - OWNER — A50: old routes redirect as replacements land: `/admin` → Today, `/admin/allocate` → Today. `/admin/dashboard` stays by URL until it becomes Insights (F5).
+  - OWNER — 2026-10-07: F3 has no migration (the old F3d / 030 is dropped). The 22 stale open visits are cleared by the owner through the new review page during the phone check.
+- **Claude decisions:**
+  - CLAUDE — No migration, no new RPC. Today reads `assignments`, `assignment_members` + `profiles` (first names only), `territories`, `v_prop_completion`, and head-only counts on `v_latest_knock` (contacts = outcome `answered` only). Ending uses `assignment_close_early`; deleting uses `assignment_remove` via `removeAssignmentAction`.
+  - CLAUDE — A started visit is always ended, never deleted, even with no knocks on the server: a phone with no signal may still hold queued knocks. Only a visit that never started can be deleted (`mustEnd`).
+  - CLAUDE — Today and tomorrow always show; later dates show when they have visits; past dates never (Calendar, F4).
+  - CLAUDE — This session is pure logic only: dates and day labels, the schedule grouping, card status and meta lines, day totals, stale visits and the review split, confirm and button labels, the Add visit lists and team options. Nothing renders yet.
+- **Acceptance:**
+  - EDIT 1 DONE. New `lib/admin/today.ts` pasted as given (Claude compared it byte for byte with the tested file: identical).
+  - EDIT 2 DONE. `scripts/verify-ui-10-admin.ts`: import and F3a block added (Claude compared it with the replayed prompt: identical). Earlier checks unchanged.
+  - `npx tsc --noEmit`: **PASS** — exit 0 (runner gate).
+  - eslint on the two changed files: **PASS** — exit 0 (runner gate).
+  - `npm run verify:ui10`: **PASS** — `ALL PASS`, including the F3a checks (runner gate).
+  - Phone: **NOT VERIFIED**. None for this session (the owner checks F3 as a whole after F3d).
+- **Deviations from brief:** the runner session hung while writing this BUILD-LOG entry and timed out at 45 min with no report. The code, the tracker row and CLAUDE-HANDOFF "Current state" were already written; Claude wrote this entry and the CLAUDE-HANDOFF log entry after review.
+- **Not done / deferred:** A browser. A phone. No database row.
+- **Follow-ups:** F3b–F3d stay queued.

@@ -2,17 +2,17 @@
 
 ## Current state
 
-- Last updated: 2026-10-07 (UI-10 Session F2e). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- While drawing on a touch screen, a 120px round lens sits above the finger and shows the dragged corner two zoom levels closer, with a crosshair. Near the top edge the lens moves beside the finger. It is a second, non-interactive map that only carries the shape: built when drawing starts, removed when drawing ends. A mouse does not show it (`(pointer: coarse)`). New file: `components/admin/props/draw-magnifier.tsx`. `props-screen.tsx` renders it inside the draw fragment.
-- UI-10 F2e tracker Status is DONE. Date 2026-10-07. Result: `touch magnifier while dragging a corner.` Commit column still `—`.
-- `npx tsc --noEmit` exit 0. eslint on `draw-magnifier.tsx` and `props-screen.tsx` exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`).
-- `git grep -n "navigator.geolocation" -- components/admin lib/admin` printed nothing (exit 1).
-- The F1 shell is unchanged. `/admin/dashboard` and `/admin/allocate` stay light. `/admin` redirects to Props. `/admin/props` is dark-ready.
-- `lib/sync/queue.ts` was not edited. Field writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. The magnifier imports `fieldMapStyle` from `lib/field/map-style.ts` and does not change that file. The dated comment there still describes one field MapLibre instance (Map tab and Logger are separate routes). The lens is a second instance on the admin Props screen, only while drawing.
-- No database change. No database row. No `client_event_id`. No migration.
+- Last updated: 2026-10-08 (UI-10 Session F3a). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Pure Today logic in `lib/admin/today.ts`. Dates and day labels, the schedule by date, visit-card status and meta, day totals, stale visits, the review split (end or delete), confirm and button labels, and the Add visit prop and team lists. Nothing renders yet. `scripts/verify-ui-10-admin.ts` checks it. Earlier F1 and F2 checks are unchanged.
+- UI-10 F3a tracker Status is DONE. Date 2026-10-08. Result: `Today pure logic + verify:ui10 checks.` Commit column still `—`.
+- `npx tsc --noEmit` exit 0. eslint on `lib/admin/today.ts` and `scripts/verify-ui-10-admin.ts` exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`), including the F3a checks.
+- `git grep -n "navigator.geolocation" -- lib/admin/today.ts scripts/verify-ui-10-admin.ts` printed nothing (exit 1).
+- The F1 shell is unchanged. `/admin/dashboard` and `/admin/allocate` stay light. `/admin` still redirects to Props until F3d. `/admin/props` is dark-ready. Today is not a page yet.
+- `lib/sync/queue.ts` was not edited. Field writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. `lib/admin/nav.ts` was not edited. No migration. No new RPC. `lib/supabase/types.ts` was not edited.
+- No database change. No database row. No `client_event_id`.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
-- External settings: none. No browser. No dev server. Phone checks for this session are NOT VERIFIED. The owner checks F2 as a whole after this session.
+- External settings: none. No browser. No dev server. Phone checks for this session are NOT VERIFIED. None for this session. The owner checks F3 as a whole after F3d.
 
 ## Log
 
@@ -2120,5 +2120,35 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Invariants:** No GPS and no `navigator.geolocation` in `components/admin` or `lib/admin` (`git grep` printed nothing). No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. `lib/sync/queue.ts` was not edited. No database row. No `client_event_id`.
 - **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on `components/admin/props/draw-magnifier.tsx` and `components/admin/props/props-screen.tsx`. `npm run verify:ui10` exit 0 (`ALL PASS`). `git grep -n "navigator.geolocation" -- components/admin lib/admin` printed nothing.
 - **Not verified:** A browser. A phone. The owner checks F2 as a whole (the 15 phone-check items in the F2e brief).
+- **External settings:** none
+- **Open questions for Claude:** none
+
+### 2026-10-08 — UI-10 Session F3a (uncommitted)
+
+- **Item:** UI-10
+- **What changed:** Pure Today logic in `lib/admin/today.ts` (schedule by date, card lines, day totals, stale visits and the end / delete split, confirms and buttons, Add visit lists and team options), checked by `npm run verify:ui10`. Nothing renders yet.
+- **Files:**
+  - Changed: `scripts/verify-ui-10-admin.ts` (import and F3a block), `docs/FIELD-TEST-BUILD-PLAN.md` (UI-10 F3a Status DONE and Result), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `lib/admin/today.ts`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none. `lib/sync/queue.ts`, `lib/admin/nav.ts`, `lib/field/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved (Figma page 40:289: phone 01, 14–19, 25–27, 31, 33; desktop D1 for this phase).
+  - OWNER — M3 / A17: allocations by date live inside Today as a schedule: today at the top, then upcoming dates. (A38: history moves to Calendar in F4.)
+  - OWNER — A24: allocating starts only from a date: "Add visit" → pick prop (due props first) → team → Allocate.
+  - OWNER — A26: tapping a visit opens a visit sheet over Today: team, progress, numbers, route map, add / remove person, End visit, Delete when nothing was worked, a link to the prop.
+  - OWNER — A27: stale visits: a "Needs attention" row on Today → review (by date, untick to keep) → one button ends or deletes them.
+  - OWNER — A36 / H5: a Live chip on a visit opens a map of CURRENT positions only. No trail, no history.
+  - OWNER — A50: old routes redirect as replacements land: `/admin` → Today, `/admin/allocate` → Today. `/admin/dashboard` stays by URL until it becomes Insights (F5).
+  - OWNER — 2026-10-07: F3 has no migration (the old F3d / 030 is dropped). The 22 stale open visits are cleared by the owner through the new review page during the phone check.
+  - CLAUDE — No migration, no new RPC. Today reads `assignments`, `assignment_members` + `profiles` (first names only), `territories`, `v_prop_completion`, and head-only counts on `v_latest_knock` (contacts = outcome `answered` only). Ending uses `assignment_close_early`; deleting uses `assignment_remove` via `removeAssignmentAction`.
+  - CLAUDE — A started visit is always ended, never deleted, even with no knocks on the server: a phone with no signal may still hold queued knocks. Only a visit that never started can be deleted (`mustEnd`).
+  - CLAUDE — Today and tomorrow always show; later dates show when they have visits; past dates never (Calendar, F4).
+  - CLAUDE — This session is pure logic only: dates and day labels, the schedule grouping, card status and meta lines, day totals, stale visits and the review split, confirm and button labels, the Add visit lists and team options. Nothing renders yet.
+- **Deviations from plan or brief:** the runner session hung while writing the BUILD-LOG entry (45 min timeout, no report). Claude checked the code against the tested files (identical) and wrote the BUILD-LOG entry and this log entry.
+- **Invariants:** No `navigator.geolocation`. No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. No database row. No migration.
+- **Verified:** runner gates: `npx tsc --noEmit` exit 0; eslint exit 0 on the two changed files; `npm run verify:ui10` exit 0 (`ALL PASS`).
+- **Not verified:** A browser. A phone. None for this session (the owner checks F3 as a whole after F3d).
 - **External settings:** none
 - **Open questions for Claude:** none
