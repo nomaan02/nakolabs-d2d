@@ -2811,3 +2811,45 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Deviations from brief:** the runner session hung while writing this BUILD-LOG entry and timed out at 45 min with no report. The code, the tracker row and CLAUDE-HANDOFF "Current state" were already written; Claude wrote this entry and the CLAUDE-HANDOFF log entry after review.
 - **Not done / deferred:** A browser. A phone. No database row.
 - **Follow-ups:** F3b–F3d stay queued.
+
+---
+
+### UI-10 Session F3b — Today data loaders, last knocks, end-visit action
+- **Date:** 2026-10-08
+- **Model:** Grok 4.7
+- **Built:** `loadToday` in `lib/admin/today-data.ts` (open visits plus today's closed ones, teams, props, head-only figures). `loadLastKnocks` in `lib/admin/last-knocks.ts` (latest knock per canvasser and `v_door_label`). `closeVisitAction` in `lib/props/visits.ts` (`assignment_close_early`, admin session). `LiveRow.assignmentId` from `admin_live_positions.assignment_id`. Nothing renders yet.
+- **Owner decisions:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved (Figma page 40:289: phone 01, 14–19, 25–27, 31, 33; desktop D1 for this phase).
+  - OWNER — M3 / A17: allocations by date live inside Today as a schedule: today at the top, then upcoming dates. (A38: history moves to Calendar in F4.)
+  - OWNER — A24: allocating starts only from a date: "Add visit" → pick prop (due props first) → team → Allocate.
+  - OWNER — A26: tapping a visit opens a visit sheet over Today: team, progress, numbers, route map, add / remove person, End visit, Delete when nothing was worked, a link to the prop.
+  - OWNER — A27: stale visits: a "Needs attention" row on Today → review (by date, untick to keep) → one button ends or deletes them.
+  - OWNER — A36 / H5: a Live chip on a visit opens a map of CURRENT positions only. No trail, no history.
+  - OWNER — A50: old routes redirect as replacements land: `/admin` → Today, `/admin/allocate` → Today. `/admin/dashboard` stays by URL until it becomes Insights (F5).
+  - OWNER — 2026-10-07: F3 has no migration (the old F3d / 030 is dropped). The 22 stale open visits are cleared by the owner through the new review page during the phone check.
+- **Claude decisions:**
+  - CLAUDE — Figma frames (phone section 89:295): 01 Today 89:308, 14 visit sheet 94:1038, 15 live map 94:1281, 16 add visit · prop 95:1150, 17 add visit · team 95:1233, 18 past visits review 96:1194, 19 confirm 96:1273, 25 nothing planned 99:1390, 26 loading 99:1562, 27 could not load 99:1613, 33 confirm end visit 102:1966; desktop D1 100:1710.
+  - CLAUDE — No migration, no new RPC. Today reads `assignments` (open, plus every visit dated today), `assignment_members` + `profiles` (first names only), `territories`, `v_prop_completion`, and head-only counts on `v_latest_knock` (contacts = outcome `answered` only). Ending uses `assignment_close_early`; deleting uses `assignment_remove` through `removeAssignmentAction`.
+  - CLAUDE — A started visit is always ended, never deleted, even with no knocks on the server. Only a visit that never started can be deleted.
+  - CLAUDE — Today = one column on phone; the visit sheet is a right-hand panel on desktop 1440. Today and tomorrow always show; later dates show when they have visits; past dates never. The Calendar icon, the "Past days" row and Jump to date stay hidden until F4.
+  - CLAUDE — Figures refresh every 2 minutes while a visit is open today, live positions every 30 seconds, and the page reloads itself after midnight.
+  - CLAUDE — Live map: each person's current position (faded after 10 minutes), their last knock time and its door label. "Not sharing a position" when there is none. Admin never reads `navigator.geolocation`.
+  - CLAUDE — Remove person = Undo toast. The last person cannot be removed.
+  - CLAUDE — Add visit: `/admin/today/add?date=…&prop=…`. Due props first. A prop already booked that date is greyed. Allocate runs `allocatePropAction` then `generateRouteAction`.
+  - CLAUDE — Past visits review: `/admin/today/review`. All ticked. One button closes them one at a time. Failures stay listed and ticked.
+  - CLAUDE — Overlays stack: Escape closes only the top one.
+  - CLAUDE — Prop detail's "Open visit" opens that visit's sheet on Today (`visitHref(visitId)`).
+  - CLAUDE — `loadToday` fails as one message in words. `loadLastKnocks` returns door labels only. `closeVisitAction` exports only an async function at runtime (the result type is erased). `LiveRow.assignmentId` is carried; nothing renders it yet.
+- **Acceptance:**
+  - EDIT 1 DONE. New `lib/admin/today-data.ts` pasted as given.
+  - EDIT 2 DONE. New `lib/admin/last-knocks.ts` pasted as given.
+  - EDIT 3 DONE. New `lib/props/visits.ts` pasted as given.
+  - EDIT 4 DONE. `lib/admin/live.ts`: `LiveRow.assignmentId` and `rows.push` `assignmentId: row.assignment_id`. Each find block occurred once.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on the four edited files: **PASS** — exit 0.
+  - `npm run verify:ui10`: **PASS** — exit 0. Printed `ALL PASS`.
+  - `git grep -n "service_role\|SERVICE_ROLE" -- lib/admin/today-data.ts lib/admin/last-knocks.ts lib/props/visits.ts`: **PASS** — printed nothing (exit 1).
+  - Phone: **NOT VERIFIED**. None for this session (the owner checks F3 as a whole after F3d).
+- **Deviations from brief:** none. The given code was pasted exactly.
+- **Not done / deferred:** A browser. A phone. Did not commit. No database row. Today is not a page yet (F3c).
+- **Follow-ups:** F3c and F3d stay queued. The owner checks F3 as a whole after F3d.

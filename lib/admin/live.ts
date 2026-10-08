@@ -11,6 +11,8 @@ import type { Database } from "@/lib/supabase/types";
 
 export type LiveRow = {
   canvasserId: string;
+  /** UI-10 F3b: which visit the position belongs to (Today's Live chip). */
+  assignmentId: string;
   firstName: string;
   territoryName: string;
   lat: number;
@@ -42,6 +44,7 @@ export async function fetchLivePositions(supabase: SupabaseClient<Database>): Pr
     if (lat === null || lon === null || !row.reported_at) continue;
     rows.push({
       canvasserId: row.canvasser_id,
+      assignmentId: row.assignment_id,
       firstName: row.first_name || "Canvasser",
       territoryName: row.territory_name,
       lat,
