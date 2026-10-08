@@ -37,14 +37,14 @@ export type AdminNavItem = {
 export const BRANCH_LABEL = "Bristol";
 
 /**
- * F2 state. Today points at the old dashboard (it carries the Live now panel)
- * until F3; Props is the new full-screen map (F2); Allocate is a temporary
- * item that F3 removes (allocating moves into Today, A24).
+ * F3 state. Today is the schedule (F3); allocating starts from a date there
+ * (A24), so the temporary Allocate item is gone and `/admin/allocate`
+ * redirects to Today. The old dashboard stays reachable by URL until it
+ * becomes Insights (F5). Calendar arrives in F4.
  */
 export const ADMIN_NAV: readonly AdminNavItem[] = [
-  { key: "today", label: "Today", href: "/admin/dashboard", icon: "today", group: "main" },
+  { key: "today", label: "Today", href: "/admin/today", icon: "today", group: "main" },
   { key: "props", label: "Props", href: "/admin/props", icon: "props", group: "main" },
-  { key: "allocate", label: "Allocate", href: "/admin/allocate", icon: "allocate", group: "main" },
   { key: "coverage", label: "Coverage", href: "/admin/coverage", icon: "coverage", group: "main" },
   { key: "settings", label: "Settings", href: "/admin/settings", icon: "settings", group: "tools" },
 ];
@@ -93,7 +93,7 @@ export function parseRailState(value: string | null | undefined): RailState {
  * to pages rebuilt in the new design. Each phase adds its routes here; until
  * then the old "worksheet" pages stay light.
  */
-export const DARK_READY_PATHS: readonly string[] = ["/admin/props"];
+export const DARK_READY_PATHS: readonly string[] = ["/admin/props", "/admin/today"];
 
 export function isDarkReady(
   pathname: string,
@@ -108,13 +108,9 @@ export function initialOf(name: string | null | undefined): string {
   return first ? first.toLocaleUpperCase("en-GB") : "?";
 }
 
-/**
- * Where a prop's "Open visit" goes. F2: the old allocate page for that prop
- * (it manages the visit's team and route). F3 points this at the visit sheet
- * on Today (A26).
- */
-export function visitHref(propId: string): string {
-  return `/admin/allocate?prop=${encodeURIComponent(propId)}`;
+/** Where a prop's "Open visit" goes: that visit's sheet on Today (A26, F3). */
+export function visitHref(visitId: string): string {
+  return `/admin/today?visit=${encodeURIComponent(visitId)}`;
 }
 
 /** Prop detail's "Show on Coverage" (frame 06). */

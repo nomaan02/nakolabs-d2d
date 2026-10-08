@@ -129,9 +129,11 @@ const cases: Array<[string, string | null]> = [
   ["/admin", null],
   ["/admin/props", "props"],
   ["/admin/props/", "props"],
-  ["/admin/dashboard", "today"],
-  ["/admin/allocate", "allocate"],
-  ["/admin/allocate/anything", "allocate"],
+  ["/admin/today", "today"],
+  ["/admin/today/add", "today"],
+  ["/admin/today/review", "today"],
+  ["/admin/dashboard", null],
+  ["/admin/allocate", null],
   ["/admin/coverage", "coverage"],
   ["/admin/settings", "settings"],
   ["/admin/unknown", null],
@@ -170,10 +172,12 @@ check("initial of nothing", initialOf(null) === "?" && initialOf("   ") === "?")
 
 check("old pages stay light", !isDarkReady("/admin/dashboard") && !isDarkReady("/admin") && !isDarkReady("/admin/allocate"));
 check("Props is dark-ready (F2)", isDarkReady("/admin/props"));
+check("Today and its pages are dark-ready (F3)", isDarkReady("/admin/today") && isDarkReady("/admin/today/add"));
+check("no temporary Allocate item (F3)", !ADMIN_NAV.some((item) => item.key === "allocate"));
 check("a ready path and its children go dark", isDarkReady("/admin/today/add", ["/admin/today"]));
 check("a ready path does not leak to siblings", !isDarkReady("/admin/todays", ["/admin/today"]));
 
-check("visit and coverage links carry the prop", visitHref("a b") === "/admin/allocate?prop=a%20b" && coverageHref("x") === "/admin/coverage?prop=x");
+check("visit and coverage links", visitHref("a b") === "/admin/today?visit=a%20b" && coverageHref("x") === "/admin/coverage?prop=x");
 
 // --- F1c: shared theme (A51) ---
 check("admin theme boot script matches the field one", ADMIN_THEME_BOOT_SCRIPT === THEME_BOOT_SCRIPT);

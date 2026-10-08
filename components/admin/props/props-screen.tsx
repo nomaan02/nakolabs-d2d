@@ -379,7 +379,8 @@ export function PropsScreen({
 
   useEffect(() => {
     const url = selectedId ? `/admin/props?prop=${encodeURIComponent(selectedId)}` : "/admin/props";
-    window.history.replaceState(window.history.state, "", url);
+    // `null` state lets Next sync its router with the new URL (UI-10 F3 review).
+    window.history.replaceState(null, "", url);
   }, [selectedId]);
 
   // ---- routes on the map ----------------------------------------------
@@ -751,7 +752,11 @@ export function PropsScreen({
                 doorsText={detailCount?.id === selected.row.id ? doorsLine(detailCount.count) : null}
                 stats={stats?.id === selected.row.id ? stats.stats : null}
                 statsError={notice}
-                visitHref={visitHref(selected.row.id)}
+                visitHref={
+                  selected.state.kind === "today" || selected.state.kind === "planned"
+                    ? visitHref(selected.state.visit.id)
+                    : "/admin/today"
+                }
                 coverageHref={coverageHref(selected.row.id)}
                 onClose={closeDetail}
                 onRename={rename}
