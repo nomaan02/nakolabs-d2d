@@ -2853,3 +2853,52 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Deviations from brief:** none. The given code was pasted exactly.
 - **Not done / deferred:** A browser. A phone. Did not commit. No database row. Today is not a page yet (F3c).
 - **Follow-ups:** F3c and F3d stay queued. The owner checks F3 as a whole after F3d.
+
+---
+
+### UI-10 Session F3c — /admin/today: schedule, visit sheet, live map
+- **Date:** 2026-10-08
+- **Model:** Grok 4.7
+- **Built:** `/admin/today` (`?visit=<id>` opens a visit). Schedule of today, tomorrow, then later dates with visits. Needs-attention row. Today's numbers. Visit card with outcome bar. Visit sheet (phone) or right-hand panel (desktop): route map, numbers, team, add / remove person with Undo, End visit or Delete. Live map of current positions only. Still map via `useAdminMap({ interactive: false })`. Overlay stack so Escape closes only the top one. Add visit and review links point at routes F3d adds. Not in the nav.
+- **Owner decisions:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved (Figma page 40:289: phone 01, 14–19, 25–27, 31, 33; desktop D1 for this phase).
+  - OWNER — M3 / A17: allocations by date live inside Today as a schedule: today at the top, then upcoming dates. (A38: history moves to Calendar in F4.)
+  - OWNER — A24: allocating starts only from a date: "Add visit" → pick prop (due props first) → team → Allocate.
+  - OWNER — A26: tapping a visit opens a visit sheet over Today: team, progress, numbers, route map, add / remove person, End visit, Delete when nothing was worked, a link to the prop.
+  - OWNER — A27: stale visits: a "Needs attention" row on Today → review (by date, untick to keep) → one button ends or deletes them.
+  - OWNER — A36 / H5: a Live chip on a visit opens a map of CURRENT positions only. No trail, no history.
+  - OWNER — A50: old routes redirect as replacements land: `/admin` → Today, `/admin/allocate` → Today. `/admin/dashboard` stays by URL until it becomes Insights (F5).
+  - OWNER — 2026-10-07: F3 has no migration (the old F3d / 030 is dropped). The 22 stale open visits are cleared by the owner through the new review page during the phone check.
+- **Claude decisions:**
+  - CLAUDE — Figma frames (phone section 89:295): 01 Today 89:308, 14 visit sheet 94:1038, 15 live map 94:1281, 16 add visit · prop 95:1150, 17 add visit · team 95:1233, 18 past visits review 96:1194, 19 confirm 96:1273, 25 nothing planned 99:1390, 26 loading 99:1562, 27 could not load 99:1613, 33 confirm end visit 102:1966; desktop D1 100:1710.
+  - CLAUDE — No migration, no new RPC. Today reads `assignments` (open, plus every visit dated today), `assignment_members` + `profiles` (first names only), `territories`, `v_prop_completion`, and head-only counts on `v_latest_knock` (contacts = outcome `answered` only). Ending uses `assignment_close_early`; deleting uses `assignment_remove` through `removeAssignmentAction`; add / remove person use the existing actions.
+  - CLAUDE — A started visit is always ended, never deleted, even with no knocks on the server. Only a visit that never started can be deleted.
+  - CLAUDE — Today = one column on phone; the visit sheet is a right-hand panel on desktop 1440. Today and tomorrow always show; later dates show when they have visits; past dates never. The Calendar icon, the "Past days" row and Jump to date stay hidden until F4.
+  - CLAUDE — Figures refresh every 2 minutes while a visit is open today, live positions every 30 seconds, and the page reloads itself after midnight.
+  - CLAUDE — Live map: each person's current position (faded after 10 minutes), their last knock time and its door label (`v_door_label`). "Not sharing a position" when there is none. Nothing stores or sends a location. Admin never reads `navigator.geolocation`.
+  - CLAUDE — Remove person = Undo toast (re-adds them). The last person cannot be removed.
+  - CLAUDE — Add visit: `/admin/today/add?date=…&prop=…` (F3d). Due props first. A prop already booked that date is greyed.
+  - CLAUDE — Past visits review: `/admin/today/review` (F3d). All ticked. One button closes them one at a time. Failures stay listed and ticked.
+  - CLAUDE — Overlays stack: Escape closes only the top one. `isOverlayOpen()` lets the desktop panel leave Escape to a confirm above it.
+  - CLAUDE — Prop detail's "Open visit" opens that visit's sheet on Today (`visitHref(visitId)`). That link is F3d; this session only reads `?visit=`.
+  - CLAUDE — New route `/admin/today`. The URL follows with `replaceState(null, …)`. Not in the nav until F3d. Its Add visit and Needs attention links 404 until F3d.
+  - CLAUDE — `useAdminMap` takes `{ interactive: false }` for the still map in the visit sheet.
+  - CLAUDE — The sheet / panel choice waits for the first client render.
+- **Acceptance:**
+  - EDIT 1 DONE. New `components/admin/today/visit-card.tsx` pasted as given.
+  - EDIT 2 DONE. New `components/admin/today/visit-mini-map.tsx` pasted as given.
+  - EDIT 3 DONE. New `components/admin/today/visit-panel.tsx` pasted as given.
+  - EDIT 4 DONE. New `components/admin/today/live-map.tsx` pasted as given.
+  - EDIT 5 DONE. New `components/admin/today/today-screen.tsx` pasted as given.
+  - EDIT 6 DONE. New `app/(admin)/admin/today/page.tsx` pasted as given.
+  - EDIT 7 DONE. New `app/(admin)/admin/today/loading.tsx` pasted as given.
+  - EDIT 8 DONE. `components/admin/map/use-admin-map.ts`: optional `options.interactive`, passed into the map, added to the effect deps. Each find block occurred once.
+  - EDIT 9 DONE. `components/admin/ui/use-overlay-focus.ts`: overlay stack, `isOverlayOpen()`, only the top overlay handles keys, splice on close. Each find block occurred once.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on the nine session files: **PASS** — exit 0.
+  - `npm run verify:ui10`: **PASS** — exit 0. Printed `ALL PASS`.
+  - `git grep -n "navigator.geolocation" -- components/admin lib/admin`: **PASS** — printed nothing (exit 1).
+  - Phone: **NOT VERIFIED**. None for this session (the owner checks F3 as a whole after F3d).
+- **Deviations from brief:** none. The given code was pasted exactly.
+- **Not done / deferred:** A browser. A phone. Did not commit. No database row. Add visit, past-visits review, nav switch and the `/admin` redirects are F3d. `lib/admin/nav.ts` was not edited, so `/admin/today` is not dark-ready yet.
+- **Follow-ups:** F3d stays queued. The owner checks F3 as a whole after F3d.

@@ -123,7 +123,7 @@
 | UI-10 F2e | Magnifier while dragging a corner (touch, droppable) | DONE | 2026-10-07 | touch magnifier while dragging a corner. Phone check passed 2026-10-07. | 0a646ff |
 | UI-10 F3a | Today logic (pure) + verify:ui10 | DONE | 2026-10-08 | Today pure logic + verify:ui10 checks. | — |
 | UI-10 F3b | Today data loaders, last knocks, end-visit action | DONE | 2026-10-08 | Today data loader, last-knock loader, closeVisitAction, LiveRow.assignmentId. | — |
-| UI-10 F3c | `/admin/today`: schedule, visit sheet, live map | TODO | | | — |
+| UI-10 F3c | `/admin/today`: schedule, visit sheet, live map | DONE | 2026-10-08 | `/admin/today: schedule, needs attention row, numbers, visit sheet (team, route, end/delete), live map.` | — |
 | UI-10 F3d | Add visit, past visits review; nav switch; `/admin` + `/admin/allocate` → Today | TODO | | | — |
 | UI-10 F4 | Calendar + Coverage (F4a–F4d; F4d migration 031, human) | TODO | | | — |
 | UI-10 F5 | Team, Leads, Settings, Insights (F5a–F5c; F5c migration 032, human) | TODO | | | — |

@@ -2,6 +2,17 @@
 
 import { useEffect, useRef, type RefObject } from "react";
 
+/**
+ * UI-10 F3c: open overlays, newest last. Only the top one answers Escape and
+ * traps Tab, so Escape on a confirm over a sheet closes the confirm alone.
+ */
+const stack: HTMLElement[] = [];
+
+/** True while any overlay using this hook is open (non-modal panels defer to it). */
+export function isOverlayOpen(): boolean {
+  return stack.length > 0;
+}
+
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -26,12 +37,14 @@ export function useOverlayFocus(
     const panel = panelRef.current;
     if (!panel) return;
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    stack.push(panel);
 
     const focusables = () => Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE));
     const initial = panel.querySelector<HTMLElement>("[data-autofocus]") ?? focusables()[0] ?? panel;
     initial.focus();
 
     const onKey = (event: KeyboardEvent) => {
+      if (stack[stack.length - 1] !== panel) return;
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();
@@ -58,6 +71,8 @@ export function useOverlayFocus(
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
+      const at = stack.lastIndexOf(panel);
+      if (at >= 0) stack.splice(at, 1);
       opener?.focus();
     };
   }, [open, panelRef]);

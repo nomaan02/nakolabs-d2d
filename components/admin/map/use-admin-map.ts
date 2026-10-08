@@ -41,7 +41,10 @@ export function useAdminMap(
   container: RefObject<HTMLDivElement | null>,
   mode: MapMode,
   viewKey: string,
+  /** UI-10 F3c: a still preview (the visit sheet's map) takes no gestures. */
+  options: { interactive?: boolean } = {},
 ): { map: MapLibreMap | null; error: string | null } {
+  const interactive = options.interactive ?? true;
   const [map, setMap] = useState<MapLibreMap | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,6 +63,7 @@ export function useAdminMap(
         center: view ? [view.lng, view.lat] : BRISTOL,
         zoom: view ? view.zoom : BRISTOL_ZOOM,
         attributionControl: false,
+        interactive,
         dragRotate: false,
         pitchWithRotate: false,
       });
@@ -95,7 +99,7 @@ export function useAdminMap(
       setMap(null);
       instance?.remove();
     };
-  }, [container, mode, viewKey]);
+  }, [container, mode, viewKey, interactive]);
 
   return { map, error };
 }

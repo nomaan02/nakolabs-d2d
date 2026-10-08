@@ -2,13 +2,13 @@
 
 ## Current state
 
-- Last updated: 2026-10-08 (UI-10 Session F3b). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Today data loaders are in. `loadToday` (`lib/admin/today-data.ts`) reads open visits plus every visit dated today, their teams and props, and figures for visits dated today or earlier. `loadLastKnocks` (`lib/admin/last-knocks.ts`) reads each member's latest knock and its door label. `closeVisitAction` (`lib/props/visits.ts`) calls `assignment_close_early` on the admin session. `LiveRow` now carries `assignmentId`. Nothing renders these yet.
-- UI-10 F3b tracker Status is DONE. Date 2026-10-08. Result: `Today data loader, last-knock loader, closeVisitAction, LiveRow.assignmentId.` Commit column still `—`.
-- `npx tsc --noEmit` exit 0. eslint on `lib/admin/today-data.ts`, `lib/admin/last-knocks.ts`, `lib/props/visits.ts` and `lib/admin/live.ts` exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`).
-- `git grep -n "service_role\|SERVICE_ROLE" -- lib/admin/today-data.ts lib/admin/last-knocks.ts lib/props/visits.ts` printed nothing (exit 1).
-- The F1 shell is unchanged. `/admin/dashboard` and `/admin/allocate` stay light. `/admin` still redirects to Props until F3d. `/admin/props` is dark-ready. Today is not a page yet.
-- `lib/sync/queue.ts` was not edited. Field writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. `lib/admin/nav.ts` was not edited. No migration. No new RPC. `lib/supabase/types.ts` was not edited.
+- Last updated: 2026-10-08 (UI-10 Session F3c). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- `/admin/today` is a page. It shows the schedule (today, tomorrow, later dates with visits), a Needs attention row, today's numbers, and a visit sheet or desktop panel. `?visit=<id>` opens a visit and the URL follows with `replaceState(null, …)`. The Live chip opens current positions only. Add visit and review links go to `/admin/today/add` and `/admin/today/review`, which F3d adds (they 404 until then). Not in the nav. Not in `DARK_READY_PATHS`.
+- UI-10 F3c tracker Status is DONE. Date 2026-10-08. Result: `/admin/today: schedule, needs attention row, numbers, visit sheet (team, route, end/delete), live map.` Commit column still `—`.
+- `npx tsc --noEmit` exit 0. eslint on the nine session files exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`).
+- `git grep -n "navigator.geolocation" -- components/admin lib/admin` printed nothing (exit 1).
+- The F1 shell is unchanged. `/admin/dashboard` and `/admin/allocate` stay light. `/admin` still redirects to Props until F3d. `/admin/props` is dark-ready. `/admin/today` stays light until F3d adds it to `DARK_READY_PATHS`.
+- `lib/sync/queue.ts` was not edited. Field writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. `lib/admin/nav.ts` was not edited. No migration. No new RPC. `lib/supabase/types.ts` was not edited. The live map paints positions already returned by `admin_live_positions`. It does not read GPS.
 - No database change. No database row. No `client_event_id`.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
@@ -2186,6 +2186,44 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Deviations from plan or brief:** none. The given code was pasted exactly.
 - **Invariants:** No GPS and no coordinates in these files. No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. No database row. No migration. `closeVisitAction` uses the admin session, not the service role.
 - **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on the four edited files. `npm run verify:ui10` exit 0 (`ALL PASS`). `git grep` for `service_role` / `SERVICE_ROLE` in the three new files printed nothing (exit 1).
+- **Not verified:** A browser. A phone. None for this session (the owner checks F3 as a whole after F3d).
+- **External settings:** none
+- **Open questions for Claude:** none
+
+### 2026-10-08 — UI-10 Session F3c (uncommitted)
+
+- **Item:** UI-10
+- **What changed:** `/admin/today` shows the schedule, a Needs attention row, today's numbers, and a visit sheet (team, route map, end or delete). A Live chip opens current positions only. The visit sheet's map takes no gestures. Escape closes only the top overlay. The page is not in the nav. Add visit and review routes are still F3d.
+- **Files:**
+  - Changed: `components/admin/map/use-admin-map.ts` (`interactive` option), `components/admin/ui/use-overlay-focus.ts` (overlay stack, `isOverlayOpen`), `docs/FIELD-TEST-BUILD-PLAN.md` (UI-10 F3c Status DONE and Result), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `components/admin/today/visit-card.tsx`, `components/admin/today/visit-mini-map.tsx`, `components/admin/today/visit-panel.tsx`, `components/admin/today/live-map.tsx`, `components/admin/today/today-screen.tsx`, `app/(admin)/admin/today/page.tsx`, `app/(admin)/admin/today/loading.tsx`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*`, `lib/supabase/*` and `lib/admin/nav.ts` were not edited. The live map calls the existing `paintRouteLayers` and `admin_live_positions` readers. It does not read GPS.
+- **Decided by:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved (Figma page 40:289: phone 01, 14–19, 25–27, 31, 33; desktop D1 for this phase).
+  - OWNER — M3 / A17: allocations by date live inside Today as a schedule: today at the top, then upcoming dates. (A38: history moves to Calendar in F4.)
+  - OWNER — A24: allocating starts only from a date: "Add visit" → pick prop (due props first) → team → Allocate.
+  - OWNER — A26: tapping a visit opens a visit sheet over Today: team, progress, numbers, route map, add / remove person, End visit, Delete when nothing was worked, a link to the prop.
+  - OWNER — A27: stale visits: a "Needs attention" row on Today → review (by date, untick to keep) → one button ends or deletes them.
+  - OWNER — A36 / H5: a Live chip on a visit opens a map of CURRENT positions only. No trail, no history.
+  - OWNER — A50: old routes redirect as replacements land: `/admin` → Today, `/admin/allocate` → Today. `/admin/dashboard` stays by URL until it becomes Insights (F5).
+  - OWNER — 2026-10-07: F3 has no migration (the old F3d / 030 is dropped). The 22 stale open visits are cleared by the owner through the new review page during the phone check.
+  - CLAUDE — Figma frames (phone section 89:295): 01 Today 89:308, 14 visit sheet 94:1038, 15 live map 94:1281, 16 add visit · prop 95:1150, 17 add visit · team 95:1233, 18 past visits review 96:1194, 19 confirm 96:1273, 25 nothing planned 99:1390, 26 loading 99:1562, 27 could not load 99:1613, 33 confirm end visit 102:1966; desktop D1 100:1710.
+  - CLAUDE — No migration, no new RPC. Today reads existing tables, views and actions. Ending uses `assignment_close_early`. Deleting uses `assignment_remove`.
+  - CLAUDE — A started visit is always ended, never deleted. Only a visit that never started can be deleted.
+  - CLAUDE — Today and tomorrow always show; later dates show when they have visits; past dates never. Calendar icon, "Past days" and Jump to date stay hidden until F4.
+  - CLAUDE — Figures refresh every 2 minutes while a visit is open today, positions every 30 seconds, and the page reloads after midnight.
+  - CLAUDE — Live map shows current position only (faded after 10 minutes), last knock time and door label. Admin never reads `navigator.geolocation`.
+  - CLAUDE — Remove person is an Undo toast. The last person cannot be removed.
+  - CLAUDE — Add visit is `/admin/today/add` (F3d). Due props first. A prop already booked that date is greyed.
+  - CLAUDE — Past visits review is `/admin/today/review` (F3d). Failures stay listed and ticked.
+  - CLAUDE — Escape closes only the top overlay. The desktop panel defers when `isOverlayOpen()`.
+  - CLAUDE — `useAdminMap({ interactive: false })` for the still visit map. Sheet or panel waits until the first client render.
+  - CLAUDE — `/admin/today` is not in the nav and not dark-ready until F3d.
+- **Deviations from plan or brief:** none. The given code was pasted exactly.
+- **Invariants:** No `navigator.geolocation` in `components/admin` or `lib/admin` (`git grep` printed nothing). No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. No database row. No migration. The live map draws positions the existing admin RPC already returns. It does not send a location.
+- **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on the nine session files. `npm run verify:ui10` exit 0 (`ALL PASS`). `git grep -n "navigator.geolocation" -- components/admin lib/admin` printed nothing (exit 1).
 - **Not verified:** A browser. A phone. None for this session (the owner checks F3 as a whole after F3d).
 - **External settings:** none
 - **Open questions for Claude:** none
