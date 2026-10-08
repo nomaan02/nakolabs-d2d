@@ -231,6 +231,7 @@ check("Today and its pages are dark-ready (F3)", isDarkReady("/admin/today") && 
 check("no temporary Allocate item (F3)", !ADMIN_NAV.some((item) => item.key === "allocate"));
 check("Calendar is the second item (A39, F4)", ADMIN_NAV[1]?.key === "calendar" && ADMIN_NAV[1]?.href === "/admin/calendar");
 check("Calendar is dark-ready (F4c)", isDarkReady("/admin/calendar"));
+check("Coverage is dark-ready (F4d)", isDarkReady("/admin/coverage"));
 check(
   "appearance: System, Light, Dark over the shared theme values",
   APPEARANCE_OPTIONS.map((option) => `${option.value}:${option.label}`).join() === "auto:System,light:Light,dark:Dark",

@@ -93,7 +93,7 @@ export function parseRailState(value: string | null | undefined): RailState {
  * to pages rebuilt in the new design. Each phase adds its routes here; until
  * then the old "worksheet" pages stay light.
  */
-export const DARK_READY_PATHS: readonly string[] = ["/admin/props", "/admin/today", "/admin/calendar"];
+export const DARK_READY_PATHS: readonly string[] = ["/admin/props", "/admin/today", "/admin/calendar", "/admin/coverage"];
 
 export function isDarkReady(
   pathname: string,

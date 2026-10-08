@@ -136,6 +136,8 @@ export function ensurePropLayers(map: MapLibreMap, mode: MapMode): void {
         dot.no_opportunity,
         "refused",
         dot.other,
+        "not_interested",
+        dot.other,
         "do_not_call",
         dot.other,
         "inaccessible",

@@ -309,6 +309,11 @@
   top: 3.5rem;
 }
 
+/* UI-10 F4d: Coverage has a second row (the filter chips) under its header. */
+.admin-map.admin-map-chips .maplibregl-ctrl-top-right {
+  top: 7.5rem;
+}
+
 .maplibregl-ctrl-group {
   border-radius: 0;
   box-shadow: none;

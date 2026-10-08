@@ -128,7 +128,7 @@
 | UI-10 F4a | Calendar + Coverage logic (pure); visits end once their day comes; verify:ui10 | DONE | 2026-10-08 | Calendar and Coverage pure logic; visits end, never delete, once their day comes; verify:ui10 checks. | — |
 | UI-10 F4b | Calendar + Coverage data loaders | DONE | 2026-10-08 | readAll paging, Calendar month loader, Coverage loader (no migration). | — |
 | UI-10 F4c | `/admin/calendar`; Calendar in nav; Appearance; Today → Calendar | DONE | 2026-10-08 | `/admin/calendar (month grid, swipe, day panel, End for unworked visits, Open on map), Calendar in nav, Appearance control, Today → Calendar.` | — |
-| UI-10 F4d | Coverage rebuilt: map, filters, door popup | TODO | | | — |
+| UI-10 F4d | Coverage rebuilt: map, filters, door popup | DONE | 2026-10-08 | Coverage rebuilt: full-screen map, filter chips (days, visit, slot, outcome, person, prop), door popup, legend, dark-ready. | — |
 | UI-10 F5 | Team, Leads, Settings, Insights (F5a–F5c; F5c migration 032, human) | TODO | | | — |
 | UI-10 F6 | Admin into /field + delete old routes (human) | TODO | | | — |
 
