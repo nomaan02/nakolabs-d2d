@@ -99,6 +99,59 @@ import {
   type TodayVisit,
   type VisitFigures,
 } from "../lib/admin/today";
+import {
+  allocatedNote,
+  buildCalendar,
+  calendarHref,
+  dayCell,
+  daySummary,
+  entryMeta,
+  gridSpan,
+  leadResultRows,
+  leadResultsLine,
+  londonDay,
+  londonTime,
+  monthGrid,
+  monthTitle,
+  monthTotals,
+  notWorkedCopy,
+  openOnMapHref,
+  outcomeKey,
+  outcomesLine,
+  parseDay,
+  parseMonth,
+  peopleLine,
+  shiftMonth,
+  swipeMonth,
+  type CalendarVisit,
+} from "../lib/admin/calendar";
+import {
+  coverageFigures,
+  doorMeta,
+  clearedFilters,
+  filterCount,
+  filterCountLine,
+  filtersHref,
+  knockWhen,
+  matchedLabel,
+  outcomeChip,
+  outcomeGroup,
+  outcomeWords,
+  paintedOf,
+  parseFilters,
+  periodIsFilter,
+  periodLabel,
+  periodOf,
+  resolveDoors,
+  scopeLine,
+  slotChip,
+  visitChip,
+  whoChip,
+  withoutProp,
+  NO_FILTERS,
+  type CoverageRow,
+  type CoverageVisit,
+} from "../lib/admin/coverage-filters";
 import type { WalkStep } from "../lib/geo/walk/types";
 import { THEME_BOOT_SCRIPT } from "../lib/field/theme";
 
@@ -416,20 +469,25 @@ check("day totals: today only", totals.doors === 425 && totals.contacts === 36 &
 const stale3 = staleVisits([tv("s1", "2026-10-03"), tv("s2", "2026-10-05", { propName: "B" }), tv("s3", "2026-10-05", { propName: "A" }), tv("closed", "2026-10-01", { closedAt: "x" }), tv("t", D)], D);
 check("stale: open past only, newest first", stale3.map((v) => v.id).join(",") === "s3,s2,s1");
 const sf = figs([["s3", { knocks: 214 }]]);
-check("attention line", attentionLine(stale3, sf)?.title === "3 past visits still open" && attentionLine(stale3, sf)?.detail === "2 have no knocks. Review and end them.");
-check("attention: all empty, one, none", attentionLine([stale3[1]!], sf)?.detail === "It has no knocks. Review and delete it." && attentionLine([stale3[0]!], sf)?.detail === "Review and end it." && attentionLine([], sf) === null);
+check("attention line", attentionLine(stale3, sf)?.title === "3 past visits still open" && attentionLine(stale3, sf)?.detail === "2 have no knocks synced. Review and end them.");
+check("attention: all empty, one, none", attentionLine([stale3[1]!], sf)?.detail === "It has no knocks synced. Review and end it." && attentionLine([stale3[0]!], sf)?.detail === "Review and end it." && attentionLine([], sf) === null);
 const groups3 = staleGroups(stale3);
 check("stale visits grouped by date", groups3.length === 2 && groups3[0]?.label === "Mon 5 October" && groups3[0]?.visits.length === 2);
-const split = splitReview(stale3, new Set(["s3", "s2"]), sf);
-check("review split by knocks, unticked kept", split.end.map((v) => v.id).join() === "s3" && split.remove.map((v) => v.id).join() === "s2");
+const split = splitReview(stale3, new Set(["s3", "s2"]), sf, D);
+check("past visits are all ended, unticked kept", split.end.map((v) => v.id).join() === "s3,s2" && split.remove.length === 0);
+check("a visit still ahead with no knocks is deleted", splitReview([tv("fut", "2026-10-09")], new Set(["fut"]), sf, D).remove.length === 1);
 const startedEmpty = tv("se", "2026-10-04", { startedAt: "2026-10-04T08:00:00Z" });
-check("a started visit is ended, never deleted", mustEnd(startedEmpty, undefined) && splitReview([startedEmpty], new Set(["se"]), sf).end.length === 1 && !mustEnd(tv("n", D), undefined));
-check("review row for a started empty visit", reviewRowMeta(startedEmpty, undefined) === "Visit 3 · Tom and Ada · started, no knocks synced");
+check(
+  "once its day has come a visit is ended, never deleted (owner 2026-10-08)",
+  mustEnd(startedEmpty, undefined, D) && mustEnd(tv("n", D), undefined, D) && mustEnd(tv("p", "2026-10-01"), undefined, D) && splitReview([startedEmpty], new Set(["se"]), sf, D).end.length === 1,
+);
+check("only a visit still ahead, with no knocks, can be deleted", !mustEnd(tv("f", "2026-10-08"), undefined, D) && mustEnd(tv("f", "2026-10-08"), { knocks: 1 }, D));
+check("review row for an empty visit", reviewRowMeta(startedEmpty, undefined) === "Visit 3 · Tom and Ada · no knocks synced");
 check("review button", reviewButton(6, 15) === "End 6 and delete 15" && reviewButton(1, 0) === "End 1 visit" && reviewButton(0, 2) === "Delete 2 visits" && reviewButton(0, 0) === "Tick the visits to close");
 const rc = reviewConfirm(6, 15);
 check("review confirm both", rc.title === "End 6 visits and delete 15?" && rc.body === "The 15 never started, so nothing is lost. The 6 ended visits keep all their knocks." && rc.confirm === "End and delete");
 check("review confirm single kinds", reviewConfirm(0, 1).confirm === "Delete visit" && reviewConfirm(2, 0).title === "End 2 visits?");
-check("review row", reviewRowMeta(stale3[0]!, sf.get("s3")) === "Visit 3 · Tom and Ada · 214 knocks" && reviewRowMeta(tv("n", D, { team: [] }), undefined) === "Visit 3 · No one · no knocks");
+check("review row", reviewRowMeta(stale3[0]!, sf.get("s3")) === "Visit 3 · Tom and Ada · 214 knocks" && reviewRowMeta(tv("n", D, { team: [] }), undefined) === "Visit 3 · No one · no knocks synced");
 check("selection line", selectionLine(21, 21) === "All 21 selected" && selectionLine(3, 21) === "3 of 21 selected");
 
 const ev = endVisitConfirm(tv("w", D, { propName: "Whitechurch Lane - Hartcliffe" }), { kind: "close", worked: 312, total: 1682, countsForRotation: false });
@@ -467,6 +525,161 @@ const avRows = [
 const av = addVisitGroups(avRows, "2026-10-08");
 check("add visit: due first, archived out, ended-that-day still booked", av.due.map((i) => i.row.name).join() === "Due one,Ended that day" && av.due[1]?.booked === true && av.other.map((i) => i.row.name).join() === "Fresh,Booked", av.other.map((i) => i.row.name).join());
 check("add visit lines", addVisitLine(av.due[0]!, "2026-10-08") === "10 doors · visit 2 · last 1 Aug" && addVisitLine(av.other[1]!, "2026-10-08") === "Already booked on 8 Oct");
+
+// --- F4a: Calendar (A38-A46) ---
+
+const PA = "11111111-1111-4111-8111-111111111111";
+const PB = "22222222-2222-4222-8222-222222222222";
+const T7 = "2026-10-07";
+check("london day crosses midnight in BST", londonDay("2026-10-01T23:30:00Z") === "2026-10-02" && londonDay("2026-10-01T22:59:00Z") === "2026-10-01");
+check("london time, summer and winter", londonTime("2026-10-01T15:10:00Z") === "16:10" && londonTime("2026-12-01T15:10:00Z") === "15:10");
+check("month param", parseMonth("2026-13", T7) === "2026-10" && parseMonth("2026-02", T7) === "2026-02" && parseMonth(null, T7) === "2026-10");
+check("day param", parseDay("2026-02-30") === null && parseDay("2026-10-01") === "2026-10-01" && parseDay("x") === null);
+check("shift month", shiftMonth("2026-01", -1) === "2025-12" && shiftMonth("2026-12", 1) === "2027-01");
+check("month title", monthTitle("2026-10") === "October 2026");
+const oct = monthGrid("2026-10");
+check("grid: Monday first, 5 weeks for October 2026", oct.length === 5 && oct[0]![0]!.date === "2026-09-28" && oct[4]![6]!.date === "2026-11-01" && !oct[0]![0]!.inMonth && oct[0]![3]!.inMonth);
+check("grid: 6 weeks when needed (March 2026)", monthGrid("2026-03").length === 6);
+check("grid span", gridSpan("2026-10").from === "2026-09-28" && gridSpan("2026-10").to === "2026-11-01");
+check("outcome groups", outcomeKey("not_interested") === "refused" && outcomeKey("inaccessible") === "cantReach" && outcomeKey("no_opportunity") === "rented");
+
+const cv = (id: string, extra: Partial<CalendarVisit>): CalendarVisit => ({
+  id,
+  propId: PA,
+  propName: `Prop ${id}`,
+  visitNumber: 2,
+  workDate: "2026-10-01",
+  slot: "mid",
+  startedAt: null,
+  closedAt: null,
+  remaining: 100,
+  worked: null,
+  team: [{ id: "s", name: "Sam", left: false }],
+  ...extra,
+});
+const cVisits = [
+  cv("vA", { propName: "Whitechurch", closedAt: "x", startedAt: "s" }),
+  cv("vB", { propId: PB, propName: "REF - Speedwell", visitNumber: 5, workDate: "2026-09-30", slot: "early", closedAt: "x", startedAt: "s" }),
+  cv("vC", { propName: "TEST - dry run", workDate: "2026-10-04", slot: "late" }),
+  cv("vD", { workDate: "2026-10-09" }),
+  cv("vE", { workDate: "2026-10-03", closedAt: "x" }),
+  cv("vF", { workDate: "2026-10-05", startedAt: "2026-10-05T08:00:00Z" }),
+  cv("vG", { workDate: "2026-10-06", worked: 40 }),
+];
+const ck = (assignmentId: string, uprn: number, outcome: string, canvasserId: string, occurredAt: string) => ({ assignmentId, uprn, outcome, canvasserId, occurredAt });
+const cal = buildCalendar({
+  knocks: [
+    ck("vA", 1, "answered", "t", "2026-10-01T15:10:00Z"),
+    ck("vA", 2, "lead", "a", "2026-10-01T16:00:00Z"),
+    ck("vA", 3, "no_opportunity", "t", "2026-10-01T18:35:00Z"),
+    ck("vA", 4, "no_answer", "t", "2026-10-01T23:30:00Z"),
+    ck("vB", 9, "refused", "s", "2026-10-01T13:55:00Z"),
+    ck("vB", 8, "inaccessible", "s", "2026-10-01T16:40:00Z"),
+    ck("gone", 7, "answered", "s", "2026-10-01T12:00:00Z"),
+  ],
+  visits: cVisits,
+  leads: [
+    { assignmentId: "vA", occurredAt: "2026-10-01T16:00:00Z", status: "sale" },
+    { assignmentId: "vA", occurredAt: "2026-10-01T16:00:00Z", status: "pending" },
+  ],
+  names: new Map([
+    ["t", "Tom"],
+    ["a", "Ada"],
+    ["s", "Sam"],
+  ]),
+  today: T7,
+});
+const d1 = cal.get("2026-10-01") ?? [];
+check("a day lists its worked visits, earliest first", d1.map((e) => e.visit.id).join() === "vB,vA", d1.map((e) => e.visit.id).join());
+const eA = d1.find((e) => e.visit.id === "vA")!;
+check("worked visit figures", eA.kind === "worked" && eA.worked === 3 && eA.outcomes.contacts === 1 && eA.outcomes.leads === 1 && eA.outcomes.rented === 1);
+check("people and time on the doors", peopleLine(eA) === "Ada and Tom · 16:10–19:35" && peopleLine(eA, true) === "Ada and Tom · 16:10–19:35 on the doors");
+check("lead results", leadResultsLine(eA.leadResults) === "2 leads · 1 sale · 1 awaiting" && leadResultsLine({}) === "No leads" && leadResultRows(eA.leadResults).map((r) => r.label).join() === "Sale,Awaiting");
+const eB = d1.find((e) => e.visit.id === "vB")!;
+check("allocated for another day (A45)", allocatedNote(eB) === "Allocated for Wed 30 Sep" && allocatedNote(eA) === null);
+check("outcomes line", outcomesLine(eB.outcomes) === "2 other" && outcomesLine(eA.outcomes) === "1 contact · 1 lead · 1 rented");
+check("knocks after midnight land on the next day", (cal.get("2026-10-02") ?? []).map((e) => `${e.visit.id}:${e.worked}`).join() === "vA:1");
+check("day summary", daySummary(d1) === "2 worked · 5 doors · 1 lead" && daySummary(cal.get("2026-10-02")!) === "1 visit · 1 door · 0 leads", daySummary(d1));
+check("entry meta", entryMeta(eA.visit) === "Visit 2 · Mid slot" && entryMeta({ visitNumber: 1, slot: null }) === "Visit 1");
+const eC = cal.get("2026-10-04")![0]!;
+const nC = notWorkedCopy(eC);
+check("not worked: end only, never delete (owner 2026-10-08)", eC.kind === "not-worked" && nC.canEnd && nC.line === "Planned for Sam. No knocks have synced. Ending it keeps any that arrive late.");
+check("a visit knocked only outside the grid is not 'not worked'", !cal.has("2026-10-06") && cal.get("2026-10-05")![0]!.kind === "not-worked");
+check("planned and ended-empty kinds", cal.get("2026-10-09")![0]!.kind === "planned" && cal.get("2026-10-03")![0]!.kind === "ended" && daySummary(cal.get("2026-10-09")!) === "1 planned");
+check("a knock on an unknown visit is ignored", ![...cal.values()].flat().some((e) => e.visit.id === "gone"));
+const cell1 = dayCell(d1);
+check("cell: solid bars and doors", cell1.bars.length === 2 && cell1.bars.every((b) => b.solid) && cell1.doors === 5 && cell1.more === 0);
+check("cell: dashed for not worked, nothing for ended-empty", dayCell(cal.get("2026-10-04")).bars[0]?.solid === false && dayCell(cal.get("2026-10-03")).bars.length === 0 && dayCell(undefined).doors === 0);
+const mt = monthTotals(cal, "2026-10");
+check("month totals", mt.daysWorked === 2 && mt.doors === 6 && mt.leads === 1, JSON.stringify(mt));
+check("calendar links", calendarHref("2026-10", "2026-10-01") === "/admin/calendar?month=2026-10&day=2026-10-01" && calendarHref("2026-10") === "/admin/calendar?month=2026-10");
+check("open on map (A44)", openOnMapHref(eA) === `/admin/coverage?prop=${PA}&date=2026-10-01&visit=2&via=calendar`);
+check("swipe", swipeMonth(-80, 10) === 1 && swipeMonth(80, 10) === -1 && swipeMonth(30, 0) === 0 && swipeMonth(80, 70) === 0);
+
+// --- F4a: Coverage filters (A32, A44) ---
+
+const f1 = parseFilters({ prop: PA, date: "2026-10-01", visit: "2", via: "calendar" }, T7);
+check("filters from Calendar", f1.prop === PA && f1.from === "2026-10-01" && f1.to === "2026-10-01" && f1.visit === 2 && f1.via === "calendar");
+check("filters round-trip", filtersHref(f1, T7) === `/admin/coverage?prop=${PA}&date=2026-10-01&visit=2&via=calendar` && filterCount(f1, T7) === 3 && filterCountLine(f1, T7) === "3 filters");
+const THIRTY = { from: "2026-09-08", to: T7 };
+check(
+  "junk filters are dropped",
+  JSON.stringify(parseFilters({ prop: "x", from: "2026-02-30", visit: "0", outcome: "blue", slot: "dawn", who: "bob" }, T7)) === JSON.stringify({ ...NO_FILTERS, ...THIRTY }),
+);
+const fSwap = parseFilters({ from: "2026-10-05", to: "2026-10-01" }, T7);
+check("a backwards range is turned round", fSwap.from === "2026-10-01" && fSwap.to === "2026-10-05" && filtersHref(fSwap, T7) === "/admin/coverage?from=2026-10-01&to=2026-10-05");
+const fOpen = parseFilters({}, T7);
+check("Coverage opens on the last 30 days, not counted as a filter", fOpen.from === THIRTY.from && fOpen.to === T7 && filtersHref(fOpen, T7) === "/admin/coverage" && filterCountLine(fOpen, T7) === null && !periodIsFilter(fOpen, T7));
+const fAll = parseFilters({ period: "all" }, T7);
+check("all time is period=all", fAll.from === null && fAll.to === null && filtersHref(fAll, T7) === "/admin/coverage?period=all" && filterCount(fAll, T7) === 1);
+const fProp = parseFilters({ prop: PA }, T7);
+check("one prop opens on all time", fProp.from === null && filtersHref(fProp, T7) === `/admin/coverage?prop=${PA}` && filterCount(fProp, T7) === 1);
+check("removing the prop goes back to 30 days, picked days stay", withoutProp(fProp, T7).from === THIRTY.from && withoutProp(f1, T7).from === "2026-10-01" && withoutProp(f1, T7).prop === null);
+check("clear keeps the way back to Calendar", filtersHref(clearedFilters(f1, T7), T7) === "/admin/coverage?via=calendar");
+check(
+  "period labels",
+  periodLabel({ from: null, to: null }, T7) === "All time" &&
+    periodLabel({ from: T7, to: T7 }, T7) === "Today" &&
+    periodLabel(periodOf("7", T7), T7) === "Last 7 days" &&
+    periodLabel(periodOf("30", T7), T7) === "Last 30 days" &&
+    periodLabel({ from: "2026-10-01", to: "2026-10-01" }, T7) === "Thu 1 Oct" &&
+    periodLabel({ from: "2026-10-01", to: "2026-10-05" }, T7) === "1 Oct – 5 Oct" &&
+    periodLabel({ from: "2026-10-01", to: null }, T7) === "Since 1 Oct",
+);
+check("chips", outcomeChip(null) === "All outcomes" && outcomeChip("contact") === "Contacts" && slotChip("early") === "Early slot" && slotChip(null) === "All slots" && visitChip(null) === "All visits" && visitChip(3) === "Visit 3" && whoChip(null, new Map()) === "Everyone" && whoChip("t", new Map([["t", "Tom"]])) === "Tom");
+check("dot groups", outcomeGroup("answered") === "contact" && outcomeGroup("no_answer") === "notin" && outcomeGroup("callback") === "other");
+
+const fv: CoverageVisit[] = [
+  { id: "v1", propId: PA, visitNumber: 1, slot: "early" },
+  { id: "v2", propId: PA, visitNumber: 2, slot: "mid" },
+  { id: "v3", propId: PB, visitNumber: 1, slot: "early" },
+];
+const fr: CoverageRow[] = [
+  { assignmentId: "v1", uprn: 100, outcome: "answered", canvasserId: "t", occurredAt: "2026-09-10T10:00:00Z" },
+  { assignmentId: "v2", uprn: 100, outcome: "no_answer", canvasserId: "a", occurredAt: "2026-10-01T15:00:00Z" },
+  { assignmentId: "v2", uprn: 101, outcome: "answered", canvasserId: "a", occurredAt: "2026-10-01T16:00:00Z" },
+  { assignmentId: "v3", uprn: 200, outcome: "answered", canvasserId: "t", occurredAt: "2026-09-12T09:00:00Z" },
+];
+const allC = resolveDoors(fr, fv, NO_FILTERS);
+check("no filters: latest knock across visits paints the door", allC.worked.size === 3 && allC.worked.get(100)?.group === "notin" && allC.painted === allC.worked);
+const earlyC = resolveDoors(fr, fv, { ...NO_FILTERS, slot: "early", outcome: "contact" });
+check("early-slot contacts (A32)", earlyC.painted.size === 2 && earlyC.painted.get(100)?.assignmentId === "v1" && earlyC.painted.has(200));
+const dayC = resolveDoors(fr, fv, { ...NO_FILTERS, prop: PA, from: "2026-10-01", to: "2026-10-01" });
+check("one prop on one day", dayC.worked.size === 2 && dayC.worked.get(100)?.group === "notin" && dayC.worked.get(101)?.group === "contact");
+check("one canvasser", resolveDoors(fr, fv, { ...NO_FILTERS, who: "t" }).worked.size === 2);
+const figs4 = coverageFigures([100, 101, 102], allC, NO_FILTERS);
+check("figures: worked, contacts, not knocked", figs4.worked === 2 && figs4.contacts === 1 && figs4.leads === 0 && figs4.notKnocked === 1 && figs4.matched === null);
+const figsEarly = coverageFigures([100, 101, 102, 200], earlyC, { ...NO_FILTERS, slot: "early", outcome: "contact" });
+check("figures with an outcome filter", figsEarly.worked === 2 && figsEarly.matched === 2 && figsEarly.notKnocked === 2);
+check("painted by outcome", paintedOf(allC.worked, "contact").size === 2 && paintedOf(allC.worked, null) === allC.worked);
+check("matched label", matchedLabel({ outcome: "contact", slot: "early" }) === "Contacts, early" && matchedLabel({ outcome: "lead", slot: null }) === "Leads");
+check(
+  "scope line (frame 38)",
+  scopeLine({ ...NO_FILTERS, prop: PA, visit: 2, from: "2026-10-01", to: "2026-10-01" }, dayC.painted, new Map([["a", "Ada"]]), [100, 101]) ===
+    "Visit 2 · Thu 1 Oct · Ada · 16:00–17:00",
+);
+check("no scope line without a visit or day", scopeLine(NO_FILTERS, allC.painted, new Map(), [100]) === null);
+check("door popup words", outcomeWords("inaccessible") === "Can't reach" && knockWhen("2026-10-01T15:42:00Z") === "Thu 1 Oct, 16:42" && doorMeta(2, "X") === "Visit 2 · X" && doorMeta(null, "X") === "X");
 
 console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILED`);
 process.exit(failures === 0 ? 0 : 1);

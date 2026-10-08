@@ -236,8 +236,8 @@ export function attentionLine(stale: TodayVisit[], figures: Map<string, VisitFig
   const title = stale.length === 1 ? "1 past visit still open" : `${stale.length} past visits still open`;
   let detail: string;
   if (empty === 0) detail = stale.length === 1 ? "Review and end it." : "Review and end them.";
-  else if (empty === stale.length) detail = stale.length === 1 ? "It has no knocks. Review and delete it." : "None have knocks. Review and delete them.";
-  else detail = `${empty} ${empty === 1 ? "has" : "have"} no knocks. Review and end them.`;
+  else if (empty === stale.length) detail = stale.length === 1 ? "It has no knocks synced. Review and end it." : "None have knocks synced. Review and end them.";
+  else detail = `${empty} ${empty === 1 ? "has" : "have"} no knocks synced. Review and end them.`;
   return { title, detail };
 }
 
@@ -258,26 +258,33 @@ export function staleGroups(stale: TodayVisit[]): StaleGroup[] {
 }
 
 /**
- * A visit that has started is always ended, never deleted: its phones may
- * still hold knocks that have not synced, and deleting the visit would make
- * them fail. Only a visit that never started and has no knocks is deleted
+ * Owner 2026-10-08 (replaces the F3 "started" rule; nothing in the app
+ * records a start yet): once a visit's day has come it is ended, never
+ * deleted, even with no knocks on the server. Its phones may hold knocks
+ * that have not synced, and deleting the visit would make them fail. Only
+ * a visit whose day is still ahead, with no knocks, can be deleted
  * (`assignment_remove`'s own rule then agrees).
  */
-export function mustEnd(visit: Pick<TodayVisit, "startedAt">, figures: Pick<VisitFigures, "knocks"> | undefined | null): boolean {
-  return visit.startedAt !== null || (figures?.knocks ?? 0) > 0;
+export function mustEnd(
+  visit: Pick<TodayVisit, "startedAt" | "workDate">,
+  figures: Pick<VisitFigures, "knocks"> | undefined | null,
+  today: string,
+): boolean {
+  return visit.workDate <= today || visit.startedAt !== null || (figures?.knocks ?? 0) > 0;
 }
 
-/** What happens to each ticked visit: end (started or knocked) or delete. */
+/** What happens to each ticked visit: end (its day has come, or knocked) or delete. */
 export function splitReview(
   visits: TodayVisit[],
   selected: ReadonlySet<string>,
   figures: Map<string, VisitFigures>,
+  today: string,
 ): { end: TodayVisit[]; remove: TodayVisit[] } {
   const end: TodayVisit[] = [];
   const remove: TodayVisit[] = [];
   for (const visit of visits) {
     if (!selected.has(visit.id)) continue;
-    if (mustEnd(visit, figures.get(visit.id))) end.push(visit);
+    if (mustEnd(visit, figures.get(visit.id), today)) end.push(visit);
     else remove.push(visit);
   }
   return { end, remove };
@@ -328,9 +335,7 @@ export function reviewRowMeta(visit: TodayVisit, figures: VisitFigures | undefin
       ? knocks === 1
         ? "1 knock"
         : `${knocks.toLocaleString("en-GB")} knocks`
-      : visit.startedAt
-        ? "started, no knocks synced"
-        : "no knocks";
+      : "no knocks synced";
   return `Visit ${visit.visitNumber} · ${who} · ${what}`;
 }
 

@@ -522,3 +522,47 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given code was pasted exactly.
 - **Not done / deferred:** A browser. A phone. Did not commit. No database row. The 22 stale open visits are cleared by the owner on the review page during the phone check. Old allocate and dashboard components stay on disk until F6.
 - **Follow-ups:** The owner checks F3 as a whole (drawer, review of the stale visits, Add visit, visit sheet, live map, dark mode, desktop 1440).
+
+---
+
+### UI-10 Session F4a — Calendar and Coverage logic (pure); visits end once their day comes
+- **Date:** 2026-10-08
+- **Model:** Grok 4.7
+- **Built:** Pure Calendar logic (`lib/admin/calendar.ts`: month grid, day entries, totals, copy) and pure Coverage filter logic (`lib/admin/coverage-filters.ts`: URL, chips, which knock paints each door). `mustEnd(visit, figures, today)` is true once the visit's day has come, so the visit sheet, the past visits review and `splitReview` end it and never delete it. Nothing new renders yet.
+- **Owner decisions:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved (Figma page 40:289: phone 01, 02, 22, 34–38; desktop D1).
+  - OWNER — A38–A42: Calendar is the history: second in the drawer and rail; month grid, swipe between months, Monday first, one bar per prop per day with the doors knocked, today ringed, month totals on top. Tapping a day opens every visit that day.
+  - OWNER — A43: per visit: worked / left / contacts / leads + outcome bar; team and time on the doors; Outcomes and Lead results (read-only, set by the office) expand. A one-visit day opens fully expanded with Open on map pinned.
+  - OWNER — A44: Open on map → Coverage filtered to that prop, day and visit (removable chips); "Calendar" and Back return to the same month with the same day open.
+  - OWNER — A45: a visit appears on the day its knocks happened; if that differs from the allocated date the card says "Allocated for …".
+  - OWNER — A32 / A33: Coverage filters: days, visit number, canvasser, outcome, and contacts by slot (Early / Mid / Late); legend in Map style v1 outcome colours.
+  - OWNER — 2026-10-08: no migration in F4 (the old F4d / 031 is dropped). Coverage gets a door popup (address label, latest outcome, when, visit; no names, no lead details). BUILD-LOG entries before UI-10 now live in `docs/BUILD-LOG-archive.md`.
+  - OWNER — 2026-10-08: admin gets its Light / Dark / System choice now, in the drawer and rail (the same setting as the field app's You tab; A28, A51).
+  - OWNER — 2026-10-08, amends A27 and A46: once a visit's day has come it is ended, never deleted, even with no knocks on the server. Only a visit whose day is still ahead, with no knocks, can be deleted. This applies to Today's visit sheet, the past visits review and Calendar.
+- **Claude decisions:**
+  - CLAUDE — Figma frames (phone section 89:295): 01 Today (calendar icon, Past days row) 89:308, 02 drawer 89:690, 22 Coverage 97:1436, 34 Calendar 108:2039, 35 one-visit day 109:2055, 36 busy day 109:2358, 37 not worked 109:2690, 38 Coverage from Calendar 110:2139.
+  - CLAUDE — No migration, no new RPC. Calendar and Coverage read `v_latest_knock` a page of 1,000 rows at a time, plus assignments, members, profiles, territories, `v_prop_completion`, leads (status only) and `coverage_map_payload`. London days come from `Intl` (Europe/London).
+  - CLAUDE — Calendar day entries are built on the server (`buildCalendar`); Coverage door colours are resolved on the server (`resolveDoors`). No knock row is sent to the browser beyond one per door.
+  - CLAUDE — A visit knocked only on days outside the grid (`v_prop_completion.worked > 0`) is never shown as "not worked".
+  - CLAUDE — Coverage opens on the last 30 days when no prop is picked, and on all time for one prop. Neither default counts as a filter. "All time" for everything is `period=all`.
+  - CLAUDE — Coverage URL: `prop`, `date` or `from`/`to` or `period=all`, `visit`, `slot`, `outcome`, `who`, `via=calendar`. Clear keeps the way back to Calendar. An archived or unknown prop still shows its chip.
+  - CLAUDE — Door popup: tap within 12px of a dot; a ring marks it; shows label, prop, visit, outcome and London time of the knock that paints it.
+  - CLAUDE — Desktop: Calendar cells list prop names; the day opens as the right-hand panel. Coverage's sheet is the floating left panel; chips run along the top.
+  - CLAUDE — `not_interested` knocks paint as "other" on the admin maps.
+  - CLAUDE — This session is the pure logic only, plus `mustEnd` true once `workDate <= today`. Nothing new renders yet.
+- **Acceptance:**
+  - EDIT 1 DONE. New `lib/admin/calendar.ts` pasted as given.
+  - EDIT 2 DONE. New `lib/admin/coverage-filters.ts` pasted as given.
+  - EDIT 3 DONE. `lib/admin/today.ts`: attention copy says "end" and "no knocks synced"; `mustEnd` and `splitReview` take `today`; an empty review row says "no knocks synced". Each find block occurred once.
+  - EDIT 4 DONE. `components/admin/today/visit-panel.tsx`: delete only while the day is still ahead; from that day the sheet ends the visit. Each find block occurred once.
+  - EDIT 5 DONE. `components/admin/today/past-visits-review.tsx`: takes `today` and ends a visit once its day has come. Each find block occurred once.
+  - EDIT 6 DONE. `app/(admin)/admin/today/review/page.tsx` passes `today`. The find block occurred once.
+  - EDIT 7 DONE. `scripts/verify-ui-10-admin.ts`: F4a checks, and the F3 end/delete checks follow the 2026-10-08 rule. Each find block occurred once.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on the seven session files: **PASS** — exit 0.
+  - `npm run verify:ui10`: **PASS** — exit 0. Printed `ALL PASS`.
+  - `git grep -n "navigator.geolocation" -- components/admin lib/admin`: **PASS** — printed nothing (exit 1).
+  - Phone: **NOT VERIFIED**. None for this session (the owner checks F4 as a whole after F4d).
+- **Deviations from brief:** none. The given code was pasted exactly.
+- **Not done / deferred:** A browser. A phone. Did not commit. No database row. No migration. Calendar and Coverage screens are F4c and F4d.
+- **Follow-ups:** The owner checks F4 as a whole after F4d.

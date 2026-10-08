@@ -16,5 +16,5 @@ export default async function PastVisitsPage() {
   if (!loaded.ok) return <TodayFailed today={today} message={loaded.message} />;
   const stale = staleVisits(loaded.visits, today);
   const figures = Object.fromEntries(stale.flatMap((visit) => (loaded.figures[visit.id] ? [[visit.id, loaded.figures[visit.id]!]] : [])));
-  return <PastVisitsReview visits={stale} figures={figures} />;
+  return <PastVisitsReview visits={stale} figures={figures} today={today} />;
 }

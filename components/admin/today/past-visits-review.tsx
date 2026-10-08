@@ -36,12 +36,21 @@ function Tick({ on }: { on: boolean }) {
 
 /**
  * UI-10 F3d (owner A27; frames 18-19). Every open visit dated before today,
- * by date, all ticked. Untick any to keep. One button ends the started or
- * knocked ones (`assignment_close_early` / `assignment_remove`) and deletes
- * the ones that never started, one visit at a time — the same rule as the
- * visit sheet. A failure stops nothing: it is listed and stays open.
+ * by date, all ticked. Untick any to keep. One button closes them one at a
+ * time with the visit sheet's rule (`mustEnd`): a visit whose day has come
+ * is ended (`assignment_close_early`), never deleted, so every past visit
+ * here is ended (owner 2026-10-08). A failure stops nothing: it is listed
+ * and stays open.
  */
-export function PastVisitsReview({ visits, figures }: { visits: TodayVisit[]; figures: Record<string, VisitFigures> }) {
+export function PastVisitsReview({
+  visits,
+  figures,
+  today,
+}: {
+  visits: TodayVisit[];
+  figures: Record<string, VisitFigures>;
+  today: string;
+}) {
   const router = useRouter();
   const figureMap = useMemo(() => new Map(Object.entries(figures)), [figures]);
   const [selected, setSelected] = useState<Set<string>>(() => new Set(visits.map((visit) => visit.id)));
@@ -50,7 +59,7 @@ export function PastVisitsReview({ visits, figures }: { visits: TodayVisit[]; fi
   const [failures, setFailures] = useState<Failure[]>([]);
 
   const groups = staleGroups(visits);
-  const { end, remove } = splitReview(visits, selected, figureMap);
+  const { end, remove } = splitReview(visits, selected, figureMap, today);
   const all = selected.size === visits.length && visits.length > 0;
   const confirm = reviewConfirm(end.length, remove.length);
   const working = progress !== null;
@@ -70,8 +79,9 @@ export function PastVisitsReview({ visits, figures }: { visits: TodayVisit[]; fi
     setFailures([]);
     setProgress({ done: 0, total: targets.length });
     for (const [index, visit] of targets.entries()) {
-      // Started visits are ended, never deleted (their phones may hold unsynced knocks).
-      const result = await (visit.startedAt ? closeVisitAction(visit.id) : removeAssignmentAction(visit.id)).catch(() => null);
+      // Ended, never deleted, once the day has come (phones may hold unsynced knocks).
+      const ends = mustEnd(visit, figureMap.get(visit.id), today);
+      const result = await (ends ? closeVisitAction(visit.id) : removeAssignmentAction(visit.id)).catch(() => null);
       if (!result || !result.ok) failed.push({ visit, message: result?.message ?? "That request did not complete." });
       setProgress({ done: index + 1, total: targets.length });
     }
@@ -144,7 +154,7 @@ export function PastVisitsReview({ visits, figures }: { visits: TodayVisit[]; fi
                 <ul>
                   {group.visits.map((visit) => {
                     const on = selected.has(visit.id);
-                    const ends = mustEnd(visit, figureMap.get(visit.id));
+                    const ends = mustEnd(visit, figureMap.get(visit.id), today);
                     return (
                       <li key={visit.id} className="border-b border-line last:border-b-0">
                         <button

@@ -41,9 +41,10 @@ export type VisitChange =
 /**
  * UI-10 F3c (owner A26; frames 14, 33, D1). One visit: its map and route,
  * the numbers, the team (add a person, remove one with Undo), and End visit.
- * Delete is offered only for a visit that never started and has no knocks;
- * a started visit is always ended (`assignment_close_early`), because its
- * phones may still hold knocks that have not synced. Phone: a sheet over
+ * Delete is offered only for a visit whose day is still ahead and has no
+ * knocks; from its day on a visit is always ended (`assignment_close_early`),
+ * because its phones may still hold knocks that have not synced (owner
+ * 2026-10-08). Phone: a sheet over
  * Today. Desktop: the right-hand panel. `notice` (the undo toast) sits above
  * the footer so it never covers End visit and stays inside the sheet.
  */
@@ -113,12 +114,12 @@ export function VisitPanel({
       return null;
     });
 
-  const ending = mustEnd(visit, figures);
+  const ending = mustEnd(visit, figures, today);
 
   const askEnd = () =>
     run("preview", async () => {
-      if (visit.startedAt && (figures?.knocks ?? 0) === 0) {
-        // Started, nothing synced yet: always an end, never a delete.
+      if (ending && (figures?.knocks ?? 0) === 0) {
+        // Its day has come but nothing has synced: always an end, never a delete.
         setConfirm(endVisitConfirm(visit, { kind: "close", worked: 0, total: figures ? figures.worked + figures.remaining : 0, countsForRotation: false }));
         return null;
       }
@@ -144,7 +145,7 @@ export function VisitPanel({
   const end = () =>
     run("end", async () => {
       let what: "deleted" | "ended" = "ended";
-      if (visit.startedAt) {
+      if (ending) {
         const result = await closeVisitAction(visit.id);
         setConfirm(null);
         if (!result.ok) return result.message;

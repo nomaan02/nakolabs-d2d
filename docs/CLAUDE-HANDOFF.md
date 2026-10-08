@@ -2,20 +2,19 @@
 
 ## Current state
 
-- Last updated: 2026-10-08 (UI-10 Session F3d). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Today is in the nav at `/admin/today` and is dark-ready, including `/admin/today/add` and `/admin/today/review`. The temporary Allocate item is gone. `/admin` redirects to Today. `/admin/allocate` redirects to Today; `?prop=` opens Add visit with that prop. `/admin/dashboard` stays reachable by URL and stays light.
-- Add visit is `/admin/today/add?date=…&prop=…`: date, Due props first, then team, then Allocate (`allocatePropAction`, then `generateRouteAction`). A route failure does not undo the visit. A prop already booked that date is greyed.
-- Past visits review is `/admin/today/review`. Open visits dated before today start ticked. One button ends a started visit and deletes a visit that never started. Failures stay listed and ticked.
-- Prop detail "Open visit" opens that visit's sheet (`visitHref(visitId)`). With no today or planned visit it goes to Today. Props URL sync uses `replaceState(null, …)`.
-- UI-10 F3d tracker Status is DONE. Date 2026-10-08. Result: `Add visit (date → prop → team → Allocate), past visits review (end/delete), nav switch, /admin and /admin/allocate → Today, Open visit → visit sheet.` Commit column still `—`.
-- `npx tsc --noEmit` exit 0. eslint on the nine session files exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`).
+- Last updated: 2026-10-08 (UI-10 Session F4a). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Calendar and Coverage logic is pure, in `lib/admin/calendar.ts` and `lib/admin/coverage-filters.ts`. Nothing new renders yet. The Calendar and Coverage pages are still the old ones.
+- Once a visit's day has come it is ended, never deleted (`mustEnd(visit, figures, today)`), even with no knocks on the server. Only a visit whose day is still ahead, with no knocks, can be deleted. Callers: the visit sheet, the past visits review and its page, and `splitReview`.
+- Today stays in the nav at `/admin/today` and is dark-ready, including `/admin/today/add` and `/admin/today/review`. `/admin` redirects to Today. `/admin/allocate` redirects to Today; `?prop=` opens Add visit with that prop. `/admin/dashboard` stays reachable by URL and stays light.
+- UI-10 F4a tracker Status is DONE. Date 2026-10-08. Result: `Calendar and Coverage pure logic; visits end, never delete, once their day comes; verify:ui10 checks.` Commit column still `—`.
+- `npx tsc --noEmit` exit 0. eslint on the seven session files exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`).
 - `git grep -n "navigator.geolocation" -- components/admin lib/admin` printed nothing (exit 1).
-- `/admin/props` and `/admin/today` are dark-ready. `/admin/dashboard` and `/admin/allocate` stay light. Old allocate and dashboard components stay on disk until F6.
+- `/admin/props` and `/admin/today` are dark-ready. Calendar and Coverage are not rebuilt yet, so they stay light.
 - `lib/sync/queue.ts` was not edited. Field writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. No migration. No new RPC. `lib/supabase/types.ts` was not edited. Admin never reads GPS.
-- No database change. No database row. No `client_event_id`. The 22 stale open visits are cleared by the owner on the review page during the phone check.
+- No database change. No database row. No `client_event_id`.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
-- External settings: none. No browser. No dev server. Phone checks for this session are NOT VERIFIED. The owner checks F3 as a whole.
+- External settings: none. No browser. No dev server. Phone checks for this session are NOT VERIFIED. The owner checks F4 as a whole after F4d.
 
 ## Log
 
@@ -2267,5 +2266,42 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Invariants:** No `navigator.geolocation` in `components/admin` or `lib/admin` (`git grep` printed nothing, exit 1). No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. No database row. No migration. No GPS or coordinates.
 - **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on the nine session files. `npm run verify:ui10` exit 0 (`ALL PASS`). `git grep -n "navigator.geolocation" -- components/admin lib/admin` printed nothing (exit 1).
 - **Not verified:** A browser. A phone. The owner checks F3 as a whole.
+- **External settings:** none
+- **Open questions for Claude:** none
+
+### 2026-10-08 — UI-10 Session F4a (uncommitted)
+
+- **Item:** UI-10
+- **What changed:** Calendar and Coverage now have pure logic: the month grid, day entries, totals and copy, and Coverage's filters, URL, door colours and copy. A visit whose day has come is ended, never deleted, even when no knocks have synced. The visit sheet, the past visits review and its page follow that rule. Nothing new renders yet.
+- **Files:**
+  - Changed: `lib/admin/today.ts` (`mustEnd` and `splitReview` take `today`; review copy says end / no knocks synced), `components/admin/today/visit-panel.tsx`, `components/admin/today/past-visits-review.tsx`, `app/(admin)/admin/today/review/page.tsx` (passes `today`), `scripts/verify-ui-10-admin.ts` (F4a checks and the new end rule), `docs/FIELD-TEST-BUILD-PLAN.md` (UI-10 F4a Status DONE and Result), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `lib/admin/calendar.ts`, `lib/admin/coverage-filters.ts`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. No new RPC. `lib/admin/today.ts` was edited for the end/delete rule only.
+- **Decided by:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved (Figma page 40:289: phone 01, 02, 22, 34–38; desktop D1).
+  - OWNER — A38–A42: Calendar is the history: second in the drawer and rail; month grid, swipe between months, Monday first, one bar per prop per day with the doors knocked, today ringed, month totals on top. Tapping a day opens every visit that day.
+  - OWNER — A43: per visit: worked / left / contacts / leads + outcome bar; team and time on the doors; Outcomes and Lead results (read-only, set by the office) expand. A one-visit day opens fully expanded with Open on map pinned.
+  - OWNER — A44: Open on map → Coverage filtered to that prop, day and visit (removable chips); "Calendar" and Back return to the same month with the same day open.
+  - OWNER — A45: a visit appears on the day its knocks happened; if that differs from the allocated date the card says "Allocated for …".
+  - OWNER — A32 / A33: Coverage filters: days, visit number, canvasser, outcome, and contacts by slot (Early / Mid / Late); legend in Map style v1 outcome colours.
+  - OWNER — 2026-10-08: no migration in F4 (the old F4d / 031 is dropped). Coverage gets a door popup (address label, latest outcome, when, visit; no names, no lead details). BUILD-LOG entries before UI-10 now live in `docs/BUILD-LOG-archive.md`.
+  - OWNER — 2026-10-08: admin gets its Light / Dark / System choice now, in the drawer and rail (the same setting as the field app's You tab; A28, A51).
+  - OWNER — 2026-10-08, amends A27 and A46: once a visit's day has come it is ended, never deleted, even with no knocks on the server. Only a visit whose day is still ahead, with no knocks, can be deleted. This applies to Today's visit sheet, the past visits review and Calendar.
+  - CLAUDE — Figma frames (phone section 89:295): 01 Today (calendar icon, Past days row) 89:308, 02 drawer 89:690, 22 Coverage 97:1436, 34 Calendar 108:2039, 35 one-visit day 109:2055, 36 busy day 109:2358, 37 not worked 109:2690, 38 Coverage from Calendar 110:2139.
+  - CLAUDE — No migration, no new RPC. Rows are `v_latest_knock` (latest outcome per door per visit), read 1,000 at a time and de-duplicated. London days come from `Intl` (Europe/London).
+  - CLAUDE — `buildCalendar` and `resolveDoors` run on the server. No knock row reaches the browser beyond one per door.
+  - CLAUDE — A visit knocked only outside the grid is never "not worked".
+  - CLAUDE — Coverage opens on the last 30 days with no prop, and on all time for one prop. Neither counts as a filter. `period=all` is all time.
+  - CLAUDE — Coverage URL holds `prop`, `date` or `from`/`to` or `period=all`, `visit`, `slot`, `outcome`, `who`, `via=calendar`. Clear keeps the way back. An archived or unknown prop still shows its chip.
+  - CLAUDE — Door popup: within 12px of a dot, with a ring. Label, prop, visit, outcome, London time. No names, no lead details.
+  - CLAUDE — Desktop: Calendar day is the right-hand panel. Coverage's sheet is the floating left panel; chips along the top.
+  - CLAUDE — `not_interested` paints as "other".
+  - CLAUDE — This session is pure logic plus the end rule. Nothing new renders yet.
+- **Deviations from plan or brief:** none. The given code was pasted exactly.
+- **Invariants:** No `navigator.geolocation` in `components/admin` or `lib/admin` (`git grep` printed nothing, exit 1). No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. No database row. No migration. No GPS or coordinates.
+- **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on the seven session files. `npm run verify:ui10` exit 0 (`ALL PASS`). `git grep -n "navigator.geolocation" -- components/admin lib/admin` printed nothing (exit 1).
+- **Not verified:** A browser. A phone. None for this session (the owner checks F4 as a whole after F4d).
 - **External settings:** none
 - **Open questions for Claude:** none
