@@ -125,10 +125,10 @@
 | UI-10 F3b | Today data loaders, last knocks, end-visit action | DONE | 2026-10-08 | Today data loader, last-knock loader, closeVisitAction, LiveRow.assignmentId. | 2795e74 |
 | UI-10 F3c | `/admin/today`: schedule, visit sheet, live map | DONE | 2026-10-08 | `/admin/today: schedule, needs attention row, numbers, visit sheet (team, route, end/delete), live map.` | 953c735 |
 | UI-10 F3d | Add visit, past visits review; nav switch; `/admin` + `/admin/allocate` → Today | DONE | 2026-10-08 | Phone check passed 2026-10-08. `Add visit (date → prop → team → Allocate), past visits review (end/delete), nav switch, /admin and /admin/allocate → Today, Open visit → visit sheet.` | 11bfa01 |
-| UI-10 F4a | Calendar + Coverage logic (pure); visits end once their day comes; verify:ui10 | DONE | 2026-10-08 | Calendar and Coverage pure logic; visits end, never delete, once their day comes; verify:ui10 checks. | — |
-| UI-10 F4b | Calendar + Coverage data loaders | DONE | 2026-10-08 | readAll paging, Calendar month loader, Coverage loader (no migration). | — |
-| UI-10 F4c | `/admin/calendar`; Calendar in nav; Appearance; Today → Calendar | DONE | 2026-10-08 | `/admin/calendar (month grid, swipe, day panel, End for unworked visits, Open on map), Calendar in nav, Appearance control, Today → Calendar.` | — |
-| UI-10 F4d | Coverage rebuilt: map, filters, door popup | DONE | 2026-10-08 | Coverage rebuilt: full-screen map, filter chips (days, visit, slot, outcome, person, prop), door popup, legend, dark-ready. | — |
+| UI-10 F4a | Calendar + Coverage logic (pure); visits end once their day comes; verify:ui10 | DONE | 2026-10-08 | Calendar and Coverage pure logic; visits end, never delete, once their day comes; verify:ui10 checks. | b77bfca |
+| UI-10 F4b | Calendar + Coverage data loaders | DONE | 2026-10-08 | readAll paging, Calendar month loader, Coverage loader (no migration). | 31f0dcd |
+| UI-10 F4c | `/admin/calendar`; Calendar in nav; Appearance; Today → Calendar | DONE | 2026-10-08 | `/admin/calendar (month grid, swipe, day panel, End for unworked visits, Open on map), Calendar in nav, Appearance control, Today → Calendar.` | 9c21ad9 |
+| UI-10 F4d | Coverage rebuilt: map, filters, door popup | DONE | 2026-10-08 | Phone check passed 2026-10-08. Coverage rebuilt: full-screen map, filter chips (days, visit, slot, outcome, person, prop), door popup, legend, dark-ready. | b06245d |
 | UI-10 F5 | Team, Leads, Settings, Insights (F5a–F5c; F5c migration 032, human) | TODO | | | — |
 | UI-10 F6 | Admin into /field + delete old routes (human) | TODO | | | — |
 
