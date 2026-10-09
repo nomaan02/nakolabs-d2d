@@ -134,7 +134,7 @@
 | UI-10 F5c | `/admin/team` + canvasser profile; Team in nav | DONE | 2026-10-09 | `/admin/team (period chips, sort, cards) and /admin/team/<id> profile; Team in nav.` | — |
 | UI-10 F5d | `/admin/leads` (read-only) + `/admin/insights`; dashboard → Insights | DONE | 2026-10-09 | `/admin/leads (period + status chips, read-only) and /admin/insights (charts); /admin/dashboard → Insights.` | — |
 | UI-10 F5e | `/admin/settings` rebuilt; `/auth/confirm` + `/set-password`; `/signup` removed | DONE | 2026-10-09 | `/admin/settings rebuilt (threshold and logging sheets, Appearance, accounts list, data status); /auth/confirm + /set-password; /signup removed.` | — |
-| UI-10 F5f | human: migration 029 `admin_set_canvasser_active`; account switches; invite by email | TODO | | | — |
+| UI-10 F5f | human: migration 029 `admin_set_canvasser_active`; account switches; invite by email | DONE | 2026-10-09 | Migration 029 admin_set_canvasser_active applied, types regenerated; Settings switches accounts on/off and invites by email (service role, server only). | — |
 | UI-10 F6 | Admin into /field + delete old routes (human) | TODO | | | — |
 
 ---

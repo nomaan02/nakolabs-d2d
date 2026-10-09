@@ -1385,6 +1385,10 @@ export type Database = {
           territory_name: string
         }[]
       }
+      admin_set_canvasser_active: {
+        Args: { p_active: boolean; p_profile_id: string }
+        Returns: boolean
+      }
       allocate_prop: {
         Args: {
           canvasser_ids: string[]

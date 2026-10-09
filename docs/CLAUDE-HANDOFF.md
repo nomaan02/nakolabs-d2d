@@ -2,8 +2,9 @@
 
 ## Current state
 
-- Last updated: 2026-10-09 (UI-10 Session F5e). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- `/admin/settings` is rebuilt (Settings, frames 23 and dark 32). Rotation threshold and Logging default each open a sheet. Appearance is the shared Light / Dark / System choice. Canvasser accounts are listed only. Data status is read-only. The footer shows `VERCEL_GIT_COMMIT_SHA` when there is one. Dark-ready. Switch on/off and Invite are F5f (human, migration 029).
+- Last updated: 2026-10-09 (UI-10 Session F5f). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Migration 029 `admin_set_canvasser_active` is applied. Admin only. It sets `profiles.active` for a canvasser and returns the new value. Admin and office accounts are refused. `profiles` still has no UPDATE policy. `lib/supabase/types.ts` was regenerated; the only diff is that function.
+- `/admin/settings` switches canvasser accounts on and off. Off asks first (named confirm, Cancel focused). On is immediate. Invite canvasser opens the first-name and email sheet. The invite uses the service-role client in `lib/supabase/admin.ts`, server only, after the caller is checked as an active admin. SMTP was not changed.
 - `/signup` redirects to `/login`. The `signUp` action is gone. `setPassword` saves a password of 8 or more characters. Sign in says "No account? Ask your manager for an invite." A bad invite link shows "That link has expired or was already used."
 - `/auth/confirm` takes `token_hash` and `type` of `invite` or `recovery`, verifies the token, and opens `/set-password`. Anything else goes to `/login?error=link`. No `next` parameter.
 - `/admin/leads` stays the Leads page (List, frame 21). Period chips, status chips, read-only rows, 50 then Show more.
@@ -13,16 +14,17 @@
 - Old `components/admin/rotation-settings.tsx` and `logging-default-setting.tsx` stay on disk, unused, until F6.
 - Coverage, Calendar and Today are unchanged this session and stay dark-ready.
 - Once a visit's day has come it is ended, never deleted. Only a visit whose day is still ahead, with no knocks, can be deleted.
-- UI-10 F5e tracker Status is DONE. Date 2026-10-09. Result: `/admin/settings rebuilt (threshold and logging sheets, Appearance, accounts list, data status); /auth/confirm + /set-password; /signup removed.` Commit column still `—`. F5a–F5d remain DONE. F5f is still TODO.
-- `npx tsc --noEmit` exit 0. eslint on the eleven session files exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`), including `Settings is dark-ready (F5e)`.
-- `git grep -n "signUp\|/signup" -- app lib components` printed `lib/admin/settings.ts:3` and `lib/auth/roles.ts:28`. It did not print `app/(auth)/signup/page.tsx`. The pasted signup page has neither string. `lib/admin/settings.ts` is outside this session's allow list and was not edited.
+- UI-10 F5f tracker Status is DONE. Date 2026-10-09. Result: `Migration 029 admin_set_canvasser_active applied, types regenerated; Settings switches accounts on/off and invites by email (service role, server only).` Commit column still `—`. F5a–F5e remain DONE. F6 is still TODO.
+- `npx tsc --noEmit` exit 0. eslint on the five session files exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`).
+- `git grep --untracked` for `SERVICE_ROLE` and `createServiceClient` under `app`, `components` and `lib` printed `app/health/route.ts`, `lib/supabase/admin.ts` and `lib/admin/accounts.ts` only. Plain `git grep` omitted the two new files because they are untracked.
+- Function check: one row, `prosecdef` true, `search_path=""`. Execute grants: `authenticated`, `postgres`, `service_role`. No `anon`. No `PUBLIC`. `profiles` UPDATE policies: 0.
 - Dark-ready: `/admin/props`, `/admin/today`, `/admin/calendar`, `/admin/coverage`, `/admin/team`, `/admin/leads`, `/admin/insights`, `/admin/settings`.
-- `lib/sync/queue.ts` was not edited. Field writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. `lib/supabase/middleware.ts` was not edited. No migration. No new RPC. `lib/supabase/types.ts` was not edited. Admin never reads GPS. No lead-status control in admin. No service role.
-- No database change. No database row. No `client_event_id`.
+- `lib/sync/queue.ts` was not edited. Field writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/field/*` were not edited. `lib/supabase/admin.ts` and `lib/supabase/types.ts` were. `lib/supabase/middleware.ts` was not edited. Admin never reads GPS. No lead-status control in admin.
+- No table row was written. No `client_event_id`. The only database change is function `admin_set_canvasser_active`.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
-- No magic link this session. Password, profile and role were not changed.
+- No magic link this session. Password, profile and role were not changed. No account was switched and no invite was sent.
 - Middleware still sends an inactive signed-in user from `/set-password` to `/account-pending`. That was not changed (out of the allow list).
-- External settings: none. No browser. No dev server. Phone checks for this session are NOT VERIFIED. The owner checks F5 as a whole after F5f.
+- External settings: none. No browser. No dev server. Phone checks for this session are NOT VERIFIED. The owner checks F5 as a whole.
 
 ## Log
 
@@ -2613,3 +2615,43 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. A phone. None for this session (the owner checks F5 as a whole after F5f).
 - **External settings:** none
 - **Open questions for Claude:** Middleware sends an inactive signed-in user from `/set-password` to `/account-pending` before the form. `isAuthPath` is still only `/login` and `/signup`. This session was told not to edit `lib/supabase/middleware.ts`. F5f invites need the new person to be able to open `/set-password`.
+
+### 2026-10-09 — UI-10 Session F5f (uncommitted)
+
+- **Item:** UI-10
+- **What changed:** Migration 029 adds `admin_set_canvasser_active`. Settings can switch a canvasser on or off, and invite a canvasser by email. The invite uses the service-role client, server only, after an active-admin check. Types were regenerated. The only types diff is the new function.
+- **Files:**
+  - Changed: `lib/supabase/types.ts` (regenerated; only `admin_set_canvasser_active` added), `components/admin/settings/settings-screen.tsx` (switches, invite button, confirm), `docs/FIELD-TEST-BUILD-PLAN.md` (UI-10 F5f Status DONE and Result), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `supabase/migrations/029_admin_canvasser_accounts.sql`, `lib/supabase/admin.ts`, `lib/admin/accounts.ts`, `components/admin/settings/invite-sheet.tsx`
+  - Deleted: none
+- **Database:** 029 `029_admin_canvasser_accounts.sql`. Function `admin_set_canvasser_active(uuid, boolean)` returns boolean. SECURITY DEFINER, `search_path` empty, admin only, canvasser accounts only. No table, column, view or policy change. `profiles` UPDATE policies stay 0. Applied through the Supabase MCP. Execute grants: `authenticated`, `postgres`, `service_role`. No `anon`. No `PUBLIC`.
+- **Shared modules touched:** `lib/supabase/admin.ts` (new service-role client, server only, invite only) and `lib/supabase/types.ts` (regenerated after 029). `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/middleware.ts` were not edited.
+- **Decided by:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved (Figma page 40:289: phone 02, 20, 21, 23, 24, dark 32).
+  - OWNER — A9 (2026-10-01): per-canvasser numbers (doors, contacts, leads, contact → lead) as an admin-only view. Never in /field.
+  - OWNER — A34 (2026-10-06): Team period chips This week (default) / Last 4 weeks / All time.
+  - OWNER — A35 (2026-10-06): Settings = visit threshold, logging default, data status (read-only), canvasser accounts (list, switch on/off, invite by email), Appearance.
+  - OWNER — A48 (2026-10-06): Insights = the old dashboard panels restyled, charts not tables. A50: `/admin/dashboard` → Insights. A51: one Light / Dark / System choice shared with the field app.
+  - OWNER — 2026-10-09: Team and Insights numbers are computed without a migration (as F4 did). Canvasser accounts are in F5, as the last session, human-gated.
+  - OWNER — 2026-10-09: Insights keeps doors per prop per week, answer rate by slot, lead outcomes, prop completion and stale props. "Live now" is dropped (it is on Today).
+  - OWNER — 2026-10-09: order Team + Leads, then Settings + Insights. Invites are emailed through the owner's own SMTP (set in the Supabase dashboard). `/signup` is removed: invite only.
+  - OWNER — 2026-10-09: tapping a canvasser opens a full profile: period numbers, outcome breakdown, overall and recent conversions, recent leads, days and doors. Leads gets period chips like Team.
+  - OWNER — 2026-10-09 (this session): gate human. Granted: apply migration 029 through the Supabase MCP and regenerate `lib/supabase/types.ts` through the Supabase MCP. No other database write.
+  - CLAUDE — Figma frames (phone section 89:295): 02 drawer 89:690, 20 Team 97:1234, 21 Leads 97:1353, 23 Settings 98:1324, 24 Invite 98:1442, 32 dark Settings 99:3855. Insights and the canvasser profile have no frame; they use the same kit.
+  - CLAUDE — Page patterns: Team = Analytics; canvasser profile = Detail (`/admin/team/<id>`); Leads = List; Insights = Dashboard (glance, no filters); Settings = Settings.
+  - CLAUDE — No migration until F5f. Knocks are `v_latest_knock` rows (latest outcome per door per visit), read 1,000 at a time and de-duplicated; a door belongs to whoever logged its latest outcome. Days are London days; queries are a day wider each side and bucketed in code. Everything is reduced on the server; only figures and short lists reach the browser.
+  - CLAUDE — Numbers: Contacts = bookable answers only (`answered`). Contact → lead = leads ÷ (contacts + leads): a lead was a contact before it was booked, so the rate never passes 100%. Lead → sale = sales ÷ leads the office has settled (not awaiting or re-app). Doors answered (the broad rule) stays second.
+  - CLAUDE — Periods: This week = Monday to Sunday (London); Last 4 weeks = the 28 days up to today; All time. `?period=` is a link (the server reads it); `?sort=` (Team) and `?status=` (Leads) are kept with `history.replaceState(null, …)`.
+  - CLAUDE — Team lists every active canvasser plus anyone else who knocked in the period. The profile shows the period against all time, the outcome breakdown, the last 10 leads, 14 days (each opens that day on Calendar) and 20 doors. Doors are address labels (`v_door_label`) or "UPRN n"; people are first names; lead statuses are the office's, read-only.
+  - CLAUDE — Leads: rows show the door, prop, first name and knock time with the office status as a mark (ring = still with the office, dot = settled) and its word. 50 rows, then Show more. No status control anywhere in admin.
+  - CLAUDE — Insights: `admin_dashboard` (unchanged) plus every lead's status (all eight). Single-series bars are neutral ink; colour only for lead marks; every chart has its numbers as text. Stale props open on Props.
+  - CLAUDE — Migration 029 adds one function, `admin_set_canvasser_active`. SECURITY DEFINER, `search_path` empty, admin only, canvasser accounts only. `profiles` keeps no UPDATE policy. An inactive account already can't sign in and reads nothing. Its history stays.
+  - CLAUDE — `lib/supabase/admin.ts` is the service-role client, server only (`SUPABASE_SERVICE_ROLE_KEY`, never `NEXT_PUBLIC_`). Used only by the invite action, after checking the caller is an active admin.
+  - CLAUDE — `lib/admin/accounts.ts`: `setCanvasserActiveAction` uses the admin's own session. `inviteCanvasserAction` calls `auth.admin.inviteUserByEmail` with the first name as `full_name`. `handle_new_user` makes the profile (canvasser, active). Errors map to plain sentences.
+  - CLAUDE — Settings: each canvasser row has a switch. Switching off asks first. Switching on is immediate. Invite canvasser opens frame 24.
+- **Deviations from plan or brief:** none. The given code was pasted exactly. `git grep` without `--untracked` does not list the two new files. With `--untracked` it lists only `app/health/route.ts`, `lib/supabase/admin.ts` and `lib/admin/accounts.ts`. Execute is also granted to `service_role` (Supabase default), alongside `authenticated` and `postgres`. No `anon`. No `PUBLIC`.
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. No knock or profile row was written. No `client_event_id`. The service-role key was not printed.
+- **Verified:** `apply_migration` returned success. `select proname from pg_proc where proname = 'admin_set_canvasser_active'` returned one row. `prosecdef` true, `proconfig` `search_path=""`. Grants: `authenticated`, `postgres`, `service_role`. `profiles` UPDATE policy count 0. `git diff -- lib/supabase/types.ts` is only the new function. `npx tsc --noEmit` exit 0. eslint on the five session files exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`).
+- **Not verified:** A browser. A phone. The ten phone checks are NOT VERIFIED. No invite was sent. No account was switched. SMTP was not checked.
+- **External settings:** none
+- **Open questions for Claude:** Middleware still sends an inactive signed-in user from `/set-password` to `/account-pending`. An invited canvasser is created active, so that path is for a later switch-off, not for a new invite. `service_role` has EXECUTE on `admin_set_canvasser_active` from Supabase defaults. Say if that grant should be revoked.

@@ -929,3 +929,48 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none in the pasted code. The signup grep does not match the two files the brief named. See the check above. `lib/admin/settings.ts` was not edited.
 - **Not done / deferred:** A browser. A phone. Did not commit. No database row. No migration. Account switches and email invites are F5f. Old settings components stay until F6. Middleware was not changed: an inactive signed-in user is sent from `/set-password` to `/account-pending` before the form.
 - **Follow-ups:** The owner checks F5 as a whole after F5f. F5f invites need a profile that can reach `/set-password`, or a middleware change (not this session).
+
+### UI-10 Session F5f — migration 029; account switches; invite by email
+- **Date:** 2026-10-09
+- **Model:** Grok 4.7
+- **Built:** Migration 029 `admin_set_canvasser_active` applied. Types regenerated (only that function added). Settings switches a canvasser on or off (off asks first) and invites by email. The service-role client is server only and used only after an active-admin check.
+- **Owner decisions:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved (Figma page 40:289: phone 02, 20, 21, 23, 24, dark 32).
+  - OWNER — A9 (2026-10-01): per-canvasser numbers (doors, contacts, leads, contact → lead) as an admin-only view. Never in /field.
+  - OWNER — A34 (2026-10-06): Team period chips This week (default) / Last 4 weeks / All time.
+  - OWNER — A35 (2026-10-06): Settings = visit threshold, logging default, data status (read-only), canvasser accounts (list, switch on/off, invite by email), Appearance.
+  - OWNER — A48 (2026-10-06): Insights = the old dashboard panels restyled, charts not tables. A50: `/admin/dashboard` → Insights. A51: one Light / Dark / System choice shared with the field app.
+  - OWNER — 2026-10-09: Team and Insights numbers are computed without a migration (as F4 did). Canvasser accounts are in F5, as the last session, human-gated.
+  - OWNER — 2026-10-09: Insights keeps doors per prop per week, answer rate by slot, lead outcomes, prop completion and stale props. "Live now" is dropped (it is on Today).
+  - OWNER — 2026-10-09: order Team + Leads, then Settings + Insights. Invites are emailed through the owner's own SMTP (set in the Supabase dashboard). `/signup` is removed: invite only.
+  - OWNER — 2026-10-09: tapping a canvasser opens a full profile: period numbers, outcome breakdown, overall and recent conversions, recent leads, days and doors. Leads gets period chips like Team.
+  - OWNER — 2026-10-09 (this session): gate human. Granted: apply migration 029 through the Supabase MCP and regenerate types. No other database write.
+- **Claude decisions:**
+  - CLAUDE — Figma frames (phone section 89:295): 02 drawer 89:690, 20 Team 97:1234, 21 Leads 97:1353, 23 Settings 98:1324, 24 Invite 98:1442, 32 dark Settings 99:3855. Insights and the canvasser profile have no frame; they use the same kit.
+  - CLAUDE — Page patterns: Team = Analytics; canvasser profile = Detail (`/admin/team/<id>`); Leads = List; Insights = Dashboard (glance, no filters); Settings = Settings.
+  - CLAUDE — No migration until F5f. Knocks are `v_latest_knock` rows (latest outcome per door per visit), read 1,000 at a time and de-duplicated; a door belongs to whoever logged its latest outcome. Days are London days; queries are a day wider each side and bucketed in code. Everything is reduced on the server; only figures and short lists reach the browser.
+  - CLAUDE — Numbers: Contacts = bookable answers only (`answered`). Contact → lead = leads ÷ (contacts + leads): a lead was a contact before it was booked, so the rate never passes 100%. Lead → sale = sales ÷ leads the office has settled (not awaiting or re-app). Doors answered (the broad rule) stays second.
+  - CLAUDE — Periods: This week = Monday to Sunday (London); Last 4 weeks = the 28 days up to today; All time. `?period=` is a link (the server reads it); `?sort=` (Team) and `?status=` (Leads) are kept with `history.replaceState(null, …)`.
+  - CLAUDE — Team lists every active canvasser plus anyone else who knocked in the period. The profile shows the period against all time, the outcome breakdown, the last 10 leads, 14 days (each opens that day on Calendar) and 20 doors. Doors are address labels (`v_door_label`) or "UPRN n"; people are first names; lead statuses are the office's, read-only.
+  - CLAUDE — Leads: rows show the door, prop, first name and knock time with the office status as a mark (ring = still with the office, dot = settled) and its word. 50 rows, then Show more. No status control anywhere in admin.
+  - CLAUDE — Insights: `admin_dashboard` (unchanged) plus every lead's status (all eight). Single-series bars are neutral ink; colour only for lead marks; every chart has its numbers as text. Stale props open on Props.
+  - CLAUDE — Migration 029 is one function. SECURITY DEFINER, empty `search_path`, admin only, canvasser accounts only. No UPDATE policy on `profiles`.
+  - CLAUDE — Service-role client is `lib/supabase/admin.ts`, server only. Invite runs only after an active-admin check. `handle_new_user` makes the profile.
+  - CLAUDE — Switching off asks first and names the person. Switching on is immediate.
+- **Acceptance:**
+  - EDIT 1 DONE. New `supabase/migrations/029_admin_canvasser_accounts.sql`. Newest file before it was `028_exceptions_logging.sql`.
+  - EDIT 2 DONE. `apply_migration` returned success. `select proname from pg_proc where proname = 'admin_set_canvasser_active'` returned one row.
+  - EDIT 3 DONE. Types regenerated. `git diff -- lib/supabase/types.ts` is only `admin_set_canvasser_active`.
+  - EDIT 4 DONE. New `lib/supabase/admin.ts` pasted as given.
+  - EDIT 5 DONE. New `lib/admin/accounts.ts` pasted as given.
+  - EDIT 6 DONE. New `components/admin/settings/invite-sheet.tsx` pasted as given.
+  - EDIT 7 DONE. `components/admin/settings/settings-screen.tsx`: seven find blocks, each once.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on the five session files: **PASS** — exit 0.
+  - `npm run verify:ui10`: **PASS** — exit 0. Printed `ALL PASS`.
+  - Function `prosecdef` true, `search_path=""`. Grants: `authenticated`, `postgres`, `service_role`. No `anon`. No `PUBLIC`. `profiles` UPDATE policies: 0.
+  - `git grep --untracked` for the service client: `app/health/route.ts`, `lib/supabase/admin.ts`, `lib/admin/accounts.ts` only.
+  - Phone: **NOT VERIFIED**. The owner checks F5 as a whole.
+- **Deviations from brief:** none. The given code was pasted exactly. `service_role` also has EXECUTE (Supabase default).
+- **Not done / deferred:** A browser. A phone. Did not commit. No profile row written. No invite sent. No account switched. Middleware was not changed.
+- **Follow-ups:** The owner checks F5 as a whole, including a switch-off confirm and an invite after SMTP is set. Say if EXECUTE for `service_role` on this function should be revoked.

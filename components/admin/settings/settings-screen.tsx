@@ -3,12 +3,16 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition, type ReactNode } from "react";
 
+import { InviteSheet } from "@/components/admin/settings/invite-sheet";
 import { AdminMenuButton } from "@/components/admin/shell/admin-shell";
 import { Avatar } from "@/components/admin/ui/avatar";
 import { Button } from "@/components/admin/ui/button";
+import { ConfirmDialog } from "@/components/admin/ui/confirm-dialog";
 import { Segmented } from "@/components/admin/ui/segmented";
 import { Sheet } from "@/components/admin/ui/sheet";
-import { CheckIcon, ChevronRightIcon } from "@/components/field/icons";
+import { Toggle } from "@/components/admin/ui/toggle";
+import { CheckIcon, ChevronRightIcon, MailIcon } from "@/components/field/icons";
+import { setCanvasserActiveAction } from "@/lib/admin/accounts";
 import { APPEARANCE_OPTIONS, initialOf } from "@/lib/admin/nav";
 import {
   LOGGING_OPTIONS,
@@ -17,7 +21,9 @@ import {
   dataRows,
   loggingLabel,
   parseThreshold,
+  plannedWarning,
   thresholdValue,
+  toggleLabel,
   type CanvasserAccount,
   type DataStatus,
   type LoggingDefault,
@@ -26,14 +32,14 @@ import { setThemePref, useThemePref } from "@/lib/field/theme";
 import { saveVisitThresholdAction } from "@/lib/props/reallocation";
 import { createClient } from "@/lib/supabase/client";
 
-type Open = null | "threshold" | "logging";
+type Open = null | "threshold" | "logging" | "invite";
 
 /**
  * UI-10 F5e (owner A35; frames 23, 24, dark 32). Settings: grouped rows.
  * The threshold and the logging default open a sheet each; Appearance is
- * the shared Light / Dark / System choice (A51); canvasser accounts are
- * listed (switching on and off and inviting arrive in F5f, with migration
- * 029); data status is read-only.
+ * the shared Light / Dark / System choice (A51); canvasser accounts switch
+ * on and off (off asks first) and new canvassers are invited by email;
+ * data status is read-only.
  */
 export function SettingsScreen({
   thresholdPct,
@@ -56,6 +62,11 @@ export function SettingsScreen({
   const pref = useThemePref();
   const [open, setOpen] = useState<Open>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [switching, setSwitching] = useState<CanvasserAccount | null>(null);
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [accountError, setAccountError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+
   useEffect(() => {
     if (!toast) return;
     const id = window.setTimeout(() => setToast(null), 6000);
@@ -66,6 +77,35 @@ export function SettingsScreen({
     setOpen(null);
     setToast(text);
     router.refresh();
+  };
+
+  const setActive = (account: CanvasserAccount, active: boolean) => {
+    setAccountError(null);
+    setPendingId(account.id);
+    startTransition(async () => {
+      try {
+        const result = await setCanvasserActiveAction(account.id, active);
+        if (!result.ok) {
+          // Close the confirm so the message under the list can be read.
+          setSwitching(null);
+          setAccountError(result.message);
+          return;
+        }
+        setSwitching(null);
+        setToast(active ? `${account.name} can sign in again.` : `${account.name} is switched off.`);
+        router.refresh();
+      } catch {
+        setSwitching(null);
+        setAccountError("That didn't save. Check your signal, then try again.");
+      } finally {
+        setPendingId(null);
+      }
+    });
+  };
+
+  const onToggle = (account: CanvasserAccount, next: boolean) => {
+    if (next) setActive(account, true);
+    else setSwitching(account);
   };
 
   return (
@@ -104,10 +144,31 @@ export function SettingsScreen({
                   <span className="block truncate text-admin-body">{account.name}</span>
                   <span className="block text-admin-caption text-ink-muted">{accountLine(account)}</span>
                 </span>
+                <Toggle
+                  checked={account.active}
+                  label={toggleLabel(account)}
+                  disabled={pendingId !== null}
+                  onChange={(next) => onToggle(account, next)}
+                />
               </li>
             ))}
+            <li>
+              <button
+                type="button"
+                onClick={() => setOpen("invite")}
+                className="flex min-h-14 w-full items-center gap-3 px-4 text-left text-admin-body text-prop focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-prop"
+              >
+                <MailIcon className="size-5" />
+                Invite canvasser
+              </button>
+            </li>
           </ul>
         )}
+        {accountError ? (
+          <p role="alert" className="border-t border-line px-4 py-3 text-admin-subhead text-oxide">
+            {accountError}
+          </p>
+        ) : null}
       </Group>
 
       <Group title="Data">
@@ -139,7 +200,17 @@ export function SettingsScreen({
 
       <ThresholdSheet open={open === "threshold"} initialPct={thresholdPct} onClose={() => setOpen(null)} onSaved={(pct) => done(`Threshold saved: ${thresholdValue(pct)}.`)} />
       <LoggingSheet open={open === "logging"} initial={loggingDefault} onClose={() => setOpen(null)} onSaved={(mode) => done(`Logging default saved: ${loggingLabel(mode)}.`)} />
+      <InviteSheet open={open === "invite"} onClose={() => setOpen(null)} onSent={(text) => done(text)} />
 
+      <ConfirmDialog
+        open={switching !== null}
+        title={switching ? `Switch off ${switching.name}'s account?` : ""}
+        body={switching ? [`${switching.name} won't be able to sign in. Their history stays; knocks still on their phone won't sync.`, plannedWarning(switching)].filter(Boolean).join(" ") : ""}
+        confirmLabel={switching ? `Switch off ${switching.name}` : "Switch off"}
+        busy={pendingId !== null}
+        onConfirm={() => switching && setActive(switching, false)}
+        onCancel={() => setSwitching(null)}
+      />
     </main>
   );
 }
