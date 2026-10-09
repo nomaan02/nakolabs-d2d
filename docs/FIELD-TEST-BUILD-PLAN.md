@@ -129,7 +129,7 @@
 | UI-10 F4b | Calendar + Coverage data loaders | DONE | 2026-10-08 | readAll paging, Calendar month loader, Coverage loader (no migration). | 31f0dcd |
 | UI-10 F4c | `/admin/calendar`; Calendar in nav; Appearance; Today → Calendar | DONE | 2026-10-08 | `/admin/calendar (month grid, swipe, day panel, End for unworked visits, Open on map), Calendar in nav, Appearance control, Today → Calendar.` | 9c21ad9 |
 | UI-10 F4d | Coverage rebuilt: map, filters, door popup | DONE | 2026-10-08 | Phone check passed 2026-10-08. Coverage rebuilt: full-screen map, filter chips (days, visit, slot, outcome, person, prop), door popup, legend, dark-ready. | b06245d |
-| UI-10 F5a | Team, profile, Leads, Insights, Settings logic (pure); verify:ui10 | TODO | | | — |
+| UI-10 F5a | Team, profile, Leads, Insights, Settings logic (pure); verify:ui10 | DONE | 2026-10-09 | Team, profile, Leads, Insights and Settings pure logic; verify:ui10 F5a checks. | — |
 | UI-10 F5b | Team, profile, Leads, Insights, Settings loaders | TODO | | | — |
 | UI-10 F5c | `/admin/team` + canvasser profile; Team in nav | TODO | | | — |
 | UI-10 F5d | `/admin/leads` (read-only) + `/admin/insights`; dashboard → Insights | TODO | | | — |

@@ -2,21 +2,22 @@
 
 ## Current state
 
-- Last updated: 2026-10-08 (UI-10 Session F4d). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Last updated: 2026-10-09 (UI-10 Session F5a). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Team, the canvasser profile, Leads, Insights and Settings have pure logic only. `lib/admin/team.ts` holds periods, per-canvasser numbers, sorting, conversions and recent lists. `lib/admin/leads.ts` holds statuses, marks, chips and row text. `lib/admin/insights.ts` holds the chart series. `lib/admin/settings.ts` holds the threshold, logging default, invite checks and data rows. Nothing renders yet. Loaders are F5b. Screens are F5c–F5e. Account switches and email invites are F5f (human, migration 029).
 - Coverage is rebuilt. Full-screen map, filter chips (days, visit, slot, outcome, person, prop), door popup, legend. Dark-ready. The URL is the state. The page resolves each door's knock on the server and renders `CoverageScreen`. A filter change navigates; the map stays, with "Updating…" while it loads. Old `coverage-view.tsx` and `coverage-map.tsx` stay on disk until F6.
 - `/admin/calendar` is the history. Month grid, Monday first, swipe or links between months, month totals, one bar per visit and the doors knocked. Tapping a day opens that day's visits (sheet on a phone, right-hand panel on desktop). `?month=` and `?day=` are the state. Open on map goes to Coverage for that prop, day and visit. A past visit nobody worked offers End only.
 - Calendar is the second nav item and is dark-ready. Appearance (System / Light / Dark) sits above Sign out in the drawer and the expanded rail, the same `d2d.theme` choice as the field app. Today has a calendar icon and a Past days row, both linking to Calendar.
 - Once a visit's day has come it is ended, never deleted (`mustEnd(visit, figures, today)`), even with no knocks on the server. Only a visit whose day is still ahead, with no knocks, can be deleted. Callers: the visit sheet, the past visits review and its page, `splitReview`, and Calendar's day panel.
-- Today stays in the nav at `/admin/today` and is dark-ready, including `/admin/today/add` and `/admin/today/review`. `/admin` redirects to Today. `/admin/allocate` redirects to Today; `?prop=` opens Add visit with that prop. `/admin/dashboard` stays reachable by URL and stays light.
-- UI-10 F4d tracker Status is DONE. Date 2026-10-08. Result: `Coverage rebuilt: full-screen map, filter chips (days, visit, slot, outcome, person, prop), door popup, legend, dark-ready.` Commit column still `—`.
-- `npx tsc --noEmit` exit 0. eslint on the seven TypeScript session files exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`).
+- Today stays in the nav at `/admin/today` and is dark-ready, including `/admin/today/add` and `/admin/today/review`. `/admin` redirects to Today. `/admin/allocate` redirects to Today; `?prop=` opens Add visit with that prop. `/admin/dashboard` stays reachable by URL and stays light until F5d makes it Insights.
+- UI-10 F5a tracker Status is DONE. Date 2026-10-09. Result: `Team, profile, Leads, Insights and Settings pure logic; verify:ui10 F5a checks.` Commit column still `—`.
+- `npx tsc --noEmit` exit 0. eslint on the five TypeScript session files exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`), including the F5a checks.
 - `git grep -n "navigator.geolocation" -- components/admin lib/admin` printed nothing (exit 1).
-- `/admin/props`, `/admin/today`, `/admin/calendar` and `/admin/coverage` are dark-ready.
-- `lib/sync/queue.ts` was not edited. Field writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. `components/admin/props/prop-layers.ts` now paints `not_interested` as other. No migration. No new RPC. `lib/supabase/types.ts` was not edited. Admin never reads GPS.
+- `/admin/props`, `/admin/today`, `/admin/calendar` and `/admin/coverage` are dark-ready. Team, Leads, Insights and Settings are not in the nav yet.
+- `lib/sync/queue.ts` was not edited. Field writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. No migration. No new RPC. `lib/supabase/types.ts` was not edited. Admin never reads GPS. Per-canvasser numbers stay in `lib/admin` only.
 - No database change. No database row. No `client_event_id`.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
-- External settings: none. No browser. No dev server. Phone checks for this session are NOT VERIFIED. The owner checks F4 as a whole.
+- External settings: none. No browser. No dev server. Phone checks for this session are NOT VERIFIED. The owner checks F5 as a whole after F5f.
 
 ## Log
 
@@ -2422,5 +2423,41 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Invariants:** No GPS and no coordinates. `git grep -n "navigator.geolocation" -- components/admin lib/admin` printed nothing (exit 1). No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. Coverage is derived from knocks. No database row. No migration.
 - **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on the seven TypeScript session files. `npm run verify:ui10` exit 0 (`ALL PASS`). `git grep -n "navigator.geolocation" -- components/admin lib/admin` printed nothing (exit 1).
 - **Not verified:** A browser. A phone. The twelve phone checks for F4 are NOT VERIFIED (the owner checks F4 as a whole).
+- **External settings:** none
+- **Open questions for Claude:** none
+
+### 2026-10-09 — UI-10 Session F5a (uncommitted)
+
+- **Item:** UI-10
+- **What changed:** Team, the canvasser profile, Leads, Insights and Settings now have pure logic. Periods, per-canvasser numbers, sorting, conversions and recent lists live in `lib/admin/team.ts`. Lead statuses, marks, chips and row text live in `lib/admin/leads.ts`. Insights chart series live in `lib/admin/insights.ts`. Settings copy, invite checks and data rows live in `lib/admin/settings.ts`. `verify:ui10` checks them. Nothing renders yet.
+- **Files:**
+  - Changed: `scripts/verify-ui-10-admin.ts` (F5a imports and checks), `docs/FIELD-TEST-BUILD-PLAN.md` (UI-10 F5a Status DONE and Result), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `lib/admin/team.ts`, `lib/admin/leads.ts`, `lib/admin/insights.ts`, `lib/admin/settings.ts`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. No new RPC. `lib/supabase/types.ts` was not edited.
+- **Decided by:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved (Figma page 40:289: phone 02, 20, 21, 23, 24, dark 32).
+  - OWNER — A9 (2026-10-01): per-canvasser numbers (doors, contacts, leads, contact → lead) as an admin-only view. Never in /field.
+  - OWNER — A34 (2026-10-06): Team period chips This week (default) / Last 4 weeks / All time.
+  - OWNER — A35 (2026-10-06): Settings = visit threshold, logging default, data status (read-only), canvasser accounts (list, switch on/off, invite by email), Appearance.
+  - OWNER — A48 (2026-10-06): Insights = the old dashboard panels restyled, charts not tables. A50: `/admin/dashboard` → Insights. A51: one Light / Dark / System choice shared with the field app.
+  - OWNER — 2026-10-09: Team and Insights numbers are computed without a migration (as F4 did). Canvasser accounts are in F5, as the last session, human-gated.
+  - OWNER — 2026-10-09: Insights keeps doors per prop per week, answer rate by slot, lead outcomes, prop completion and stale props. "Live now" is dropped (it is on Today).
+  - OWNER — 2026-10-09: order Team + Leads, then Settings + Insights. Invites are emailed through the owner's own SMTP (set in the Supabase dashboard). `/signup` is removed: invite only.
+  - OWNER — 2026-10-09: tapping a canvasser opens a full profile: period numbers, outcome breakdown, overall and recent conversions, recent leads, days and doors. Leads gets period chips like Team.
+  - CLAUDE — Figma frames (phone section 89:295): 02 drawer 89:690, 20 Team 97:1234, 21 Leads 97:1353, 23 Settings 98:1324, 24 Invite 98:1442, 32 dark Settings 99:3855. Insights and the canvasser profile have no frame; they use the same kit.
+  - CLAUDE — Page patterns: Team = Analytics; canvasser profile = Detail (`/admin/team/<id>`); Leads = List; Insights = Dashboard (glance, no filters); Settings = Settings.
+  - CLAUDE — No migration until F5f. Knocks are `v_latest_knock` rows (latest outcome per door per visit), read 1,000 at a time and de-duplicated; a door belongs to whoever logged its latest outcome. Days are London days; queries are a day wider each side and bucketed in code. Everything is reduced on the server; only figures and short lists reach the browser.
+  - CLAUDE — Numbers: Contacts = bookable answers only (`answered`). Contact → lead = leads ÷ (contacts + leads), so the rate never passes 100%. Lead → sale = sales ÷ leads the office has settled. Doors answered (the broad rule) stays second.
+  - CLAUDE — Periods: This week = Monday to Sunday (London); Last 4 weeks = the 28 days up to today; All time. `?period=` is a link; `?sort=` and `?status=` stay in the URL with `history.replaceState`.
+  - CLAUDE — Team lists every active canvasser plus anyone else who knocked in the period. The profile shows the period against all time, the outcome breakdown, the last 10 leads, 14 days and 20 doors.
+  - CLAUDE — Leads rows show the door, prop, first name and knock time, with the office status as a mark and its word. 50 rows, then Show more. No status control in admin.
+  - CLAUDE — Insights uses `admin_dashboard` unchanged, plus every lead status. Single-series bars are neutral ink; colour only for lead marks; every chart has its numbers as text.
+  - CLAUDE — This session is the pure logic and the `verify:ui10` checks. Nothing renders yet.
+- **Deviations from plan or brief:** none. The given code was pasted exactly.
+- **Invariants:** No GPS and no coordinates. `git grep -n "navigator.geolocation" -- components/admin lib/admin` printed nothing (exit 1). No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. Per-canvasser numbers are admin only. No database row. No migration.
+- **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on the five session files. `npm run verify:ui10` exit 0 (`ALL PASS`). `git grep -n "navigator.geolocation" -- components/admin lib/admin` printed nothing (exit 1).
+- **Not verified:** A browser. A phone. None for this session (the owner checks F5 as a whole after F5f).
 - **External settings:** none
 - **Open questions for Claude:** none

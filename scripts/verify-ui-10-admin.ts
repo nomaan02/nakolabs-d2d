@@ -155,6 +155,78 @@ import {
 } from "../lib/admin/coverage-filters";
 import type { WalkStep } from "../lib/geo/walk/types";
 import { THEME_BOOT_SCRIPT } from "../lib/field/theme";
+import {
+  contactToLead,
+  dayLine,
+  doorsCount,
+  daysLabel,
+  funnel,
+  inWindow,
+  parseTeamPeriod,
+  parseTeamSort,
+  peopleCount,
+  percentText,
+  periodLine,
+  periodWindow,
+  personStats,
+  profileHref,
+  profileLine,
+  propsLine,
+  queryBounds,
+  recentDays,
+  recentDoors,
+  recentLeads,
+  sortTeam,
+  teamHref,
+  teamRows,
+  type TeamLead,
+  type TeamPerson,
+} from "../lib/admin/team";
+import {
+  doorTitle,
+  emptyLeadsLine,
+  filterByStatus,
+  leadMark,
+  leadMeta,
+  leadStatusLabel,
+  leadsHref,
+  leadsInWindow,
+  leadsSubtitle,
+  parseStatusFilter,
+  showMoreLabel,
+  statusChips,
+  whenLine,
+  type LeadItem,
+} from "../lib/admin/leads";
+import {
+  barShare,
+  completionLine,
+  completionRows,
+  leadOutcomeBars,
+  slotRows,
+  staleRows,
+  staleTitle,
+  weekColumns,
+  weekLabel,
+  weekTotals,
+  weeklyRows,
+  weeksSummary,
+} from "../lib/admin/insights";
+import {
+  accountLine,
+  buildLine,
+  checkEmail,
+  checkFirstName,
+  dataRows,
+  inviteButtonLabel,
+  latestOf,
+  loggingLabel,
+  parseLoggingDefault,
+  parseThreshold,
+  plannedWarning,
+  sortAccounts,
+  thresholdValue,
+} from "../lib/admin/settings";
 
 let failures = 0;
 function check(name: string, ok: boolean, detail = ""): void {
@@ -689,6 +761,188 @@ check(
 );
 check("no scope line without a visit or day", scopeLine(NO_FILTERS, allC.painted, new Map(), [100]) === null);
 check("door popup words", outcomeWords("inaccessible") === "Can't reach" && knockWhen("2026-10-01T15:42:00Z") === "Thu 1 Oct, 16:42" && doorMeta(2, "X") === "Visit 2 · X" && doorMeta(null, "X") === "X");
+
+// ---- F5a: Team, canvasser profile, Leads, Insights, Settings (pure) ----------
+
+console.log("\nF5a team");
+const TODAY5 = "2026-10-09"; // a Friday
+check("period default and parse", parseTeamPeriod(undefined) === "week" && parseTeamPeriod("4w") === "4w" && parseTeamPeriod("all") === "all" && parseTeamPeriod("x") === "week");
+const wk = periodWindow("week", TODAY5);
+check("this week is Monday to Sunday", wk.from === "2026-10-05" && wk.to === "2026-10-11");
+check("this week on a Monday and a Sunday", periodWindow("week", "2026-10-05").from === "2026-10-05" && periodWindow("week", "2026-10-11").from === "2026-10-05");
+const w4 = periodWindow("4w", TODAY5);
+check("last 4 weeks is 28 days to today", w4.from === "2026-09-12" && w4.to === TODAY5);
+check("all time has no start", periodWindow("all", TODAY5).from === null);
+check(
+  "period lines (frame 20)",
+  periodLine("week", TODAY5) === "Mon 5 – Sun 11 October" &&
+    periodLine("week", "2026-09-30") === "Mon 28 Sep – Sun 4 Oct" &&
+    periodLine("4w", TODAY5) === "12 Sep – 9 Oct" &&
+    periodLine("all", TODAY5) === "All time",
+  periodLine("week", "2026-09-30"),
+);
+check("London days in the window (BST)", inWindow("2026-10-04T23:30:00Z", wk) && !inWindow("2026-10-04T22:30:00Z", wk));
+check("query bounds a day wider", queryBounds(wk).fromAt === "2026-10-04T00:00:00Z" && queryBounds(wk).toAt === "2026-10-13T00:00:00Z" && queryBounds(periodWindow("all", TODAY5)).fromAt === null);
+
+const k5 = (canvasserId: string, outcome: string, occurredAt: string, assignmentId = "v1", uprn = 1) => ({ assignmentId, uprn, outcome, canvasserId, occurredAt });
+const knocks5 = [
+  k5("t", "answered", "2026-10-05T09:00:00Z", "v1", 1),
+  k5("t", "lead", "2026-10-05T09:10:00Z", "v1", 2),
+  k5("t", "no_answer", "2026-10-06T09:00:00Z", "v2", 3),
+  k5("t", "no_opportunity", "2026-10-06T09:05:00Z", "v2", 4),
+  k5("t", "answered", "2026-09-20T09:00:00Z", "v0", 5),
+  k5("a", "answered", "2026-10-07T10:00:00Z", "v3", 6),
+  k5("a", "answered", "2026-10-07T10:05:00Z", "v3", 7),
+  k5("a", "lead", "2026-10-07T10:10:00Z", "v3", 8),
+  k5("a", "lead", "2026-10-07T10:15:00Z", "v3", 9),
+];
+const leads5: TeamLead[] = [
+  { id: "l1", canvasserId: "t", occurredAt: "2026-10-05T09:10:00Z", status: "sale", uprn: 2, assignmentId: "v1" },
+  { id: "l2", canvasserId: "a", occurredAt: "2026-10-07T10:10:00Z", status: "pending", uprn: 8, assignmentId: "v3" },
+  { id: "l3", canvasserId: "a", occurredAt: "2026-10-07T10:15:00Z", status: "pm", uprn: 9, assignmentId: "v3" },
+  { id: "l4", canvasserId: "t", occurredAt: "2026-09-01T10:00:00Z", status: "blowout", uprn: 10, assignmentId: "vx" },
+];
+const st = personStats(knocks5, leads5, wk);
+const tom = st.get("t")!;
+const ada = st.get("a")!;
+check("doors, contacts, leads, days this week", tom.doors === 4 && tom.contacts === 1 && tom.leads === 1 && tom.days === 2 && ada.doors === 4 && ada.contacts === 2 && ada.leads === 2 && ada.days === 1);
+check("doors answered is the broad rule", tom.answered === 3 && ada.answered === 4);
+check("outcome groups", tom.outcomes.rented === 1 && tom.outcomes.notIn === 1 && tom.outcomes.contacts === 1);
+check("settled and sales from the office status", tom.settled === 1 && tom.sales === 1 && ada.settled === 1 && ada.sales === 0);
+const allSt = personStats(knocks5, leads5, periodWindow("all", TODAY5)).get("t")!;
+check("all time counts everything", allSt.doors === 5 && allSt.contacts === 2 && allSt.settled === 2);
+check("contact → lead uses contacts + leads", contactToLead(tom) === 0.5 && contactToLead(ada) === 0.5 && contactToLead({ contacts: 0, leads: 0 }) === null);
+check("percent text", percentText(0.2069) === "21%" && percentText(null) === "–" && percentText(1) === "100%");
+
+const people5: TeamPerson[] = [
+  { id: "t", name: "Tom", active: true, canvasser: true },
+  { id: "a", name: "Ada", active: true, canvasser: true },
+  { id: "s", name: "Sam", active: true, canvasser: true },
+  { id: "x", name: "Xan", active: false, canvasser: true },
+  { id: "n", name: "Nomaan", active: true, canvasser: false },
+];
+const rows5 = teamRows(people5, st);
+check("rows: active canvassers, plus anyone who knocked", rows5.map((row) => row.person.id).join() === "t,a,s");
+check("sort by contact → lead: ties by name, no figure last", sortTeam(rows5, "conversion").map((row) => row.person.name).join() === "Ada,Tom,Sam");
+check("sort by doors and by name", sortTeam(rows5, "doors").map((row) => row.person.name).join() === "Ada,Tom,Sam" && sortTeam(rows5, "name").map((row) => row.person.name).join() === "Ada,Sam,Tom");
+check("sort parse", parseTeamSort("leads") === "leads" && parseTeamSort("nope") === "conversion" && parseTeamSort(null) === "conversion");
+check("counts", peopleCount(1) === "1 canvasser" && peopleCount(4) === "4 canvassers" && daysLabel(0) === "No days" && daysLabel(1) === "1 day" && daysLabel(3) === "3 days");
+check("hrefs keep the period", teamHref("week") === "/admin/team" && teamHref("4w", "doors") === "/admin/team?period=4w&sort=doors" && profileHref("t", "week") === "/admin/team/t" && profileHref("t", "all") === "/admin/team/t?period=all");
+
+const f5 = funnel(tom);
+check(
+  "funnel: door → contact → lead → sale",
+  f5.map((step) => `${step.label}:${percentText(step.rate)}`).join() === "Door → contact:50%,Contact → lead:50%,Lead → sale:100%" &&
+    f5[0]!.detail === "2 of 4 doors" &&
+    f5[1]!.detail === "1 of 2 contacts" &&
+    f5[2]!.detail === "1 of 1 settled lead",
+  f5.map((step) => step.detail).join(" | "),
+);
+const fNone = funnel(st.get("nobody") ?? { doors: 0, contacts: 0, leads: 0, answered: 0, days: 0, outcomes: tom.outcomes, settled: 0, sales: 0 });
+check("funnel with nothing", fNone.every((step) => step.rate === null) && fNone[2]!.detail === "No leads settled yet" && fNone[0]!.detail === "No doors");
+const propOf5 = new Map([["v1", "Whitechurch Lane"], ["v2", "Northville"], ["v3", "Redland"]]);
+const days5 = recentDays(knocks5.filter((k) => k.canvasserId === "t"), propOf5, wk);
+check("recent days newest first, per London day", days5.length === 2 && days5[0]!.date === "2026-10-06" && days5[0]!.props.join() === "Northville" && days5[1]!.contacts === 1 && days5[1]!.leads === 1);
+check("day line and props line", dayLine(days5[1]!) === "1 contact · 1 lead · Whitechurch Lane" && doorsCount(2) === "2 doors" && doorsCount(1) === "1 door" && propsLine(["A", "B", "C"]) === "A and 2 more" && propsLine(["A"]) === "A");
+check("recent doors newest first, in the window", recentDoors(knocks5.filter((k) => k.canvasserId === "t"), wk, 2).map((k) => k.uprn).join() === "4,3");
+check("recent leads in the window", recentLeads(leads5.filter((l) => l.canvasserId === "t"), wk).map((l) => l.id).join() === "l1");
+check(
+  "profile line",
+  profileLine(people5[0]!, tom, "week") === "Canvasser · 2 days this week" &&
+    profileLine(people5[3]!, st.get("x") ?? { ...tom, days: 0 }, "4w") === "Inactive · no days in the last 4 weeks" &&
+    profileLine(people5[4]!, { ...tom, days: 1 }, "all") === "Admin · 1 day in total",
+);
+
+console.log("\nF5a leads");
+check("status labels", leadStatusLabel("pending") === "Awaiting" && leadStatusLabel("pm") === "Pitched" && leadStatusLabel("re_app") === "Re-app" && leadStatusLabel("utc") === "Unable to contact" && leadStatusLabel("zzz") === "Unknown");
+check("status marks (frame 21)", leadMark("pending") === "awaiting" && leadMark("re_app") === "reapp" && leadMark("sale") === "sale" && leadMark("pm") === "pitched" && leadMark("blowout") === "closed" && leadMark("cancelled") === "closed");
+const items5: LeadItem[] = [
+  { id: "a", uprn: 1, door: "41 Bishport Avenue", propName: "Whitechurch Lane", canvasser: "Tom", occurredAt: "2026-10-09T13:10:00Z", status: "pending" },
+  { id: "b", uprn: 2, door: null, propName: "Northville", canvasser: "Ada", occurredAt: "2026-10-08T08:05:00Z", status: "sale" },
+  { id: "c", uprn: 3, door: "7 Fulford Road", propName: "Northville", canvasser: "Ada", occurredAt: "2026-09-27T10:00:00Z", status: "pending" },
+  { id: "d", uprn: 4, door: "3 Whitchurch Lane", propName: "Ashton Gate", canvasser: "Leon", occurredAt: "2025-12-01T10:00:00Z", status: "re_app" },
+];
+check("door title falls back to the UPRN", doorTitle(items5[0]!) === "41 Bishport Avenue" && doorTitle(items5[1]!) === "UPRN 2");
+check(
+  "when line (London)",
+  whenLine("2026-10-09T13:10:00Z", TODAY5) === "today 14:10" &&
+    whenLine("2026-10-08T08:05:00Z", TODAY5) === "yesterday 09:05" &&
+    whenLine("2026-09-27T10:00:00Z", TODAY5) === "27 Sep" &&
+    whenLine("2025-12-01T10:00:00Z", TODAY5) === "1 Dec 2025",
+);
+check("row meta (frame 21)", leadMeta(items5[0]!, TODAY5) === "Whitechurch Lane · Tom · today 14:10");
+const inWk = leadsInWindow(items5, wk);
+check("leads in the period, newest first", inWk.map((item) => item.id).join() === "a,b" && leadsInWindow(items5, periodWindow("all", TODAY5)).map((item) => item.id).join() === "a,b,c,d");
+const chips5 = statusChips(leadsInWindow(items5, periodWindow("all", TODAY5)));
+check("status chips: All, then statuses with leads, office order", chips5.map((chip) => `${chip.label} ${chip.count}`).join() === "All 4,Awaiting 2,Re-app 1,Sale 1");
+check("status filter", filterByStatus(items5, "pending").length === 2 && filterByStatus(items5, "all").length === 4 && parseStatusFilter("sale") === "sale" && parseStatusFilter("nope") === "all");
+check("subtitle", leadsSubtitle(13, "week") === "13 this week · settled by the office" && leadsSubtitle(51, "all") === "51 in total · settled by the office");
+check("show more and empty lines", showMoreLabel(50, 51) === "Show 1 more" && showMoreLabel(50, 200) === "Show 50 more" && emptyLeadsLine("all", "week") === "No leads this week." && emptyLeadsLine("sale", "4w") === "No sale leads in the last 4 weeks.");
+check("leads href", leadsHref("week") === "/admin/leads" && leadsHref("all", "sale") === "/admin/leads?period=all&status=sale");
+
+console.log("\nF5a insights");
+const weeks5 = weekColumns(TODAY5, 3);
+check("week columns: Mondays, oldest first", weeks5.join() === "2026-09-21,2026-09-28,2026-10-05" && weekLabel("2026-10-05") === "5 Oct");
+const wr = weeklyRows(
+  [
+    { territory_id: "p1", name: "Whitechurch", iso_week: "2026-W41", week_start: "2026-10-05", worked: 120 },
+    { territory_id: "p1", name: "Whitechurch", iso_week: "2026-W40", week_start: "2026-09-28", worked: 30 },
+    { territory_id: "p2", name: "Northville", iso_week: "2026-W41", week_start: "2026-10-05", worked: 60 },
+    { territory_id: "p3", name: "Old", iso_week: "2026-W30", week_start: "2026-07-20", worked: 500 },
+  ],
+  weeks5,
+);
+check("weekly rows: shown weeks only, busiest first, shared peak", wr.rows.map((row) => `${row.name}:${row.counts.join("/")}`).join() === "Whitechurch:0/30/120,Northville:0/0/60" && wr.peak === 120);
+check("week totals and summary", weekTotals(wr.rows, weeks5).join() === "0,30,180" && weeksSummary(weeks5, weekTotals(wr.rows, weeks5)) === "21 Sep 0, 28 Sep 30, 5 Oct 180");
+check("bar share: zero stays zero, small stays visible", barShare(0, 100) === 0 && barShare(1, 100) === 0.06 && barShare(50, 100) === 0.5 && barShare(5, 0) === 0);
+const sr = slotRows([
+  { slot: "early", worked: 200, answered: 50 },
+  { slot: "mid", worked: 0, answered: 0 },
+  { slot: "late", worked: 100, answered: 61 },
+]);
+check("slot rows", sr.map((row) => `${row.label}:${row.percent}`).join() === "Early:25%,Mid:–,Late:61%" && sr[0]!.detail === "50 of 200 doors" && sr[1]!.detail === "No doors");
+const lob = leadOutcomeBars(["sale", "sale", "pending", "pm", "pending", "pending", "cancelled"]);
+check("lead outcomes: all 8 statuses, office order, share of the largest", lob.bars.length === 8 && lob.total === 7 && lob.bars[0]!.label === "Awaiting" && lob.bars[0]!.share === 1 && lob.bars[2]!.count === 2 && lob.bars[4]!.count === 0 && lob.bars[7]!.mark === "closed");
+const cr = completionRows([
+  { territory_id: "p1", name: "B", knockable: 100, worked: 40, answered: 10, remaining: 60 },
+  { territory_id: "p2", name: "A", knockable: 0, worked: 0, answered: 0, remaining: 0 },
+  { territory_id: "p3", name: "C", knockable: 1000, worked: 100, answered: 50, remaining: 900 },
+]);
+check("completion rows: most left first, no percentage text", cr.map((row) => row.name).join() === "C,B,A" && cr[1]!.share === 0.4 && cr[2]!.share === 0 && completionLine(cr[0]!) === "100 worked · 900 left");
+const sl = staleRows([
+  { territory_id: "1", name: "Fresh", last_visited: "2026-10-01", stale: false },
+  { territory_id: "2", name: "Older", last_visited: "2026-08-12", stale: true },
+  { territory_id: "3", name: "Never", last_visited: null, stale: true },
+  { territory_id: "4", name: "Oldest", last_visited: "2026-07-01", stale: true },
+]);
+check("stale rows: never first, then oldest", sl.map((row) => row.name).join() === "Never,Oldest,Older" && sl[0]!.line === "Never visited" && sl[2]!.line === "Last visited 12 Aug");
+check("stale title", staleTitle(4) === "Not visited in 4 weeks" && staleTitle(1) === "Not visited in a week");
+
+console.log("\nF5a settings");
+check("threshold value and parse", thresholdValue(60) === "60% worked" && thresholdValue(62.5) === "62.5% worked" && parseThreshold("60") === 60 && parseThreshold(" 45% ") === 45 && parseThreshold("101") === null && parseThreshold("abc") === null && parseThreshold("") === null);
+check("logging default", parseLoggingDefault("exceptions") === "exceptions" && parseLoggingDefault(null) === "every_door" && loggingLabel("exceptions") === "Exceptions only" && loggingLabel("every_door") === "Tap every door");
+const acc5 = sortAccounts([
+  { id: "s", name: "Sam", active: false, plannedVisits: 0 },
+  { id: "t", name: "Tom", active: true, plannedVisits: 2 },
+  { id: "a", name: "Ada", active: true, plannedVisits: 1 },
+]);
+check("accounts: active first, then by name", acc5.map((a) => a.name).join() === "Ada,Tom,Sam" && accountLine(acc5[0]!) === "Canvasser" && accountLine(acc5[2]!) === "Inactive · can't sign in");
+check("planned warning", plannedWarning(acc5[1]!) === "Tom is on 2 planned visits. They stay on the team until you remove them on Today." && plannedWarning(acc5[2]!) === null && plannedWarning(acc5[0]!)?.includes("1 planned visit.") === true);
+check("first name check", checkFirstName("  Leon ").ok && !checkFirstName("   ").ok && !checkFirstName("x".repeat(41)).ok);
+const badEmail = checkEmail("leon@firsthome");
+check(
+  "email check (frame 24)",
+  !badEmail.ok && badEmail.message === "Add the full address, like name@firsthome.co.uk" && checkEmail(" Leon@FirstHome.co.uk ").ok && (checkEmail(" Leon@FirstHome.co.uk ") as { value: string }).value === "leon@firsthome.co.uk" && !checkEmail("").ok,
+);
+check("invite button names the person", inviteButtonLabel("Leon") === "Send invite to Leon" && inviteButtonLabel("") === "Send invite");
+check(
+  "data rows",
+  dataRows({ ncczZones: 26, properties: 424952, addressLabels: 133619, lastLoadAt: "2026-10-03T22:02:54Z" }).map((row) => `${row.label}=${row.value}`).join("|") ===
+    "No Cold Calling zones=26 loaded|Properties=424,952|Address labels=133,619|Last data load=3 Oct 2026",
+);
+check("data rows when unknown", dataRows({ ncczZones: 0, properties: null, addressLabels: null, lastLoadAt: null }).map((row) => row.value).join() === "None loaded,–,–,–");
+check("latest of two instants", latestOf("2026-09-16T20:31:06Z", "2026-10-03T22:02:54Z") === "2026-10-03T22:02:54Z" && latestOf(null, "x") === "x" && latestOf(null, null) === null);
+check("build line", buildLine("82c922c1234") === "nakolabs-d2d · build 82c922c" && buildLine(undefined) === "nakolabs-d2d");
 
 console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILED`);
 process.exit(failures === 0 ? 0 : 1);
