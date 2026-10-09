@@ -881,3 +881,51 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given code was pasted exactly.
 - **Not done / deferred:** A browser. A phone. Did not commit. No database row. No migration. Settings is F5e. Account switches and email invites are F5f. Old dashboard components stay until F6.
 - **Follow-ups:** The owner checks F5 as a whole after F5f.
+
+### UI-10 Session F5e — /admin/settings rebuilt; invite landing; /signup removed
+- **Date:** 2026-10-09
+- **Model:** Grok 4.7
+- **Built:** `/admin/settings` rebuilt: rotation threshold and logging default each open a sheet, Appearance is the shared Light / Dark / System choice, canvasser accounts are listed, data status is read-only, footer shows the deployed commit when there is one. `/auth/confirm` verifies an invite or recovery token and opens `/set-password`. `/signup` redirects to `/login`. Sign-up action removed. Settings is dark-ready. Account switches and Invite stay for F5f. Old rotation and logging components stay on disk until F6.
+- **Owner decisions:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved (Figma page 40:289: phone 02, 20, 21, 23, 24, dark 32).
+  - OWNER — A9 (2026-10-01): per-canvasser numbers (doors, contacts, leads, contact → lead) as an admin-only view. Never in /field.
+  - OWNER — A34 (2026-10-06): Team period chips This week (default) / Last 4 weeks / All time.
+  - OWNER — A35 (2026-10-06): Settings = visit threshold, logging default, data status (read-only), canvasser accounts (list, switch on/off, invite by email), Appearance.
+  - OWNER — A48 (2026-10-06): Insights = the old dashboard panels restyled, charts not tables. A50: `/admin/dashboard` → Insights. A51: one Light / Dark / System choice shared with the field app.
+  - OWNER — 2026-10-09: Team and Insights numbers are computed without a migration (as F4 did). Canvasser accounts are in F5, as the last session, human-gated.
+  - OWNER — 2026-10-09: Insights keeps doors per prop per week, answer rate by slot, lead outcomes, prop completion and stale props. "Live now" is dropped (it is on Today).
+  - OWNER — 2026-10-09: order Team + Leads, then Settings + Insights. Invites are emailed through the owner's own SMTP (set in the Supabase dashboard). `/signup` is removed: invite only.
+  - OWNER — 2026-10-09: tapping a canvasser opens a full profile: period numbers, outcome breakdown, overall and recent conversions, recent leads, days and doors. Leads gets period chips like Team.
+- **Claude decisions:**
+  - CLAUDE — Figma frames (phone section 89:295): 02 drawer 89:690, 20 Team 97:1234, 21 Leads 97:1353, 23 Settings 98:1324, 24 Invite 98:1442, 32 dark Settings 99:3855. Insights and the canvasser profile have no frame; they use the same kit.
+  - CLAUDE — Page patterns: Team = Analytics; canvasser profile = Detail (`/admin/team/<id>`); Leads = List; Insights = Dashboard (glance, no filters); Settings = Settings.
+  - CLAUDE — No migration until F5f. Knocks are `v_latest_knock` rows (latest outcome per door per visit), read 1,000 at a time and de-duplicated; a door belongs to whoever logged its latest outcome. Days are London days; queries are a day wider each side and bucketed in code. Everything is reduced on the server; only figures and short lists reach the browser.
+  - CLAUDE — Numbers: Contacts = bookable answers only (`answered`). Contact → lead = leads ÷ (contacts + leads): a lead was a contact before it was booked, so the rate never passes 100%. Lead → sale = sales ÷ leads the office has settled (not awaiting or re-app). Doors answered (the broad rule) stays second.
+  - CLAUDE — Periods: This week = Monday to Sunday (London); Last 4 weeks = the 28 days up to today; All time. `?period=` is a link (the server reads it); `?sort=` (Team) and `?status=` (Leads) are kept with `history.replaceState(null, …)`.
+  - CLAUDE — Team lists every active canvasser plus anyone else who knocked in the period. The profile shows the period against all time, the outcome breakdown, the last 10 leads, 14 days (each opens that day on Calendar) and 20 doors. Doors are address labels (`v_door_label`) or "UPRN n"; people are first names; lead statuses are the office's, read-only.
+  - CLAUDE — Leads: rows show the door, prop, first name and knock time with the office status as a mark (ring = still with the office, dot = settled) and its word. 50 rows, then Show more. No status control anywhere in admin.
+  - CLAUDE — Insights: `admin_dashboard` (unchanged) plus every lead's status (all eight). Single-series bars are neutral ink; colour only for lead marks; every chart has its numbers as text. Stale props open on Props.
+  - CLAUDE — Settings (frame 23): Rotation threshold and Logging default open a sheet each; Appearance is the shared segmented control; Canvassers are listed (switch on/off and Invite arrive in F5f with migration 029); Data shows No Cold Calling zones, Properties, Address labels and Last data load; the footer shows `VERCEL_GIT_COMMIT_SHA` when there is one. Dark-ready.
+  - CLAUDE — Invite only: `/signup` redirects to `/login`; the sign-up server action is removed; Sign in says "No account? Ask your manager for an invite."
+  - CLAUDE — The invite email link goes to `/auth/confirm?token_hash=…&type=invite`, which verifies the one-time token and opens `/set-password` (a fixed path: no `next` parameter). A bad or used link goes to `/login?error=link`. `/set-password` saves a password (8+ characters) and sends the person home for their role.
+  - CLAUDE — The old `components/admin/rotation-settings.tsx` and `logging-default-setting.tsx` stay on disk, unused, until F6.
+- **Acceptance:**
+  - EDIT 1 DONE. New `components/admin/settings/settings-screen.tsx` pasted as given. The file did not exist before.
+  - EDIT 2 DONE. New `app/(admin)/admin/settings/loading.tsx` pasted as given. The file did not exist before.
+  - EDIT 3 DONE. New `app/auth/confirm/route.ts` pasted as given. The file did not exist before.
+  - EDIT 4 DONE. New `app/(auth)/set-password/page.tsx` pasted as given. The file did not exist before.
+  - EDIT 5 DONE. `app/(admin)/admin/settings/page.tsx` replaced with the given page. Nothing of the old file stays.
+  - EDIT 6 DONE. `app/(auth)/signup/page.tsx` replaced with a redirect to `/login`.
+  - EDIT 7 DONE. `app/(auth)/login/page.tsx`: invite-only wording and the expired-link message. Each find block occurred once.
+  - EDIT 8 DONE. `app/page.tsx`: Create account link removed. The find block occurred once.
+  - EDIT 9 DONE. `lib/auth/actions.ts`: `setPassword` replaces `signUp`. The find block occurred once. The home redirect after a saved password is the tail that was already there.
+  - EDIT 10 DONE. `lib/admin/nav.ts`: `/admin/settings` added to `DARK_READY_PATHS`. The find block occurred once.
+  - EDIT 11 DONE. `scripts/verify-ui-10-admin.ts`: Settings dark-ready check. The find block occurred once.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on the eleven session files: **PASS** — exit 0.
+  - `npm run verify:ui10`: **PASS** — exit 0. Printed `ALL PASS`, including `Settings is dark-ready (F5e)`.
+  - `git grep -n "signUp\|/signup" -- app lib components`: **FAIL** — printed `lib/admin/settings.ts:3` (F5a comment, file not in this session's allow list) and `lib/auth/roles.ts:28`. `app/(auth)/signup/page.tsx` has neither string after the exact paste.
+  - Phone: **NOT VERIFIED**. None for this session (the owner checks F5 as a whole after F5f).
+- **Deviations from brief:** none in the pasted code. The signup grep does not match the two files the brief named. See the check above. `lib/admin/settings.ts` was not edited.
+- **Not done / deferred:** A browser. A phone. Did not commit. No database row. No migration. Account switches and email invites are F5f. Old settings components stay until F6. Middleware was not changed: an inactive signed-in user is sent from `/set-password` to `/account-pending` before the form.
+- **Follow-ups:** The owner checks F5 as a whole after F5f. F5f invites need a profile that can reach `/set-password`, or a middleware change (not this session).

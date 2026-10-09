@@ -11,12 +11,6 @@ export default function Home() {
         >
           Sign in
         </Link>
-        <Link
-          href="/signup"
-          className="flex min-h-11 items-center justify-center rounded-md border border-stone-300 bg-white px-4 text-base font-medium hover:bg-stone-100"
-        >
-          Create account
-        </Link>
       </div>
     </main>
   );

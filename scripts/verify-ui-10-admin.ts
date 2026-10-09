@@ -947,6 +947,7 @@ check("build line", buildLine("82c922c1234") === "nakolabs-d2d · build 82c922c"
 console.log("\nF5 nav");
 check("Team after Props, dark-ready (F5c)", ADMIN_NAV[3]?.key === "team" && isDarkReady("/admin/team") && activeNavKey("/admin/team/5b1e") === "team");
 check("Leads and Insights in the drawer order of frame 02 (F5d)", keys.join() === "today,calendar,props,team,leads,coverage,insights,settings" && isDarkReady("/admin/leads") && isDarkReady("/admin/insights") && activeNavKey("/admin/insights") === "insights");
+check("Settings is dark-ready (F5e)", isDarkReady("/admin/settings"));
 
 console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILED`);
 process.exit(failures === 0 ? 0 : 1);

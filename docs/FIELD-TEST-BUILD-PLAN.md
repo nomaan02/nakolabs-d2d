@@ -133,7 +133,7 @@
 | UI-10 F5b | Team, profile, Leads, Insights, Settings loaders | DONE | 2026-10-09 | Team, canvasser, Leads, Insights and Settings loaders (no migration). | — |
 | UI-10 F5c | `/admin/team` + canvasser profile; Team in nav | DONE | 2026-10-09 | `/admin/team (period chips, sort, cards) and /admin/team/<id> profile; Team in nav.` | — |
 | UI-10 F5d | `/admin/leads` (read-only) + `/admin/insights`; dashboard → Insights | DONE | 2026-10-09 | `/admin/leads (period + status chips, read-only) and /admin/insights (charts); /admin/dashboard → Insights.` | — |
-| UI-10 F5e | `/admin/settings` rebuilt; `/auth/confirm` + `/set-password`; `/signup` removed | TODO | | | — |
+| UI-10 F5e | `/admin/settings` rebuilt; `/auth/confirm` + `/set-password`; `/signup` removed | DONE | 2026-10-09 | `/admin/settings rebuilt (threshold and logging sheets, Appearance, accounts list, data status); /auth/confirm + /set-password; /signup removed.` | — |
 | UI-10 F5f | human: migration 029 `admin_set_canvasser_active`; account switches; invite by email | TODO | | | — |
 | UI-10 F6 | Admin into /field + delete old routes (human) | TODO | | | — |
 

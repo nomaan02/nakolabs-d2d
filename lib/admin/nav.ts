@@ -104,6 +104,7 @@ export const DARK_READY_PATHS: readonly string[] = [
   "/admin/team",
   "/admin/leads",
   "/admin/insights",
+  "/admin/settings",
 ];
 
 export function isDarkReady(

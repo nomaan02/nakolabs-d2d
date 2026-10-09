@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { signIn } from "@/lib/auth/actions";
 
 const ERRORS: Record<string, string> = {
   credentials: "Incorrect email or password.",
+  link: "That link has expired or was already used. Ask your manager for a new invite.",
 };
 
 const NOTICES: Record<string, string> = {
@@ -67,12 +67,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
         </button>
       </form>
 
-      <p className="mt-6 text-sm text-stone-600">
-        No account?{" "}
-        <Link href="/signup" className="font-medium text-stone-950 underline">
-          Create one
-        </Link>
-      </p>
+      <p className="mt-6 text-sm text-stone-600">No account? Ask your manager for an invite.</p>
     </>
   );
 }

@@ -40,45 +40,31 @@ export async function signIn(formData: FormData) {
   redirect(homeForRole(profile.role));
 }
 
-export async function signUp(formData: FormData) {
-  const fullName = readString(formData, "full_name");
-  const email = readString(formData, "email");
+/**
+ * UI-10 F5e (owner 2026-10-09: invite only). An invited canvasser lands on
+ * /set-password with a session from the invite link (/auth/confirm) and
+ * chooses their password here. Then they go to their home.
+ */
+export async function setPassword(formData: FormData) {
   const password = String(formData.get("password") ?? "");
-
-  if (!fullName || !email || !password) {
-    redirect("/signup?error=invalid");
+  if (password.length < 8) {
+    redirect("/set-password?error=short");
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { full_name: fullName },
-    },
-  });
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    redirect("/login?error=link");
+  }
 
+  const { error } = await supabase.auth.updateUser({ password });
   if (error) {
-    const already =
-      error.code === "user_already_exists" ||
-      error.message.toLowerCase().includes("already registered");
-    if (already) redirect("/signup?error=exists");
-    if (error.code === "email_address_invalid") {
-      redirect("/signup?error=email");
-    }
-    redirect("/signup?error=failed");
+    redirect(error.code === "weak_password" ? "/set-password?error=weak" : "/set-password?error=failed");
   }
 
-  if (!data.session) {
-    // Email confirmation is on: the trigger still created the profile, but
-    // there is no session yet. Do not send them into a protected route.
-    redirect("/login?notice=created");
-  }
-
-  const profile = data.user
-    ? await getOwnProfile(supabase, data.user.id)
-    : null;
-
+  const profile = await getOwnProfile(supabase, user.id);
   if (!profile || !profile.active) {
     redirect("/account-pending");
   }
