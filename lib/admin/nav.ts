@@ -37,14 +37,16 @@ export type AdminNavItem = {
 export const BRANCH_LABEL = "Bristol";
 
 /**
- * F4 state. Today is the schedule (F3); Calendar is the history, second
- * (A38, A39); Coverage is the rebuilt filtered map (F4). The old dashboard
- * stays reachable by URL until it becomes Insights (F5).
+ * F5 state (frame 02). Today is the schedule (F3); Calendar is the history,
+ * second (A38, A39); Coverage is the rebuilt filtered map (F4); Team, Leads
+ * and Insights arrive in F5 (Leads and Insights in F5d, replacing the old
+ * dashboard, A50).
  */
 export const ADMIN_NAV: readonly AdminNavItem[] = [
   { key: "today", label: "Today", href: "/admin/today", icon: "today", group: "main" },
   { key: "calendar", label: "Calendar", href: "/admin/calendar", icon: "calendar", group: "main" },
   { key: "props", label: "Props", href: "/admin/props", icon: "props", group: "main" },
+  { key: "team", label: "Team", href: "/admin/team", icon: "team", group: "main" },
   { key: "coverage", label: "Coverage", href: "/admin/coverage", icon: "coverage", group: "main" },
   { key: "settings", label: "Settings", href: "/admin/settings", icon: "settings", group: "tools" },
 ];
@@ -93,7 +95,13 @@ export function parseRailState(value: string | null | undefined): RailState {
  * to pages rebuilt in the new design. Each phase adds its routes here; until
  * then the old "worksheet" pages stay light.
  */
-export const DARK_READY_PATHS: readonly string[] = ["/admin/props", "/admin/today", "/admin/calendar", "/admin/coverage"];
+export const DARK_READY_PATHS: readonly string[] = [
+  "/admin/props",
+  "/admin/today",
+  "/admin/calendar",
+  "/admin/coverage",
+  "/admin/team",
+];
 
 export function isDarkReady(
   pathname: string,

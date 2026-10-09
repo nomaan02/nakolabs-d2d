@@ -2,18 +2,20 @@
 
 ## Current state
 
-- Last updated: 2026-10-09 (UI-10 Session F5a). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Team, the canvasser profile, Leads, Insights and Settings have pure logic only. `lib/admin/team.ts` holds periods, per-canvasser numbers, sorting, conversions and recent lists. `lib/admin/leads.ts` holds statuses, marks, chips and row text. `lib/admin/insights.ts` holds the chart series. `lib/admin/settings.ts` holds the threshold, logging default, invite checks and data rows. Nothing renders yet. Loaders are F5b. Screens are F5c–F5e. Account switches and email invites are F5f (human, migration 029).
+- Last updated: 2026-10-09 (UI-10 Session F5c). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- `/admin/team` is the Team page (Analytics). Period chips are links: This week (default) / Last 4 weeks / All time (`?period=`). Sort is a native select kept with `history.replaceState` (`?sort=`). One card per canvasser (doors, contacts, leads, contact → lead) opens `/admin/team/<id>`. The profile is a server component: period numbers against all time, outcome breakdown, last 10 leads, 14 days (each opens that day on Calendar) and 20 doors. Doors are address labels or "UPRN n". Lead statuses are the office's, read-only.
+- Team is in the nav after Props and is dark-ready (`DARK_READY_PATHS` includes `/admin/team`). `ChipLink` is the chip as a link. `PageFailed` is the shared "didn't load / Try again" page. `LeadMarkDot` is the office status mark (Leads uses it in F5d).
+- Team, Leads, Insights and Settings still have the F5a pure logic and the F5b loaders. `loadTeam` and `loadCanvasser` (`lib/admin/team-data.ts`) read `v_latest_knock` and leads. `loadLeads`, `loadInsights` and `loadSettings` are unchanged and still do not render. Screens left: F5d (Leads, Insights) and F5e (Settings). Account switches and email invites are F5f (human, migration 029).
 - Coverage is rebuilt. Full-screen map, filter chips (days, visit, slot, outcome, person, prop), door popup, legend. Dark-ready. The URL is the state. The page resolves each door's knock on the server and renders `CoverageScreen`. A filter change navigates; the map stays, with "Updating…" while it loads. Old `coverage-view.tsx` and `coverage-map.tsx` stay on disk until F6.
 - `/admin/calendar` is the history. Month grid, Monday first, swipe or links between months, month totals, one bar per visit and the doors knocked. Tapping a day opens that day's visits (sheet on a phone, right-hand panel on desktop). `?month=` and `?day=` are the state. Open on map goes to Coverage for that prop, day and visit. A past visit nobody worked offers End only.
 - Calendar is the second nav item and is dark-ready. Appearance (System / Light / Dark) sits above Sign out in the drawer and the expanded rail, the same `d2d.theme` choice as the field app. Today has a calendar icon and a Past days row, both linking to Calendar.
 - Once a visit's day has come it is ended, never deleted (`mustEnd(visit, figures, today)`), even with no knocks on the server. Only a visit whose day is still ahead, with no knocks, can be deleted. Callers: the visit sheet, the past visits review and its page, `splitReview`, and Calendar's day panel.
 - Today stays in the nav at `/admin/today` and is dark-ready, including `/admin/today/add` and `/admin/today/review`. `/admin` redirects to Today. `/admin/allocate` redirects to Today; `?prop=` opens Add visit with that prop. `/admin/dashboard` stays reachable by URL and stays light until F5d makes it Insights.
-- UI-10 F5a tracker Status is DONE. Date 2026-10-09. Result: `Team, profile, Leads, Insights and Settings pure logic; verify:ui10 F5a checks.` Commit column still `—`.
-- `npx tsc --noEmit` exit 0. eslint on the five TypeScript session files exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`), including the F5a checks.
+- UI-10 F5c tracker Status is DONE. Date 2026-10-09. Result: `/admin/team (period chips, sort, cards) and /admin/team/<id> profile; Team in nav.` Commit column still `—`. F5a and F5b remain DONE.
+- `npx tsc --noEmit` exit 0. eslint on the twelve session files exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`), including `Team after Props, dark-ready (F5c)`.
 - `git grep -n "navigator.geolocation" -- components/admin lib/admin` printed nothing (exit 1).
-- `/admin/props`, `/admin/today`, `/admin/calendar` and `/admin/coverage` are dark-ready. Team, Leads, Insights and Settings are not in the nav yet.
-- `lib/sync/queue.ts` was not edited. Field writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. No migration. No new RPC. `lib/supabase/types.ts` was not edited. Admin never reads GPS. Per-canvasser numbers stay in `lib/admin` only.
+- `/admin/props`, `/admin/today`, `/admin/calendar`, `/admin/coverage` and `/admin/team` are dark-ready. Team is in the nav after Props. Leads, Insights and Settings are not in the nav yet.
+- `lib/sync/queue.ts` was not edited. Field writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. No migration. No new RPC. `lib/supabase/types.ts` was not edited. Admin never reads GPS. Per-canvasser numbers stay in `lib/admin` and `/admin/team` only. The pages reduce knocks on the server. No service role.
 - No database change. No database row. No `client_event_id`.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
@@ -2458,6 +2460,78 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Deviations from plan or brief:** none. The given code was pasted exactly.
 - **Invariants:** No GPS and no coordinates. `git grep -n "navigator.geolocation" -- components/admin lib/admin` printed nothing (exit 1). No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. Per-canvasser numbers are admin only. No database row. No migration.
 - **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on the five session files. `npm run verify:ui10` exit 0 (`ALL PASS`). `git grep -n "navigator.geolocation" -- components/admin lib/admin` printed nothing (exit 1).
+- **Not verified:** A browser. A phone. None for this session (the owner checks F5 as a whole after F5f).
+- **External settings:** none
+- **Open questions for Claude:** none
+
+### 2026-10-09 — UI-10 Session F5b (uncommitted)
+
+- **Item:** UI-10
+- **What changed:** Team, the canvasser profile, Leads, Insights and Settings now have server loaders. `loadTeam` and `loadCanvasser` read knocks and leads. `loadLeads` reads a period of leads with door labels and prop names. `loadInsights` reads `admin_dashboard` plus every lead status. `loadSettings` reads the threshold, logging default, canvasser accounts and data status. Shared lookups live in `lib/admin/lookups.ts`. Nothing renders these yet.
+- **Files:**
+  - Changed: `docs/FIELD-TEST-BUILD-PLAN.md` (UI-10 F5b Status DONE and Result), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `lib/admin/lookups.ts`, `lib/admin/team-data.ts`, `lib/admin/leads-data.ts`, `lib/admin/insights-data.ts`, `lib/admin/settings-data.ts`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. No new RPC. `lib/supabase/types.ts` was not edited. `lib/geo/reallocation.ts` was read (`parseVisitThreshold`) and not edited.
+- **Decided by:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved (Figma page 40:289: phone 02, 20, 21, 23, 24, dark 32).
+  - OWNER — A9 (2026-10-01): per-canvasser numbers (doors, contacts, leads, contact → lead) as an admin-only view. Never in /field.
+  - OWNER — A34 (2026-10-06): Team period chips This week (default) / Last 4 weeks / All time.
+  - OWNER — A35 (2026-10-06): Settings = visit threshold, logging default, data status (read-only), canvasser accounts (list, switch on/off, invite by email), Appearance.
+  - OWNER — A48 (2026-10-06): Insights = the old dashboard panels restyled, charts not tables. A50: `/admin/dashboard` → Insights. A51: one Light / Dark / System choice shared with the field app.
+  - OWNER — 2026-10-09: Team and Insights numbers are computed without a migration (as F4 did). Canvasser accounts are in F5, as the last session, human-gated.
+  - OWNER — 2026-10-09: Insights keeps doors per prop per week, answer rate by slot, lead outcomes, prop completion and stale props. "Live now" is dropped (it is on Today).
+  - OWNER — 2026-10-09: order Team + Leads, then Settings + Insights. Invites are emailed through the owner's own SMTP (set in the Supabase dashboard). `/signup` is removed: invite only.
+  - OWNER — 2026-10-09: tapping a canvasser opens a full profile: period numbers, outcome breakdown, overall and recent conversions, recent leads, days and doors. Leads gets period chips like Team.
+  - CLAUDE — Figma frames (phone section 89:295): 02 drawer 89:690, 20 Team 97:1234, 21 Leads 97:1353, 23 Settings 98:1324, 24 Invite 98:1442, 32 dark Settings 99:3855. Insights and the canvasser profile have no frame; they use the same kit.
+  - CLAUDE — Page patterns: Team = Analytics; canvasser profile = Detail (`/admin/team/<id>`); Leads = List; Insights = Dashboard (glance, no filters); Settings = Settings.
+  - CLAUDE — No migration until F5f. Knocks are `v_latest_knock` rows (latest outcome per door per visit), read 1,000 at a time and de-duplicated; a door belongs to whoever logged its latest outcome. Days are London days; queries are a day wider each side and bucketed in code. Everything is reduced on the server; only figures and short lists reach the browser.
+  - CLAUDE — Numbers: Contacts = bookable answers only (`answered`). Contact → lead = leads ÷ (contacts + leads), so the rate never passes 100%. Lead → sale = sales ÷ leads the office has settled. Doors answered (the broad rule) stays second.
+  - CLAUDE — Periods: This week = Monday to Sunday (London); Last 4 weeks = the 28 days up to today; All time. `?period=` is a link; `?sort=` and `?status=` stay in the URL with `history.replaceState`.
+  - CLAUDE — Team lists every active canvasser plus anyone else who knocked in the period. The profile shows the period against all time, the outcome breakdown, the last 10 leads, 14 days and 20 doors.
+  - CLAUDE — Leads rows show the door, prop, first name and knock time, with the office status as a mark and its word. 50 rows, then Show more. No status control in admin.
+  - CLAUDE — Insights uses `admin_dashboard` unchanged, plus every lead status. Single-series bars are neutral ink; colour only for lead marks; every chart has its numbers as text. Stale props open on Props.
+  - CLAUDE — Loaders run on the server with the admin's own session (no service role). `.in()` lists go 100 ids at a time. Leads select the door, status, who and the knock's time and visit only. Nothing renders these yet.
+- **Deviations from plan or brief:** none. The given code was pasted exactly.
+- **Invariants:** No GPS and no coordinates. `git grep -n "service_role\|SERVICE_ROLE" -- lib/admin` printed nothing (exit 1). No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. Per-canvasser numbers are admin only. No database row. No migration. No service role.
+- **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on the five new loader files. `npm run verify:ui10` exit 0 (`ALL PASS`). `git grep -n "service_role\|SERVICE_ROLE" -- lib/admin` printed nothing (exit 1).
+- **Not verified:** A browser. A phone. None for this session (the owner checks F5 as a whole after F5f).
+- **External settings:** none
+- **Open questions for Claude:** none
+
+### 2026-10-09 — UI-10 Session F5c (uncommitted)
+
+- **Item:** UI-10
+- **What changed:** `/admin/team` lists canvassers for a period, with sort, and each card opens `/admin/team/<id>`. The profile shows the period against all time, the outcome breakdown, and recent leads, days and doors. Team is in the nav after Props and is dark-ready. `ChipLink`, `PageFailed` and `LeadMarkDot` are new.
+- **Files:**
+  - Changed: `components/admin/ui/chip.tsx` (`ChipLink`), `lib/admin/nav.ts` (Team after Props, `/admin/team` dark-ready), `scripts/verify-ui-10-admin.ts` (F5c nav check), `docs/FIELD-TEST-BUILD-PLAN.md` (UI-10 F5c Status DONE and Result), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `components/admin/ui/page-failed.tsx`, `components/admin/team/period-chips.tsx`, `components/admin/leads/lead-mark.tsx`, `components/admin/team/team-screen.tsx`, `components/admin/team/canvasser-profile.tsx`, `app/(admin)/admin/team/page.tsx`, `app/(admin)/admin/team/loading.tsx`, `app/(admin)/admin/team/[id]/page.tsx`, `app/(admin)/admin/team/[id]/loading.tsx`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. No new RPC. `lib/supabase/types.ts` was not edited.
+- **Decided by:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved (Figma page 40:289: phone 02, 20, 21, 23, 24, dark 32).
+  - OWNER — A9 (2026-10-01): per-canvasser numbers (doors, contacts, leads, contact → lead) as an admin-only view. Never in /field.
+  - OWNER — A34 (2026-10-06): Team period chips This week (default) / Last 4 weeks / All time.
+  - OWNER — A35 (2026-10-06): Settings = visit threshold, logging default, data status (read-only), canvasser accounts (list, switch on/off, invite by email), Appearance.
+  - OWNER — A48 (2026-10-06): Insights = the old dashboard panels restyled, charts not tables. A50: `/admin/dashboard` → Insights. A51: one Light / Dark / System choice shared with the field app.
+  - OWNER — 2026-10-09: Team and Insights numbers are computed without a migration (as F4 did). Canvasser accounts are in F5, as the last session, human-gated.
+  - OWNER — 2026-10-09: Insights keeps doors per prop per week, answer rate by slot, lead outcomes, prop completion and stale props. "Live now" is dropped (it is on Today).
+  - OWNER — 2026-10-09: order Team + Leads, then Settings + Insights. Invites are emailed through the owner's own SMTP (set in the Supabase dashboard). `/signup` is removed: invite only.
+  - OWNER — 2026-10-09: tapping a canvasser opens a full profile: period numbers, outcome breakdown, overall and recent conversions, recent leads, days and doors. Leads gets period chips like Team.
+  - CLAUDE — Figma frames (phone section 89:295): 02 drawer 89:690, 20 Team 97:1234, 21 Leads 97:1353, 23 Settings 98:1324, 24 Invite 98:1442, 32 dark Settings 99:3855. Insights and the canvasser profile have no frame; they use the same kit.
+  - CLAUDE — Page patterns: Team = Analytics; canvasser profile = Detail (`/admin/team/<id>`); Leads = List; Insights = Dashboard (glance, no filters); Settings = Settings.
+  - CLAUDE — No migration until F5f. Knocks are `v_latest_knock` rows (latest outcome per door per visit), read 1,000 at a time and de-duplicated; a door belongs to whoever logged its latest outcome. Days are London days; queries are a day wider each side and bucketed in code. Everything is reduced on the server; only figures and short lists reach the browser.
+  - CLAUDE — Numbers: Contacts = bookable answers only (`answered`). Contact → lead = leads ÷ (contacts + leads), so the rate never passes 100%. Lead → sale = sales ÷ leads the office has settled. Doors answered (the broad rule) stays second.
+  - CLAUDE — Periods: This week = Monday to Sunday (London); Last 4 weeks = the 28 days up to today; All time. `?period=` is a link; `?sort=` and `?status=` stay in the URL with `history.replaceState`.
+  - CLAUDE — Team lists every active canvasser plus anyone else who knocked in the period. The profile shows the period against all time, the outcome breakdown, the last 10 leads, 14 days and 20 doors.
+  - CLAUDE — Leads rows show the door, prop, first name and knock time, with the office status as a mark and its word. 50 rows, then Show more. No status control in admin.
+  - CLAUDE — Insights uses `admin_dashboard` unchanged, plus every lead status. Single-series bars are neutral ink; colour only for lead marks; every chart has its numbers as text.
+  - CLAUDE — `ChipLink` is the chip as a link, for period chips. `PageFailed` is the shared load-failure page. `LeadMarkDot` is the office status mark. Team uses frame 20; the sort is a native select. The profile is a server component and its back link keeps the period. Nav: Team after Props, dark-ready.
+- **Deviations from plan or brief:** none. The given code was pasted exactly.
+- **Invariants:** No GPS and no coordinates. `git grep -n "navigator.geolocation" -- components/admin lib/admin` printed nothing (exit 1). No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. Per-canvasser numbers are admin only, on `/admin/team`. No database row. No migration.
+- **Verified:** `npx tsc --noEmit` exit 0. eslint exit 0 on the twelve session files. `npm run verify:ui10` exit 0 (`ALL PASS`), including `Team after Props, dark-ready (F5c)`. `git grep -n "navigator.geolocation" -- components/admin lib/admin` printed nothing (exit 1).
 - **Not verified:** A browser. A phone. None for this session (the owner checks F5 as a whole after F5f).
 - **External settings:** none
 - **Open questions for Claude:** none

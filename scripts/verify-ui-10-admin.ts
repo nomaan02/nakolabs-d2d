@@ -944,5 +944,8 @@ check("data rows when unknown", dataRows({ ncczZones: 0, properties: null, addre
 check("latest of two instants", latestOf("2026-09-16T20:31:06Z", "2026-10-03T22:02:54Z") === "2026-10-03T22:02:54Z" && latestOf(null, "x") === "x" && latestOf(null, null) === null);
 check("build line", buildLine("82c922c1234") === "nakolabs-d2d · build 82c922c" && buildLine(undefined) === "nakolabs-d2d");
 
+console.log("\nF5 nav");
+check("Team after Props, dark-ready (F5c)", ADMIN_NAV[3]?.key === "team" && isDarkReady("/admin/team") && activeNavKey("/admin/team/5b1e") === "team");
+
 console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILED`);
 process.exit(failures === 0 ? 0 : 1);
