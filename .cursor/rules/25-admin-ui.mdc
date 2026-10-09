@@ -35,6 +35,7 @@ Used by the owner on an iPhone (often outdoors, between doors) and at a desk at 
 - Loading over ~1 s: skeleton in the real layout. No spinners for page loads.
 - Motion: transform and opacity only, `motion-safe:` animations, nothing decorative.
 - Layout must work at 375, 390, 430 and 1440 with no horizontal page scroll.
+- Charts (UI-10 F5): plain SVG/CSS bars with tokens, no chart library. Single-series bars are neutral ink (`ink-soft`); colour only when it means something (outcome colours, the office's lead marks). Every chart shows its numbers as text and has a screen-reader summary. A page grid that holds truncating rows uses `grid-cols-1` on phone, or the rows widen the page.
 
 ## Data rules (unchanged invariants)
 
@@ -42,4 +43,6 @@ Used by the owner on an iPhone (often outdoors, between doors) and at a desk at 
 - No resident names anywhere. Doors are an address label or UPRN.
 - Live positions: current position only, no trail, no history (H5).
 - Per-canvasser numbers are admin only, never in /field.
+- The service role is server only: `lib/supabase/admin.ts` (`createServiceClient`), called only from a "use server" action after checking the caller is an active admin (UI-10 F5f: invites). Never import it into a client component, never `NEXT_PUBLIC_`.
+- Lead statuses are shown as the office's mark + word (ring = still with the office, dot = settled). Never a control.
 - Eligibility comes only from the database (`is_knockable`).

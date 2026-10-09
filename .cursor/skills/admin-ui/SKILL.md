@@ -56,7 +56,14 @@ export default async function Page() {
 - `ConfirmDialog` for anything destructive.
 - Never stack two modals; a multi-step task gets its own route (e.g. `/admin/today/add`).
 
-## 6. Checklist before you finish
+## 6. Analytics, lists and settings (UI-10 F5)
+
+- Period pages (Team, a canvasser, Leads): `PeriodChips` (links: This week / Last 4 weeks / All time, `?period=`), numbers worked out on the server (`lib/admin/team.ts`), only figures reach the browser. Sorts and status filters live in the URL via `history.replaceState(null, "", …)`.
+- Grouped settings: section label (`text-admin-section`, sentence case) above one `rounded-field-lg bg-surface` group, one line of help under it. A value row opens a `Sheet`; switches sit at the row end; switching something off asks first (`ConfirmDialog`).
+- Read-only lists (Leads): a visible list frame, rows 64px, the empty line inside the frame, 50 rows then "Show N more".
+- A page that cannot load uses `PageFailed` (title, what happened, Try again).
+
+## 7. Checklist before you finish
 
 - [ ] Only tokens and `text-admin-*` styles; no hex, no `dark:`.
 - [ ] `<AdminMenuButton />` in the header; nav changes only in `lib/admin/nav.ts`.
