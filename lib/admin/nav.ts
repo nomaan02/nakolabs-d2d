@@ -39,15 +39,16 @@ export const BRANCH_LABEL = "Bristol";
 /**
  * F5 state (frame 02). Today is the schedule (F3); Calendar is the history,
  * second (A38, A39); Coverage is the rebuilt filtered map (F4); Team, Leads
- * and Insights arrive in F5 (Leads and Insights in F5d, replacing the old
- * dashboard, A50).
+ * and Insights arrive in F5, and Insights replaces the old dashboard (A50).
  */
 export const ADMIN_NAV: readonly AdminNavItem[] = [
   { key: "today", label: "Today", href: "/admin/today", icon: "today", group: "main" },
   { key: "calendar", label: "Calendar", href: "/admin/calendar", icon: "calendar", group: "main" },
   { key: "props", label: "Props", href: "/admin/props", icon: "props", group: "main" },
   { key: "team", label: "Team", href: "/admin/team", icon: "team", group: "main" },
+  { key: "leads", label: "Leads", href: "/admin/leads", icon: "leads", group: "main" },
   { key: "coverage", label: "Coverage", href: "/admin/coverage", icon: "coverage", group: "main" },
+  { key: "insights", label: "Insights", href: "/admin/insights", icon: "insights", group: "main" },
   { key: "settings", label: "Settings", href: "/admin/settings", icon: "settings", group: "tools" },
 ];
 
@@ -101,6 +102,8 @@ export const DARK_READY_PATHS: readonly string[] = [
   "/admin/calendar",
   "/admin/coverage",
   "/admin/team",
+  "/admin/leads",
+  "/admin/insights",
 ];
 
 export function isDarkReady(

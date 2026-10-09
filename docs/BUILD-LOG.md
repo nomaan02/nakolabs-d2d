@@ -837,3 +837,47 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given code was pasted exactly.
 - **Not done / deferred:** A browser. A phone. Did not commit. No database row. No migration. Leads and Insights are F5d. Settings is F5e. Account switches and email invites are F5f.
 - **Follow-ups:** The owner checks F5 as a whole after F5f.
+
+### UI-10 Session F5d — /admin/leads (read-only) and /admin/insights; the old dashboard redirects
+- **Date:** 2026-10-09
+- **Model:** Grok 4.7
+- **Built:** `/admin/leads` (period chips, status chips, 50 rows then Show more, read-only) and `/admin/insights` (charts: doors per week, by prop, answered by slot, lead outcomes, prop completion, stale props). `/admin/dashboard` redirects to Insights. Leads and Insights are in the nav and dark-ready. The old dashboard components stay on disk until F6.
+- **Owner decisions:**
+  - OWNER — A47 (2026-10-06): UI-10 designs approved (Figma page 40:289: phone 02, 20, 21, 23, 24, dark 32).
+  - OWNER — A9 (2026-10-01): per-canvasser numbers (doors, contacts, leads, contact → lead) as an admin-only view. Never in /field.
+  - OWNER — A34 (2026-10-06): Team period chips This week (default) / Last 4 weeks / All time.
+  - OWNER — A35 (2026-10-06): Settings = visit threshold, logging default, data status (read-only), canvasser accounts (list, switch on/off, invite by email), Appearance.
+  - OWNER — A48 (2026-10-06): Insights = the old dashboard panels restyled, charts not tables. A50: `/admin/dashboard` → Insights. A51: one Light / Dark / System choice shared with the field app.
+  - OWNER — 2026-10-09: Team and Insights numbers are computed without a migration (as F4 did). Canvasser accounts are in F5, as the last session, human-gated.
+  - OWNER — 2026-10-09: Insights keeps doors per prop per week, answer rate by slot, lead outcomes, prop completion and stale props. "Live now" is dropped (it is on Today).
+  - OWNER — 2026-10-09: order Team + Leads, then Settings + Insights. Invites are emailed through the owner's own SMTP (set in the Supabase dashboard). `/signup` is removed: invite only.
+  - OWNER — 2026-10-09: tapping a canvasser opens a full profile: period numbers, outcome breakdown, overall and recent conversions, recent leads, days and doors. Leads gets period chips like Team.
+- **Claude decisions:**
+  - CLAUDE — Figma frames (phone section 89:295): 02 drawer 89:690, 20 Team 97:1234, 21 Leads 97:1353, 23 Settings 98:1324, 24 Invite 98:1442, 32 dark Settings 99:3855. Insights and the canvasser profile have no frame; they use the same kit.
+  - CLAUDE — Page patterns: Team = Analytics; canvasser profile = Detail (`/admin/team/<id>`); Leads = List; Insights = Dashboard (glance, no filters); Settings = Settings.
+  - CLAUDE — No migration until F5f. Knocks are `v_latest_knock` rows (latest outcome per door per visit), read 1,000 at a time and de-duplicated; a door belongs to whoever logged its latest outcome. Days are London days; queries are a day wider each side and bucketed in code. Everything is reduced on the server; only figures and short lists reach the browser.
+  - CLAUDE — Numbers: Contacts = bookable answers only (`answered`). Contact → lead = leads ÷ (contacts + leads): a lead was a contact before it was booked, so the rate never passes 100%. Lead → sale = sales ÷ leads the office has settled (not awaiting or re-app). Doors answered (the broad rule) stays second.
+  - CLAUDE — Periods: This week = Monday to Sunday (London); Last 4 weeks = the 28 days up to today; All time. `?period=` is a link (the server reads it); `?sort=` (Team) and `?status=` (Leads) are kept with `history.replaceState(null, …)`.
+  - CLAUDE — Team lists every active canvasser plus anyone else who knocked in the period. The profile shows the period against all time, the outcome breakdown, the last 10 leads, 14 days (each opens that day on Calendar) and 20 doors. Doors are address labels (`v_door_label`) or "UPRN n"; people are first names; lead statuses are the office's, read-only.
+  - CLAUDE — Leads: rows show the door, prop, first name and knock time with the office status as a mark (ring = still with the office, dot = settled) and its word. 50 rows, then Show more. No status control anywhere in admin.
+  - CLAUDE — Insights: `admin_dashboard` (unchanged) plus every lead's status (all eight). Single-series bars are neutral ink; colour only for lead marks; every chart has its numbers as text. Stale props open on Props.
+  - CLAUDE — `/admin/dashboard` now redirects to `/admin/insights` (A50). Its old components stay on disk, unused, until F6.
+  - CLAUDE — Nav: Leads after Team; Insights after Coverage (frame 02); both dark-ready.
+- **Acceptance:**
+  - EDIT 1 DONE. New `components/admin/leads/leads-screen.tsx` pasted as given. The file did not exist before.
+  - EDIT 2 DONE. New `components/admin/insights/insights-screen.tsx` pasted as given. The file did not exist before.
+  - EDIT 3 DONE. New `app/(admin)/admin/leads/page.tsx` pasted as given. The file did not exist before.
+  - EDIT 4 DONE. New `app/(admin)/admin/leads/loading.tsx` pasted as given. The file did not exist before.
+  - EDIT 5 DONE. New `app/(admin)/admin/insights/page.tsx` pasted as given. The file did not exist before.
+  - EDIT 6 DONE. New `app/(admin)/admin/insights/loading.tsx` pasted as given. The file did not exist before.
+  - EDIT 7 DONE. `app/(admin)/admin/dashboard/page.tsx` replaced with the redirect. The old dashboard components were left on disk.
+  - EDIT 8 DONE. `lib/admin/nav.ts`: Leads after Team, Insights after Coverage, both dark-ready. Each find block occurred once.
+  - EDIT 9 DONE. `scripts/verify-ui-10-admin.ts`: drawer-order check. The find block occurred once.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on the nine session files: **PASS** — exit 0.
+  - `npm run verify:ui10`: **PASS** — exit 0. Printed `ALL PASS`, including `Leads and Insights in the drawer order of frame 02 (F5d)`.
+  - `git grep -n "status_set\|\.update(\|\.insert(" -- components/admin/leads lib/admin/leads.ts lib/admin/leads-data.ts`: **PASS** — printed nothing (exit 1).
+  - Phone: **NOT VERIFIED**. None for this session (the owner checks F5 as a whole after F5f).
+- **Deviations from brief:** none. The given code was pasted exactly.
+- **Not done / deferred:** A browser. A phone. Did not commit. No database row. No migration. Settings is F5e. Account switches and email invites are F5f. Old dashboard components stay until F6.
+- **Follow-ups:** The owner checks F5 as a whole after F5f.
