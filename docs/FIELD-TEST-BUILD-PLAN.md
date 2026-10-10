@@ -135,7 +135,7 @@
 | UI-10 F5d | `/admin/leads` (read-only) + `/admin/insights`; dashboard → Insights | DONE | 2026-10-09 | `/admin/leads (period + status chips, read-only) and /admin/insights (charts); /admin/dashboard → Insights.` | 4bc9425 |
 | UI-10 F5e | `/admin/settings` rebuilt; `/auth/confirm` + `/set-password`; `/signup` removed | DONE | 2026-10-09 | `/admin/settings rebuilt (threshold and logging sheets, Appearance, accounts list, data status); /auth/confirm + /set-password; /signup removed.` | c1eab5d |
 | UI-10 F5f | human: migration 029 `admin_set_canvasser_active`; account switches; invite by email | DONE | 2026-10-09 | Phone check passed 2026-10-10. Migration 029 admin_set_canvasser_active applied, types regenerated; Settings switches accounts on/off and invites by email (service role, server only). | 5a7232f |
-| UI-10 F6a | Delete old admin components; remove terra-draw | TODO | | | — |
+| UI-10 F6a | Delete old admin components; remove terra-draw | DONE | 2026-10-10 | 14 old admin components deleted; terra-draw packages removed. | — |
 | UI-10 F6b | Go canvassing in nav; admin pickable; Back to admin in /field | TODO | | | — |
 | UI-10 F6c | human: migration 030 (admin canvassing, FU-2 delete guard, FU-3 started_at); middleware | TODO | | | — |
 | UI-10 F6d | human: migration 031 `admin_latest_knocks` (FU-1); Calendar, Coverage, Team read through it | TODO | | | — |

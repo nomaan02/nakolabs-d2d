@@ -974,3 +974,47 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given code was pasted exactly. `service_role` also has EXECUTE (Supabase default).
 - **Not done / deferred:** A browser. A phone. Did not commit. No profile row written. No invite sent. No account switched. Middleware was not changed.
 - **Follow-ups:** The owner checks F5 as a whole, including a switch-off confirm and an invite after SMTP is set. Say if EXECUTE for `service_role` on this function should be revoked.
+
+### UI-10 Session F6a — delete old admin components; remove terra-draw
+- **Date:** 2026-10-10
+- **Model:** Grok 4.7
+- **Built:** Deleted the 14 old admin components. Their routes already redirect (`/admin` → Today, `/admin/allocate` → Today or Add visit, `/admin/dashboard` → Insights). Those redirect pages were not edited. Removed `terra-draw` and `terra-draw-maplibre-gl-adapter` from `package.json`. `npm install --no-audit --no-fund` updated `package-lock.json` (removed 2 packages).
+- **Owner decisions:**
+  - OWNER — A12 (2026-10-01): one account can be admin and canvasser. An admin can open `/field` to log their own knocks. Still no scores in `/field`.
+  - OWNER — A30 (2026-10-06): drawer item "Go canvassing". Middleware and RLS for that are the human-gated session.
+  - OWNER — A50 (2026-10-06): old routes redirect as replacements land. Old files are deleted in F6.
+  - OWNER — 2026-10-10: the admin is always pickable for a team (Add visit, Add person), like a canvasser. In `/field` the admin sees the canvasser app, plus a "Back to admin" row on the You tab.
+  - OWNER — 2026-10-10: fold in FU-2 (a visit cannot be deleted once its day has come, enforced in the database), FU-1 (one RPC for the latest knock per door, so Calendar, Coverage and Team stop reading `v_latest_knock` page by page) and FU-3 (`assignments.started_at` is the visit's first knock).
+  - OWNER — 2026-10-10: the D2 test knock (O5) is already gone from the database. Nothing to remove.
+- **Claude decisions:**
+  - CLAUDE — Figma frame 02 (89:690): "Go canvassing" sits under the line, above Settings.
+  - CLAUDE — `canCanvass(role)` (canvasser or admin) and `mayOpen(pathname, role)` live in `lib/auth/roles.ts`. Middleware uses `mayOpen`, so `/field` opens for canvassers and the admin, and office stays out.
+  - CLAUDE — Migration 030 (F6c): the three field insert policies (`knock_events`, `leads`, `property_observations`) accept the admin with the same membership and own-id checks. `leads_guard_status` holds the admin to pending only on insert. `allocate_prop` and `assignment_member_add` accept an active admin as a team member (only that one role line changes, re-created from the stored definition with a count check). `assignment_remove` refuses once `work_date` is today or earlier (London) with hint `visit_day_reached`. A trigger sets `started_at` to the earliest knock. `lib/sync/queue.ts` is unchanged. A one-off backfill covers visits already knocked. Trigger functions do not appear in the generated types, so the types do not change in F6c.
+  - CLAUDE — Migration 031 (F6d): `admin_latest_knocks(p_from, p_to, p_canvasser_id, p_assignment_ids)`, admin only, SECURITY INVOKER. The same rows as `v_latest_knock`, filtered the same way. Claude checked live and on a test database: zero differences. The window narrows doors before the DISTINCT ON. Called by POST, so Coverage's visit list has no URL limit.
+  - CLAUDE — Claude ran both migrations on a throwaway Postgres 16 with the same policies. Admin knock on own visit allowed, on another visit refused, office refused. Admin lead "pending" allowed, "sale" refused. Team checks accept admin, and office stays out. Today's visit cannot be deleted. A future empty one can. `started_at` follows the earliest knock, also for a canvasser's insert. Non-admins cannot call the RPC. `anon` has no execute.
+  - CLAUDE — This session deletes the 14 old admin components. Nothing imported them from outside those files since F5. `terra-draw` and `terra-draw-maplibre-gl-adapter` were used only by the old draw page and leave `package.json`. `package-lock.json` follows `npm install`.
+- **Acceptance:**
+  - EDIT 1 DONE. Deleted `components/admin/allocate-form.tsx`.
+  - EDIT 2 DONE. Deleted `components/admin/allocation-manage.tsx`.
+  - EDIT 3 DONE. Deleted `components/admin/coverage-map.tsx`.
+  - EDIT 4 DONE. Deleted `components/admin/coverage-view.tsx`.
+  - EDIT 5 DONE. Deleted `components/admin/dashboard-view.tsx`.
+  - EDIT 6 DONE. Deleted `components/admin/frozen-route-map.tsx`.
+  - EDIT 7 DONE. Deleted `components/admin/live-panel.tsx`.
+  - EDIT 8 DONE. Deleted `components/admin/logging-default-setting.tsx`.
+  - EDIT 9 DONE. Deleted `components/admin/prop-completion-list.tsx`.
+  - EDIT 10 DONE. Deleted `components/admin/prop-drawer.tsx`.
+  - EDIT 11 DONE. Deleted `components/admin/prop-tally.tsx`.
+  - EDIT 12 DONE. Deleted `components/admin/rotation-settings.tsx`.
+  - EDIT 13 DONE. Deleted `components/admin/route-overlay.tsx`.
+  - EDIT 14 DONE. Deleted `components/admin/three-numbers.tsx`.
+  - EDIT 15 DONE. `package.json`: the terra-draw block occurred once and was removed.
+  - EDIT 16 DONE. `npm install --no-audit --no-fund` removed 2 packages. `git grep -n "terra-draw" -- app components lib package.json` printed nothing (exit 1). The same grep on `package-lock.json` printed nothing (exit 1).
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `git grep -n "prop-drawer\|allocate-form\|dashboard-view\|rotation-settings\|logging-default-setting" -- app components lib`: **PASS** — printed nothing (exit 1).
+  - tsc: **NOT VERIFIED**. The brief says tsc runs after the session.
+  - eslint: **NOT VERIFIED**. The brief says eslint runs after the session.
+  - Phone: **NOT VERIFIED**. None for this session (the owner checks F6 as a whole after F6d).
+- **Deviations from brief:** none. Before the deletes, the only imports of these 14 files were from each other. `components/admin/coverage/coverage-screen.tsx` still has the storage key `d2d.admin.coverage-view` and `data-testid="coverage-map"`. Those are the new Coverage screen, and the required grep does not look for them.
+- **Not done / deferred:** A browser. A phone. Did not commit. No database row. Did not run tsc or eslint (the runner runs them after). F6b, F6c and F6d are later sessions. Redirect pages were left as they are.
+- **Follow-ups:** The owner checks F6 as a whole after F6d.

@@ -2,29 +2,28 @@
 
 ## Current state
 
-- Last updated: 2026-10-09 (UI-10 Session F5f). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Migration 029 `admin_set_canvasser_active` is applied. Admin only. It sets `profiles.active` for a canvasser and returns the new value. Admin and office accounts are refused. `profiles` still has no UPDATE policy. `lib/supabase/types.ts` was regenerated; the only diff is that function.
-- `/admin/settings` switches canvasser accounts on and off. Off asks first (named confirm, Cancel focused). On is immediate. Invite canvasser opens the first-name and email sheet. The invite uses the service-role client in `lib/supabase/admin.ts`, server only, after the caller is checked as an active admin. SMTP was not changed.
-- `/signup` redirects to `/login`. The `signUp` action is gone. `setPassword` saves a password of 8 or more characters. Sign in says "No account? Ask your manager for an invite." A bad invite link shows "That link has expired or was already used."
-- `/auth/confirm` takes `token_hash` and `type` of `invite` or `recovery`, verifies the token, and opens `/set-password`. Anything else goes to `/login?error=link`. No `next` parameter.
-- `/admin/leads` stays the Leads page (List, frame 21). Period chips, status chips, read-only rows, 50 then Show more.
-- `/admin/insights` stays Insights (Dashboard). Charts from `admin_dashboard` plus every lead status. `/admin/dashboard` redirects to `/admin/insights`. Old dashboard components stay on disk until F6.
-- Drawer order (frame 02): Today, Calendar, Props, Team, Leads, Coverage, Insights, Settings. Settings is dark-ready.
-- `/admin/team` stays the Team page. Profile at `/admin/team/<id>`. Team is after Props and is dark-ready.
-- Old `components/admin/rotation-settings.tsx` and `logging-default-setting.tsx` stay on disk, unused, until F6.
-- Coverage, Calendar and Today are unchanged this session and stay dark-ready.
-- Once a visit's day has come it is ended, never deleted. Only a visit whose day is still ahead, with no knocks, can be deleted.
-- UI-10 F5f tracker Status is DONE. Date 2026-10-09. Result: `Migration 029 admin_set_canvasser_active applied, types regenerated; Settings switches accounts on/off and invites by email (service role, server only).` Commit column still `—`. F5a–F5e remain DONE. F6 is still TODO.
-- `npx tsc --noEmit` exit 0. eslint on the five session files exit 0. `npm run verify:ui10` exit 0 (`ALL PASS`).
-- `git grep --untracked` for `SERVICE_ROLE` and `createServiceClient` under `app`, `components` and `lib` printed `app/health/route.ts`, `lib/supabase/admin.ts` and `lib/admin/accounts.ts` only. Plain `git grep` omitted the two new files because they are untracked.
-- Function check: one row, `prosecdef` true, `search_path=""`. Execute grants: `authenticated`, `postgres`, `service_role`. No `anon`. No `PUBLIC`. `profiles` UPDATE policies: 0.
+- Last updated: 2026-10-10 (UI-10 Session F6a). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- The 14 old admin components are deleted: `allocate-form.tsx`, `allocation-manage.tsx`, `coverage-map.tsx`, `coverage-view.tsx`, `dashboard-view.tsx`, `frozen-route-map.tsx`, `live-panel.tsx`, `logging-default-setting.tsx`, `prop-completion-list.tsx`, `prop-drawer.tsx`, `prop-tally.tsx`, `rotation-settings.tsx`, `route-overlay.tsx`, `three-numbers.tsx`. Before the deletes, the only imports of those files were from each other.
+- `terra-draw` and `terra-draw-maplibre-gl-adapter` are gone from `package.json` and `package-lock.json`. `npm install --no-audit --no-fund` removed 2 packages.
+- Redirects are unchanged: `/admin` → `/admin/today`, `/admin/allocate` → Today or Add visit when `?prop=` is set, `/admin/dashboard` → `/admin/insights`.
+- UI-10 F6a tracker Status is DONE. Date 2026-10-10. Result: `14 old admin components deleted; terra-draw packages removed.` Commit column still `—`. F6b, F6c and F6d remain TODO.
+- `npm run verify:ui10` exit 0. Last line: `ALL PASS`. `git grep` for the old component names under `app`, `components` and `lib` printed nothing. `git grep` for `terra-draw` under `app`, `components`, `lib` and `package.json` printed nothing. The same on `package-lock.json` printed nothing.
+- tsc and eslint were left for the runner. No browser. No dev server. Phone checks for this session are NOT VERIFIED. The owner checks F6 as a whole after F6d.
+- Migration 029 `admin_set_canvasser_active` is still applied. This session wrote no database row and no `client_event_id`.
+- `/admin/settings` still switches canvasser accounts on and off and invites by email. `/signup` still redirects to `/login`.
+- Drawer order is unchanged: Today, Calendar, Props, Team, Leads, Coverage, Insights, Settings. "Go canvassing" is F6b.
 - Dark-ready: `/admin/props`, `/admin/today`, `/admin/calendar`, `/admin/coverage`, `/admin/team`, `/admin/leads`, `/admin/insights`, `/admin/settings`.
-- `lib/sync/queue.ts` was not edited. Field writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/field/*` were not edited. `lib/supabase/admin.ts` and `lib/supabase/types.ts` were. `lib/supabase/middleware.ts` was not edited. Admin never reads GPS. No lead-status control in admin.
-- No table row was written. No `client_event_id`. The only database change is function `admin_set_canvasser_active`.
+- `lib/sync/queue.ts` was not edited. Field writes still go through it. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. Admin never reads GPS. No lead-status control in admin.
+- `components/admin/coverage/coverage-screen.tsx` still has the storage key `d2d.admin.coverage-view` and `data-testid="coverage-map"`. Those belong to the new Coverage screen.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
-- No magic link this session. Password, profile and role were not changed. No account was switched and no invite was sent.
-- Middleware still sends an inactive signed-in user from `/set-password` to `/account-pending`. That was not changed (out of the allow list).
-- External settings: none. No browser. No dev server. Phone checks for this session are NOT VERIFIED. The owner checks F5 as a whole.
+- No magic link this session. Password, profile and role were not changed.
+- External settings: none.
+- Migration 029 `admin_set_canvasser_active` remains applied from F5f. Admin only. It sets `profiles.active` for a canvasser. Admin and office accounts are refused. `profiles` has no UPDATE policy. `prosecdef` true, `search_path=""`. Execute grants: `authenticated`, `postgres`, `service_role`. No `anon`. No `PUBLIC`.
+- `/admin/settings` switches canvasser accounts on and off. Off asks first. On is immediate. Invite uses the service-role client in `lib/supabase/admin.ts`, server only, after an active-admin check.
+- `/signup` redirects to `/login`. `/auth/confirm` verifies `invite` or `recovery` and opens `/set-password`.
+- `/admin/leads` stays read-only. `/admin/insights` stays Insights. `/admin/team` stays the Team page, with a profile at `/admin/team/<id>`.
+- Once a visit's day has come it is ended, never deleted, in the app. The database guard is F6c.
+- F5a–F5f remain DONE. Middleware still sends an inactive signed-in user from `/set-password` to `/account-pending`.
 
 ## Log
 
@@ -2655,3 +2654,33 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. A phone. The ten phone checks are NOT VERIFIED. No invite was sent. No account was switched. SMTP was not checked.
 - **External settings:** none
 - **Open questions for Claude:** Middleware still sends an inactive signed-in user from `/set-password` to `/account-pending`. An invited canvasser is created active, so that path is for a later switch-off, not for a new invite. `service_role` has EXECUTE on `admin_set_canvasser_active` from Supabase defaults. Say if that grant should be revoked.
+
+### 2026-10-10 — UI-10 Session F6a (uncommitted)
+
+- **Item:** UI-10
+- **What changed:** The 14 old admin components are deleted. `terra-draw` and `terra-draw-maplibre-gl-adapter` are removed from `package.json`, and `package-lock.json` follows. Their routes already redirect and were left as they are.
+- **Files:**
+  - Changed: `package.json` (terra-draw packages removed), `package-lock.json` (`npm install --no-audit --no-fund`, removed 2 packages), `docs/FIELD-TEST-BUILD-PLAN.md` (UI-10 F6a Status DONE, date 2026-10-10, Result), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: none
+  - Deleted: `components/admin/allocate-form.tsx`, `components/admin/allocation-manage.tsx`, `components/admin/coverage-map.tsx`, `components/admin/coverage-view.tsx`, `components/admin/dashboard-view.tsx`, `components/admin/frozen-route-map.tsx`, `components/admin/live-panel.tsx`, `components/admin/logging-default-setting.tsx`, `components/admin/prop-completion-list.tsx`, `components/admin/prop-drawer.tsx`, `components/admin/prop-tally.tsx`, `components/admin/rotation-settings.tsx`, `components/admin/route-overlay.tsx`, `components/admin/three-numbers.tsx`
+- **Database:** none
+- **Shared modules touched:** none. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - OWNER — A12 (2026-10-01): one account can be admin and canvasser. An admin can open `/field` to log their own knocks. Still no scores in `/field`.
+  - OWNER — A30 (2026-10-06): drawer item "Go canvassing". Middleware and RLS for that are the human-gated session.
+  - OWNER — A50 (2026-10-06): old routes redirect as replacements land. Old files are deleted in F6.
+  - OWNER — 2026-10-10: the admin is always pickable for a team (Add visit, Add person), like a canvasser. In `/field` the admin sees the canvasser app, plus a "Back to admin" row on the You tab.
+  - OWNER — 2026-10-10: fold in FU-2 (a visit cannot be deleted once its day has come, enforced in the database), FU-1 (one RPC for the latest knock per door, so Calendar, Coverage and Team stop reading `v_latest_knock` page by page) and FU-3 (`assignments.started_at` is the visit's first knock).
+  - OWNER — 2026-10-10: the D2 test knock (O5) is already gone from the database. Nothing to remove.
+  - CLAUDE — Figma frame 02 (89:690): "Go canvassing" sits under the line, above Settings.
+  - CLAUDE — `canCanvass(role)` (canvasser or admin) and `mayOpen(pathname, role)` live in `lib/auth/roles.ts`. Middleware uses `mayOpen`, so `/field` opens for canvassers and the admin, and office stays out.
+  - CLAUDE — Migration 030 (F6c): the three field insert policies accept the admin with the same membership and own-id checks. `leads_guard_status` holds the admin to pending only on insert. `allocate_prop` and `assignment_member_add` accept an active admin as a team member (only that role line changes, re-created from the stored definition with a count check). `assignment_remove` refuses once `work_date` is today or earlier (London) with hint `visit_day_reached`. A trigger sets `started_at` to the earliest knock, with a one-off backfill. `lib/sync/queue.ts` stays unchanged. Trigger functions do not appear in the generated types, so F6c expects no types change.
+  - CLAUDE — Migration 031 (F6d): `admin_latest_knocks(p_from, p_to, p_canvasser_id, p_assignment_ids)`, admin only, SECURITY INVOKER. Same rows as `v_latest_knock`, filtered the same way (Claude checked live and on a test database: zero differences). The window narrows doors before the DISTINCT ON. Called by POST, so Coverage's visit list has no URL limit.
+  - CLAUDE — Claude ran both migrations on a throwaway Postgres 16 with the same policies: admin knock on own visit allowed, on another visit refused, office refused; admin lead pending allowed, sale refused; team checks accept admin and refuse office; today's visit cannot be deleted, a future empty one can; `started_at` follows the earliest knock, also for a canvasser's insert; non-admins cannot call the RPC; `anon` has no execute.
+  - CLAUDE — This session deletes the 14 old components and the two terra-draw packages. Nothing outside those files imported them.
+- **Deviations from plan or brief:** none. `components/admin/coverage/coverage-screen.tsx` still has the storage key `d2d.admin.coverage-view` and `data-testid="coverage-map"`. The required grep does not look for those strings.
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. Field writes go through `lib/sync/queue.ts` only. No database row. No `client_event_id`.
+- **Verified:** `npm install --no-audit --no-fund` exit 0, removed 2 packages. `git grep -n "terra-draw" -- app components lib package.json` printed nothing (exit 1). `git grep -n "terra-draw" -- package-lock.json` printed nothing (exit 1). `git grep -n "prop-drawer\|allocate-form\|dashboard-view\|rotation-settings\|logging-default-setting" -- app components lib` printed nothing (exit 1). `npm run verify:ui10` exit 0. Last line: `ALL PASS`.
+- **Not verified:** A browser. A phone. None for this session (the owner checks F6 as a whole after F6d). tsc and eslint: the runner runs them after this session.
+- **External settings:** none
+- **Open questions for Claude:** none
