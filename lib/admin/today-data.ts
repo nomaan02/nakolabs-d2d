@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { parsePropGeometry } from "@/lib/admin/map-fit";
 import { firstName } from "@/lib/admin/props";
 import { NO_FIGURES, type Canvasser, type TodayVisit, type VisitFigures } from "@/lib/admin/today";
+import { canCanvass } from "@/lib/auth/roles";
 import type { Slot } from "@/lib/geo/rotation";
 import type { Database } from "@/lib/supabase/types";
 
@@ -163,7 +164,7 @@ export async function loadToday(supabase: SupabaseClient<Database>, today: strin
     const figures = await figuresFor(supabase, withKnocks, todays);
 
     const canvassers: Canvasser[] = (people.data ?? [])
-      .filter((row) => row.role === "canvasser" && row.active)
+      .filter((row) => canCanvass(row.role) && row.active)
       .map((row) => ({ id: row.id, name: firstName(row.full_name) }));
 
     return { ok: true, visits, figures, props, canvassers };

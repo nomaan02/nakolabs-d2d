@@ -2,6 +2,7 @@ import { AddVisit, type RouteKms } from "@/components/admin/today/add-visit";
 import { loadDoorCounts, loadPropRows } from "@/lib/admin/props-data";
 import { firstName } from "@/lib/admin/props";
 import { defaultVisitDate } from "@/lib/admin/today";
+import { canCanvass } from "@/lib/auth/roles";
 import { londonDate } from "@/lib/field/london-date";
 import { createClient } from "@/lib/supabase/server";
 
@@ -65,7 +66,7 @@ export default async function AddVisitPage({
       rows={loaded.rows}
       doorCounts={loadDoorCounts(supabase, loaded.rows)}
       canvassers={(people.data ?? [])
-        .filter((row) => row.role === "canvasser" && row.active)
+        .filter((row) => canCanvass(row.role) && row.active)
         .map((row) => ({ id: row.id, name: firstName(row.full_name) }))}
       bookings={bookings}
       routeKms={routeKms}

@@ -1018,3 +1018,37 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. Before the deletes, the only imports of these 14 files were from each other. `components/admin/coverage/coverage-screen.tsx` still has the storage key `d2d.admin.coverage-view` and `data-testid="coverage-map"`. Those are the new Coverage screen, and the required grep does not look for them.
 - **Not done / deferred:** A browser. A phone. Did not commit. No database row. Did not run tsc or eslint (the runner runs them after). F6b, F6c and F6d are later sessions. Redirect pages were left as they are.
 - **Follow-ups:** The owner checks F6 as a whole after F6d.
+
+### UI-10 Session F6b — Go canvassing; admin pickable; Back to admin
+- **Date:** 2026-10-10
+- **Model:** Grok 4.7
+- **Built:** `canCanvass` and `mayOpen` in `lib/auth/roles.ts`. "Go canvassing" in the admin nav, under the line and above Settings, linking to `/field`. Today, Add visit and Coverage's person list treat an active admin as pickable for a team. The field You tab shows "Back to admin" (link to `/admin/today`) when the signed-in role is admin. `verify:ui10` gained the F6 checks. Middleware is unchanged (F6c).
+- **Owner decisions:**
+  - OWNER — A12 (2026-10-01): one account can be admin and canvasser. An admin can open `/field` to log their own knocks. Still no scores in `/field`.
+  - OWNER — A30 (2026-10-06): drawer item "Go canvassing". Middleware and RLS for that are the human-gated session.
+  - OWNER — A50 (2026-10-06): old routes redirect as replacements land. Old files are deleted in F6.
+  - OWNER — 2026-10-10: the admin is always pickable for a team (Add visit, Add person), like a canvasser. In `/field` the admin sees the canvasser app, plus a "Back to admin" row on the You tab.
+  - OWNER — 2026-10-10: fold in FU-2 (a visit cannot be deleted once its day has come, enforced in the database), FU-1 (one RPC for the latest knock per door, so Calendar, Coverage and Team stop reading `v_latest_knock` page by page) and FU-3 (`assignments.started_at` is the visit's first knock).
+  - OWNER — 2026-10-10: the D2 test knock (O5) is already gone from the database. Nothing to remove.
+- **Claude decisions:**
+  - CLAUDE — Figma frame 02 (89:690): "Go canvassing" sits under the line, above Settings.
+  - CLAUDE — `canCanvass(role)` (canvasser or admin) and `mayOpen(pathname, role)` live in `lib/auth/roles.ts`. Middleware uses `mayOpen`, so `/field` opens for canvassers and the admin, and office stays out.
+  - CLAUDE — Migration 030 (F6c): the three field insert policies (`knock_events`, `leads`, `property_observations`) accept the admin with the same membership and own-id checks. `leads_guard_status` holds the admin to pending only on insert. `allocate_prop` and `assignment_member_add` accept an active admin as a team member (only that one role line changes, re-created from the stored definition with a count check). `assignment_remove` refuses once `work_date` is today or earlier (London) with hint `visit_day_reached`. A trigger sets `started_at` to the earliest knock. `lib/sync/queue.ts` is unchanged. A one-off backfill covers visits already knocked. Trigger functions do not appear in the generated types, so the types do not change in F6c.
+  - CLAUDE — Migration 031 (F6d): `admin_latest_knocks(p_from, p_to, p_canvasser_id, p_assignment_ids)`, admin only, SECURITY INVOKER. The same rows as `v_latest_knock`, filtered the same way. Claude checked live and on a test database: zero differences. The window narrows doors before the DISTINCT ON. Called by POST, so Coverage's visit list has no URL limit.
+  - CLAUDE — Claude ran both migrations on a throwaway Postgres 16 with the same policies. Admin knock on own visit allowed, on another visit refused, office refused. Admin lead "pending" allowed, "sale" refused. Team checks accept admin, and office stays out. Today's visit cannot be deleted. A future empty one can. `started_at` follows the earliest knock, also for a canvasser's insert. Non-admins cannot call the RPC. `anon` has no execute.
+  - CLAUDE — This session: `canCanvass` and `mayOpen` (pure); the nav item; Today, Add visit and Coverage's person list use `canCanvass`; the You tab row (admins only, a link to `/admin/today`). Until F6c lands, the database and middleware still refuse an admin in `/field`, so nothing changes in use.
+- **Acceptance:**
+  - EDIT 1 DONE. `lib/auth/roles.ts`: the account-pending return occurred once. `canCanvass` and `mayOpen` pasted after it.
+  - EDIT 2 DONE. `lib/admin/nav.ts`: the F5 comment occurred once and became the F6 comment. The settings row occurred once. "Go canvassing" sits above it.
+  - EDIT 3 DONE. `lib/admin/today-data.ts`: the import and the canvasser filter each occurred once. Both now use `canCanvass`.
+  - EDIT 4 DONE. `app/(admin)/admin/today/add/page.tsx`: the import and the canvasser filter each occurred once. Both now use `canCanvass`.
+  - EDIT 5 DONE. `lib/admin/coverage-data.ts`: the import and the person filter each occurred once. Both now use `canCanvass`.
+  - EDIT 6 DONE. `components/field/profile-tab.tsx`: the imports and the header/section join each occurred once. "Back to admin" shows only when `role === "admin"`.
+  - EDIT 7 DONE. `scripts/verify-ui-10-admin.ts`: all four find blocks occurred once. The F6 block sits above the final `console.log`.
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on the seven edited files: **PASS** — exit 0.
+  - Phone: **NOT VERIFIED**. None for this session (the owner checks F6 as a whole after F6d).
+- **Deviations from brief:** none. The given code was pasted exactly.
+- **Not done / deferred:** A browser. A phone. Did not commit. No database row. Middleware and the database stay as they are until F6c. F6d is a later session.
+- **Follow-ups:** The owner checks F6 as a whole after F6d.

@@ -37,9 +37,10 @@ export type AdminNavItem = {
 export const BRANCH_LABEL = "Bristol";
 
 /**
- * F5 state (frame 02). Today is the schedule (F3); Calendar is the history,
+ * F6 state (frame 02). Today is the schedule (F3); Calendar is the history,
  * second (A38, A39); Coverage is the rebuilt filtered map (F4); Team, Leads
  * and Insights arrive in F5, and Insights replaces the old dashboard (A50).
+ * "Go canvassing" (A30, F6) opens the field app: the only item outside /admin.
  */
 export const ADMIN_NAV: readonly AdminNavItem[] = [
   { key: "today", label: "Today", href: "/admin/today", icon: "today", group: "main" },
@@ -49,6 +50,7 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
   { key: "leads", label: "Leads", href: "/admin/leads", icon: "leads", group: "main" },
   { key: "coverage", label: "Coverage", href: "/admin/coverage", icon: "coverage", group: "main" },
   { key: "insights", label: "Insights", href: "/admin/insights", icon: "insights", group: "main" },
+  { key: "canvass", label: "Go canvassing", href: "/field", icon: "canvass", group: "tools" },
   { key: "settings", label: "Settings", href: "/admin/settings", icon: "settings", group: "tools" },
 ];
 

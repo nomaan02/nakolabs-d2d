@@ -17,6 +17,7 @@ import {
   type AdminNavItem,
 } from "../lib/admin/nav";
 import { ADMIN_THEME_BOOT_SCRIPT } from "../lib/admin/theme-boot";
+import { canCanvass, mayOpen } from "../lib/auth/roles";
 import {
   addPoint,
   canClose,
@@ -241,8 +242,8 @@ const hrefs = ADMIN_NAV.map((item) => item.href);
 check("nav keys are unique", new Set(keys).size === keys.length, keys.join(","));
 check("nav hrefs are unique", new Set(hrefs).size === hrefs.length, hrefs.join(","));
 check(
-  "every href is an admin route",
-  ADMIN_NAV.every((item) => item.href === "/admin" || item.href.startsWith("/admin/")),
+  "every href is an admin route (Go canvassing opens /field, F6)",
+  ADMIN_NAV.every((item) => item.href === "/admin" || item.href.startsWith("/admin/") || (item.key === "canvass" && item.href === "/field")),
 );
 check(
   "labels are sentence case and non-empty",
@@ -264,7 +265,7 @@ const cases: Array<[string, string | null]> = [
   ["/admin/coverage", "coverage"],
   ["/admin/settings", "settings"],
   ["/admin/unknown", null],
-  ["/field", null],
+  ["/field", "canvass"],
   ["/administrator", null],
 ];
 for (const [path, expected] of cases) {
@@ -946,8 +947,17 @@ check("build line", buildLine("82c922c1234") === "nakolabs-d2d · build 82c922c"
 
 console.log("\nF5 nav");
 check("Team after Props, dark-ready (F5c)", ADMIN_NAV[3]?.key === "team" && isDarkReady("/admin/team") && activeNavKey("/admin/team/5b1e") === "team");
-check("Leads and Insights in the drawer order of frame 02 (F5d)", keys.join() === "today,calendar,props,team,leads,coverage,insights,settings" && isDarkReady("/admin/leads") && isDarkReady("/admin/insights") && activeNavKey("/admin/insights") === "insights");
+check("Leads and Insights in the drawer order of frame 02 (F5d)", keys.slice(0, 7).join() === "today,calendar,props,team,leads,coverage,insights" && isDarkReady("/admin/leads") && isDarkReady("/admin/insights") && activeNavKey("/admin/insights") === "insights");
 check("Settings is dark-ready (F5e)", isDarkReady("/admin/settings"));
+
+console.log("\nF6 go canvassing");
+check("Go canvassing sits in tools above Settings (frame 02, A30)", navGroups().tools.map((item) => item.key).join() === "canvass,settings" && ADMIN_NAV.find((item) => item.key === "canvass")?.href === "/field");
+check("who canvasses: canvassers and the admin, never office", canCanvass("canvasser") && canCanvass("admin") && !canCanvass("office") && !canCanvass(null));
+check(
+  "who may open each area",
+  mayOpen("/field", "admin") && mayOpen("/field/logger", "canvasser") && !mayOpen("/field", "office") &&
+    mayOpen("/admin/today", "admin") && !mayOpen("/admin", "canvasser") && !mayOpen("/office", "admin") && mayOpen("/login", "office"),
+);
 
 console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILED`);
 process.exit(failures === 0 ? 0 : 1);

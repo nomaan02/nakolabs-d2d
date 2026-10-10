@@ -4,6 +4,7 @@ import { fetchCoverageMap, type CoverageDoorCollection, type CoverageProp } from
 import { visitScope, type CoverageFilters, type CoverageRow, type CoverageVisit } from "@/lib/admin/coverage-filters";
 import { addDays, firstName } from "@/lib/admin/props";
 import { readAll, TooManyRows } from "@/lib/admin/read-all";
+import { canCanvass } from "@/lib/auth/roles";
 import type { Slot } from "@/lib/geo/rotation";
 import type { Database } from "@/lib/supabase/types";
 
@@ -92,7 +93,7 @@ export async function loadCoverage(supabase: SupabaseClient<Database>, filters: 
     const knockers = new Set(rows.map((row) => row.canvasserId));
     if (filters.who) knockers.add(filters.who);
     const list: CoveragePerson[] = (people.data ?? [])
-      .filter((row) => row.role === "canvasser" || knockers.has(row.id))
+      .filter((row) => canCanvass(row.role) || knockers.has(row.id))
       .map((row) => ({ id: row.id, name: firstName(row.full_name) }))
       .sort((a, b) => a.name.localeCompare(b.name, "en-GB"));
 

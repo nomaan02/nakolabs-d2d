@@ -31,3 +31,20 @@ export function isAuthPath(pathname: string): boolean {
 export function isAccountPendingPath(pathname: string): boolean {
   return pathname === "/account-pending";
 }
+
+/**
+ * UI-10 F6 (owner A12, A30; 2026-10-10: the admin is always pickable). Who
+ * can be on a visit's team and open the field app: canvassers and the
+ * admin. Office never canvasses.
+ */
+export function canCanvass(role: string | null | undefined): boolean {
+  return role === "canvasser" || role === "admin";
+}
+
+/** Middleware's rule: /field is for anyone who canvasses; every other area is for its own role. */
+export function mayOpen(pathname: string, role: AppRole): boolean {
+  const required = roleForPath(pathname);
+  if (required === null) return true;
+  if (required === "canvasser") return canCanvass(role);
+  return required === role;
+}

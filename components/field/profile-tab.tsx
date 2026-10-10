@@ -1,7 +1,10 @@
 "use client";
 
+import Link from "next/link";
+
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { useFieldData } from "@/components/field/field-data-provider";
+import { ChevronRightIcon } from "@/components/field/icons";
 import { PropStatus } from "@/components/field/prop-status";
 import { SyncStatus } from "@/components/field/sync-status";
 import { SharedKnockNotice } from "@/components/field/shared-knock-notice";
@@ -36,6 +39,18 @@ export function ProfileTab() {
         <h1 className="font-display text-lg tracking-tight">{signedInAs || "Signed in"}</h1>
         <p className="font-data text-xs uppercase tracking-wide text-ink-soft">{role}</p>
       </header>
+
+      {/* UI-10 F6b (owner A30, 2026-10-10): an admin who went canvassing gets back in one tap. */}
+      {role === "admin" ? (
+        <Link
+          href="/admin/today"
+          className="flex min-h-tap-min items-center justify-between border-b border-ink/15 bg-paper px-4 text-sm font-semibold text-prop focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-prop"
+          data-testid="profile-back-to-admin"
+        >
+          Back to admin
+          <ChevronRightIcon className="size-5" />
+        </Link>
+      ) : null}
 
       <section className="border-b border-ink/15 bg-paper px-4 py-3">
         <h2 className="text-sm font-semibold">Appearance</h2>
