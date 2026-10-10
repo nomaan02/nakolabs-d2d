@@ -356,6 +356,7 @@ export type Database = {
           modified_since: string | null
           rows_inserted: number | null
           rows_seen: number | null
+          rows_skipped: number | null
           rows_unchanged: number | null
           rows_updated: number | null
           started_at: string
@@ -373,6 +374,7 @@ export type Database = {
           modified_since?: string | null
           rows_inserted?: number | null
           rows_seen?: number | null
+          rows_skipped?: number | null
           rows_unchanged?: number | null
           rows_updated?: number | null
           started_at?: string
@@ -390,6 +392,7 @@ export type Database = {
           modified_since?: string | null
           rows_inserted?: number | null
           rows_seen?: number | null
+          rows_skipped?: number | null
           rows_unchanged?: number | null
           rows_updated?: number | null
           started_at?: string
@@ -1608,6 +1611,17 @@ export type Database = {
         }[]
       }
       coverage_map_payload: { Args: never; Returns: Json }
+      crm_match_batch: {
+        Args: { p_rows: Json }
+        Returns: {
+          crm_id: string
+          lat: number
+          lon: number
+          tier: string
+          uprn: number
+        }[]
+      }
+      crm_norm_street: { Args: { p: string }; Returns: string }
       disablelongtransactions: { Args: never; Returns: string }
       dropgeometrycolumn:
         | {

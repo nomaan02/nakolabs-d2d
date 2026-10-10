@@ -1157,3 +1157,42 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given SQL was pasted exactly. The generator also lists `v_door_label` beside `properties` on `crm_leads_uprn_fkey`. Left as generated.
 - **Not done / deferred:** A browser. A phone. A live canvasser-role read. Did not commit. No CRM lead rows. No CRM call.
 - **Follow-ups:** CRM-1 P2 is the matcher (migration 033) and `scripts/crm-backfill.ts`.
+
+### CRM-1 Session B — migration 033 matcher, read-only client, sync, backfill
+- **Date:** 2026-10-10
+- **Model:** Grok 4.7
+- **Built:** Migration 033 applied. `crm_norm_street` and `crm_match_batch` (service role only). `crm_sync_runs.rows_skipped`. Types regenerated (14 insertions). `lib/crm/parse.ts`, `lib/crm/client.ts`, `lib/crm/sync.ts`, `scripts/crm-backfill.ts`, `scripts/verify-crm.ts`. `package.json` scripts `verify:crm` and `crm:backfill`. Backfill not run. No CRM call.
+- **Owner decisions:**
+  - OWNER — 2026-10-10: CRM leads are placed door by door where possible. When the exact address is not in the address table, the lead lands between its same-side neighbours ("23 between 21 and 25"), and only snaps to a door when that is safe.
+  - OWNER — 2026-10-10: the CRM is read-only for this app. Only `lib/crm/client.ts` calls it. Names, phones, street text, house numbers, notes and best time to call are never stored (they are not even requested).
+  - OWNER — 2026-10-10: blank CRM status = "No outcome"; canvasser = tidied first name; outside-area leads are kept for Insights; app leads link by same door + CRM created within ±1 day, unique only.
+  - OWNER — this session (2026-10-10): gate human. Apply migration 033 through the Supabase MCP and regenerate `lib/supabase/types.ts` through the Supabase MCP. No other database write. No CRM call of any kind (`npm run crm:backfill` is for the owner). Do not create or edit `.env.local`.
+- **Claude decisions:**
+  - CLAUDE — Matcher (033): `crm_norm_street` (immutable street key: lower case, no punctuation, St/Rd/Ave/… expanded) with an expression index on `property_addresses`. `crm_match_batch(jsonb)` places up to 500 leads per call, reads only, service role only. Tiers: exact, then snapped (nearest door unlabelled, within 10 m, 2 m clear of the next, never for a lettered number), then interpolated (same street + district, same side, gap ≤ 20), then street_nearest (one side within 6), then outside_area (district not loaded), then unmatched. House numbers are cast to integers only behind a regex guard.
+  - CLAUDE — Evidence for the thresholds: leave-one-out on 1,500 real labelled addresses (SELECT only): 79% interpolate, median error 1.9 m, 90th percentile 12.7 m; the 10 m / 2 m snap rule snapped 753, 720 to the right door (96%).
+  - CLAUDE — Client: allow-list of read operations, one `SELECT … FROM Leads` per query, 1 request a second, 30 s timeout, re-login once on an expired session. `verify:crm` fails if any other file names `webservice.php`, if the client names a write operation, if a `NEXT_PUBLIC_` CRM variable appears, or if a `/field` file reads CRM data.
+  - CLAUDE — Sync: counts the CRM first, pages by record id, and fails if fewer leads come back than were counted. Daily runs re-read 2 hours before the cursor. Unreadable timestamps are skipped and counted (`rows_skipped`). Unknown statuses kept raw and counted. Idempotent, including the point. App-lead links need uniqueness both ways. Every PostgREST read pages 1,000 at a time. HTML entities decoded.
+  - CLAUDE — Whether the CRM sends created/modified times in UTC or UK time is not yet known. A real run refuses to start without `--tz=utc` or `--tz=london`. The owner checks that before the real run.
+- **Acceptance:**
+  - EDIT 1 DONE. New `supabase/migrations/033_crm_matcher.sql`. Newest file before it was `032_crm_leads.sql`. 033 was free. SQL pasted as given.
+  - EDIT 2 DONE. `apply_migration` name `033_crm_matcher` returned `{"success":true}` on project `xerxsaptwpvhkkpyvkfi`.
+  - EDIT 3 DONE. Types regenerated from the MCP and written to `lib/supabase/types.ts`. `git diff --stat` is 14 insertions, 0 deletions: `rows_skipped` three times, plus `crm_match_batch` and `crm_norm_street`.
+  - EDIT 4 DONE. New `lib/crm/parse.ts`, pasted as given.
+  - EDIT 5 DONE. New `lib/crm/client.ts`, pasted as given.
+  - EDIT 6 DONE. New `lib/crm/sync.ts`, pasted as given.
+  - EDIT 7 DONE. New `scripts/crm-backfill.ts`, pasted as given.
+  - EDIT 8 DONE. New `scripts/verify-crm.ts`, pasted as given.
+  - EDIT 9 DONE. `package.json` `verify:ui10` line replaced with `verify:ui10`, `verify:crm` and `crm:backfill`. The find block occurred once.
+  - `proname`: **PASS** — `crm_match_batch`, `crm_norm_street`.
+  - privileges: **PASS** — `auth_can` false, `service_can` true.
+  - `rows_skipped`: **PASS** — one row.
+  - `crm_match_batch` sample: **PASS** — exact 1, outside_area 1.
+  - `npm run verify:crm`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `git grep -n "webservice.php" -- lib app components scripts`: printed nothing (exit 1). The new files are untracked, so `git grep` skips them. `git grep -n --untracked` lists only `lib/crm/client.ts` and `scripts/verify-crm.ts`.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0.
+  - eslint: **PASS** — `npm run lint` exit 0, 0 errors. 1,118 warnings, all in `public/maplibre`.
+  - Phone: none for this session (the CRM phase phone check comes after P4).
+- **Deviations from brief:** The §4 tracker had no CRM-1 B row. One was added after CRM-1 A, Status DONE, date 2026-10-10, Result as specified, Commit `—`. The pasted SQL and TypeScript were not changed.
+- **Not done / deferred:** A browser. A phone. The backfill (`npm run crm:backfill`). Any CRM call. `.env.local`. Did not commit. No new table row.
+- **Follow-ups:** The owner checks CRM timestamps against the CRM screen, then runs the backfill with `--tz=utc` or `--tz=london`. P3 is the daily cron.

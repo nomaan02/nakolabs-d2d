@@ -2,23 +2,27 @@
 
 ## Current state
 
-- Last updated: 2026-10-10 (CRM-1 Session A). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Migration 032 `032_crm_leads` is applied. Tables: `crm_leads` (0 rows), `crm_status_map` (7 rows), `crm_sync_runs` (0 rows). RLS is on for all three. One SELECT policy each, for admin and office. No write policy, so only the service role writes.
-- `lib/supabase/types.ts` was regenerated. `git diff --stat` is 147 insertions and 0 deletions: the three table blocks. `crm_leads` relationships list `properties` and `v_door_label` on `crm_leads_uprn_fkey`. That second line is the generator. It was not hand-edited.
-- CRM-1 A tracker Status is DONE. Date 2026-10-10. Result: `Migration 032 applied (crm_leads, crm_status_map 7 rows, crm_sync_runs; admin + office read only); types regenerated.` Commit column still `—`.
-- `npm run verify:ui10` exit 0. Last line: `ALL PASS`. `npx tsc --noEmit` exit 0. `npm run lint` exit 0 (0 errors). The 1,118 warnings are in `public/maplibre`, already there.
+- Last updated: 2026-10-10 (CRM-1 Session B). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Migration 033 `033_crm_matcher` is applied. Functions: `crm_norm_street`, `crm_match_batch` (authenticated cannot execute; service role can). Column `crm_sync_runs.rows_skipped`. The street index is in the same migration.
+- `lib/supabase/types.ts` was regenerated. `git diff --stat` is 14 insertions and 0 deletions: `rows_skipped` in the three `crm_sync_runs` blocks, plus `crm_match_batch` and `crm_norm_street`. Not hand-edited.
+- New files: `lib/crm/parse.ts`, `lib/crm/client.ts`, `lib/crm/sync.ts`, `scripts/crm-backfill.ts`, `scripts/verify-crm.ts`. `package.json` adds `verify:crm` and `crm:backfill` (dry run unless `--write`).
+- CRM-1 B tracker row was missing. It was added after CRM-1 A. Status DONE. Date 2026-10-10. Result: `Migration 033 crm_match_batch applied, types regenerated; lib/crm client/parse/sync, crm:backfill (dry run default) and verify:crm added. Backfill not run.` Commit column `—`.
+- `npm run verify:crm` exit 0. Last line: `ALL PASS`. `npm run verify:ui10` exit 0. Last line: `ALL PASS`. `npx tsc --noEmit` exit 0. `npm run lint` exit 0 (0 errors). The 1,118 warnings are in `public/maplibre`, already there.
+- Sample match (SELECT): exact 1, outside_area 1. Both functions present. `rows_skipped` present.
 - No browser. No dev server. Phone check: none for this session (the CRM phase phone check comes after P4).
-- The migration inserted the 7 `crm_status_map` rows. No `crm_leads` row. No `crm_sync_runs` row. No `client_event_id`. No CRM call.
-- `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts` and `lib/geo/walk/*` were not edited. No quality scoring in `/field`.
+- No new table row. No `crm_leads` row. No `crm_sync_runs` row. No `client_event_id`. No CRM call. `.env.local` was not created or edited. Backfill not run.
+- `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts` and `lib/geo/walk/*` were not edited. No quality scoring in `/field`. No `/field` file reads CRM data (`verify:crm`).
 - Dark-ready paths are unchanged: `/admin/props`, `/admin/today`, `/admin/calendar`, `/admin/coverage`, `/admin/team`, `/admin/leads`, `/admin/insights`, `/admin/settings`.
 - Redirects are unchanged: `/admin` → `/admin/today`, `/admin/allocate` → Today or Add visit when `?prop=` is set, `/admin/dashboard` → `/admin/insights`.
+- Migration 032 remains applied. Tables: `crm_leads` (0 rows, not re-counted this session), `crm_status_map` (7 rows from 032), `crm_sync_runs` (0 rows, not re-counted). RLS from 032 is unchanged.
 - Migration 031 `admin_latest_knocks` remains applied. Calendar, Coverage and Team still read through it.
 - Migration 030 remains applied. Middleware still uses `mayOpen`. `/field` opens for a canvasser and for the admin. Office stays out.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
 - External settings: none.
+- CRM created/modified times: UTC or UK time is still unknown. A real backfill refuses to start without `--tz=utc` or `--tz=london`. The owner runs it.
 - Migration 029 `admin_set_canvasser_active` remains applied from F5f.
-- UI-10 F1–F6 remain DONE.
+- UI-10 F1–F6 remain DONE. CRM-1 A remains DONE.
 
 ## Log
 
@@ -2799,3 +2803,31 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. A phone (none for this session; the CRM phase phone check comes after P4). A live canvasser-role read. The constraint tests stay on Claude's earlier database, not repeated here.
 - **External settings:** none
 - **Open questions for Claude:** The generated `crm_leads` relationships include `v_door_label` as well as `properties`, both on `crm_leads_uprn_fkey`. Say if that second line should be stripped. It was left as the generator wrote it.
+
+### 2026-10-10 — CRM-1 Session B (uncommitted)
+
+- **Item:** other
+- **What changed:** Migration 033 is applied. `crm_norm_street` and `crm_match_batch` place CRM leads (exact, snapped, interpolated, street_nearest, outside_area, unmatched). `crm_sync_runs.rows_skipped` counts leads with an unreadable time. The read-only CRM client, parser and sync are in `lib/crm`. `crm:backfill` defaults to a dry run. `verify:crm` checks parsing, the read-only guard and that `/field` does not read CRM data. The backfill was not run.
+- **Files:**
+  - Changed: `lib/supabase/types.ts`, `package.json`, `docs/FIELD-TEST-BUILD-PLAN.md` (CRM-1 B row added, Status DONE, date 2026-10-10, Result), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `supabase/migrations/033_crm_matcher.sql`, `lib/crm/parse.ts`, `lib/crm/client.ts`, `lib/crm/sync.ts`, `scripts/crm-backfill.ts`, `scripts/verify-crm.ts`, `.handoff/reports/crm-1-b.md`
+  - Deleted: none
+- **Database:** 033 `033_crm_matcher`. Creates `crm_norm_street` and `crm_match_batch`. Index `property_addresses_crm_street_idx`. Adds `crm_sync_runs.rows_skipped`. Revokes execute on `crm_match_batch` from public, anon and authenticated. Grants execute to service_role. No new row. No CRM call.
+- **Shared modules touched:** `lib/supabase/types.ts` (regenerated; 14 insertions). `lib/sync/queue.ts`, `lib/map/route-layers.ts` and `lib/geo/walk/*` were not edited. `lib/field/*` was not edited.
+- **Decided by:**
+  - OWNER — 2026-10-10: CRM leads are placed door by door where possible. When the exact address is not in the address table, the lead lands between its same-side neighbours ("23 between 21 and 25"), and only snaps to a door when that is safe.
+  - OWNER — 2026-10-10: the CRM is read-only for this app. Only `lib/crm/client.ts` calls it. Names, phones, street text, house numbers, notes and best time to call are never stored (they are not even requested).
+  - OWNER — 2026-10-10: blank CRM status = "No outcome"; canvasser = tidied first name; outside-area leads are kept for Insights; app leads link by same door + CRM created within ±1 day, unique only.
+  - OWNER — this session (2026-10-10): gate human. Apply migration 033 through the Supabase MCP and regenerate types through the Supabase MCP. No other database write. No CRM call. Do not create or edit `.env.local`.
+  - CLAUDE — Matcher (033): `crm_norm_street` with an expression index on `property_addresses`. `crm_match_batch` places up to 500 leads per call, reads only, service role only. Tiers: exact, snapped (10 m, 2 m clear, never a lettered number), interpolated (same street and district, same side, gap ≤ 20), street_nearest (one side within 6), outside_area, unmatched. House numbers cast to integers only behind a regex guard.
+  - CLAUDE — Threshold evidence, leave-one-out on 1,500 labelled addresses (SELECT only): 79% interpolate, median error 1.9 m, 90th percentile 12.7 m; 10 m / 2 m snap snapped 753, 720 to the right door (96%).
+  - CLAUDE — Client allow-list: `getchallenge`, `login`, `listtypes`, `describe`, `query` (one SELECT from Leads), `logout`. One request a second. 30 s timeout. Re-login once on an expired session.
+  - CLAUDE — Sync counts first, pages by record id, and fails closed if the page total is short. Daily runs re-read 2 hours before the cursor. Unreadable times are skipped and counted. Unknown statuses stay raw. Idempotent, including the point. Links need uniqueness both ways. PostgREST reads page 1,000 at a time. HTML entities are decoded.
+  - CLAUDE — CRM timestamps may be UTC or UK time. A real run refuses to start without `--tz=utc` or `--tz=london`.
+  - agent — The §4 tracker had no CRM-1 B row. One was added after CRM-1 A.
+- **Deviations from plan or brief:** The tracker row was missing, so it was added. The given SQL and TypeScript were pasted exactly. Types were written from the generator. The diff is the 14 expected lines only.
+- **Invariants:** No canvasser GPS and no coordinates sent. `crm_match_batch` returns a property point for a later sync. This session wrote no `crm_leads` row. No quality scoring in `/field`. Field writes still go through `lib/sync/queue.ts` only. That file was not edited. Coverage stays derived. No `/field` file reads CRM data.
+- **Verified:** `apply_migration` success on `xerxsaptwpvhkkpyvkfi`. Both functions present. `auth_can` false, `service_can` true. `rows_skipped` one column. Sample match: exact 1, outside_area 1. `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. `npx tsc --noEmit` exit 0. `npm run lint` exit 0, 0 errors, 1,118 warnings in `public/maplibre`. `git diff --stat -- lib/supabase/types.ts` is 14 insertions. `git grep --untracked` for `webservice.php` lists only `lib/crm/client.ts` and `scripts/verify-crm.ts`.
+- **Not verified:** A browser. A phone (none for this session; the CRM phase phone check comes after P4). The backfill. Any live CRM call. The bare `git grep` without `--untracked` printed nothing, because the new files are untracked.
+- **External settings:** none
+- **Open questions for Claude:** none. The owner still checks whether CRM created/modified times are UTC or UK time before the real backfill.

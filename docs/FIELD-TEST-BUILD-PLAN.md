@@ -141,6 +141,7 @@
 | UI-10 F6c | human: migration 030 (admin canvassing, FU-2 delete guard, FU-3 started_at); middleware | DONE | 2026-10-10 | Migration 030 applied (admin may log and be on teams; FU-2 delete guard; FU-3 started_at trigger + backfill); middleware opens /field to the admin. | 417e653 |
 | UI-10 F6d | human: migration 031 `admin_latest_knocks` (FU-1); Calendar, Coverage, Team read through it | DONE | 2026-10-10 | Phone check passed 2026-10-10. Migration 031 admin_latest_knocks applied, types regenerated; Calendar, Coverage and Team read through it. | 8748fd7 |
 | CRM-1 A | human: migration 032 `crm_leads`, `crm_status_map`, `crm_sync_runs` + types | DONE | 2026-10-10 | Migration 032 applied (crm_leads, crm_status_map 7 rows, crm_sync_runs; admin + office read only); types regenerated. | — |
+| CRM-1 B | human: migration 033 matcher; read-only CRM client, sync and backfill script | DONE | 2026-10-10 | Migration 033 crm_match_batch applied, types regenerated; lib/crm client/parse/sync, crm:backfill (dry run default) and verify:crm added. Backfill not run. | — |
 
 ---
 
