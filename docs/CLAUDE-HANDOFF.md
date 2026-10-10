@@ -2,23 +2,23 @@
 
 ## Current state
 
-- Last updated: 2026-10-10 (UI-10 Session F6d). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Migration 031 `031_admin_latest_knocks` is applied. `admin_latest_knocks` is SECURITY INVOKER (`prosecdef` false). Execute is granted to `authenticated`, `postgres` and `service_role`. No `anon`. No `PUBLIC`.
-- Calendar, Coverage and Team read knocks through `admin_latest_knocks`. They still page with `readAll` (1,000 rows) and de-duplicate. `git grep` for `from("v_latest_knock")` in those three files returned nothing.
-- `lib/supabase/types.ts` was regenerated. `git diff` is 15 lines: the `admin_latest_knocks` function block only.
-- UI-10 F6d tracker Status is DONE. Date 2026-10-10. Result: `Migration 031 admin_latest_knocks applied, types regenerated; Calendar, Coverage and Team read through it.` Commit column still `—`. F6a, F6b and F6c remain DONE.
-- `npm run verify:ui10` exit 0. Last line: `ALL PASS`. tsc and eslint were not run in this session. The brief says they run after it.
-- No browser. No dev server. Phone checks for F6 are NOT VERIFIED. The owner checks F6 as a whole.
-- This session created no database row and no `client_event_id`.
+- Last updated: 2026-10-10 (CRM-1 Session A). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Migration 032 `032_crm_leads` is applied. Tables: `crm_leads` (0 rows), `crm_status_map` (7 rows), `crm_sync_runs` (0 rows). RLS is on for all three. One SELECT policy each, for admin and office. No write policy, so only the service role writes.
+- `lib/supabase/types.ts` was regenerated. `git diff --stat` is 147 insertions and 0 deletions: the three table blocks. `crm_leads` relationships list `properties` and `v_door_label` on `crm_leads_uprn_fkey`. That second line is the generator. It was not hand-edited.
+- CRM-1 A tracker Status is DONE. Date 2026-10-10. Result: `Migration 032 applied (crm_leads, crm_status_map 7 rows, crm_sync_runs; admin + office read only); types regenerated.` Commit column still `—`.
+- `npm run verify:ui10` exit 0. Last line: `ALL PASS`. `npx tsc --noEmit` exit 0. `npm run lint` exit 0 (0 errors). The 1,118 warnings are in `public/maplibre`, already there.
+- No browser. No dev server. Phone check: none for this session (the CRM phase phone check comes after P4).
+- The migration inserted the 7 `crm_status_map` rows. No `crm_leads` row. No `crm_sync_runs` row. No `client_event_id`. No CRM call.
 - `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts` and `lib/geo/walk/*` were not edited. No quality scoring in `/field`.
 - Dark-ready paths are unchanged: `/admin/props`, `/admin/today`, `/admin/calendar`, `/admin/coverage`, `/admin/team`, `/admin/leads`, `/admin/insights`, `/admin/settings`.
 - Redirects are unchanged: `/admin` → `/admin/today`, `/admin/allocate` → Today or Add visit when `?prop=` is set, `/admin/dashboard` → `/admin/insights`.
-- Migration 030 remains applied from F6c. Middleware still uses `mayOpen`. `/field` opens for a canvasser and for the admin. Office stays out. The F6c backfill left 0 knocked visits with a null `started_at`.
+- Migration 031 `admin_latest_knocks` remains applied. Calendar, Coverage and Team still read through it.
+- Migration 030 remains applied. Middleware still uses `mayOpen`. `/field` opens for a canvasser and for the admin. Office stays out.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
 - External settings: none.
 - Migration 029 `admin_set_canvasser_active` remains applied from F5f.
-- F5a–F5f remain DONE. Middleware still sends an inactive signed-in user from `/set-password` to `/account-pending`.
+- UI-10 F1–F6 remain DONE.
 
 ## Log
 
@@ -2771,3 +2771,31 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. A phone. The owner checks F6 as a whole. tsc and eslint (the brief says they run after the session).
 - **External settings:** none
 - **Open questions for Claude:** none
+
+### 2026-10-10 — CRM-1 Session A (uncommitted)
+
+- **Item:** other
+- **What changed:** Migration 032 is applied. `crm_leads`, `crm_status_map` (7 rows) and `crm_sync_runs` exist. Admin and office may read them. There is no write policy. Types now include the three tables. No CRM lead was loaded.
+- **Files:**
+  - Changed: `lib/supabase/types.ts`, `docs/FIELD-TEST-BUILD-PLAN.md` (CRM-1 A Status DONE, date 2026-10-10, Result), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `supabase/migrations/032_crm_leads.sql`, `.handoff/reports/crm-1-a.md`
+  - Deleted: none
+- **Database:** 032 `032_crm_leads`. Creates `crm_status_map`, `crm_leads` and `crm_sync_runs`. Enables RLS. Grants SELECT to `authenticated`, with policies for admin and office. Inserts the 7 status mappings. No `crm_leads` row. No `crm_sync_runs` row.
+- **Shared modules touched:** `lib/supabase/types.ts` (regenerated; 147 insertions, the three table blocks). `lib/sync/queue.ts`, `lib/map/route-layers.ts` and `lib/geo/walk/*` were not edited.
+- **Decided by:**
+  - OWNER — 2026-10-10: written confirmation from work received. CRM data comes into the app. Brief Stage 12c replaces 12a's "ref + status only".
+  - OWNER — 2026-10-10: stored per CRM lead: CRM id + lead no, status (as sent + mapped), created / modified, appointment, branch, sale amount, postcode, door (UPRN) or point with match tier, canvasser first name. Never names, phones, street text, house numbers, notes or best time to call.
+  - OWNER — 2026-10-10: CRM "Booked" maps to confirmed, which exists on `crm_leads` only (option A). App leads keep their own statuses. "Uncontacted" maps to pending. A blank CRM status is stored as null ("No outcome").
+  - OWNER — 2026-10-10: the CRM is read-only for this app. Nothing in it is ever changed.
+  - OWNER — this session (2026-10-10): gate human. Apply migration 032 through the Supabase MCP and regenerate types through the Supabase MCP. No other database write. No data is loaded in this session.
+  - CLAUDE — Three tables. `crm_leads` is keyed by `crm_id`. `match_tier` is exact, snapped, interpolated, street_nearest, outside_area or unmatched. A UPRN only for exact and snapped. A point for every placed tier, and none for outside_area or unmatched. A mapped status needs the raw CRM text. Sale amount is null or above 0.
+  - CLAUDE — `crm_status_map` holds the 7 mappings as data (12a rule 2). `crm_sync_runs` records each backfill or daily run.
+  - CLAUDE — RLS on all three. SELECT for admin and office only. No write policies. Only the service role writes.
+  - CLAUDE — No foreign key from `leads.crm_ref`. The office may type a ref before the sync has pulled that lead.
+  - CLAUDE — Claude's earlier test, on Postgres 16 + PostGIS, before this session: valid rows insert; six bad rows are refused; admin and office read; canvasser and a user without a profile see nothing; admin writes are refused; anon is refused. Not repeated on the live project here.
+- **Deviations from plan or brief:** none. The given SQL was pasted exactly. The generator also lists `v_door_label` beside `properties` on `crm_leads_uprn_fkey`. Left as generated.
+- **Invariants:** No canvasser GPS and no coordinates sent. `crm_leads.location` is a property point for a later matcher. This session wrote no `crm_leads` row. No quality scoring in `/field`. Field writes still go through `lib/sync/queue.ts` only. That file was not edited. Coverage stays derived.
+- **Verified:** `apply_migration` success on `xerxsaptwpvhkkpyvkfi`. Status map count 7. Leads count 0. RLS true on all three tables. Three SELECT policies. `npm run verify:ui10` exit 0, last line `ALL PASS`. `npx tsc --noEmit` exit 0. `npm run lint` exit 0, 0 errors. `git diff --stat -- lib/supabase/types.ts` is 147 insertions.
+- **Not verified:** A browser. A phone (none for this session; the CRM phase phone check comes after P4). A live canvasser-role read. The constraint tests stay on Claude's earlier database, not repeated here.
+- **External settings:** none
+- **Open questions for Claude:** The generated `crm_leads` relationships include `v_door_label` as well as `properties`, both on `crm_leads_uprn_fkey`. Say if that second line should be stripped. It was left as the generator wrote it.

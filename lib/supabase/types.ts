@@ -250,6 +250,153 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_leads: {
+        Row: {
+          appointment_at: string | null
+          branch: string
+          canvasser_first_name: string | null
+          crm_created_at: string
+          crm_id: string
+          crm_modified_at: string
+          first_synced_at: string
+          lead_no: string | null
+          location: unknown
+          match_tier: string
+          postcode: string | null
+          postcode_sector: string | null
+          sale_amount: number | null
+          status: string | null
+          status_raw: string | null
+          synced_at: string
+          uprn: number | null
+        }
+        Insert: {
+          appointment_at?: string | null
+          branch: string
+          canvasser_first_name?: string | null
+          crm_created_at: string
+          crm_id: string
+          crm_modified_at: string
+          first_synced_at?: string
+          lead_no?: string | null
+          location?: unknown
+          match_tier: string
+          postcode?: string | null
+          postcode_sector?: string | null
+          sale_amount?: number | null
+          status?: string | null
+          status_raw?: string | null
+          synced_at?: string
+          uprn?: number | null
+        }
+        Update: {
+          appointment_at?: string | null
+          branch?: string
+          canvasser_first_name?: string | null
+          crm_created_at?: string
+          crm_id?: string
+          crm_modified_at?: string
+          first_synced_at?: string
+          lead_no?: string | null
+          location?: unknown
+          match_tier?: string
+          postcode?: string | null
+          postcode_sector?: string | null
+          sale_amount?: number | null
+          status?: string | null
+          status_raw?: string | null
+          synced_at?: string
+          uprn?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_leads_uprn_fkey"
+            columns: ["uprn"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["uprn"]
+          },
+          {
+            foreignKeyName: "crm_leads_uprn_fkey"
+            columns: ["uprn"]
+            isOneToOne: false
+            referencedRelation: "v_door_label"
+            referencedColumns: ["uprn"]
+          },
+        ]
+      }
+      crm_status_map: {
+        Row: {
+          crm_value: string
+          note: string | null
+          status: string
+        }
+        Insert: {
+          crm_value: string
+          note?: string | null
+          status: string
+        }
+        Update: {
+          crm_value?: string
+          note?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      crm_sync_runs: {
+        Row: {
+          app_leads_ambiguous: number | null
+          app_leads_linked: number | null
+          error: string | null
+          finished_at: string | null
+          id: string
+          kind: string
+          match_counts: Json | null
+          max_modified_seen: string | null
+          modified_since: string | null
+          rows_inserted: number | null
+          rows_seen: number | null
+          rows_unchanged: number | null
+          rows_updated: number | null
+          started_at: string
+          unknown_statuses: Json | null
+        }
+        Insert: {
+          app_leads_ambiguous?: number | null
+          app_leads_linked?: number | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          kind: string
+          match_counts?: Json | null
+          max_modified_seen?: string | null
+          modified_since?: string | null
+          rows_inserted?: number | null
+          rows_seen?: number | null
+          rows_unchanged?: number | null
+          rows_updated?: number | null
+          started_at?: string
+          unknown_statuses?: Json | null
+        }
+        Update: {
+          app_leads_ambiguous?: number | null
+          app_leads_linked?: number | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          kind?: string
+          match_counts?: Json | null
+          max_modified_seen?: string | null
+          modified_since?: string | null
+          rows_inserted?: number | null
+          rows_seen?: number | null
+          rows_unchanged?: number | null
+          rows_updated?: number | null
+          started_at?: string
+          unknown_statuses?: Json | null
+        }
+        Relationships: []
+      }
       door_footprints: {
         Row: {
           computed_at: string

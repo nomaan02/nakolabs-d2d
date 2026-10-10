@@ -1124,3 +1124,36 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given SQL and the find/replace blocks were pasted exactly.
 - **Not done / deferred:** A browser. A phone. Did not commit. No new database row. Did not run tsc or eslint (the runner runs them after).
 - **Follow-ups:** The owner checks F6 as a whole.
+
+### CRM-1 Session A — migration 032 crm_leads
+- **Date:** 2026-10-10
+- **Model:** Grok 4.7
+- **Built:** Migration 032 applied. Three tables: `crm_leads`, `crm_status_map` (7 rows), `crm_sync_runs`. Admin and office may SELECT. No write policy. Types regenerated.
+- **Owner decisions:**
+  - OWNER — 2026-10-10: written confirmation from work received. CRM data comes into the app. Brief Stage 12c replaces 12a's "ref + status only".
+  - OWNER — 2026-10-10: stored per CRM lead: CRM id + lead no, status (as sent + mapped), created / modified, appointment, branch, sale amount, postcode, door (UPRN) or point with match tier, canvasser first name. Never names, phones, street text, house numbers, notes or best time to call.
+  - OWNER — 2026-10-10: CRM "Booked" maps to confirmed, which exists on `crm_leads` only (option A). App leads keep their own statuses. "Uncontacted" maps to pending. A blank CRM status is stored as null ("No outcome").
+  - OWNER — 2026-10-10: the CRM is read-only for this app. Nothing in it is ever changed.
+  - OWNER — this session (2026-10-10): gate human. Apply migration 032 through the Supabase MCP and regenerate `lib/supabase/types.ts` through the Supabase MCP. No other database write. No data is loaded in this session.
+- **Claude decisions:**
+  - CLAUDE — Three tables. `crm_leads` is keyed by the CRM record id (`crm_id`). `match_tier` is one of exact, snapped, interpolated, street_nearest, outside_area, unmatched. A UPRN only for exact and snapped. A point for every placed tier, and none for outside_area or unmatched. A mapped status needs the raw CRM text. Sale amount is null or above 0.
+  - CLAUDE — `crm_status_map` holds the 7 mappings as data (12a rule 2). `crm_sync_runs` records each backfill or daily run (counts, unknown statuses, match counts, error).
+  - CLAUDE — RLS on all three. SELECT for admin and office only. No insert, update or delete policies, so only the service role writes.
+  - CLAUDE — No foreign key from `leads.crm_ref`. The office may type a ref before the sync has pulled that lead.
+  - CLAUDE — Claude's earlier test, on a Postgres 16 + PostGIS database, before this session: valid rows insert; six bad rows are refused by the right constraints; admin and office read; canvasser and a user without a profile see nothing; admin insert, update and delete are refused; anon is refused. That test was not repeated on the live project in this session.
+- **Acceptance:**
+  - EDIT 1 DONE. New `supabase/migrations/032_crm_leads.sql`. Newest file before it was `031_admin_latest_knocks.sql`. 032 was free. SQL pasted as given.
+  - EDIT 2 DONE. `apply_migration` name `032_crm_leads` returned `{"success":true}` on project `xerxsaptwpvhkkpyvkfi`.
+  - EDIT 3 DONE. Types regenerated from the MCP and written to `lib/supabase/types.ts`. `git diff --stat` is 147 insertions, 0 deletions. tsc exit 0.
+  - `select count(*) from public.crm_status_map`: **PASS** — 7.
+  - `select count(*) from public.crm_leads`: **PASS** — 0.
+  - `relrowsecurity`: **PASS** — three rows, all true.
+  - `pg_policies`: **PASS** — three rows, all SELECT (`crm_leads_select_staff`, `crm_status_map_select_staff`, `crm_sync_runs_select_staff`).
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0.
+  - eslint: **PASS** — `npm run lint` exit 0, 0 errors. 1,118 warnings, all in `public/maplibre`.
+  - Canvasser JWT denial on the live project: **NOT VERIFIED**. This session's checks were the four SELECTs above.
+  - Phone: none for this session (the CRM phase phone check comes after P4).
+- **Deviations from brief:** none. The given SQL was pasted exactly. The generator also lists `v_door_label` beside `properties` on `crm_leads_uprn_fkey`. Left as generated.
+- **Not done / deferred:** A browser. A phone. A live canvasser-role read. Did not commit. No CRM lead rows. No CRM call.
+- **Follow-ups:** CRM-1 P2 is the matcher (migration 033) and `scripts/crm-backfill.ts`.
