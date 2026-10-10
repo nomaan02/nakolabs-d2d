@@ -2,22 +2,21 @@
 
 ## Current state
 
-- Last updated: 2026-10-10 (UI-10 Session F6b). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- `canCanvass` and `mayOpen` live in `lib/auth/roles.ts`. Canvassers and the admin can be on a team and may open `/field`. Office cannot. Middleware still compares `requiredRole !== profile.role`. F6c switches it to `mayOpen`. Until F6c, the database and middleware still refuse an admin in `/field`, so nothing changes in use.
-- Drawer tools, under the line: Go canvassing (`/field`, icon `canvass`), then Settings. Main order is unchanged: Today, Calendar, Props, Team, Leads, Coverage, Insights.
-- Today, Add visit and Coverage's person list use `canCanvass`, so an active admin is pickable like a canvasser.
-- The field You tab shows "Back to admin" only when the signed-in role is admin. It links to `/admin/today`. No scores and no numbers.
-- UI-10 F6b tracker Status is DONE. Date 2026-10-10. Result: `Go canvassing in nav; admin pickable for teams; Back to admin on the You tab; canCanvass/mayOpen.` Commit column still `—`. F6c and F6d remain TODO. F6a remains DONE.
-- `npm run verify:ui10` exit 0. Last line: `ALL PASS`. `npx tsc --noEmit` exit 0. eslint on the seven edited files exit 0.
+- Last updated: 2026-10-10 (UI-10 Session F6c). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Migration 030 `030_admin_canvassing` is applied. An admin may insert their own knocks, leads and property observations on a visit they belong to. `leads_guard_status` holds the admin to pending on insert. `allocate_prop` and `assignment_member_add` accept an active admin. `assignment_remove` refuses once the visit's London day has come (`visit_day_reached`). Trigger `knock_events_mark_started` sets `assignments.started_at` to the earliest knock. The one-off backfill left 0 knocked visits with a null `started_at`.
+- Middleware uses `mayOpen`. `/field` opens for a canvasser and for the admin. Office stays out.
+- `lib/supabase/types.ts` was regenerated. `git diff --stat` showed no content change. The file matches HEAD.
+- UI-10 F6c tracker Status is DONE. Date 2026-10-10. Result: `Migration 030 applied (admin may log and be on teams; FU-2 delete guard; FU-3 started_at trigger + backfill); middleware opens /field to the admin.` Commit column still `—`. F6d remains TODO. F6a and F6b remain DONE.
+- `npm run verify:ui10` exit 0. Last line: `ALL PASS`. `npx tsc --noEmit` exit 0. eslint on `lib/supabase/middleware.ts` exit 0.
 - No browser. No dev server. Phone checks for this session are NOT VERIFIED. The owner checks F6 as a whole after F6d.
-- This session wrote no database row and no `client_event_id`.
-- `lib/sync/queue.ts` was not edited. `lib/supabase/middleware.ts` was not edited (F6c). `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited. `components/field/profile-tab.tsx` gained the You-tab row only. No quality scoring in `/field`.
+- This session created no database row and no `client_event_id`. The granted backfill updated existing `assignments.started_at` only.
+- `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts` and `lib/geo/walk/*` were not edited. No quality scoring in `/field`.
 - Dark-ready paths are unchanged: `/admin/props`, `/admin/today`, `/admin/calendar`, `/admin/coverage`, `/admin/team`, `/admin/leads`, `/admin/insights`, `/admin/settings`.
 - Redirects are unchanged: `/admin` → `/admin/today`, `/admin/allocate` → Today or Add visit when `?prop=` is set, `/admin/dashboard` → `/admin/insights`.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
 - External settings: none.
-- Migration 029 `admin_set_canvasser_active` remains applied from F5f. Once a visit's day has come it is ended, never deleted, in the app. The database guard is F6c.
+- Migration 029 `admin_set_canvasser_active` remains applied from F5f.
 - F5a–F5f remain DONE. Middleware still sends an inactive signed-in user from `/set-password` to `/account-pending`.
 
 ## Log
@@ -2706,6 +2705,37 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Deviations from plan or brief:** none. The given code was pasted exactly.
 - **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. The You tab row is a link and a label, with no scores and no numbers. Field writes go through `lib/sync/queue.ts` only. That file was not edited. No database row. No `client_event_id`.
 - **Verified:** `npm run verify:ui10` exit 0. Last line: `ALL PASS`. `npx tsc --noEmit` exit 0. eslint on the seven edited files exit 0.
+- **Not verified:** A browser. A phone. None for this session (the owner checks F6 as a whole after F6d).
+- **External settings:** none
+- **Open questions for Claude:** none
+
+### 2026-10-10 — UI-10 Session F6c (uncommitted)
+
+- **Item:** UI-10
+- **What changed:** Migration 030 is applied. An admin may log their own knocks, leads and rented or council answers on a visit they belong to, and may be picked for a team. A visit whose London day has come cannot be deleted (`visit_day_reached`). `assignments.started_at` is set to the earliest knock by a trigger, and existing knocked visits were backfilled. Middleware uses `mayOpen`, so `/field` opens for the admin as well as a canvasser. Office still cannot open `/field`.
+- **Files:**
+  - Changed: `lib/supabase/middleware.ts`, `docs/FIELD-TEST-BUILD-PLAN.md` (UI-10 F6c Status DONE, date 2026-10-10, Result), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `supabase/migrations/030_admin_canvassing.sql`, `.handoff/reports/ui-10-f6c.md`
+  - Deleted: none
+  - `lib/supabase/types.ts` was regenerated and matches HEAD. No content change.
+- **Database:** 030 `030_admin_canvassing`. Alters three insert policies, replaces `leads_guard_status`, `allocate_prop`, `assignment_member_add` and `assignment_remove`, adds trigger `knock_events_mark_started`, and backfills `assignments.started_at`. No new table or column.
+- **Shared modules touched:** `lib/supabase/middleware.ts` (route gate now `mayOpen`). `lib/sync/queue.ts`, `lib/map/route-layers.ts` and `lib/geo/walk/*` were not edited. `lib/supabase/types.ts` was regenerated and is unchanged.
+- **Decided by:**
+  - OWNER — A12 (2026-10-01): one account can be admin and canvasser. An admin can open `/field` to log their own knocks. Still no scores in `/field`.
+  - OWNER — A30 (2026-10-06): drawer item "Go canvassing". This is the human-gated middleware and RLS session.
+  - OWNER — A50 (2026-10-06): old routes redirect as replacements land. Old files are deleted in F6.
+  - OWNER — 2026-10-10: the admin is always pickable for a team (Add visit, Add person), like a canvasser. In `/field` the admin sees the canvasser app, plus a "Back to admin" row on the You tab.
+  - OWNER — 2026-10-10: fold in FU-2 (a visit cannot be deleted once its day has come, enforced in the database), FU-1 (one RPC for the latest knock per door) and FU-3 (`assignments.started_at` is the visit's first knock). FU-1 is F6d.
+  - OWNER — 2026-10-10: the D2 test knock (O5) is already gone from the database. Nothing to remove.
+  - OWNER — this session (2026-10-10): gate human. Apply migration 030 through the Supabase MCP, including the one-off `started_at` backfill, and regenerate types through the Supabase MCP. No other database write.
+  - CLAUDE — Figma frame 02 (89:690): "Go canvassing" sits under the line, above Settings.
+  - CLAUDE — `canCanvass(role)` (canvasser or admin) and `mayOpen(pathname, role)` live in `lib/auth/roles.ts`. Middleware uses `mayOpen`, so `/field` opens for canvassers and the admin, and office stays out.
+  - CLAUDE — Migration 030: the three field insert policies accept the admin with the same membership and own-id checks. `leads_guard_status` holds the admin to pending only on insert. `allocate_prop` and `assignment_member_add` accept an active admin (only that role line changes, from the stored definition, with a count check). `assignment_remove` refuses once `work_date` is today or earlier (London) with hint `visit_day_reached`. A trigger sets `started_at` to the earliest knock. `lib/sync/queue.ts` stays unchanged. Trigger functions do not appear in the generated types.
+  - CLAUDE — Migration 031 (F6d, not this session): `admin_latest_knocks`, admin only, SECURITY INVOKER. Same rows as `v_latest_knock`. Called by POST.
+  - CLAUDE — Claude ran both migrations on a throwaway Postgres 16 with the same policies: admin knock on own visit allowed, on another visit refused, office refused; admin lead pending allowed, sale refused; team checks accept admin and refuse office; today's visit cannot be deleted, a future empty one can; `started_at` follows the earliest knock, also for a canvasser's insert; non-admins cannot call the RPC; `anon` has no execute.
+- **Deviations from plan or brief:** none. The given SQL and middleware blocks were pasted exactly.
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. Field writes still go through `lib/sync/queue.ts` only. That file was not edited. No new row. No `client_event_id`. The granted backfill updated existing `assignments.started_at` only.
+- **Verified:** `apply_migration` success. Trigger `knock_events_mark_started`: one row. Three insert policies name `admin`. `allocate_ok` true, `member_ok` true, `remove_ok` true. Knocked visits with null `started_at`: 0. `npm run verify:ui10` exit 0. Last line: `ALL PASS`. `npx tsc --noEmit` exit 0. eslint on `lib/supabase/middleware.ts` exit 0. `git diff --stat -- lib/supabase/types.ts` showed no content change.
 - **Not verified:** A browser. A phone. None for this session (the owner checks F6 as a whole after F6d).
 - **External settings:** none
 - **Open questions for Claude:** none

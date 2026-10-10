@@ -137,7 +137,7 @@
 | UI-10 F5f | human: migration 029 `admin_set_canvasser_active`; account switches; invite by email | DONE | 2026-10-09 | Phone check passed 2026-10-10. Migration 029 admin_set_canvasser_active applied, types regenerated; Settings switches accounts on/off and invites by email (service role, server only). | 5a7232f |
 | UI-10 F6a | Delete old admin components; remove terra-draw | DONE | 2026-10-10 | 14 old admin components deleted; terra-draw packages removed. | — |
 | UI-10 F6b | Go canvassing in nav; admin pickable; Back to admin in /field | DONE | 2026-10-10 | Go canvassing in nav; admin pickable for teams; Back to admin on the You tab; canCanvass/mayOpen. | — |
-| UI-10 F6c | human: migration 030 (admin canvassing, FU-2 delete guard, FU-3 started_at); middleware | TODO | | | — |
+| UI-10 F6c | human: migration 030 (admin canvassing, FU-2 delete guard, FU-3 started_at); middleware | DONE | 2026-10-10 | Migration 030 applied (admin may log and be on teams; FU-2 delete guard; FU-3 started_at trigger + backfill); middleware opens /field to the admin. | — |
 | UI-10 F6d | human: migration 031 `admin_latest_knocks` (FU-1); Calendar, Coverage, Team read through it | TODO | | | — |
 
 ---

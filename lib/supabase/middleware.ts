@@ -6,6 +6,7 @@ import {
   homeForRole,
   isAccountPendingPath,
   isAuthPath,
+  mayOpen,
   roleForPath,
 } from "@/lib/auth/roles";
 
@@ -85,7 +86,8 @@ export async function updateSession(request: NextRequest) {
     return redirectWithSession(request, supabaseResponse, home);
   }
 
-  if (requiredRole && requiredRole !== profile.role) {
+  // UI-10 F6c (owner A30): /field is for anyone who canvasses, the admin included.
+  if (!mayOpen(pathname, profile.role)) {
     return redirectWithSession(request, supabaseResponse, home);
   }
 

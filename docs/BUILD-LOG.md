@@ -1052,3 +1052,38 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given code was pasted exactly.
 - **Not done / deferred:** A browser. A phone. Did not commit. No database row. Middleware and the database stay as they are until F6c. F6d is a later session.
 - **Follow-ups:** The owner checks F6 as a whole after F6d.
+
+### UI-10 Session F6c — migration 030; middleware opens /field to the admin
+- **Date:** 2026-10-10
+- **Model:** Grok 4.7
+- **Built:** Migration 030 applied. The three field insert policies accept the admin with the same membership and own-id checks as a canvasser. `leads_guard_status` holds the admin to pending only on insert. `allocate_prop` and `assignment_member_add` accept an active admin (one role line each, from the stored definition). `assignment_remove` refuses once the visit's London day has come, hint `visit_day_reached`. Trigger `knock_events_mark_started` sets `assignments.started_at` to the earliest knock, with a one-off backfill. Middleware uses `mayOpen`, so `/field` opens for a canvasser and the admin. `lib/sync/queue.ts` was not changed. Generated types did not change.
+- **Owner decisions:**
+  - OWNER — A12 (2026-10-01): one account can be admin and canvasser. An admin can open `/field` to log their own knocks. Still no scores in `/field`.
+  - OWNER — A30 (2026-10-06): drawer item "Go canvassing". This is the human-gated middleware and RLS session.
+  - OWNER — A50 (2026-10-06): old routes redirect as replacements land. Old files are deleted in F6.
+  - OWNER — 2026-10-10: the admin is always pickable for a team (Add visit, Add person), like a canvasser. In `/field` the admin sees the canvasser app, plus a "Back to admin" row on the You tab.
+  - OWNER — 2026-10-10: fold in FU-2 (a visit cannot be deleted once its day has come, enforced in the database), FU-1 (one RPC for the latest knock per door) and FU-3 (`assignments.started_at` is the visit's first knock). FU-1 is F6d.
+  - OWNER — 2026-10-10: the D2 test knock (O5) is already gone from the database. Nothing to remove.
+  - OWNER — this session (2026-10-10): gate human. Apply migration 030 through the Supabase MCP, including the one-off `started_at` backfill, and regenerate `lib/supabase/types.ts` through the Supabase MCP. No other database write.
+- **Claude decisions:**
+  - CLAUDE — Figma frame 02 (89:690): "Go canvassing" sits under the line, above Settings.
+  - CLAUDE — `canCanvass(role)` (canvasser or admin) and `mayOpen(pathname, role)` live in `lib/auth/roles.ts`. Middleware uses `mayOpen`, so `/field` opens for canvassers and the admin, and office stays out.
+  - CLAUDE — Migration 030 (this session): the three field insert policies (`knock_events`, `leads`, `property_observations`) accept the admin with the same membership and own-id checks. `leads_guard_status` holds the admin to pending only on insert. `allocate_prop` and `assignment_member_add` accept an active admin as a team member (only that one role line changes, re-created from the stored definition with a count check). `assignment_remove` refuses once `work_date` is today or earlier (London) with hint `visit_day_reached`. A trigger sets `started_at` to the earliest knock. `lib/sync/queue.ts` is unchanged. A one-off backfill covers visits already knocked. Trigger functions do not appear in the generated types, so the types do not change in F6c.
+  - CLAUDE — Migration 031 (F6d): `admin_latest_knocks(p_from, p_to, p_canvasser_id, p_assignment_ids)`, admin only, SECURITY INVOKER. The same rows as `v_latest_knock`, filtered the same way. Claude checked live and on a test database: zero differences. The window narrows doors before the DISTINCT ON. Called by POST, so Coverage's visit list has no URL limit.
+  - CLAUDE — Claude ran both migrations on a throwaway Postgres 16 with the same policies. Admin knock on own visit allowed, on another visit refused, office refused. Admin lead "pending" allowed, "sale" refused. Team checks accept admin, and office stays out. Today's visit cannot be deleted. A future empty one can. `started_at` follows the earliest knock, also for a canvasser's insert. Non-admins cannot call the RPC. `anon` has no execute.
+- **Acceptance:**
+  - EDIT 1 DONE. New `supabase/migrations/030_admin_canvassing.sql`. Newest file before it was `029_admin_canvasser_accounts.sql`. 030 was free. SQL pasted as given.
+  - EDIT 2 DONE. `apply_migration` name `030_admin_canvassing` returned success.
+  - EDIT 3 DONE. Types regenerated. `git diff --stat -- lib/supabase/types.ts` showed no content change. File matches HEAD.
+  - EDIT 4 DONE. `lib/supabase/middleware.ts`: both find blocks occurred once. Import adds `mayOpen`. The role mismatch redirect is now `mayOpen`.
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - eslint on `lib/supabase/middleware.ts`: **PASS** — exit 0.
+  - Trigger `knock_events_mark_started`: one row. **PASS**.
+  - Three insert policies name `admin`. **PASS**.
+  - `allocate_ok`, `member_ok`, `remove_ok`: true, true, true. **PASS**.
+  - Knocked visits with null `started_at`: 0. **PASS**.
+  - Phone: **NOT VERIFIED**. None for this session (the owner checks F6 as a whole after F6d).
+- **Deviations from brief:** none. The given code was pasted exactly.
+- **Not done / deferred:** A browser. A phone. Did not commit. No new database row. F6d is a later session.
+- **Follow-ups:** The owner checks F6 as a whole after F6d.
