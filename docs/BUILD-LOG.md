@@ -1087,3 +1087,40 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given code was pasted exactly.
 - **Not done / deferred:** A browser. A phone. Did not commit. No new database row. F6d is a later session.
 - **Follow-ups:** The owner checks F6 as a whole after F6d.
+
+### UI-10 Session F6d — migration 031 admin_latest_knocks
+- **Date:** 2026-10-10
+- **Model:** Grok 4.7
+- **Built:** Migration 031 applied. `admin_latest_knocks(p_from, p_to, p_canvasser_id, p_assignment_ids)` is admin only and SECURITY INVOKER. Calendar, Coverage and Team read the latest knock per door through that RPC, still 1,000 rows a page via `readAll`, and still de-duplicate. Types regenerated. The only types change is the new function block.
+- **Owner decisions:**
+  - OWNER — A12 (2026-10-01): one account can be admin and canvasser. An admin can open `/field` to log their own knocks. Still no scores in `/field`.
+  - OWNER — A30 (2026-10-06): drawer item "Go canvassing". Middleware and RLS for that were the F6c session.
+  - OWNER — A50 (2026-10-06): old routes redirect as replacements land. Old files are deleted in F6.
+  - OWNER — 2026-10-10: the admin is always pickable for a team (Add visit, Add person), like a canvasser. In `/field` the admin sees the canvasser app, plus a "Back to admin" row on the You tab.
+  - OWNER — 2026-10-10: fold in FU-2 (a visit cannot be deleted once its day has come, enforced in the database), FU-1 (one RPC for the latest knock per door, so Calendar, Coverage and Team stop reading `v_latest_knock` page by page) and FU-3 (`assignments.started_at` is the visit's first knock).
+  - OWNER — 2026-10-10: the D2 test knock (O5) is already gone from the database. Nothing to remove.
+  - OWNER — this session (2026-10-10): gate human. Apply migration 031 through the Supabase MCP and regenerate `lib/supabase/types.ts` through the Supabase MCP. No other database write.
+- **Claude decisions:**
+  - CLAUDE — Figma frame 02 (89:690): "Go canvassing" sits under the line, above Settings.
+  - CLAUDE — `canCanvass(role)` (canvasser or admin) and `mayOpen(pathname, role)` live in `lib/auth/roles.ts`. Middleware uses `mayOpen`, so `/field` opens for canvassers and the admin, and office stays out.
+  - CLAUDE — Migration 030 (F6c): the three field insert policies (`knock_events`, `leads`, `property_observations`) accept the admin with the same membership and own-id checks. `leads_guard_status` holds the admin to pending only on insert. `allocate_prop` and `assignment_member_add` accept an active admin as a team member (only that one role line changes, re-created from the stored definition with a count check). `assignment_remove` refuses once `work_date` is today or earlier (London) with hint `visit_day_reached`. A trigger sets `started_at` to the earliest knock. `lib/sync/queue.ts` is unchanged. A one-off backfill covers visits already knocked. Trigger functions do not appear in the generated types, so the types do not change in F6c.
+  - CLAUDE — Migration 031 (this session): `admin_latest_knocks(p_from, p_to, p_canvasser_id, p_assignment_ids)`, admin only, SECURITY INVOKER. The same rows as `v_latest_knock`, filtered the same way. Claude checked live and on a test database: zero differences. The window narrows doors before the DISTINCT ON. Called by POST, so Coverage's visit list has no URL limit.
+  - CLAUDE — Claude ran both migrations on a throwaway Postgres 16 with the same policies. Admin knock on own visit allowed, on another visit refused, office refused. Admin lead "pending" allowed, "sale" refused. Team checks accept admin, and office stays out. Today's visit cannot be deleted. A future empty one can. `started_at` follows the earliest knock, also for a canvasser's insert. Non-admins cannot call the RPC. `anon` has no execute.
+  - CLAUDE — The three loaders keep `readAll` (1,000 rows a page, ordered by visit then door) and their de-duplication. Only the source changes, from the view to the RPC.
+- **Acceptance:**
+  - EDIT 1 DONE. New `supabase/migrations/031_admin_latest_knocks.sql`. Newest file before it was `030_admin_canvassing.sql`. 031 was free. SQL pasted as given.
+  - EDIT 2 DONE. `apply_migration` name `031_admin_latest_knocks` returned success.
+  - EDIT 3 DONE. Types regenerated. `git diff -- lib/supabase/types.ts` is 15 insertions: the `admin_latest_knocks` block only, matching the brief.
+  - EDIT 4 DONE. `lib/admin/calendar-data.ts`: both find blocks occurred once. The month loader calls `admin_latest_knocks`.
+  - EDIT 5 DONE. `lib/admin/coverage-data.ts`: all three find blocks occurred once. `SCOPE_IN_DATABASE` is gone. The visit list goes in the RPC args.
+  - EDIT 6 DONE. `lib/admin/team-data.ts`: all four find blocks occurred once. `KNOCK_COLUMNS` is gone. Team and the canvasser profile call `admin_latest_knocks`.
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `proname` / `prosecdef`: one row, `prosecdef` false. **PASS**.
+  - Grants: `authenticated`, `postgres`, `service_role`. No `anon`. No `PUBLIC`. **PASS**.
+  - `git grep` for `from("v_latest_knock")` in the three loaders: **PASS** — printed nothing (exit 1).
+  - tsc: **NOT VERIFIED**. The brief says tsc runs after the session.
+  - eslint: **NOT VERIFIED**. The brief says eslint runs after the session.
+  - Phone: **NOT VERIFIED**. The owner checks F6 as a whole.
+- **Deviations from brief:** none. The given SQL and the find/replace blocks were pasted exactly.
+- **Not done / deferred:** A browser. A phone. Did not commit. No new database row. Did not run tsc or eslint (the runner runs them after).
+- **Follow-ups:** The owner checks F6 as a whole.

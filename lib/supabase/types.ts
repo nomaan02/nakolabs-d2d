@@ -1369,6 +1369,21 @@ export type Database = {
         }[]
       }
       admin_dashboard: { Args: { p_stale_weeks?: number }; Returns: Json }
+      admin_latest_knocks: {
+        Args: {
+          p_assignment_ids?: string[]
+          p_canvasser_id?: string
+          p_from?: string
+          p_to?: string
+        }
+        Returns: {
+          assignment_id: string
+          canvasser_id: string
+          occurred_at: string
+          outcome: string
+          uprn: number
+        }[]
+      }
       admin_live_positions: {
         Args: never
         Returns: {

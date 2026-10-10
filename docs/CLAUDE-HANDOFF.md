@@ -2,17 +2,18 @@
 
 ## Current state
 
-- Last updated: 2026-10-10 (UI-10 Session F6c). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Migration 030 `030_admin_canvassing` is applied. An admin may insert their own knocks, leads and property observations on a visit they belong to. `leads_guard_status` holds the admin to pending on insert. `allocate_prop` and `assignment_member_add` accept an active admin. `assignment_remove` refuses once the visit's London day has come (`visit_day_reached`). Trigger `knock_events_mark_started` sets `assignments.started_at` to the earliest knock. The one-off backfill left 0 knocked visits with a null `started_at`.
-- Middleware uses `mayOpen`. `/field` opens for a canvasser and for the admin. Office stays out.
-- `lib/supabase/types.ts` was regenerated. `git diff --stat` showed no content change. The file matches HEAD.
-- UI-10 F6c tracker Status is DONE. Date 2026-10-10. Result: `Migration 030 applied (admin may log and be on teams; FU-2 delete guard; FU-3 started_at trigger + backfill); middleware opens /field to the admin.` Commit column still `—`. F6d remains TODO. F6a and F6b remain DONE.
-- `npm run verify:ui10` exit 0. Last line: `ALL PASS`. `npx tsc --noEmit` exit 0. eslint on `lib/supabase/middleware.ts` exit 0.
-- No browser. No dev server. Phone checks for this session are NOT VERIFIED. The owner checks F6 as a whole after F6d.
-- This session created no database row and no `client_event_id`. The granted backfill updated existing `assignments.started_at` only.
+- Last updated: 2026-10-10 (UI-10 Session F6d). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Migration 031 `031_admin_latest_knocks` is applied. `admin_latest_knocks` is SECURITY INVOKER (`prosecdef` false). Execute is granted to `authenticated`, `postgres` and `service_role`. No `anon`. No `PUBLIC`.
+- Calendar, Coverage and Team read knocks through `admin_latest_knocks`. They still page with `readAll` (1,000 rows) and de-duplicate. `git grep` for `from("v_latest_knock")` in those three files returned nothing.
+- `lib/supabase/types.ts` was regenerated. `git diff` is 15 lines: the `admin_latest_knocks` function block only.
+- UI-10 F6d tracker Status is DONE. Date 2026-10-10. Result: `Migration 031 admin_latest_knocks applied, types regenerated; Calendar, Coverage and Team read through it.` Commit column still `—`. F6a, F6b and F6c remain DONE.
+- `npm run verify:ui10` exit 0. Last line: `ALL PASS`. tsc and eslint were not run in this session. The brief says they run after it.
+- No browser. No dev server. Phone checks for F6 are NOT VERIFIED. The owner checks F6 as a whole.
+- This session created no database row and no `client_event_id`.
 - `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts` and `lib/geo/walk/*` were not edited. No quality scoring in `/field`.
 - Dark-ready paths are unchanged: `/admin/props`, `/admin/today`, `/admin/calendar`, `/admin/coverage`, `/admin/team`, `/admin/leads`, `/admin/insights`, `/admin/settings`.
 - Redirects are unchanged: `/admin` → `/admin/today`, `/admin/allocate` → Today or Add visit when `?prop=` is set, `/admin/dashboard` → `/admin/insights`.
+- Migration 030 remains applied from F6c. Middleware still uses `mayOpen`. `/field` opens for a canvasser and for the admin. Office stays out. The F6c backfill left 0 knocked visits with a null `started_at`.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
 - External settings: none.
@@ -2737,5 +2738,36 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. Field writes still go through `lib/sync/queue.ts` only. That file was not edited. No new row. No `client_event_id`. The granted backfill updated existing `assignments.started_at` only.
 - **Verified:** `apply_migration` success. Trigger `knock_events_mark_started`: one row. Three insert policies name `admin`. `allocate_ok` true, `member_ok` true, `remove_ok` true. Knocked visits with null `started_at`: 0. `npm run verify:ui10` exit 0. Last line: `ALL PASS`. `npx tsc --noEmit` exit 0. eslint on `lib/supabase/middleware.ts` exit 0. `git diff --stat -- lib/supabase/types.ts` showed no content change.
 - **Not verified:** A browser. A phone. None for this session (the owner checks F6 as a whole after F6d).
+- **External settings:** none
+- **Open questions for Claude:** none
+
+### 2026-10-10 — UI-10 Session F6d (uncommitted)
+
+- **Item:** UI-10
+- **What changed:** Migration 031 is applied. `admin_latest_knocks` returns the latest knock per door per visit for an admin, narrowed by time, person and visits before the DISTINCT ON. Calendar, Coverage and Team read through that RPC instead of paging `v_latest_knock`. They still take 1,000 rows a page and still de-duplicate. Types now include the function.
+- **Files:**
+  - Changed: `lib/supabase/types.ts`, `lib/admin/calendar-data.ts`, `lib/admin/coverage-data.ts`, `lib/admin/team-data.ts`, `docs/FIELD-TEST-BUILD-PLAN.md` (UI-10 F6d Status DONE, date 2026-10-10, Result), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `supabase/migrations/031_admin_latest_knocks.sql`, `.handoff/reports/ui-10-f6d.md`
+  - Deleted: none
+- **Database:** 031 `031_admin_latest_knocks`. Creates function `admin_latest_knocks`. No table, view or policy change. No row written.
+- **Shared modules touched:** `lib/supabase/types.ts` (regenerated; the new function block only). `lib/sync/queue.ts`, `lib/map/route-layers.ts` and `lib/geo/walk/*` were not edited.
+- **Decided by:**
+  - OWNER — A12 (2026-10-01): one account can be admin and canvasser. An admin can open `/field` to log their own knocks. Still no scores in `/field`.
+  - OWNER — A30 (2026-10-06): drawer item "Go canvassing". Middleware and RLS for that were the F6c session.
+  - OWNER — A50 (2026-10-06): old routes redirect as replacements land. Old files are deleted in F6.
+  - OWNER — 2026-10-10: the admin is always pickable for a team (Add visit, Add person), like a canvasser. In `/field` the admin sees the canvasser app, plus a "Back to admin" row on the You tab.
+  - OWNER — 2026-10-10: fold in FU-2 (a visit cannot be deleted once its day has come, enforced in the database), FU-1 (one RPC for the latest knock per door, so Calendar, Coverage and Team stop reading `v_latest_knock` page by page) and FU-3 (`assignments.started_at` is the visit's first knock).
+  - OWNER — 2026-10-10: the D2 test knock (O5) is already gone from the database. Nothing to remove.
+  - OWNER — this session (2026-10-10): gate human. Apply migration 031 through the Supabase MCP and regenerate types through the Supabase MCP. No other database write.
+  - CLAUDE — Figma frame 02 (89:690): "Go canvassing" sits under the line, above Settings.
+  - CLAUDE — `canCanvass(role)` (canvasser or admin) and `mayOpen(pathname, role)` live in `lib/auth/roles.ts`. Middleware uses `mayOpen`, so `/field` opens for canvassers and the admin, and office stays out.
+  - CLAUDE — Migration 030 (F6c, already applied): the three field insert policies accept the admin with the same membership and own-id checks. `leads_guard_status` holds the admin to pending only on insert. `allocate_prop` and `assignment_member_add` accept an active admin (only that role line changes, from the stored definition, with a count check). `assignment_remove` refuses once `work_date` is today or earlier (London) with hint `visit_day_reached`. A trigger sets `started_at` to the earliest knock. `lib/sync/queue.ts` stays unchanged. Trigger functions do not appear in the generated types.
+  - CLAUDE — Migration 031: `admin_latest_knocks`, admin only, SECURITY INVOKER. Same rows as `v_latest_knock`, filtered the same way (Claude checked live and on a test database: zero differences). The window narrows doors before the DISTINCT ON. Called by POST, so Coverage's visit list has no URL limit.
+  - CLAUDE — Claude ran both migrations on a throwaway Postgres 16 with the same policies: admin knock on own visit allowed, on another visit refused, office refused; admin lead pending allowed, sale refused; team checks accept admin and refuse office; today's visit cannot be deleted, a future empty one can; `started_at` follows the earliest knock, also for a canvasser's insert; non-admins cannot call the RPC; `anon` has no execute.
+  - CLAUDE — The three loaders keep `readAll` (1,000 rows a page, ordered by visit then door) and their de-duplication. Only the source changes, from the view to the RPC.
+- **Deviations from plan or brief:** none. The given SQL and the find/replace blocks were pasted exactly.
+- **Invariants:** No GPS and no coordinates. No quality scoring in `/field`. Field writes still go through `lib/sync/queue.ts` only. That file was not edited. Coverage stays derived. No new row. No `client_event_id`.
+- **Verified:** `apply_migration` success. `proname` `admin_latest_knocks`, `prosecdef` false. Grants: `authenticated`, `postgres`, `service_role`. `npm run verify:ui10` exit 0. Last line: `ALL PASS`. `git diff -- lib/supabase/types.ts` is the function block only (15 lines). `git grep` for `from("v_latest_knock")` in the three loaders printed nothing (exit 1).
+- **Not verified:** A browser. A phone. The owner checks F6 as a whole. tsc and eslint (the brief says they run after the session).
 - **External settings:** none
 - **Open questions for Claude:** none

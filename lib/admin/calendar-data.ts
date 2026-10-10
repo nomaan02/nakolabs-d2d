@@ -14,8 +14,8 @@ import type { Database } from "@/lib/supabase/types";
  * knock_events_select_admin, the admin lead read; views are
  * security_invoker).
  *
- * Knocks are `v_latest_knock` rows (latest outcome per door per visit) for
- * the grid's span plus a day either side (London days are worked out in
+ * Knocks are `v_latest_knock` rows (latest outcome per door per visit), read
+ * through `admin_latest_knocks` (F6d, FU-1), for the grid's span plus a day either side (London days are worked out in
  * `buildCalendar`), read 1,000 at a time. Rows carry door ids and outcomes
  * only: no address, no note, no name.
  */
@@ -47,10 +47,7 @@ export async function loadCalendarMonth(supabase: SupabaseClient<Database>, mont
     const [knockRows, planned, people] = await Promise.all([
       readAll((from, to) =>
         supabase
-          .from("v_latest_knock")
-          .select("assignment_id, uprn, outcome, canvasser_id, occurred_at")
-          .gte("occurred_at", fromAt)
-          .lt("occurred_at", toAt)
+          .rpc("admin_latest_knocks", { p_from: fromAt, p_to: toAt })
           .order("assignment_id", { ascending: true })
           .order("uprn", { ascending: true })
           .range(from, to),

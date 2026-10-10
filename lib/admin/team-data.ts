@@ -14,7 +14,7 @@ import type { Database } from "@/lib/supabase/types";
  * leads_select_office_admin; views are security_invoker).
  *
  * Knocks are `v_latest_knock` rows (latest outcome per door per visit),
- * 1,000 at a time, a day wider than the period each side (London days are
+ * read through `admin_latest_knocks` (F6d, FU-1) 1,000 at a time, a day wider than the period each side (London days are
  * worked out in `lib/admin/team.ts`). Leads carry their status and their
  * knock's time and visit only: no notes, no CRM reference. Nothing here is
  * sent to the browser as rows; the pages reduce it first.
@@ -24,7 +24,6 @@ export type TeamData =
   | { ok: true; people: TeamPerson[]; knocks: CalendarKnock[]; leads: TeamLead[] }
   | { ok: false; message: string; detail?: string };
 
-const KNOCK_COLUMNS = "assignment_id, uprn, outcome, canvasser_id, occurred_at";
 const LEAD_COLUMNS = "id, uprn, status, canvasser_id, knock_events!inner(occurred_at, assignment_id)";
 
 type LeadRow = {
@@ -66,11 +65,13 @@ export async function loadTeam(supabase: SupabaseClient<Database>, window: Perio
   try {
     const [people, knockRows, leadRows] = await Promise.all([
       loadPeople(supabase),
-      readAll((from, to) => {
-        let query = supabase.from("v_latest_knock").select(KNOCK_COLUMNS).lt("occurred_at", toAt);
-        if (fromAt) query = query.gte("occurred_at", fromAt);
-        return query.order("assignment_id", { ascending: true }).order("uprn", { ascending: true }).range(from, to);
-      }),
+      readAll((from, to) =>
+        supabase
+          .rpc("admin_latest_knocks", { p_from: fromAt ?? undefined, p_to: toAt })
+          .order("assignment_id", { ascending: true })
+          .order("uprn", { ascending: true })
+          .range(from, to),
+      ),
       readAll<LeadRow>((from, to) => {
         let query = supabase.from("leads").select(LEAD_COLUMNS).lt("knock_events.occurred_at", toAt);
         if (fromAt) query = query.gte("knock_events.occurred_at", fromAt);
@@ -98,9 +99,7 @@ export async function loadCanvasser(supabase: SupabaseClient<Database>, id: stri
     const [knockRows, leadRows] = await Promise.all([
       readAll((from, to) =>
         supabase
-          .from("v_latest_knock")
-          .select(KNOCK_COLUMNS)
-          .eq("canvasser_id", id)
+          .rpc("admin_latest_knocks", { p_canvasser_id: id })
           .order("assignment_id", { ascending: true })
           .order("uprn", { ascending: true })
           .range(from, to),

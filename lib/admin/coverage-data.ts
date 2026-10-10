@@ -12,9 +12,10 @@ import type { Database } from "@/lib/supabase/types";
  * UI-10 F4b (owner A32, A44; no migration, owner 2026-10-08). Everything the
  * rebuilt Coverage map needs, read on the server with the admin's own
  * session. Doors and props come from `coverage_map_payload` (live props,
- * knockable or already-knocked doors). Knocks are `v_latest_knock` rows,
- * narrowed in the database by person, days and visits where a filter says
- * so, then resolved per door in `resolveDoors`. Coverage stays derived.
+ * knockable or already-knocked doors). Knocks are `v_latest_knock`'s rows
+ * read through `admin_latest_knocks` (F6d), narrowed in the database by
+ * person, days and visits where a filter says so, then resolved per door in
+ * `resolveDoors`. Coverage stays derived.
  */
 
 export type CoveragePerson = { id: string; name: string };
@@ -32,9 +33,6 @@ export type CoverageData =
       missingProp: { id: string; name: string } | null;
     }
   | { ok: false; message: string; detail?: string; tooMany: boolean };
-
-/** Up to this many visit ids are filtered in the database (`in.(…)` in the URL). */
-const SCOPE_IN_DATABASE = 150;
 
 function asSlot(value: string | null): Slot | null {
   return value === "early" || value === "mid" || value === "late" ? value : null;
@@ -68,17 +66,22 @@ export async function loadCoverage(supabase: SupabaseClient<Database>, filters: 
 
     let rows: CoverageRow[] = [];
     if (!scope || scope.size > 0) {
-      const raw = await readAll((from, to) => {
-        let query = supabase.from("v_latest_knock").select("assignment_id, uprn, outcome, canvasser_id, occurred_at");
-        if (filters.who) query = query.eq("canvasser_id", filters.who);
-        // A day either side: London days are decided in resolveDoors.
-        if (filters.from) query = query.gte("occurred_at", `${addDays(filters.from, -1)}T00:00:00Z`);
-        if (filters.to) query = query.lt("occurred_at", `${addDays(filters.to, 2)}T00:00:00Z`);
-        // Short lists go to the database; a long one (a visit number across every prop) would
-        // overflow the URL, so those rows are narrowed by `resolveDoors` instead.
-        if (scope && scope.size <= SCOPE_IN_DATABASE) query = query.in("assignment_id", [...scope]);
-        return query.order("assignment_id", { ascending: true }).order("uprn", { ascending: true }).range(from, to);
-      });
+      // UI-10 F6d (FU-1): `admin_latest_knocks` narrows by person, days and visits before it picks
+      // each door's latest knock. A day either side: London days are decided in resolveDoors.
+      // The visit list goes in the request body, so a long one no longer overflows the URL.
+      const args = {
+        p_canvasser_id: filters.who ?? undefined,
+        p_from: filters.from ? `${addDays(filters.from, -1)}T00:00:00Z` : undefined,
+        p_to: filters.to ? `${addDays(filters.to, 2)}T00:00:00Z` : undefined,
+        p_assignment_ids: scope ? [...scope] : undefined,
+      };
+      const raw = await readAll((from, to) =>
+        supabase
+          .rpc("admin_latest_knocks", args)
+          .order("assignment_id", { ascending: true })
+          .order("uprn", { ascending: true })
+          .range(from, to),
+      );
       // Offset paging while phones sync can return a row twice: keep one per door per visit.
       const seen = new Set<string>();
       rows = raw.flatMap((row) => {
