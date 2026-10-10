@@ -2,27 +2,26 @@
 
 ## Current state
 
-- Last updated: 2026-10-10 (CRM-1 Session B). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Migration 033 `033_crm_matcher` is applied. Functions: `crm_norm_street`, `crm_match_batch` (authenticated cannot execute; service role can). Column `crm_sync_runs.rows_skipped`. The street index is in the same migration.
-- `lib/supabase/types.ts` was regenerated. `git diff --stat` is 14 insertions and 0 deletions: `rows_skipped` in the three `crm_sync_runs` blocks, plus `crm_match_batch` and `crm_norm_street`. Not hand-edited.
-- New files: `lib/crm/parse.ts`, `lib/crm/client.ts`, `lib/crm/sync.ts`, `scripts/crm-backfill.ts`, `scripts/verify-crm.ts`. `package.json` adds `verify:crm` and `crm:backfill` (dry run unless `--write`).
-- CRM-1 B tracker row was missing. It was added after CRM-1 A. Status DONE. Date 2026-10-10. Result: `Migration 033 crm_match_batch applied, types regenerated; lib/crm client/parse/sync, crm:backfill (dry run default) and verify:crm added. Backfill not run.` Commit column `—`.
-- `npm run verify:crm` exit 0. Last line: `ALL PASS`. `npm run verify:ui10` exit 0. Last line: `ALL PASS`. `npx tsc --noEmit` exit 0. `npm run lint` exit 0 (0 errors). The 1,118 warnings are in `public/maplibre`, already there.
-- Sample match (SELECT): exact 1, outside_area 1. Both functions present. `rows_skipped` present.
-- No browser. No dev server. Phone check: none for this session (the CRM phase phone check comes after P4).
-- No new table row. No `crm_leads` row. No `crm_sync_runs` row. No `client_event_id`. No CRM call. `.env.local` was not created or edited. Backfill not run.
+- Last updated: 2026-10-10 (CRM-2 Session A). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Migration 034 `034_crm_insights` is applied. Functions: `crm_insights`, `crm_heat_grid`, `crm_door_history`. All three `prosecdef` false (SECURITY INVOKER). Execute granted to `authenticated`. `anon` cannot execute `crm_insights`. Each function raises `not_staff` unless the caller is admin or office.
+- `lib/supabase/types.ts` was regenerated from the MCP and written as generated. `git diff --stat` is 28 insertions and 0 deletions: `crm_door_history`, `crm_heat_grid` and `crm_insights` only. Not hand-edited.
+- CRM-2 A tracker row added after CRM-1 B. Status DONE. Date 2026-10-10. Result: `Migration 034 crm_insights, crm_heat_grid, crm_door_history applied (admin/office, read-only); types regenerated.` Commit column `—`.
+- `npm run verify:crm` exit 0. Last line: `ALL PASS`. `npm run verify:ui10` exit 0. Last line: `ALL PASS`. `npx tsc --noEmit` exit 0. eslint was not run in this session (the brief says it runs after the session).
+- `select count(*) from public.crm_door_history()` raised `42501` / hint `not_staff`. The MCP role has no profile. The brief says that result is correct. The live door count was not read.
+- No browser. No dev server. Phone check: none for this session (the CRM phase phone check comes after CRM-2 D).
+- No new table row. No `client_event_id`. No CRM call.
 - `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts` and `lib/geo/walk/*` were not edited. No quality scoring in `/field`. No `/field` file reads CRM data (`verify:crm`).
 - Dark-ready paths are unchanged: `/admin/props`, `/admin/today`, `/admin/calendar`, `/admin/coverage`, `/admin/team`, `/admin/leads`, `/admin/insights`, `/admin/settings`.
 - Redirects are unchanged: `/admin` → `/admin/today`, `/admin/allocate` → Today or Add visit when `?prop=` is set, `/admin/dashboard` → `/admin/insights`.
-- Migration 032 remains applied. Tables: `crm_leads` (0 rows, not re-counted this session), `crm_status_map` (7 rows from 032), `crm_sync_runs` (0 rows, not re-counted). RLS from 032 is unchanged.
+- Migration 033 remains applied. `crm_norm_street` and `crm_match_batch` are unchanged. `crm_sync_runs.rows_skipped` remains.
+- Migration 032 remains applied. `crm_leads` RLS is unchanged. This session did not recount rows.
 - Migration 031 `admin_latest_knocks` remains applied. Calendar, Coverage and Team still read through it.
 - Migration 030 remains applied. Middleware still uses `mayOpen`. `/field` opens for a canvasser and for the admin. Office stays out.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
 - External settings: none.
-- CRM created/modified times: UTC or UK time is still unknown. A real backfill refuses to start without `--tz=utc` or `--tz=london`. The owner runs it.
 - Migration 029 `admin_set_canvasser_active` remains applied from F5f.
-- UI-10 F1–F6 remain DONE. CRM-1 A remains DONE.
+- UI-10 F1–F6 remain DONE. CRM-1 A and CRM-1 B remain DONE.
 
 ## Log
 
@@ -2831,3 +2830,29 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. A phone (none for this session; the CRM phase phone check comes after P4). The backfill. Any live CRM call. The bare `git grep` without `--untracked` printed nothing, because the new files are untracked.
 - **External settings:** none
 - **Open questions for Claude:** none. The owner still checks whether CRM created/modified times are UTC or UK time before the real backfill.
+
+### 2026-10-10 — CRM-2 Session A (uncommitted)
+
+- **Item:** other
+- **What changed:** Migration 034 is applied. Three read-only functions for admin and office: `crm_insights` (one JSON document for the Company CRM section), `crm_heat_grid` (250 m squares) and `crm_door_history` (one row per door with CRM history). Types were regenerated.
+- **Files:**
+  - Changed: `lib/supabase/types.ts`, `docs/FIELD-TEST-BUILD-PLAN.md` (CRM-2 A row after CRM-1 B), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `supabase/migrations/034_crm_insights.sql`, `.handoff/reports/crm-2-a.md`
+  - Deleted: none
+- **Database:** 034 `034_crm_insights`. Creates `crm_insights(timestamptz, timestamptz)`, `crm_heat_grid(timestamptz, timestamptz)` and `crm_door_history()`. SECURITY INVOKER. Execute revoked from public and anon, granted to authenticated. No new row. No CRM call.
+- **Shared modules touched:** `lib/supabase/types.ts` (regenerated; 28 insertions, the three function blocks only). `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/field/*` were not edited.
+- **Decided by:**
+  - OWNER — 2026-10-10 (P4a): a "Company CRM" section on Insights with period chips (This week, This month, Last 3 months, Last 12 months, Year to date, All): outcomes by month, conversion and revenue, best and worst areas, props by sales vs pitches and by average sale, and "Confirmed this week" (count and day-by-day list).
+  - OWNER — 2026-10-10: Coverage heat map in about 250 m squares (fewer than 5 leads left blank). Every CRM door by latest outcome on Coverage and Props, filterable. Admin and office only.
+  - OWNER — this session (2026-10-10): gate human. Apply migration 034 through the Supabase MCP and regenerate types through the Supabase MCP. No other database write. No CRM call.
+  - CLAUDE — Three read-only functions, SECURITY INVOKER, so `crm_leads` RLS still applies. Each refuses anyone but admin or office (hint `not_staff`). `anon` cannot execute.
+  - CLAUDE — `crm_insights(p_from, p_to)` returns one JSON document: totals, months, days (windows of 92 days or less), sectors, props (a lead's point inside a live prop), and confirmed appointments in this London week with the door label when matched.
+  - CLAUDE — `crm_heat_grid(p_from, p_to)` returns 250 m squares on the British National Grid (EPSG:27700) with 5 or more placed leads: centre, leads, sales, pitched, revenue.
+  - CLAUDE — `crm_door_history()` returns one row per door with CRM history: latest outcome by CRM created time (null means No outcome), counts per outcome, and the door's point.
+  - CLAUDE — A lead's date is its CRM created time. Windows are half-open. Pitched is sale plus P&M. Revenue is the sum of sale amounts on sales.
+- **Deviations from plan or brief:** none. The given SQL was pasted exactly. Types were written from the generator. The diff is the 28 expected lines only.
+- **Invariants:** No canvasser GPS left the device. The new functions return stored door and lead points to admin and office only. No quality scoring in `/field`. Field writes still go through `lib/sync/queue.ts` only. That file was not edited. Coverage stays derived. No `/field` file reads CRM data.
+- **Verified:** `apply_migration` success on `xerxsaptwpvhkkpyvkfi`. Three functions, all `prosecdef` false. `anon_can` false, `signed_in_can` true. `crm_door_history()` raised `42501` hint `not_staff` (MCP role has no profile; the brief says that is correct). `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. `npx tsc --noEmit` exit 0. `git diff --stat -- lib/supabase/types.ts` is 28 insertions, 0 deletions.
+- **Not verified:** A browser. A phone (none for this session; the CRM phase phone check comes after CRM-2 D). eslint (the brief says it runs after the session). The live door count, because the MCP role is not staff.
+- **External settings:** none
+- **Open questions for Claude:** The live `crm_door_history` count was not read. Claude's earlier figure was 4,969 doors. Say if an admin session should confirm it.

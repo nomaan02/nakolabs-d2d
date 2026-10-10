@@ -1611,6 +1611,34 @@ export type Database = {
         }[]
       }
       coverage_map_payload: { Args: never; Returns: Json }
+      crm_door_history: {
+        Args: never
+        Returns: {
+          blowout: number
+          lat: number
+          latest_at: string
+          latest_status: string
+          leads: number
+          lon: number
+          other: number
+          pm: number
+          sale: number
+          uprn: number
+          utc: number
+        }[]
+      }
+      crm_heat_grid: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: {
+          lat: number
+          leads: number
+          lon: number
+          pitched: number
+          revenue: number
+          sales: number
+        }[]
+      }
+      crm_insights: { Args: { p_from?: string; p_to?: string }; Returns: Json }
       crm_match_batch: {
         Args: { p_rows: Json }
         Returns: {

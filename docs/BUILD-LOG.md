@@ -1196,3 +1196,33 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** The §4 tracker had no CRM-1 B row. One was added after CRM-1 A, Status DONE, date 2026-10-10, Result as specified, Commit `—`. The pasted SQL and TypeScript were not changed.
 - **Not done / deferred:** A browser. A phone. The backfill (`npm run crm:backfill`). Any CRM call. `.env.local`. Did not commit. No new table row.
 - **Follow-ups:** The owner checks CRM timestamps against the CRM screen, then runs the backfill with `--tz=utc` or `--tz=london`. P3 is the daily cron.
+
+### CRM-2 Session A — migration 034 crm_insights, crm_heat_grid, crm_door_history
+- **Date:** 2026-10-10
+- **Model:** Grok 4.7
+- **Built:** Migration 034 applied. Three read-only functions: `crm_insights`, `crm_heat_grid`, `crm_door_history`. SECURITY INVOKER. Admin and office only. Types regenerated (28 insertions).
+- **Owner decisions:**
+  - OWNER — 2026-10-10 (P4a): a "Company CRM" section on Insights with period chips (This week, This month, Last 3 months, Last 12 months, Year to date, All): outcomes by month, conversion and revenue, best and worst areas, props by sales vs pitches and by average sale, and "Confirmed this week" (count + day-by-day list).
+  - OWNER — 2026-10-10: Coverage heat map in ~250 m squares (fewer than 5 leads left blank); every CRM door by latest outcome on Coverage and Props, filterable. Admin and office only.
+  - OWNER — this session (2026-10-10): gate human. Apply migration 034 through the Supabase MCP and regenerate `lib/supabase/types.ts` through the Supabase MCP. No other database write. No CRM call.
+- **Claude decisions:**
+  - CLAUDE — Three read-only functions, SECURITY INVOKER (`crm_leads` RLS still applies). Each refuses anyone but admin or office (hint `not_staff`). `anon` cannot execute.
+  - CLAUDE — `crm_insights(p_from, p_to)`: one JSON document: totals, months, days (only for windows of 92 days or less), sectors, props (CRM leads whose point is inside each live prop's polygon), confirmed (status confirmed with an appointment in this London week, whatever the window, with the door label when matched).
+  - CLAUDE — `crm_heat_grid(p_from, p_to)`: 250 m squares on the British National Grid (EPSG:27700) with 5+ placed leads: centre, leads, sales, pitched, revenue. Live data, all time: 480 squares holding 5,224 leads (Claude's earlier read; not re-counted in this session).
+  - CLAUDE — `crm_door_history()`: one row per door with CRM history (4,969 live, Claude's earlier read): latest outcome by CRM created time (null = No outcome), counts per outcome, the door's point.
+  - CLAUDE — A lead's date is its CRM created time. Windows are half-open. Pitched = sale + P&M. Revenue = sum of sale amounts on sales.
+- **Acceptance:**
+  - EDIT 1 DONE. New `supabase/migrations/034_crm_insights.sql`. Newest file before it was `033_crm_matcher.sql`. 034 was free. SQL pasted as given.
+  - EDIT 2 DONE. `apply_migration` name `034_crm_insights` returned `{"success":true}` on project `xerxsaptwpvhkkpyvkfi`.
+  - EDIT 3 DONE. Types regenerated from the MCP and written to `lib/supabase/types.ts`. `git diff --stat` is 28 insertions, 0 deletions: `crm_door_history`, `crm_heat_grid` and `crm_insights` only. `npx tsc --noEmit` exit 0.
+  - `proname` / `prosecdef`: **PASS** — three rows, all `prosecdef` false.
+  - anon / authenticated execute on `crm_insights`: **PASS** — false, true.
+  - `crm_door_history()` count: **PASS** — `42501` hint `not_staff`. The MCP role has no profile. The brief says that result is correct.
+  - `npm run verify:crm`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0.
+  - eslint: **NOT VERIFIED**. The brief says eslint runs after the session.
+  - Phone: none for this session (the CRM phase phone check comes after CRM-2 D).
+- **Deviations from brief:** none. The given SQL was pasted exactly. Types were written from the generator. The diff is the three function blocks only.
+- **Not done / deferred:** A browser. A phone. eslint in this session. A live door count (the MCP role is not staff). Did not commit. No new database row. No CRM call.
+- **Follow-ups:** CRM-2 B is the Insights "Company CRM" section. The phone check comes after CRM-2 D.
