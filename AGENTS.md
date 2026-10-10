@@ -37,11 +37,23 @@ Terra Draw, Dexie, Vercel.
   Canvassers have no UPDATE or DELETE on `knock_events` or `leads`.
 - No `navigator.geolocation` anywhere before Stage 16.
 - Every view over an RLS table is created with `(security_invoker = true)`.
+- CRM data (owner 2026-10-10, written OK from work): the company CRM is
+  READ-ONLY. Only `lib/crm/client.ts` calls it, and only with `getchallenge`,
+  `login`, `listtypes`, `describe`, `query` (SELECT) and `logout`. Never
+  create, update, delete, revise or convert anything in the CRM.
+  `CRM_USER` / `CRM_API_KEY` are server-only, never `NEXT_PUBLIC_`.
+- `crm_leads` never stores names, phones, street text, house numbers, notes or
+  best time to call. Canvasser = tidied first name only. The CRM street and
+  house number are used once, server-side, to find the door (the one allowed
+  exception to address-as-identifier), then dropped.
+- CRM outcomes are previous-visit quality signals: admin and office only,
+  never in any `/field` route.
 
 ## Structure
 
 app/(admin)   — prop drawing, allocation, coverage, dashboard
 app/(office)  — appointment slots, CRM sync review, manual lead settlement fallback
+lib/crm       — the only CRM caller (read-only client, matcher, sync); server-only
 app/(field)   — canvasser view; offline-capable; four tabs: Map, Logger, Leads, Profile
 lib/supabase  — client + server factories, generated types
 lib/sync      — Dexie queue, the only write path from the field

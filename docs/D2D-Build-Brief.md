@@ -2004,6 +2004,17 @@ create table crm_status_map (
 - [ ] `CRM_API_KEY` is absent from the client bundle (grep the build output).
 - [ ] A failed run writes an `error` and does not partially apply.
 
+#### 12c — CRM history import (owner 2026-10-10; replaces 12a's "ref + status only")
+
+The owner has **written confirmation from work** to bring CRM data into the app. 12a's minimisation rule is replaced by this field list; 12a's other rules (server-only key, mapping as data, unmatched reported, `re_app` non-terminal, idempotent, manual fallback) still apply. Plan: project doc `claude/plan-crm-integration-2026-10-10.md`.
+
+- **CRM:** LeadGen CRM = white-labelled vtiger 8.0.0, `https://crm.lead-gen.cloud/webservice.php`, shared branch login. **Read-only by construction** (AGENTS "CRM data").
+- **Stored per CRM lead (`crm_leads`, migration 032):** CRM id + lead no · status as sent + mapped · created / modified · appointment · branch · sale amount · postcode + sector · UPRN or point + `match_tier` · canvasser first name. **Never:** names, phones, street text, house numbers, notes, best time to call.
+- **Status map (`crm_status_map`):** Sold→sale · Pitch&Miss→pm · Blowout→blowout · UTC→utc · Re-App→re_app · Booked→**confirmed** (crm_leads only) · Uncontacted→pending · blank→null ("No outcome", left out of conversion rates).
+- **Matcher tiers:** exact (postcode + house number in `property_addresses`) → interpolated between same-side labelled neighbours → snapped to an unlabelled UPRN within ~15 m on that street → street_nearest → outside_area / unmatched. Only exact and snapped carry a UPRN; only those feed door filters.
+- **App leads link** to a CRM lead by same UPRN + CRM created within ±1 day, unique match only (`leads.crm_ref`).
+- **Admin and office only.** Never in `/field`.
+
 #### 12b — Visit snapshot
 
 On closing an assignment, write one immutable row.
@@ -2320,6 +2331,8 @@ Moved to Stage 12a. The key is available from the CRM dashboard, so the technica
 **The commercial one is not, and it is worth one paragraph of attention.** An API key being reachable from a settings tab is not the same as being authorised to pipe that data into software you intend to own. The protection is the design, not a conversation: because Stage 12a stores only a reference and a status enum against leads you generated yourself, essentially no company data lands in your database, and there is nothing meaningful to hand back under a data return clause. Keep it that way. The moment someone suggests pulling customer names or numbers across "since we're already connected", that protection is gone.
 
 Worth a short email confirming the integration is fine, before the demo rather than after.
+
+**Update 2026-10-10:** written confirmation received; the owner chose a wider field list. See Stage 12c.
 
 ### WhatsApp message highlighting
 
