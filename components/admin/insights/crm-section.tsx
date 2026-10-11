@@ -52,6 +52,8 @@ export type CrmSectionData = {
   hero: CrmFigure[];
   rates: CrmFigure[];
   split: SplitRow[];
+  /** What Other is made of, in words, or null when Other is empty. */
+  other: string | null;
   totals: CrmCounts;
   columns: OutcomeColumn[];
   byDay: boolean;
@@ -268,6 +270,13 @@ function Hero({ data }: { data: CrmSectionData }) {
           </div>
         ))}
       </dl>
+      {data.hero
+        .filter((f) => f.note)
+        .map((f) => (
+          <p key={f.label} className="mt-1 text-admin-caption text-ink-muted">
+            {f.label}: {f.note?.toLowerCase()}
+          </p>
+        ))}
 
       <div aria-hidden className="mt-4 flex h-3 gap-0.5 overflow-hidden rounded-full">
         {data.split
@@ -286,7 +295,7 @@ function Hero({ data }: { data: CrmSectionData }) {
           </li>
         ))}
       </ul>
-      <p className="text-admin-caption text-ink-muted">Other: confirmed, rescheduled or no outcome yet</p>
+      {data.other ? <p className="text-admin-caption text-ink-muted">Other: {data.other}</p> : null}
 
       <dl className="mt-4 grid grid-cols-3 gap-2 border-t border-line pt-4">
         {data.rates.map((f) => (

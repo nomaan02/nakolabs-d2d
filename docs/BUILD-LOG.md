@@ -1332,3 +1332,33 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given SQL was pasted exactly. Types were not hand-written.
 - **Not done / deferred:** A browser. A phone (listed). tsc and eslint in this session (they run after). Did not commit. No new database row. No CRM call.
 - **Follow-ups:** Phone check: Insights → Company CRM, Coverage CRM chip (heat map and doors), Props Layers → CRM history.
+
+### CRM-3 Session A — sale price from Result / Rep Result
+- **Date:** 2026-10-11
+- **Model:** Grok 4.7
+- **Built:** Sale price is read in order: Sale Amount above 0; else, for Sold leads only, the price in Result (`cf_867`); else the price in Rep Result (`cf_881`). Only the number leaves `lib/crm/parse.ts`. The text is not stored, logged or returned. The source is counted in the backfill printout and is not stored. Insights shows "–" when sales have no amounts, says how many sales are unpriced, and spells out Other under the bar. No migration. `crm_leads.sale_amount` already exists. No database call. No CRM call. `crm:backfill` was not run.
+- **Owner decisions:**
+  - OWNER — 2026-10-11: the CRM price moved. A read-only probe of all 824 Sold leads showed: Dec 2023 to Jul 2025 the price is in "Sale Amount" (`cf_861`); Aug to Oct 2025 partly; Nov 2025 to Jan 2026 nowhere found; from Feb 2026 it is typed into the free-text "Result" box (`cf_867`), for example "Bristol Earl £2534", sometimes without a £ ("Bristol 4792 Ryan H"). No sale has a price in both places.
+  - OWNER — 2026-10-11: read the price, in order: Sale Amount above 0; else, for Sold leads only, the £ amount in Result; else a bare number 300 to 100,000 in Result; else the same from "Rep Result" (`cf_881`). Result / Rep Result text is read server-side in `lib/crm/parse.ts` only, keeps only the number, and is never stored, logged or returned. AGENTS.md amended.
+  - OWNER — 2026-10-11: Insights never shows £0 for sales with no price: "Sales value" shows "–" with "no sale amounts recorded", and a part-priced period says "3 of 61 sales unpriced". "Other" is spelled out under the bar: no outcome recorded / booked / re-app / uncontacted, with counts.
+- **Claude decisions:**
+  - CLAUDE — `priceInText`: a £ amount (£100 to £100,000) wins; otherwise the first bare number from 300 to 100,000 that does not start with 0 and is not part of a time (11:45, 11.45), a phone or a longer number. Pence are dropped.
+  - CLAUDE — `leadSaleAmount` returns the amount and its source; the source is only counted (backfill prints "Sold leads: where the price came from" and "Sold leads with no price anywhere, by month"), never stored. No migration: `crm_leads.sale_amount` already exists.
+  - CLAUDE — `verify:crm` adds 19 checks, including: the text never leaves the parser, a non-Sold lead never gets a price from text, and only `lib/crm/parse.ts` names `cf_867` / `cf_881`.
+- **Acceptance:**
+  - EDIT 1 DONE. `lib/crm/parse.ts` replaced with the given file (289 lines).
+  - EDIT 2 DONE. `lib/crm/sync.ts` replaced with the given file (455 lines).
+  - EDIT 3 DONE. `scripts/crm-backfill.ts` replaced with the given file (80 lines).
+  - EDIT 4 DONE. `scripts/verify-crm.ts` replaced with the given file (314 lines).
+  - EDIT 5 DONE. `lib/admin/crm-insights.ts` replaced with the given file (587 lines).
+  - EDIT 6 DONE. `components/admin/insights/crm-section.tsx` replaced with the given file (530 lines).
+  - EDIT 7 DONE. `app/(admin)/admin/insights/page.tsx` replaced with the given file (110 lines).
+  - EDIT 8 DONE. AGENTS.md CRM sale-price paragraph inserted once. The old two-line block was found once and is gone.
+  - `npm run verify:crm`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0.
+  - eslint: **PASS** — `npx eslint` on the seven TypeScript files, exit 0.
+  - Phone: after the owner's backfill re-run, Insights → Company CRM → Year to date. No browser in this session.
+- **Deviations from brief:** none. The given files were pasted exactly. AGENTS.md was the one named paragraph. No database call. No CRM call. `crm:backfill` was not run.
+- **Not done / deferred:** A browser. The phone check (listed, after the owner re-runs the backfill). Did not commit. No new database row. No `client_event_id`.
+- **Follow-ups:** Owner runs `crm:backfill` after landing. Then Insights → Company CRM → Year to date shows a sales value (not £0). A period with sales but no prices shows "–" and "Sales value: no sale amounts recorded". The line under the bar starts "Other:" with the four parts.

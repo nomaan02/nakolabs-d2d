@@ -18,6 +18,7 @@ import {
   CrmParseError,
   isoToCrmStamp,
   parseCrmLead,
+  type SaleAmountSource,
   type AppCrmStatus,
   type CrmDatetimeZone,
   type CrmLeadRow,
@@ -33,6 +34,12 @@ const LINK_WINDOW_MS = 24 * 60 * 60 * 1000;
 /** Re-read this much before the cursor: same-second saves, edits during a run, the repeated October hour. */
 const CURSOR_OVERLAP_MS = 2 * 60 * 60 * 1000;
 const READ_PAGE = 1000;
+
+const PRICE_SOURCE_LABEL: Record<SaleAmountSource, string> = {
+  sale_amount: "Sale Amount",
+  result: "Result (price read from the text)",
+  rep_result: "Rep Result (price read from the text)",
+};
 
 export type CrmSyncOptions = {
   kind: "backfill" | "daily";
@@ -52,6 +59,10 @@ export type CrmSyncSummary = {
   rowsSkipped: number;
   statusCounts: Record<string, number>;
   unknownStatuses: Record<string, number>;
+  /** Sold leads by where the price came from (CRM-3). Counts only. */
+  priceSources: Record<string, number>;
+  /** Sold leads with no price anywhere, by CRM created month (YYYY-MM, UTC). */
+  soldWithoutPrice: Record<string, number>;
   matchCounts: Record<MatchTier, number>;
   appLeadsLinked: number;
   appLeadsAmbiguous: number;
@@ -347,9 +358,15 @@ export async function runCrmSync(db: SupabaseClient, crm: CrmReader, options: Cr
     const statusCounts: Record<string, number> = {};
     const unknownStatuses: Record<string, number> = {};
     const matchCounts = Object.fromEntries(MATCH_TIERS.map((t) => [t, 0])) as Record<MatchTier, number>;
+    const priceSources: Record<string, number> = {};
+    const soldWithoutPrice: Record<string, number> = {};
     for (const lead of parsed) {
       bump(statusCounts, lead.status ?? (lead.status_unknown ? `unknown: ${lead.status_raw}` : "no outcome"));
       if (lead.status_unknown && lead.status_raw) bump(unknownStatuses, lead.status_raw);
+      if (lead.status === "sale") {
+        bump(priceSources, lead.sale_amount_source ? PRICE_SOURCE_LABEL[lead.sale_amount_source] : "no price anywhere");
+        if (!lead.sale_amount_source) bump(soldWithoutPrice, lead.crm_created_at.slice(0, 7));
+      }
     }
     for (const r of records) matchCounts[r.match_tier] += 1;
 
@@ -396,6 +413,8 @@ export async function runCrmSync(db: SupabaseClient, crm: CrmReader, options: Cr
       rowsSkipped: skipped,
       statusCounts,
       unknownStatuses,
+      priceSources,
+      soldWithoutPrice,
       matchCounts,
       appLeadsLinked: links.linked,
       appLeadsAmbiguous: links.ambiguous,

@@ -147,6 +147,7 @@
 | CRM-2 C | Insights Company CRM view | DONE | 2026-10-10 | Insights Company CRM view (switch, booked this week, period sheet, hero, chart, areas, props). | — |
 | CRM-2 D | CRM layers on Coverage and Props | DONE | 2026-10-10 | CRM heat map and CRM doors on Coverage; CRM history layer on Props. | — |
 | CRM-2 E | human: migration 035 `crm_insights` London-day fixes + types | DONE | 2026-10-10 | Migration 035: crm_insights daily windows and Booked this week in London days. | — |
+| CRM-3 A | human: sale price from Result / Rep Result; Insights missing amounts and Other | DONE | 2026-10-11 | Sale price read from Result / Rep Result when Sale Amount is empty; Insights shows missing amounts and spells out Other. | — |
 
 ---
 

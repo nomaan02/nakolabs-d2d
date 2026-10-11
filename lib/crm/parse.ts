@@ -4,6 +4,12 @@
  * Owner 2026-10-10: names, phones, notes and best time to call are never read
  * (they are not even requested; see CRM_LEAD_FIELDS). The street and house
  * number are parsed only to feed the matcher and are never stored.
+ *
+ * Owner 2026-10-11 (CRM-3): from about Nov 2025 the office stopped filling
+ * "Sale Amount" (cf_861) and types the price into the free-text "Result"
+ * (cf_867) or "Rep Result" (cf_881) box instead. Those two boxes are read
+ * here, on the server, for Sold leads only; only the price number leaves this
+ * file. The text itself is never stored, logged or returned.
  */
 
 export const CRM_LEAD_FIELDS = [
@@ -18,8 +24,13 @@ export const CRM_LEAD_FIELDS = [
   "cf_857",
   "cf_861",
   "cf_865",
+  "cf_867",
   "cf_879",
+  "cf_881",
 ] as const;
+
+/** Free-text boxes read only for a price, never stored (owner 2026-10-11). */
+export const CRM_PRICE_TEXT_FIELDS = ["cf_867", "cf_881"] as const;
 
 export type CrmLeadField = (typeof CRM_LEAD_FIELDS)[number];
 export type CrmLeadRow = Partial<Record<CrmLeadField, string | null>> & { id: string };
@@ -27,6 +38,9 @@ export type CrmLeadRow = Partial<Record<CrmLeadField, string | null>> & { id: st
 export type CrmDatetimeZone = "UTC" | "Europe/London";
 
 export type AppCrmStatus = "sale" | "pm" | "blowout" | "utc" | "re_app" | "confirmed" | "pending";
+
+/** Where a Sold lead's price came from: Sale Amount, Result or Rep Result. Counted, never stored. */
+export type SaleAmountSource = "sale_amount" | "result" | "rep_result";
 
 export type MatchInput = {
   crm_id: string;
@@ -47,6 +61,7 @@ export type ParsedCrmLead = {
   appointment_at: string | null;
   branch: string;
   sale_amount: number | null;
+  sale_amount_source: SaleAmountSource | null;
   postcode: string | null;
   postcode_sector: string | null;
   canvasser_first_name: string | null;
@@ -129,6 +144,50 @@ export function saleAmount(raw: string | null | undefined): number | null {
   return pounds > 0 && pounds < 1e10 ? pounds : null;
 }
 
+const POUND_MIN = 100;
+const BARE_MIN = 300;
+const PRICE_MAX = 100_000;
+const POUND_PRICE = /£\s*(\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?(?![\d,])/g;
+/** A bare 3–6 digit number not starting with 0: not part of a time (11:45, 11.45), a phone or a longer number. */
+const BARE_PRICE = /(?<![\d:.,£])([1-9]\d{0,2}(?:,\d{3})+|[1-9]\d{2,5})(?![\d:,]|\.\d)/g;
+
+function firstPrice(text: string, pattern: RegExp, min: number): number | null {
+  for (const m of text.matchAll(pattern)) {
+    const n = Number.parseInt((m[1] ?? "").replace(/,/g, ""), 10);
+    if (Number.isFinite(n) && n >= min && n <= PRICE_MAX) return n;
+  }
+  return null;
+}
+
+/**
+ * A price typed into free text ("Bristol Earl £2534", "Bristol 4792 Ryan H").
+ * A £ amount (£100 to £100,000) wins; otherwise the first bare number from
+ * 300 to 100,000. Times, phone numbers and years written with other digits are skipped.
+ * Returns the number only; the text is not kept.
+ */
+export function priceInText(raw: string | null | undefined): number | null {
+  const text = (raw ?? "").replace(/\s+/g, " ");
+  if (!text.trim()) return null;
+  return firstPrice(text, POUND_PRICE, POUND_MIN) ?? firstPrice(text, BARE_PRICE, BARE_MIN);
+}
+
+/** Sale Amount first; for a Sold lead only, then the price in Result, then in Rep Result. */
+export function leadSaleAmount(
+  status: AppCrmStatus | null,
+  amountField: string | null | undefined,
+  resultText: string | null | undefined,
+  repResultText: string | null | undefined,
+): { amount: number | null; source: SaleAmountSource | null } {
+  const amount = saleAmount(amountField);
+  if (amount !== null) return { amount, source: "sale_amount" };
+  if (status !== "sale") return { amount: null, source: null };
+  const fromResult = priceInText(resultText);
+  if (fromResult !== null) return { amount: fromResult, source: "result" };
+  const fromRep = priceInText(repResultText);
+  if (fromRep !== null) return { amount: fromRep, source: "rep_result" };
+  return { amount: null, source: null };
+}
+
 export type StatusResult = { status_raw: string | null; status: AppCrmStatus | null; unknown: boolean };
 
 /** Blank -> "No outcome" (null). A value missing from the map is kept raw and flagged, never guessed. */
@@ -209,6 +268,7 @@ export function parseCrmLead(
   const postcode = normaliseCrmPostcode(row.code);
   const street = parseStreetLine(row.lane);
   const status = mapCrmStatus(row.leadstatus, statusMap);
+  const sale = leadSaleAmount(status.status, row.cf_861, row.cf_867, row.cf_881);
   return {
     crm_id: row.id,
     lead_no: (row.lead_no ?? "").trim() || null,
@@ -219,7 +279,8 @@ export function parseCrmLead(
     crm_modified_at: modified,
     appointment_at: appointmentToIso(row.cf_855, row.cf_857),
     branch: (row.cf_879 ?? "").trim() || "Unknown",
-    sale_amount: saleAmount(row.cf_861),
+    sale_amount: sale.amount,
+    sale_amount_source: sale.source,
     postcode,
     postcode_sector: postcodeSector(postcode),
     canvasser_first_name: canvasserFirstName(row.cf_865),

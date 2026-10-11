@@ -290,15 +290,45 @@ export function poundsShort(value: number): string {
 
 const n = (v: number): string => v.toLocaleString("en-GB");
 
-export type CrmFigure = { label: string; value: string; detail: string | null };
+/** `note` is shown under the figure; `detail` is the full figure on hover. */
+export type CrmFigure = { label: string; value: string; detail: string | null; note?: string };
 
-/** The three big numbers at the top of the CRM view. */
+/**
+ * The three big numbers at the top of the CRM view. CRM-3 (owner 2026-10-11):
+ * sales with no price recorded never read as £0 — the value shows "–" and
+ * says so, and a part-priced period says how many sales are missing.
+ */
 export function heroFigures(t: CrmCounts): CrmFigure[] {
-  return [
-    { label: "Leads", value: n(t.leads), detail: null },
-    { label: "Sold", value: n(t.sale), detail: null },
-    { label: "Sales value", value: poundsShort(t.revenue), detail: pounds(t.revenue) },
+  const missing = Math.max(0, t.sale - t.sales_with_amount);
+  const value: CrmFigure =
+    t.sale > 0 && t.sales_with_amount === 0
+      ? { label: "Sales value", value: "–", detail: null, note: "No sale amounts recorded" }
+      : {
+          label: "Sales value",
+          value: poundsShort(t.revenue),
+          detail: pounds(t.revenue),
+          ...(missing > 0 ? { note: `${n(missing)} of ${n(t.sale)} ${t.sale === 1 ? "sale" : "sales"} unpriced` } : {}),
+        };
+  return [{ label: "Leads", value: n(t.leads), detail: null }, { label: "Sold", value: n(t.sale), detail: null }, value];
+}
+
+/**
+ * What "Other" is made of, in words, largest first (CRM-3, owner 2026-10-11):
+ * "4,075 no outcome recorded · 278 booked · 275 re-app · 7 uncontacted".
+ * Null when Other is empty.
+ */
+export function otherBreakdown(t: CrmCounts): string | null {
+  const parts: [string, number][] = [
+    ["no outcome recorded", t.no_outcome],
+    ["booked", t.confirmed],
+    ["re-app", t.re_app],
+    ["uncontacted", t.pending],
   ];
+  const known = t.no_outcome + t.confirmed + t.re_app + t.pending;
+  const rest = Math.max(0, t.leads - t.sale - t.pm - t.blowout - t.utc - known);
+  if (rest > 0) parts.push(["other status", rest]);
+  const shown = parts.filter(([, count]) => count > 0).sort((a, b) => b[1] - a[1]);
+  return shown.length > 0 ? shown.map(([label, count]) => `${n(count)} ${label}`).join(" · ") : null;
 }
 
 /** The three rates under the bar, each with its working. */

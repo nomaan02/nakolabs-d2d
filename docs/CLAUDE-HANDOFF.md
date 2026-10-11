@@ -2,28 +2,27 @@
 
 ## Current state
 
-- Last updated: 2026-10-10 (CRM-2 Session E). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- New file, pasted as given: `supabase/migrations/035_crm_insights_london_days.sql`. Applied through the Supabase MCP as `035_crm_insights_london_days` (`{"success":true}`). `create or replace` of `crm_insights` only. Same signature, SECURITY INVOKER, grants restated.
-- Daily windows count London calendar days (92 or fewer stay daily). Booked this week ends at the next Monday 00:00 London.
-- `generate_typescript_types` matched `lib/supabase/types.ts`. The file was not rewritten. `git diff --stat -- lib/supabase/types.ts` is empty.
-- CRM-2 E tracker row added after CRM-2 D. Status DONE. Date 2026-10-10. Result: `Migration 035: crm_insights daily windows and Booked this week in London days.` Commit column `—`.
-- `npm run verify:crm` exit 0. Last line: `ALL PASS`. `npm run verify:ui10` exit 0. Last line: `ALL PASS`.
-- `crm_insights`: `prosecdef` false, anon cannot execute, authenticated can.
-- No browser. Phone check: Insights → Company CRM, Coverage CRM layers (chip, heat map and doors), Props Layers → CRM history.
-- No new table row. No `client_event_id`. No CRM call.
-- `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts` and `lib/geo/walk/*` were not edited. No quality scoring in `/field`. No `/field` file reads CRM data (`verify:crm`).
+- Last updated: 2026-10-11 (CRM-3 Session A). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Sale price is read in `lib/crm/parse.ts` only: Sale Amount above 0, else for Sold leads the price in Result (`cf_867`), else Rep Result (`cf_881`). Only the number is kept. The text is not stored, logged or returned. The source is counted, not stored. No migration.
+- Insights: sales with no price show "–" and "no sale amounts recorded". A part-priced period says how many sales are unpriced. Other is spelled out under the bar.
+- Files replaced as given: `lib/crm/parse.ts`, `lib/crm/sync.ts`, `scripts/crm-backfill.ts`, `scripts/verify-crm.ts`, `lib/admin/crm-insights.ts`, `components/admin/insights/crm-section.tsx`, `app/(admin)/admin/insights/page.tsx`. AGENTS.md gained the CRM sale-price paragraph.
+- CRM-3 A tracker row added after CRM-2 E. Status DONE. Date 2026-10-11. Result: `Sale price read from Result / Rep Result when Sale Amount is empty; Insights shows missing amounts and spells out Other.` Commit column `—`.
+- `npm run verify:crm` exit 0. Last line: `ALL PASS`. `npm run verify:ui10` exit 0. Last line: `ALL PASS`. `npx tsc --noEmit` exit 0. `npx eslint` on the seven TypeScript files exit 0.
+- No browser. Phone check is after the owner re-runs the backfill: Insights → Company CRM → Year to date.
+- No new table row. No `client_event_id`. No database call. No CRM call. `crm:backfill` was not run.
+- `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. `lib/crm/client.ts` was not edited. No quality scoring in `/field`. No `/field` file reads CRM data (`verify:crm`). Only `lib/crm/parse.ts` names `cf_867` / `cf_881`.
 - Dark-ready paths are unchanged: `/admin/props`, `/admin/today`, `/admin/calendar`, `/admin/coverage`, `/admin/team`, `/admin/leads`, `/admin/insights`, `/admin/settings`.
 - Redirects are unchanged: `/admin` → `/admin/today`, `/admin/allocate` → Today or Add visit when `?prop=` is set, `/admin/dashboard` → `/admin/insights`.
-- Migration 035 is applied. `crm_insights` is the London-day body. `crm_heat_grid` and `crm_door_history` are unchanged from 034.
+- Migration 035 remains applied. `crm_insights` is the London-day body. `crm_heat_grid` and `crm_door_history` are unchanged from 034.
 - Migration 033 remains applied. `crm_norm_street` and `crm_match_batch` are unchanged. `crm_sync_runs.rows_skipped` remains.
-- Migration 032 remains applied. `crm_leads` RLS is unchanged. This session did not recount rows.
+- Migration 032 remains applied. `crm_leads` RLS is unchanged. `crm_leads.sale_amount` already existed. This session did not recount rows.
 - Migration 031 `admin_latest_knocks` remains applied. Calendar, Coverage and Team still read through it.
 - Migration 030 remains applied. Middleware still uses `mayOpen`. `/field` opens for a canvasser and for the admin. Office stays out.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
 - External settings: none.
 - Migration 029 `admin_set_canvasser_active` remains applied from F5f.
-- UI-10 F1–F6 remain DONE. CRM-1 A, CRM-1 B, CRM-2 A, CRM-2 B, CRM-2 C and CRM-2 D remain DONE.
+- UI-10 F1–F6 remain DONE. CRM-1 A, CRM-1 B, CRM-2 A, CRM-2 B, CRM-2 C, CRM-2 D and CRM-2 E remain DONE.
 
 ## Log
 
@@ -2952,5 +2951,29 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Invariants:** No canvasser GPS left the device. `crm_insights` still returns stored door and lead points to admin and office only. No quality scoring in `/field`. Field writes still go through `lib/sync/queue.ts` only. That file was not edited. Coverage stays derived. No `/field` file reads CRM data.
 - **Verified:** `apply_migration` success on `xerxsaptwpvhkkpyvkfi`. `prosecdef` false, `anon_can` false, `signed_in_can` true. `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. `git diff --stat -- lib/supabase/types.ts` is empty. Directory listing ended at `034_crm_insights.sql` before this file was added.
 - **Not verified:** A browser. A phone. Phone check listed: Insights → Company CRM, Coverage CRM layers, Props CRM history. tsc and eslint (the brief says they run after the session).
+- **External settings:** none
+- **Open questions for Claude:** none.
+
+### 2026-10-11 — CRM-3 Session A (uncommitted)
+
+- **Item:** other
+- **What changed:** A Sold lead's price is read from Sale Amount when that is above 0. Otherwise the price is taken from the free-text Result box, then Rep Result, and only the number is kept. The text is never stored, logged or returned. Insights no longer shows £0 when sales have no price: the figure is "–", a part-priced period says how many sales are unpriced, and Other under the bar is spelled out with counts. The backfill printout counts where each Sold price came from. No migration. The owner runs the backfill after landing.
+- **Files:**
+  - Changed: `lib/crm/parse.ts`, `lib/crm/sync.ts`, `scripts/crm-backfill.ts`, `scripts/verify-crm.ts`, `lib/admin/crm-insights.ts`, `components/admin/insights/crm-section.tsx`, `app/(admin)/admin/insights/page.tsx`, `AGENTS.md`, `docs/FIELD-TEST-BUILD-PLAN.md` (CRM-3 A row after CRM-2 E), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `.handoff/reports/crm-3-a.md`
+  - Deleted: none
+- **Database:** none. No migration. `crm_leads.sale_amount` already exists. No row written. No CRM call. `crm:backfill` was not run.
+- **Shared modules touched:** `lib/crm/parse.ts` and `lib/crm/sync.ts` replaced as this session required (price read and source counts). `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. `lib/crm/client.ts` was not edited.
+- **Decided by:**
+  - OWNER — 2026-10-11: the CRM price moved. A read-only probe of all 824 Sold leads showed: Dec 2023 to Jul 2025 the price is in "Sale Amount" (`cf_861`); Aug to Oct 2025 partly; Nov 2025 to Jan 2026 nowhere found; from Feb 2026 it is typed into the free-text "Result" box (`cf_867`), for example "Bristol Earl £2534", sometimes without a £ ("Bristol 4792 Ryan H"). No sale has a price in both places.
+  - OWNER — 2026-10-11: read the price, in order: Sale Amount above 0; else, for Sold leads only, the £ amount in Result; else a bare number 300 to 100,000 in Result; else the same from "Rep Result" (`cf_881`). Result / Rep Result text is read server-side in `lib/crm/parse.ts` only, keeps only the number, and is never stored, logged or returned. AGENTS.md amended.
+  - OWNER — 2026-10-11: Insights never shows £0 for sales with no price: "Sales value" shows "–" with "no sale amounts recorded", and a part-priced period says "3 of 61 sales unpriced". "Other" is spelled out under the bar: no outcome recorded / booked / re-app / uncontacted, with counts.
+  - CLAUDE — `priceInText`: a £ amount (£100 to £100,000) wins; otherwise the first bare number from 300 to 100,000 that does not start with 0 and is not part of a time (11:45, 11.45), a phone or a longer number. Pence are dropped.
+  - CLAUDE — `leadSaleAmount` returns the amount and its source; the source is only counted (backfill prints "Sold leads: where the price came from" and "Sold leads with no price anywhere, by month"), never stored. No migration: `crm_leads.sale_amount` already exists.
+  - CLAUDE — `verify:crm` adds 19 checks, including: the text never leaves the parser, a non-Sold lead never gets a price from text, and only `lib/crm/parse.ts` names `cf_867` / `cf_881`.
+- **Deviations from plan or brief:** none. The given files were pasted exactly. No database call. No CRM call.
+- **Invariants:** No GPS and no coordinates left the device. No quality scoring in `/field`. Field writes still go through `lib/sync/queue.ts` only. That file was not edited. Coverage stays derived. Result and Rep Result text is not stored. No `/field` file reads CRM data.
+- **Verified:** `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. `npx tsc --noEmit` exit 0. `npx eslint` on the seven TypeScript files exit 0. AGENTS.md old block found once, then gone.
+- **Not verified:** A browser. A phone. Phone check listed for after the owner's backfill re-run: Insights → Company CRM → Year to date shows a sales value (not £0); a period with sales but no prices shows "–" and "Sales value: no sale amounts recorded"; the line under the bar starts "Other:" with the four parts.
 - **External settings:** none
 - **Open questions for Claude:** none.

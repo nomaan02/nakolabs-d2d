@@ -56,6 +56,11 @@ async function main(): Promise<void> {
     console.log(`Skipped (unreadable time): ${summary.rowsSkipped}`);
     table("Status (app vocabulary)", summary.statusCounts);
     table("Unknown CRM statuses (not in crm_status_map)", summary.unknownStatuses);
+    table("Sold leads: where the price came from", summary.priceSources);
+    console.log("\nSold leads with no price anywhere, by month created");
+    for (const [month, n] of Object.entries(summary.soldWithoutPrice).sort((a, b) => a[0].localeCompare(b[0]))) {
+      console.log(`  ${month}  ${String(n).padStart(4)}`);
+    }
     table("Map placement", summary.matchCounts);
     console.log(`\nApp leads linked by door + date: ${summary.appLeadsLinked} (ambiguous, left unlinked: ${summary.appLeadsAmbiguous})`);
     if (!write) console.log("  (a dry run links against crm_leads as already stored, so this is 0 before the first real run)");

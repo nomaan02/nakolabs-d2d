@@ -46,6 +46,11 @@ Terra Draw, Dexie, Vercel.
   best time to call. Canvasser = tidied first name only. The CRM street and
   house number are used once, server-side, to find the door (the one allowed
   exception to address-as-identifier), then dropped.
+- CRM sale price (owner 2026-10-11): since about Nov 2025 the price is typed
+  into the free-text "Result" (`cf_867`) or "Rep Result" (`cf_881`) box.
+  Only `lib/crm/parse.ts` reads them, server-side, for Sold leads only, and
+  keeps only the price number (`sale_amount`). The text is never stored,
+  logged or returned.
 - CRM outcomes are previous-visit quality signals: admin and office only,
   never in any `/field` route.
 

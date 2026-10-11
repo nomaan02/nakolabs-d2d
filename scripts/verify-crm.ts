@@ -15,7 +15,10 @@ import {
   decodeCrmText,
   canvasserFirstName,
   CRM_LEAD_FIELDS,
+  CRM_PRICE_TEXT_FIELDS,
   crmStampToIso,
+  leadSaleAmount,
+  priceInText,
   isoToCrmStamp,
   mapCrmStatus,
   normaliseCrmPostcode,
@@ -31,6 +34,7 @@ import {
   axisTicks,
   columnReadout,
   leadSplit,
+  otherBreakdown,
   longerPeriod,
   parseInsightsView,
   periodOptions,
@@ -138,7 +142,24 @@ const lead = parseCrmLead(
 check("parsed lead stores no street or number", !("lane" in lead) && lead.match.street === "Upton Rd" && lead.match.number === 23 && lead.match.suffix === "A");
 check("parsed lead fields", lead.postcode === "BS7 8AB" && lead.postcode_sector === "BS7 8" && lead.status === "confirmed" && lead.sale_amount === null && lead.canvasser_first_name === "John" && lead.branch === "First Bristol");
 check("unreadable created time throws", throws(() => parseCrmLead({ id: "x", createdtime: "", modifiedtime: "2026-10-10 11:00:00" }, map, "UTC")));
-check("no name, phone, note or best-time field is ever requested", !CRM_LEAD_FIELDS.some((f) => ["firstname", "lastname", "phone", "cf_1014", "cf_1016", "description", "cf_867", "cf_881"].includes(f)));
+check("no name, phone, note or best-time field is ever requested", !CRM_LEAD_FIELDS.some((f) => ["firstname", "lastname", "phone", "mobile", "email", "cf_1014", "cf_1016", "description"].includes(f)));
+check("the only free-text boxes read are Result and Rep Result (for a price)", same([...CRM_PRICE_TEXT_FIELDS], ["cf_867", "cf_881"]) && CRM_PRICE_TEXT_FIELDS.every((f) => (CRM_LEAD_FIELDS as readonly string[]).includes(f)));
+
+console.log("\nCRM-3 sale price from Sale Amount, Result, Rep Result");
+check("£ amount in Result", priceInText("Bristol Earl £2534") === 2534 && priceInText("Bristol\nCharlotte\n£5015") === 5015 && priceInText("Bristol £18,333 Mario") === 18333 && priceInText("£ 4166 Bruno") === 4166);
+check("£ amount wins over an earlier bare number", priceInText("text 4792 then £2493 Earl 9:10") === 2493);
+check("bare number when there is no £", priceInText("Bristol 4792 Ryan H") === 4792 && priceInText("Bristol 6250 Charlotte Robin") === 6250 && priceInText("Bristol 3196 Charlotte Robins") === 3196);
+check("times are not prices", priceInText("11:57 1:11 2:30 3:21") === null && priceInText("11.45") === null && priceInText("Bristol Bruno £4910 text 12:53 16:39") === 4910);
+check("phone numbers are not prices", priceInText("07583345144") === null && priceInText("0117 9649658") === null && priceInText("call 01179 649658") === null);
+check("small and huge numbers are not prices", priceInText("Bristol 2 windows") === null && priceInText("1x bay 3 units") === null && priceInText("£50") === null && priceInText("250") === null && priceInText("£250000") === null);
+check("blank or words only -> null", priceInText("") === null && priceInText(null) === null && priceInText("Bristol Bruno") === null);
+check("Sale Amount first", same(leadSaleAmount("sale", "8400.00", "Bristol £5015", null), { amount: 8400, source: "sale_amount" }));
+check("then Result, then Rep Result, Sold only", same(leadSaleAmount("sale", "0.00", "Bristol £5015", "£1"), { amount: 5015, source: "result" }) && same(leadSaleAmount("sale", "", "Bristol Bruno", "Rep £3,750"), { amount: 3750, source: "rep_result" }) && same(leadSaleAmount("sale", null, "", ""), { amount: null, source: null }));
+check("never read a price from text on a lead that is not Sold", same(leadSaleAmount("pm", null, "Bristol Bruno £4000", "£4000"), { amount: null, source: null }) && same(leadSaleAmount(null, null, "£4000", null), { amount: null, source: null }));
+const resultText = "Bristol Charlotte £5015";
+const sold = parseCrmLead({ id: "10x9", leadstatus: "Sold", createdtime: "2026-10-08 10:00:00", modifiedtime: "2026-10-08 11:00:00", cf_861: "0.00000000", cf_867: resultText, cf_881: "Rep note" }, new Map([["Sold", "sale"]]), "UTC");
+check("Sold lead takes its price from Result", sold.sale_amount === 5015 && sold.sale_amount_source === "result");
+check("Result and Rep Result text never leave the parser", !Object.values(sold).some((v) => typeof v === "string" && (v.includes("Charlotte") || v.includes("Rep note"))) && !JSON.stringify(sold).includes("Charlotte"));
 
 console.log("\nCRM idempotency compare");
 const rec = { crm_id: "10x5", lead_no: "LEA5", status_raw: "Sold", status: "sale" as const, crm_created_at: "2026-10-10T10:00:00.000Z", crm_modified_at: "2026-10-10T11:00:00.000Z", appointment_at: null, branch: "First Bristol", sale_amount: 8400, postcode: "BS7 8AB", postcode_sector: "BS7 8", uprn: 1, location: "SRID=4326;POINT(0 0)", match_tier: "exact" as const, canvasser_first_name: "John" };
@@ -183,6 +204,13 @@ check("money", pounds(40000) === "£40,000" && pounds(null) === "–" && poundsS
 check("hero figures", heroFigures(doc.totals).map((t) => t.value).join("|") === "100|5|£40k");
 const rates = rateFigures(doc.totals);
 check("rates with their working", rates.map((t) => t.value).join("|") === "25%|25%|£10,000" && rates[0]?.detail === "5 of 20" && rates[1]?.detail === "20 of 80" && rates[2]?.detail === "1 sale has no amount");
+check("CRM-3: part-priced period says how many sales are unpriced", heroFigures(doc.totals)[2]?.note === "1 of 5 sales unpriced");
+const unpriced = heroFigures({ ...doc.totals, revenue: 0, sales_with_amount: 0 })[2];
+check("CRM-3: sales with no amounts never read as £0", unpriced?.value === "–" && unpriced?.note === "No sale amounts recorded");
+const noSales = heroFigures({ ...doc.totals, sale: 0, revenue: 0, sales_with_amount: 0 })[2];
+check("CRM-3: no sales at all is £0 with no note", noSales?.value === "£0" && noSales?.note === undefined);
+check("CRM-3: Other is spelled out, largest first", otherBreakdown({ leads: 100, sale: 5, pm: 15, blowout: 50, utc: 10, re_app: 3, confirmed: 2, pending: 1, no_outcome: 14, revenue: 0, sales_with_amount: 0 }) === "14 no outcome recorded · 3 re-app · 2 booked · 1 uncontacted");
+check("CRM-3: empty Other -> null", otherBreakdown({ leads: 10, sale: 5, pm: 5, blowout: 0, utc: 0, re_app: 0, confirmed: 0, pending: 0, no_outcome: 0, revenue: 0, sales_with_amount: 0 }) === null);
 const split = leadSplit(doc.totals);
 check("where leads went adds up", split.reduce((a, r) => a + r.count, 0) === 100 && split[4]?.count === 20 && split[0]?.percent === "5%" && split[3]?.label === "Unable to contact");
 const cols = outcomeColumns(doc, crmWindow("12m", T), T);
@@ -270,6 +298,8 @@ const rel = (f: string) => path.relative(root, f).split(path.sep).join("/");
 const self = "scripts/verify-crm.ts";
 const callers = files.filter((f) => rel(f) !== self && readFileSync(f, "utf8").includes("webservice.php")).map(rel);
 check("only lib/crm/client.ts names webservice.php", same(callers, ["lib/crm/client.ts"]));
+const textFieldUsers = files.filter((f) => rel(f) !== self && /cf_867|cf_881/.test(readFileSync(f, "utf8"))).map(rel);
+check("only lib/crm/parse.ts reads the Result / Rep Result boxes", same(textFieldUsers, ["lib/crm/parse.ts"]));
 const clientSource = readFileSync(path.join(root, "lib/crm/client.ts"), "utf8");
 check("client names no write operation", !/["'`](create|update|delete|revise|convertlead)["'`]/i.test(clientSource));
 const publicKey = files.filter((f) => rel(f) !== self && /NEXT_PUBLIC_CRM/.test(readFileSync(f, "utf8"))).map(rel);
