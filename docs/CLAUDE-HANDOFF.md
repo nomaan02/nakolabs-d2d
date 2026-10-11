@@ -2,18 +2,19 @@
 
 ## Current state
 
-- Last updated: 2026-10-10 (CRM-2 Session D). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- New files, pasted as given: `components/admin/map/crm-layers.ts`, `components/admin/coverage/crm-picker.tsx`. Replaced, pasted as given: `app/(admin)/admin/coverage/page.tsx`, `components/admin/coverage/coverage-screen.tsx`, `components/admin/props/layers-popover.tsx`, `components/admin/props/props-screen.tsx`.
-- Coverage: a CRM chip (`crm=`). Off, a 250 m heat map (sale rate or number of leads, under the props) or CRM doors by latest outcome. Read in the browser the first time it is switched on. The layer rides along the other filter links.
-- Props: Layers has CRM history, off by default, after Leads, with outcome filter buttons. Hidden while drawing.
-- CRM-2 D tracker row added after CRM-2 C. Status DONE. Date 2026-10-10. Result: `CRM heat map and CRM doors on Coverage; CRM history layer on Props.` Commit column `—`.
-- `npm run verify:crm` exit 0. Last line: `ALL PASS`. `npm run verify:ui10` exit 0. Last line: `ALL PASS`. `npx tsc --noEmit` exit 0. `npx eslint` on the six files exit 0.
-- No browser. No dev server. Phone check: Coverage CRM chip (heat map and doors) and Props Layers → CRM history (after CRM-2 E). Insights → Company CRM stays on that same check.
-- No new table row. No `client_event_id`. No database call. No CRM call. The maps call `loadCrmDoors` and `loadCrmHeat` only after the layer is switched on. This session did not render them.
-- `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts` and `lib/geo/walk/*` were not edited. `lib/supabase/types.ts` was not edited. No quality scoring in `/field`. No `/field` file reads CRM data (`verify:crm`).
+- Last updated: 2026-10-10 (CRM-2 Session E). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- New file, pasted as given: `supabase/migrations/035_crm_insights_london_days.sql`. Applied through the Supabase MCP as `035_crm_insights_london_days` (`{"success":true}`). `create or replace` of `crm_insights` only. Same signature, SECURITY INVOKER, grants restated.
+- Daily windows count London calendar days (92 or fewer stay daily). Booked this week ends at the next Monday 00:00 London.
+- `generate_typescript_types` matched `lib/supabase/types.ts`. The file was not rewritten. `git diff --stat -- lib/supabase/types.ts` is empty.
+- CRM-2 E tracker row added after CRM-2 D. Status DONE. Date 2026-10-10. Result: `Migration 035: crm_insights daily windows and Booked this week in London days.` Commit column `—`.
+- `npm run verify:crm` exit 0. Last line: `ALL PASS`. `npm run verify:ui10` exit 0. Last line: `ALL PASS`.
+- `crm_insights`: `prosecdef` false, anon cannot execute, authenticated can.
+- No browser. Phone check: Insights → Company CRM, Coverage CRM layers (chip, heat map and doors), Props Layers → CRM history.
+- No new table row. No `client_event_id`. No CRM call.
+- `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts` and `lib/geo/walk/*` were not edited. No quality scoring in `/field`. No `/field` file reads CRM data (`verify:crm`).
 - Dark-ready paths are unchanged: `/admin/props`, `/admin/today`, `/admin/calendar`, `/admin/coverage`, `/admin/team`, `/admin/leads`, `/admin/insights`, `/admin/settings`.
 - Redirects are unchanged: `/admin` → `/admin/today`, `/admin/allocate` → Today or Add visit when `?prop=` is set, `/admin/dashboard` → `/admin/insights`.
-- Migration 034 remains applied. Functions: `crm_insights`, `crm_heat_grid`, `crm_door_history`. This session did not call them.
+- Migration 035 is applied. `crm_insights` is the London-day body. `crm_heat_grid` and `crm_door_history` are unchanged from 034.
 - Migration 033 remains applied. `crm_norm_street` and `crm_match_batch` are unchanged. `crm_sync_runs.rows_skipped` remains.
 - Migration 032 remains applied. `crm_leads` RLS is unchanged. This session did not recount rows.
 - Migration 031 `admin_latest_knocks` remains applied. Calendar, Coverage and Team still read through it.
@@ -22,7 +23,7 @@
 - No magic link this session. Password, profile and role were not changed.
 - External settings: none.
 - Migration 029 `admin_set_canvasser_active` remains applied from F5f.
-- UI-10 F1–F6 remain DONE. CRM-1 A, CRM-1 B, CRM-2 A, CRM-2 B and CRM-2 C remain DONE.
+- UI-10 F1–F6 remain DONE. CRM-1 A, CRM-1 B, CRM-2 A, CRM-2 B, CRM-2 C and CRM-2 D remain DONE.
 
 ## Log
 
@@ -2929,5 +2930,27 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Invariants:** No canvasser GPS and no coordinates sent. No quality scoring in `/field`. Field writes still go through `lib/sync/queue.ts` only. That file was not edited. Coverage stays derived from knocks. No `/field` file reads CRM data. CRM outcomes stay admin and office only.
 - **Verified:** `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. `npx tsc --noEmit` exit 0. `npx eslint` on the six files exit 0. Each pasted file matches the brief byte for byte.
 - **Not verified:** A browser. A phone. Phone check listed: Coverage CRM chip (heat map and doors) and Props Layers → CRM history (after CRM-2 E). No live read of `crm_heat_grid` or `crm_door_history`. No timed pass at 2,000 doors. No device.
+- **External settings:** none
+- **Open questions for Claude:** none.
+
+### 2026-10-10 — CRM-2 Session E (uncommitted)
+
+- **Item:** other
+- **What changed:** Migration 035 replaces `crm_insights`. Daily windows are London calendar days, so a window of 92 days or fewer stays daily even when it crosses the end of British Summer Time. Booked this week ends at the next Monday 00:00 London, so a clock-change week is not an hour out. Same signature, SECURITY INVOKER, same grants. Types were regenerated and matched the file already on disk.
+- **Files:**
+  - Changed: `docs/FIELD-TEST-BUILD-PLAN.md` (CRM-2 E row after CRM-2 D), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `supabase/migrations/035_crm_insights_london_days.sql`, `.handoff/reports/crm-2-e.md`
+  - Deleted: none
+- **Database:** 035 `035_crm_insights_london_days`. `create or replace` of `public.crm_insights(timestamptz, timestamptz)` only. SECURITY INVOKER. Execute revoked from public and anon, granted to authenticated. No new row. No CRM call. `crm_heat_grid` and `crm_door_history` unchanged.
+- **Shared modules touched:** `lib/supabase/types.ts` was regenerated and matched the existing file, so it was not rewritten. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/field/*` were not edited.
+- **Decided by:**
+  - OWNER — this session (2026-10-10): gate human. Apply migration 035 through the Supabase MCP and regenerate types through the Supabase MCP. No other database write. No CRM call.
+  - CLAUDE — Two clock-change fixes only. Daily windows are 92 London calendar days or fewer, so a 3-month window that crosses the end of British Summer Time stays daily.
+  - CLAUDE — Booked this week ends at the next Monday 00:00 London, not 168 hours after Monday 00:00.
+  - CLAUDE — `create or replace` of `crm_insights` only. Same signature, SECURITY INVOKER, same grants restated.
+- **Deviations from plan or brief:** none. The given SQL was pasted exactly. Types were not hand-written. The regenerated types matched `lib/supabase/types.ts`, so the file was left as it was.
+- **Invariants:** No canvasser GPS left the device. `crm_insights` still returns stored door and lead points to admin and office only. No quality scoring in `/field`. Field writes still go through `lib/sync/queue.ts` only. That file was not edited. Coverage stays derived. No `/field` file reads CRM data.
+- **Verified:** `apply_migration` success on `xerxsaptwpvhkkpyvkfi`. `prosecdef` false, `anon_can` false, `signed_in_can` true. `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. `git diff --stat -- lib/supabase/types.ts` is empty. Directory listing ended at `034_crm_insights.sql` before this file was added.
+- **Not verified:** A browser. A phone. Phone check listed: Insights → Company CRM, Coverage CRM layers, Props CRM history. tsc and eslint (the brief says they run after the session).
 - **External settings:** none
 - **Open questions for Claude:** none.

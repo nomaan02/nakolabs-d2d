@@ -1308,3 +1308,27 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given TypeScript was pasted exactly. No database call. No CRM call.
 - **Not done / deferred:** A browser. A phone (listed for after CRM-2 E). A timed pass at 2,000 doors. Did not commit. No new database row. No CRM call.
 - **Follow-ups:** Phone check after CRM-2 E: Coverage CRM chip (heat map and doors) and Props Layers → CRM history. Insights → Company CRM stays on that same check.
+
+### CRM-2 Session E — migration 035 crm_insights London-day fixes
+- **Date:** 2026-10-10
+- **Model:** Grok 4.7
+- **Built:** Migration 035 applied. `crm_insights` replaced in place. Daily windows are London calendar days (92 or fewer stay daily). Booked this week ends at the next Monday 00:00 London. Same signature, SECURITY INVOKER, same grants. Types regenerated and unchanged.
+- **Owner decisions:**
+  - OWNER — this session (2026-10-10): gate human. Apply migration 035 through the Supabase MCP (`apply_migration`) and regenerate `lib/supabase/types.ts` through the Supabase MCP. No other database write. No CRM call.
+- **Claude decisions:**
+  - CLAUDE — Two clock-change fixes only. Daily windows are 92 London calendar days or fewer, so a 3-month window that crosses the end of British Summer Time stays daily.
+  - CLAUDE — Booked this week ends at the next Monday 00:00 London, not 168 hours after Monday 00:00 (an hour out in a clock-change week).
+  - CLAUDE — `create or replace` of `crm_insights` only. Same signature, SECURITY INVOKER, same grants restated.
+- **Acceptance:**
+  - EDIT 1 DONE. New `supabase/migrations/035_crm_insights_london_days.sql`. Newest file before it was `034_crm_insights.sql`. 035 was free. SQL pasted as given.
+  - EDIT 2 DONE. `apply_migration` name `035_crm_insights_london_days` returned `{"success":true}` on project `xerxsaptwpvhkkpyvkfi`.
+  - EDIT 3 DONE. Types regenerated from the MCP. Content matched `lib/supabase/types.ts`, so the file was not rewritten. `git diff --stat -- lib/supabase/types.ts` is empty.
+  - Privilege check: **PASS** — `prosecdef` false, `anon_can` false, `signed_in_can` true.
+  - `npm run verify:crm`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - tsc: **NOT VERIFIED**. The brief says tsc runs after the session.
+  - eslint: **NOT VERIFIED**. The brief says eslint runs after the session.
+  - Phone: Insights → Company CRM, Coverage CRM layers, Props CRM history. No browser in this session.
+- **Deviations from brief:** none. The given SQL was pasted exactly. Types were not hand-written.
+- **Not done / deferred:** A browser. A phone (listed). tsc and eslint in this session (they run after). Did not commit. No new database row. No CRM call.
+- **Follow-ups:** Phone check: Insights → Company CRM, Coverage CRM chip (heat map and doors), Props Layers → CRM history.
