@@ -28,6 +28,7 @@ import {
   saleAmount,
   type AppCrmStatus,
 } from "../lib/crm/parse";
+import { cronAuthorised, lastSuccess, nextCursor, runInProgress, syncFreshness, whenWords, type SyncRun } from "../lib/crm/schedule";
 import { recordUnchanged } from "../lib/crm/sync";
 import {
   areaRankings,
@@ -160,6 +161,26 @@ const resultText = "Bristol Charlotte £5015";
 const sold = parseCrmLead({ id: "10x9", leadstatus: "Sold", createdtime: "2026-10-08 10:00:00", modifiedtime: "2026-10-08 11:00:00", cf_861: "0.00000000", cf_867: resultText, cf_881: "Rep note" }, new Map([["Sold", "sale"]]), "UTC");
 check("Sold lead takes its price from Result", sold.sale_amount === 5015 && sold.sale_amount_source === "result");
 check("Result and Rep Result text never leave the parser", !Object.values(sold).some((v) => typeof v === "string" && (v.includes("Charlotte") || v.includes("Rep note"))) && !JSON.stringify(sold).includes("Charlotte"));
+
+console.log("\nCRM-4 scheduled sync");
+const SECRET = "0123456789abcdef0123456789abcdef";
+check("cron refuses without the right secret", !cronAuthorised(null, SECRET) && !cronAuthorised("Bearer wrong", SECRET) && !cronAuthorised(`Bearer ${SECRET}x`, SECRET) && !cronAuthorised(`bearer ${SECRET}`, SECRET));
+check("cron refuses when no secret (or a short one) is configured", !cronAuthorised("Bearer ", undefined) && !cronAuthorised("Bearer ", "") && !cronAuthorised("Bearer short", "short"));
+check("cron accepts the right secret", cronAuthorised(`Bearer ${SECRET}`, SECRET));
+const NOW = new Date("2026-10-11T13:40:00Z"); // 14:40 London (BST)
+const run = (started: string, finished: string | null, cursor: string | null, error: string | null = null): SyncRun => ({ started_at: started, finished_at: finished, max_modified_seen: cursor, error });
+const ok1 = run("2026-10-11T13:00:00Z", "2026-10-11T13:00:20Z", "2026-10-11T12:59:00Z");
+const ok0 = run("2026-10-11T12:30:00Z", "2026-10-11T12:30:15Z", "2026-10-11T12:20:00Z");
+const failed = run("2026-10-11T13:30:00Z", "2026-10-11T13:30:05Z", null, "CRM said no");
+check("a run that started under 15 min ago and has not finished blocks the next", runInProgress([run("2026-10-11T13:30:00Z", null, null)], NOW) && !runInProgress([run("2026-10-11T13:20:00Z", null, null)], NOW) && !runInProgress([ok1], NOW));
+check("cursor = newest successful run, failed runs ignored", nextCursor([failed, ok1, ok0]) === "2026-10-11T12:59:00Z" && lastSuccess([failed]) === null && nextCursor([]) === null);
+check("time words in London", whenWords("2026-10-11T13:00:20Z", NOW) === "14:00" && whenWords("2026-10-10T20:00:00Z", NOW) === "yesterday 21:00" && whenWords("2026-10-08T20:00:00Z", NOW) === "8 Oct 21:00");
+check("fresh: CRM updated 14:00", JSON.stringify(syncFreshness([ok1, ok0], NOW)) === JSON.stringify({ text: "CRM updated 14:00", stale: false }));
+check("newest run failed -> warning", syncFreshness([failed, ok1], NOW).stale && syncFreshness([failed, ok1], NOW).text === "CRM sync failed; last updated 14:00");
+check("over 2 hours in the day -> warning", syncFreshness([ok1], new Date("2026-10-11T16:30:00Z")).text === "CRM not updated since 14:00" && syncFreshness([ok1], new Date("2026-10-11T16:30:00Z")).stale);
+const evening = run("2026-10-10T20:00:00Z", "2026-10-10T20:00:10Z", "2026-10-10T19:58:00Z");
+check("overnight gap is fine until 07:00", !syncFreshness([evening], new Date("2026-10-11T05:30:00Z")).stale && syncFreshness([evening], new Date("2026-10-11T07:30:00Z")).stale);
+check("never synced -> warning", syncFreshness([], NOW).stale && syncFreshness([], NOW).text === "CRM not synced yet");
 
 console.log("\nCRM idempotency compare");
 const rec = { crm_id: "10x5", lead_no: "LEA5", status_raw: "Sold", status: "sale" as const, crm_created_at: "2026-10-10T10:00:00.000Z", crm_modified_at: "2026-10-10T11:00:00.000Z", appointment_at: null, branch: "First Bristol", sale_amount: 8400, postcode: "BS7 8AB", postcode_sector: "BS7 8", uprn: 1, location: "SRID=4326;POINT(0 0)", match_tier: "exact" as const, canvasser_first_name: "John" };
@@ -300,6 +321,14 @@ const callers = files.filter((f) => rel(f) !== self && readFileSync(f, "utf8").i
 check("only lib/crm/client.ts names webservice.php", same(callers, ["lib/crm/client.ts"]));
 const textFieldUsers = files.filter((f) => rel(f) !== self && /cf_867|cf_881/.test(readFileSync(f, "utf8"))).map(rel);
 check("only lib/crm/parse.ts reads the Result / Rep Result boxes", same(textFieldUsers, ["lib/crm/parse.ts"]));
+const routeSrc = readFileSync("app/api/cron/crm-sync/route.ts", "utf8");
+check("cron route checks the secret before anything else", routeSrc.indexOf("cronAuthorised(") > 0 && routeSrc.indexOf("cronAuthorised(") < routeSrc.indexOf("createServiceClient()") && /401/.test(routeSrc));
+check("cron route replies with counts only and logs nothing", !/console\.|summary\.(statusCounts|priceSources|soldWithoutPrice|newest)/.test(routeSrc) && /log: \(\) => \{\}/.test(routeSrc));
+const mw = readFileSync("middleware.ts", "utf8");
+check("middleware skips /api/cron (no session redirect)", mw.includes("api/cron/"));
+const m036 = readFileSync("supabase/migrations/036_crm_sync_schedule.sql", "utf8");
+check("036 keeps the URL and secret in Vault, never in the file", m036.includes("vault.decrypted_secrets") && !/https:\/\/[a-z0-9-]+\.vercel\.app/.test(m036) && !/Bearer [A-Za-z0-9]{16,}/.test(m036));
+check("036 tick is not callable through the API", /revoke all on function public\.crm_sync_tick\(\) from anon, authenticated/.test(m036));
 const clientSource = readFileSync(path.join(root, "lib/crm/client.ts"), "utf8");
 check("client names no write operation", !/["'`](create|update|delete|revise|convertlead)["'`]/i.test(clientSource));
 const publicKey = files.filter((f) => rel(f) !== self && /NEXT_PUBLIC_CRM/.test(readFileSync(f, "utf8"))).map(rel);

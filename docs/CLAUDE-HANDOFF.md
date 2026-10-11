@@ -2,27 +2,30 @@
 
 ## Current state
 
-- Last updated: 2026-10-11 (CRM-3 Session A). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Sale price is read in `lib/crm/parse.ts` only: Sale Amount above 0, else for Sold leads the price in Result (`cf_867`), else Rep Result (`cf_881`). Only the number is kept. The text is not stored, logged or returned. The source is counted, not stored. No migration.
-- Insights: sales with no price show "–" and "no sale amounts recorded". A part-priced period says how many sales are unpriced. Other is spelled out under the bar.
-- Files replaced as given: `lib/crm/parse.ts`, `lib/crm/sync.ts`, `scripts/crm-backfill.ts`, `scripts/verify-crm.ts`, `lib/admin/crm-insights.ts`, `components/admin/insights/crm-section.tsx`, `app/(admin)/admin/insights/page.tsx`. AGENTS.md gained the CRM sale-price paragraph.
-- CRM-3 A tracker row added after CRM-2 E. Status DONE. Date 2026-10-11. Result: `Sale price read from Result / Rep Result when Sale Amount is empty; Insights shows missing amounts and spells out Other.` Commit column `—`.
-- `npm run verify:crm` exit 0. Last line: `ALL PASS`. `npm run verify:ui10` exit 0. Last line: `ALL PASS`. `npx tsc --noEmit` exit 0. `npx eslint` on the seven TypeScript files exit 0.
-- No browser. Phone check is after the owner re-runs the backfill: Insights → Company CRM → Year to date.
-- No new table row. No `client_event_id`. No database call. No CRM call. `crm:backfill` was not run.
-- `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. `lib/crm/client.ts` was not edited. No quality scoring in `/field`. No `/field` file reads CRM data (`verify:crm`). Only `lib/crm/parse.ts` names `cf_867` / `cf_881`.
+- Last updated: 2026-10-11 (CRM-4 Session A). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- CRM sync is scheduled every 30 minutes, about 05:00 to 21:00 London. Migration 036 applied: `pg_cron` and `pg_net`; `public.crm_sync_tick()` (security definer, `search_path` empty, execute revoked from anon and authenticated); job `crm-sync` `*/30 4-20 * * *` UTC; job `crm-sync-history-trim` `15 3 * * *`. The tick reads `crm_sync_url` and `crm_sync_secret` from Vault and does nothing until both exist. No Vault secret was created.
+- `GET /api/cron/crm-sync` requires `Authorization: Bearer <CRON_SECRET>` (constant-time compare, secret at least 16 characters). It skips when a run started under 15 minutes ago has not finished. The cursor is `max_modified_seen` of the newest successful run. It calls `runCrmSync` kind `daily`, zone UTC, with the service-role client. The reply is counts only. It logs nothing. Middleware leaves `/api/cron/` outside the session matcher.
+- Insights → Company CRM shows "CRM updated" with a London time under the period line. A warning when the newest run failed, nothing has ever synced, or no success for over 2 hours between 07:00 and 22:00 London (12 hours overnight). The empty state says leads appear within half an hour.
+- New: `lib/crm/schedule.ts`, `app/api/cron/crm-sync/route.ts`, `supabase/migrations/036_crm_sync_schedule.sql`. Replaced: `middleware.ts`, `lib/admin/crm-data.ts`, `components/admin/insights/crm-section.tsx`, `app/(admin)/admin/insights/page.tsx`, `scripts/verify-crm.ts`. AGENTS.md gained the CRM sync schedule paragraph. `lib/supabase/types.ts` gained `crm_sync_tick` (1 insertion).
+- CRM-4 A tracker row added after CRM-3 A. Status DONE. Date 2026-10-11. Result: `CRM sync every 30 min (route + pg_cron migration 036); Insights shows when the CRM last updated.` Commit column `—`.
+- `npm run verify:crm` exit 0. Last line: `ALL PASS`. `npm run verify:ui10` exit 0. Last line: `ALL PASS`. `apply_migration` returned `{"success":true}`. Extensions `pg_cron` and `pg_net`. Both jobs active on the expected schedules. `crm_sync_tick`: `prosecdef` true, `anon_can` false, `signed_in_can` false. `git diff --stat -- lib/supabase/types.ts`: 1 insertion.
+- tsc and eslint were not run in this session. The brief says they run after the session.
+- No browser. Phone check: after the owner adds the secrets, Insights → Company CRM shows "CRM updated" with a time from the last half hour.
+- No table row. No `client_event_id`. No Vault secret. No CRM call.
+- `lib/crm/sync.ts`, `lib/crm/client.ts` and `lib/crm/parse.ts` were not edited. `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/field/*` were not edited. No quality scoring in `/field`. No `/field` file reads CRM data (`verify:crm`).
+- Sale price from CRM-3 remains: Sale Amount, else Result, else Rep Result, number only, in `lib/crm/parse.ts`.
 - Dark-ready paths are unchanged: `/admin/props`, `/admin/today`, `/admin/calendar`, `/admin/coverage`, `/admin/team`, `/admin/leads`, `/admin/insights`, `/admin/settings`.
 - Redirects are unchanged: `/admin` → `/admin/today`, `/admin/allocate` → Today or Add visit when `?prop=` is set, `/admin/dashboard` → `/admin/insights`.
 - Migration 035 remains applied. `crm_insights` is the London-day body. `crm_heat_grid` and `crm_door_history` are unchanged from 034.
-- Migration 033 remains applied. `crm_norm_street` and `crm_match_batch` are unchanged. `crm_sync_runs.rows_skipped` remains.
-- Migration 032 remains applied. `crm_leads` RLS is unchanged. `crm_leads.sale_amount` already existed. This session did not recount rows.
+- Migration 033 remains applied. `crm_norm_street` and `crm_match_batch` are unchanged.
+- Migration 032 remains applied. `crm_leads` RLS is unchanged. `crm_sync_runs` is unchanged. This session did not recount rows.
 - Migration 031 `admin_latest_knocks` remains applied. Calendar, Coverage and Team still read through it.
-- Migration 030 remains applied. Middleware still uses `mayOpen`. `/field` opens for a canvasser and for the admin. Office stays out.
+- Migration 030 remains applied. `/field` still opens for a canvasser and for the admin. Office stays out. `/api/cron/` is now outside the session matcher.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
-- External settings: none.
+- External settings: none changed. The owner adds `crm_sync_url` and `crm_sync_secret` in Supabase Vault, and `CRON_SECRET` on Vercel, after landing.
 - Migration 029 `admin_set_canvasser_active` remains applied from F5f.
-- UI-10 F1–F6 remain DONE. CRM-1 A, CRM-1 B, CRM-2 A, CRM-2 B, CRM-2 C, CRM-2 D and CRM-2 E remain DONE.
+- UI-10 F1–F6 remain DONE. CRM-1 A, CRM-1 B, CRM-2 A, CRM-2 B, CRM-2 C, CRM-2 D, CRM-2 E and CRM-3 A remain DONE. CRM-4 A is DONE.
 
 ## Log
 
@@ -2976,4 +2979,29 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Verified:** `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. `npx tsc --noEmit` exit 0. `npx eslint` on the seven TypeScript files exit 0. AGENTS.md old block found once, then gone.
 - **Not verified:** A browser. A phone. Phone check listed for after the owner's backfill re-run: Insights → Company CRM → Year to date shows a sales value (not £0); a period with sales but no prices shows "–" and "Sales value: no sale amounts recorded"; the line under the bar starts "Other:" with the four parts.
 - **External settings:** none
+- **Open questions for Claude:** none.
+
+### 2026-10-11 — CRM-4 Session A (uncommitted)
+
+- **Item:** other
+- **What changed:** The CRM sync now runs every 30 minutes, about 05:00 to 21:00 London. Supabase pg_cron calls `public.crm_sync_tick()`, which asks the app's `/api/cron/crm-sync` route to pull leads changed since the last successful run. The route checks a bearer secret, skips a run that is still going, and replies with counts only. The URL and secret stay in Vault and on Vercel. Insights → Company CRM shows when the CRM was last updated, and warns when that is stale or the newest run failed. No Vault secret was created. No CRM call.
+- **Files:**
+  - Changed: `middleware.ts`, `lib/admin/crm-data.ts`, `components/admin/insights/crm-section.tsx`, `app/(admin)/admin/insights/page.tsx`, `scripts/verify-crm.ts`, `AGENTS.md`, `lib/supabase/types.ts`, `docs/FIELD-TEST-BUILD-PLAN.md` (CRM-4 A row after CRM-3 A), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `lib/crm/schedule.ts`, `app/api/cron/crm-sync/route.ts`, `supabase/migrations/036_crm_sync_schedule.sql`, `.handoff/reports/crm-4-a.md`
+  - Deleted: none
+- **Database:** 036 `036_crm_sync_schedule`. Enables `pg_cron` and `pg_net`. Creates `public.crm_sync_tick()` (security definer, `search_path` empty). Revokes execute from public, anon and authenticated. Schedules `crm-sync` (`*/30 4-20 * * *`) and `crm-sync-history-trim` (`15 3 * * *`). No table row. No Vault secret. No CRM call.
+- **Shared modules touched:** `lib/supabase/types.ts` regenerated (one function, `crm_sync_tick`). `middleware.ts` leaves `/api/cron/` outside the session matcher. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/field/*` were not edited. `lib/crm/sync.ts`, `lib/crm/client.ts` and `lib/crm/parse.ts` were not edited.
+- **Decided by:**
+  - OWNER — 2026-10-11 (P3): sync the CRM every 30 minutes, about 05:00 to 21:00 London, so outcomes show during a shift (later: push notifications to canvassers in P4b). Vercel's free plan allows one scheduled run a day, so Supabase pg_cron + pg_net do the timing and call the app's route.
+  - OWNER — 2026-10-11: the live Vercel app is the one the phone opens; the URL goes in Supabase Vault, not in the repo.
+  - CLAUDE — `app/api/cron/crm-sync/route.ts`: GET; refuses without `Authorization: Bearer <CRON_SECRET>` (constant-time compare, secret at least 16 characters); skips if a run started under 15 minutes ago has not finished; cursor = `max_modified_seen` of the newest successful run; runs `runCrmSync` kind `daily`, zone UTC, with the existing service-role client; replies with counts only; logs nothing.
+  - CLAUDE — `middleware.ts`: `/api/cron/` is outside the session matcher (no login redirect; it has its own secret).
+  - CLAUDE — Migration 036: enables `pg_cron` and `pg_net`; `public.crm_sync_tick()` (security definer, `search_path = ''`, not executable by anon or authenticated) reads `crm_sync_url` and `crm_sync_secret` from Vault and does nothing until both exist; job `crm-sync` `*/30 4-20 * * *` UTC; job `crm-sync-history-trim` keeps a week of pg_cron run history.
+  - CLAUDE — Insights → Company CRM: under the period line, "CRM updated 14:30"; a warning box when the newest run failed, nothing has ever synced, or no success for over 2 hours between 07:00 and 22:00 London (12 hours overnight). The empty state now says leads appear "within half an hour".
+  - CLAUDE — `verify:crm` adds 16 checks (secret handling, overlap, cursor, London time words, freshness rules, route and migration scans).
+- **Deviations from plan or brief:** none. The given files were pasted exactly. Types were not hand-written. No Vault secret. No CRM call.
+- **Invariants:** No GPS and no coordinates left the device. No quality scoring in `/field`. Field writes still go through `lib/sync/queue.ts` only. That file was not edited. Coverage stays derived. No `/field` file reads CRM data. The cron route replies with counts only and logs nothing.
+- **Verified:** `apply_migration` `{"success":true}` on `xerxsaptwpvhkkpyvkfi`. Extensions `pg_cron` and `pg_net`. Jobs `crm-sync` `*/30 4-20 * * *` active and `crm-sync-history-trim` `15 3 * * *` active. `crm_sync_tick`: `prosecdef` true, `anon_can` false, `signed_in_can` false. `git diff --stat -- lib/supabase/types.ts` is 1 insertion (`crm_sync_tick`). `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. Directory listing ended at `035_crm_insights_london_days.sql` before this file was added. AGENTS.md old block found once, then the schedule paragraph was inserted once.
+- **Not verified:** A browser. A phone. Phone check listed for after the owner adds the secrets: Insights → Company CRM shows "CRM updated" with a time from the last half hour. tsc and eslint (the brief says they run after the session). The route was not called. No Vault secret exists, so the tick does nothing until the owner adds both.
+- **External settings:** none changed. The owner adds `crm_sync_url` and `crm_sync_secret` in Supabase Vault, and `CRON_SECRET` on Vercel, after landing.
 - **Open questions for Claude:** none.

@@ -148,6 +148,7 @@
 | CRM-2 D | CRM layers on Coverage and Props | DONE | 2026-10-10 | CRM heat map and CRM doors on Coverage; CRM history layer on Props. | — |
 | CRM-2 E | human: migration 035 `crm_insights` London-day fixes + types | DONE | 2026-10-10 | Migration 035: crm_insights daily windows and Booked this week in London days. | — |
 | CRM-3 A | human: sale price from Result / Rep Result; Insights missing amounts and Other | DONE | 2026-10-11 | Sale price read from Result / Rep Result when Sale Amount is empty; Insights shows missing amounts and spells out Other. | — |
+| CRM-4 A | human: CRM sync every 30 minutes (route + migration 036 pg_cron) and "CRM updated" on Insights | DONE | 2026-10-11 | CRM sync every 30 min (route + pg_cron migration 036); Insights shows when the CRM last updated. | — |
 
 ---
 

@@ -21,9 +21,10 @@ import {
   propRows,
   rateFigures,
 } from "@/lib/admin/crm-insights";
-import { loadCrmInsights } from "@/lib/admin/crm-data";
+import { loadCrmInsights, loadCrmSyncRuns } from "@/lib/admin/crm-data";
 import { loadInsights } from "@/lib/admin/insights-data";
 import { longDate } from "@/lib/admin/today";
+import { syncFreshness } from "@/lib/crm/schedule";
 import { londonDate } from "@/lib/field/london-date";
 import { createClient } from "@/lib/supabase/server";
 
@@ -50,7 +51,7 @@ export default async function InsightsPage({
   if (parseInsightsView(params.view) === "crm") {
     const period = parseCrmPeriod(params.crm);
     const window = crmWindow(period, today);
-    const crm = await loadCrmInsights(supabase, window);
+    const [crm, runs] = await Promise.all([loadCrmInsights(supabase, window), loadCrmSyncRuns(supabase)]);
     const longer = longerPeriod(period);
     const areaMin = minLeadsForAreas(period);
     return (
@@ -60,6 +61,7 @@ export default async function InsightsPage({
           period={period}
           periodLabel={CRM_PERIODS.find((p) => p.value === period)?.label ?? ""}
           windowLine={crmWindowLine(period, window, today)}
+          freshness={syncFreshness(runs, new Date())}
           periods={periodOptions(today)}
           booked={crm.ok ? confirmedByDay(crm.data.confirmed) : []}
           bookedCount={crm.ok ? crm.data.confirmed.length : 0}

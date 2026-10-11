@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { crmWindowBounds, parseCrmInsights, type CrmInsights, type CrmWindow } from "@/lib/admin/crm-insights";
 import { parseCrmDoors, parseHeatCells, type CrmDoor, type HeatCell } from "@/lib/admin/crm-map";
+import type { SyncRun } from "@/lib/crm/schedule";
 import type { Database } from "@/lib/supabase/types";
 
 /**
@@ -37,4 +38,14 @@ export async function loadCrmDoors(supabase: SupabaseClient<Database>): Promise<
     if ((data ?? []).length < PAGE) break;
   }
   return { ok: true, data: out };
+}
+
+/** CRM-4 A: the latest sync runs, for the "CRM updated 14:30" line. Admin and office can read them (032). */
+export async function loadCrmSyncRuns(supabase: SupabaseClient<Database>): Promise<SyncRun[]> {
+  const { data, error } = await supabase
+    .from("crm_sync_runs")
+    .select("started_at, finished_at, max_modified_seen, error")
+    .order("started_at", { ascending: false })
+    .limit(20);
+  return error ? [] : (data ?? []);
 }

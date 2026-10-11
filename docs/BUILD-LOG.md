@@ -1362,3 +1362,40 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given files were pasted exactly. AGENTS.md was the one named paragraph. No database call. No CRM call. `crm:backfill` was not run.
 - **Not done / deferred:** A browser. The phone check (listed, after the owner re-runs the backfill). Did not commit. No new database row. No `client_event_id`.
 - **Follow-ups:** Owner runs `crm:backfill` after landing. Then Insights → Company CRM → Year to date shows a sales value (not £0). A period with sales but no prices shows "–" and "Sales value: no sale amounts recorded". The line under the bar starts "Other:" with the four parts.
+
+### CRM-4 Session A — CRM sync every 30 minutes
+- **Date:** 2026-10-11
+- **Model:** Grok 4.7
+- **Built:** Scheduled CRM sync. `GET /api/cron/crm-sync` checks `Authorization: Bearer <CRON_SECRET>` before anything else, skips a run that is still going, and pulls CRM leads changed since the last successful run (`runCrmSync`, kind `daily`, zone UTC). The reply is counts only. Migration 036: `pg_cron` and `pg_net`, `public.crm_sync_tick()`, jobs `crm-sync` (`*/30 4-20 * * *` UTC) and `crm-sync-history-trim` (`15 3 * * *`). The tick reads the URL and secret from Vault and does nothing until both exist. Insights → Company CRM shows when the CRM last updated, and a warning when the sync is stale or failed. No Vault secret. No CRM call.
+- **Owner decisions:**
+  - OWNER — 2026-10-11 (P3): sync the CRM every 30 minutes, about 05:00 to 21:00 London, so outcomes show during a shift (later: push notifications to canvassers in P4b). Vercel's free plan allows one scheduled run a day, so Supabase pg_cron + pg_net do the timing and call the app's route.
+  - OWNER — 2026-10-11: the live Vercel app is the one the phone opens; the URL goes in Supabase Vault, not in the repo.
+- **Claude decisions:**
+  - CLAUDE — `app/api/cron/crm-sync/route.ts`: GET; refuses without `Authorization: Bearer <CRON_SECRET>` (constant-time compare, secret at least 16 characters); skips if a run started under 15 minutes ago has not finished; cursor = `max_modified_seen` of the newest successful run; runs `runCrmSync` kind `daily`, zone UTC, with the existing service-role client; replies with counts only; logs nothing.
+  - CLAUDE — `middleware.ts`: `/api/cron/` is outside the session matcher (no login redirect; it has its own secret).
+  - CLAUDE — Migration 036: enables `pg_cron` and `pg_net`; `public.crm_sync_tick()` (security definer, `search_path = ''`, not executable by anon or authenticated) reads `crm_sync_url` and `crm_sync_secret` from Vault and does nothing until both exist; job `crm-sync` `*/30 4-20 * * *` UTC; job `crm-sync-history-trim` keeps a week of pg_cron run history.
+  - CLAUDE — Insights → Company CRM: under the period line, "CRM updated 14:30"; a warning box when the newest run failed, nothing has ever synced, or no success for over 2 hours between 07:00 and 22:00 London (12 hours overnight). The empty state now says leads appear "within half an hour".
+  - CLAUDE — `verify:crm` adds 16 checks (secret handling, overlap, cursor, London time words, freshness rules, route and migration scans).
+- **Acceptance:**
+  - EDIT 1 DONE. New `lib/crm/schedule.ts`, pasted as given.
+  - EDIT 2 DONE. New `app/api/cron/crm-sync/route.ts`, pasted as given.
+  - EDIT 3 DONE. New `supabase/migrations/036_crm_sync_schedule.sql`. Newest file before it was `035_crm_insights_london_days.sql`. 036 was free. SQL pasted as given.
+  - EDIT 4 DONE. `middleware.ts` replaced with the given file.
+  - EDIT 5 DONE. `lib/admin/crm-data.ts` replaced with the given file.
+  - EDIT 6 DONE. `components/admin/insights/crm-section.tsx` replaced with the given file.
+  - EDIT 7 DONE. `app/(admin)/admin/insights/page.tsx` replaced with the given file.
+  - EDIT 8 DONE. `scripts/verify-crm.ts` replaced with the given file.
+  - EDIT 9 DONE. AGENTS.md CRM sync schedule paragraph inserted once. The old two-line block was found once and is gone.
+  - EDIT 10 DONE. `apply_migration` name `036_crm_sync_schedule` returned `{"success":true}` on project `xerxsaptwpvhkkpyvkfi`.
+  - EDIT 11 DONE. Types regenerated from the MCP and written to `lib/supabase/types.ts`. `git diff --stat -- lib/supabase/types.ts`: `1 file changed, 1 insertion(+)`. The added line is `crm_sync_tick: { Args: never; Returns: number }`.
+  - Extensions: **PASS** — `pg_cron`, `pg_net`.
+  - Jobs: **PASS** — `crm-sync` `*/30 4-20 * * *` active; `crm-sync-history-trim` `15 3 * * *` active.
+  - Privilege: **PASS** — `prosecdef` true, `anon_can` false, `signed_in_can` false.
+  - `npm run verify:crm`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - tsc: **NOT VERIFIED**. The brief says tsc runs after the session.
+  - eslint: **NOT VERIFIED**. The brief says eslint runs after the session.
+  - Phone: after the owner adds the secrets, Insights → Company CRM shows "CRM updated" with a time from the last half hour. No browser in this session.
+- **Deviations from brief:** none. The given files were pasted exactly. Types were not hand-written. No Vault secret. No CRM call.
+- **Not done / deferred:** A browser. The phone check (listed, after the owner adds the Vault and Vercel secrets). tsc and eslint in this session (they run after). Did not commit. No new table row. No `client_event_id`. No Vault secret. No CRM call.
+- **Follow-ups:** Owner adds `crm_sync_url` and `crm_sync_secret` in Supabase Vault, and `CRON_SECRET` on Vercel. Then Insights → Company CRM shows "CRM updated" with a time from the last half hour.

@@ -75,6 +75,7 @@ export function CrmSection({
   period,
   periodLabel,
   windowLine,
+  freshness,
   periods,
   booked,
   bookedCount,
@@ -86,6 +87,8 @@ export function CrmSection({
   period: CrmPeriod;
   periodLabel: string;
   windowLine: string;
+  /** CRM-4 A: when the CRM was last synced; `stale` turns it into a warning. */
+  freshness: { text: string; stale: boolean };
   periods: Array<{ value: CrmPeriod; label: string; span: string }>;
   booked: ConfirmedDay[];
   bookedCount: number;
@@ -98,7 +101,7 @@ export function CrmSection({
   if (failed) {
     return (
       <div className="mt-4">
-        <PeriodRow label={periodLabel} line={windowLine} onOpen={() => setSheet(true)} />
+        <PeriodRow label={periodLabel} line={windowLine} freshness={freshness} onOpen={() => setSheet(true)} />
         <div role="alert" className="mt-2 rounded-field-lg bg-surface p-4 lg:border lg:border-line">
           <p className="text-admin-body-strong">CRM figures didn’t load</p>
           <p className="mt-1 text-admin-subhead text-ink-muted">Check your connection, then try again. Canvassing figures are unaffected.</p>
@@ -121,11 +124,11 @@ export function CrmSection({
       </div>
 
       <div className="mt-6 lg:col-start-1 lg:row-start-1 lg:mt-0">
-        <PeriodRow label={periodLabel} line={windowLine} onOpen={() => setSheet(true)} />
+        <PeriodRow label={periodLabel} line={windowLine} freshness={freshness} onOpen={() => setSheet(true)} />
         {!data || data.totals.leads === 0 ? (
           <div className="mt-2 rounded-field-lg bg-surface p-4 lg:border lg:border-line">
             <p className="text-admin-body-strong">No CRM leads booked {period === "week" ? "yet this week" : "in this period"}</p>
-            <p className="mt-1 text-admin-subhead text-ink-muted">Leads appear here the morning after they are booked in the CRM.</p>
+            <p className="mt-1 text-admin-subhead text-ink-muted">Leads appear here within half an hour of being booked in the CRM.</p>
             {longer ? (
               <Link
                 href={longer.href}
@@ -169,7 +172,17 @@ function SectionLabel({ children, control }: { children: ReactNode; control?: Re
   );
 }
 
-function PeriodRow({ label, line, onOpen }: { label: string; line: string; onOpen: () => void }) {
+function PeriodRow({
+  label,
+  line,
+  freshness,
+  onOpen,
+}: {
+  label: string;
+  line: string;
+  freshness: { text: string; stale: boolean };
+  onOpen: () => void;
+}) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
       <button
@@ -184,6 +197,13 @@ function PeriodRow({ label, line, onOpen }: { label: string; line: string; onOpe
         </span>
       </button>
       <p className="text-admin-caption text-ink-muted">{line}, by date booked</p>
+      {freshness.stale ? (
+        <p role="status" className="w-full rounded-field-md bg-warn-bg px-3 py-2 text-admin-caption text-warn-ink">
+          {freshness.text}. Figures may be out of date.
+        </p>
+      ) : (
+        <p className="w-full text-admin-caption text-ink-muted">{freshness.text}</p>
+      )}
     </div>
   );
 }

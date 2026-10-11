@@ -1650,6 +1650,7 @@ export type Database = {
         }[]
       }
       crm_norm_street: { Args: { p: string }; Returns: string }
+      crm_sync_tick: { Args: never; Returns: number }
       disablelongtransactions: { Args: never; Returns: string }
       dropgeometrycolumn:
         | {

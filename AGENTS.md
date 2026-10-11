@@ -51,6 +51,11 @@ Terra Draw, Dexie, Vercel.
   Only `lib/crm/parse.ts` reads them, server-side, for Sold leads only, and
   keeps only the price number (`sale_amount`). The text is never stored,
   logged or returned.
+- CRM sync schedule (owner 2026-10-11): Supabase pg_cron (migration 036)
+  calls `/api/cron/crm-sync` every 30 minutes, about 05:00 to 21:00 London.
+  The route needs `Authorization: Bearer <CRON_SECRET>` and replies with
+  counts only. The URL and secret live in Supabase Vault (`crm_sync_url`,
+  `crm_sync_secret`) and in Vercel env, never in the repo.
 - CRM outcomes are previous-visit quality signals: admin and office only,
   never in any `/field` route.
 
