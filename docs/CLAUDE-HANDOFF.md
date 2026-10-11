@@ -2,17 +2,16 @@
 
 ## Current state
 
-- Last updated: 2026-10-10 (CRM-2 Session A). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Migration 034 `034_crm_insights` is applied. Functions: `crm_insights`, `crm_heat_grid`, `crm_door_history`. All three `prosecdef` false (SECURITY INVOKER). Execute granted to `authenticated`. `anon` cannot execute `crm_insights`. Each function raises `not_staff` unless the caller is admin or office.
-- `lib/supabase/types.ts` was regenerated from the MCP and written as generated. `git diff --stat` is 28 insertions and 0 deletions: `crm_door_history`, `crm_heat_grid` and `crm_insights` only. Not hand-edited.
-- CRM-2 A tracker row added after CRM-1 B. Status DONE. Date 2026-10-10. Result: `Migration 034 crm_insights, crm_heat_grid, crm_door_history applied (admin/office, read-only); types regenerated.` Commit column `—`.
+- Last updated: 2026-10-10 (CRM-2 Session B). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- New files, pasted as given: `lib/admin/crm-insights.ts`, `lib/admin/crm-map.ts`, `lib/admin/crm-data.ts`. `scripts/verify-crm.ts` replaced. `app/globals.css` gained `--color-crm-sale`, `--color-crm-pm`, `--color-crm-blowout` in light and dark.
+- CRM-2 B tracker row added after CRM-2 A. Status DONE. Date 2026-10-10. Result: `CRM pure logic (crm-insights, crm-map), data loaders, crm colour tokens, verify:crm checks.` Commit column `—`.
 - `npm run verify:crm` exit 0. Last line: `ALL PASS`. `npm run verify:ui10` exit 0. Last line: `ALL PASS`. `npx tsc --noEmit` exit 0. eslint was not run in this session (the brief says it runs after the session).
-- `select count(*) from public.crm_door_history()` raised `42501` / hint `not_staff`. The MCP role has no profile. The brief says that result is correct. The live door count was not read.
-- No browser. No dev server. Phone check: none for this session (the CRM phase phone check comes after CRM-2 D).
-- No new table row. No `client_event_id`. No CRM call.
-- `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts` and `lib/geo/walk/*` were not edited. No quality scoring in `/field`. No `/field` file reads CRM data (`verify:crm`).
+- No browser. No dev server. Phone check: none for this session (pure logic; the CRM phone check comes after CRM-2 D).
+- No new table row. No `client_event_id`. No database call. No CRM call. The loaders only read the three migration-034 functions; nothing in this session called them.
+- `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts` and `lib/geo/walk/*` were not edited. `lib/supabase/types.ts` was not edited. No quality scoring in `/field`. No `/field` file reads CRM data (`verify:crm`).
 - Dark-ready paths are unchanged: `/admin/props`, `/admin/today`, `/admin/calendar`, `/admin/coverage`, `/admin/team`, `/admin/leads`, `/admin/insights`, `/admin/settings`.
 - Redirects are unchanged: `/admin` → `/admin/today`, `/admin/allocate` → Today or Add visit when `?prop=` is set, `/admin/dashboard` → `/admin/insights`.
+- Migration 034 remains applied. Functions: `crm_insights`, `crm_heat_grid`, `crm_door_history`. This session did not call them.
 - Migration 033 remains applied. `crm_norm_street` and `crm_match_batch` are unchanged. `crm_sync_runs.rows_skipped` remains.
 - Migration 032 remains applied. `crm_leads` RLS is unchanged. This session did not recount rows.
 - Migration 031 `admin_latest_knocks` remains applied. Calendar, Coverage and Team still read through it.
@@ -21,7 +20,7 @@
 - No magic link this session. Password, profile and role were not changed.
 - External settings: none.
 - Migration 029 `admin_set_canvasser_active` remains applied from F5f.
-- UI-10 F1–F6 remain DONE. CRM-1 A and CRM-1 B remain DONE.
+- UI-10 F1–F6 remain DONE. CRM-1 A, CRM-1 B and CRM-2 A remain DONE.
 
 ## Log
 
@@ -2856,3 +2855,28 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. A phone (none for this session; the CRM phase phone check comes after CRM-2 D). eslint (the brief says it runs after the session). The live door count, because the MCP role is not staff.
 - **External settings:** none
 - **Open questions for Claude:** The live `crm_door_history` count was not read. Claude's earlier figure was 4,969 doors. Say if an admin session should confirm it.
+
+### 2026-10-10 — CRM-2 Session B (uncommitted)
+
+- **Item:** other
+- **What changed:** Pure logic for the Company CRM view and the admin maps. `lib/admin/crm-insights.ts` builds periods, hero figures, rates, the outcomes chart, area rankings, prop sorts and booked-this-week rows. `lib/admin/crm-map.ts` builds the Coverage `crm=` layer, door filters and 250 m heat squares. `lib/admin/crm-data.ts` reads `crm_insights`, `crm_heat_grid` and `crm_door_history` (paged 1,000). Colour tokens `crm-sale`, `crm-pm` and `crm-blowout` are in light and dark. `verify:crm` now checks this logic. Nothing was written to the database or the CRM.
+- **Files:**
+  - Changed: `scripts/verify-crm.ts`, `app/globals.css`, `docs/FIELD-TEST-BUILD-PLAN.md` (CRM-2 B row after CRM-2 A), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `lib/admin/crm-insights.ts`, `lib/admin/crm-map.ts`, `lib/admin/crm-data.ts`, `.handoff/reports/crm-2-b.md`
+  - Deleted: none
+- **Database:** none. No migration. No call to `crm_insights`, `crm_heat_grid` or `crm_door_history`. No CRM call. No new row.
+- **Shared modules touched:** none. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - OWNER — 2026-10-10 (P4a): Company CRM on Insights (periods This week to All time), a 250 m heat map on Coverage, and every CRM door by latest outcome on Coverage and Props, filterable. Admin and office only.
+  - OWNER — 2026-10-10: CRM-2 Figma mockups approved ("Admin — design", section "Admin / CRM-2", frames C1–C9, D1–D2). Canvassing / Company CRM switch on Insights. Booked this week first (ignores the period). One period button opens a sheet. Hero = leads, sold, sales value, plus one bar of where every lead went, plus three rates. One chart with Leads / Value and a month readout. Areas Best / Worst switch. Props sorted Most sales / Highest average / Lowest average. CRM doors as rounded-square outlines (never rings). Tapping a heat square shows its numbers and "Show its doors". Props CRM history off by default with outcome filter buttons.
+  - CLAUDE — `lib/admin/crm-insights.ts`: view switch `view=crm`, period sheet and windows in London days, hero figures, where-leads-went split, rates with their working, chart columns and readout, axis ticks, area rankings, props sorts, booked-this-week rows. Pitched = sale + P&M. Pitch → sale = sold ÷ pitched. Sit rate = pitched ÷ (pitched + blowout + UTC). Sale rate = sold ÷ leads. Average sale = revenue ÷ sales with an amount.
+  - CLAUDE — `lib/admin/crm-map.ts`: Coverage `crm=` layer, door outcome groups and filters, heat squares (250 m, sale-rate and lead steps), tapped door and square words.
+  - CLAUDE — `lib/admin/crm-data.ts`: reads `crm_insights`, `crm_heat_grid`, `crm_door_history` (paged 1,000 at a time). Nothing new is written anywhere.
+  - CLAUDE — Colour tokens `crm-sale`, `crm-pm`, `crm-blowout` (light and dark), admin only.
+  - CLAUDE — Nothing here is imported by a /field file (`verify:crm` scans for it).
+- **Deviations from plan or brief:** A second CRM-2 B tracker row and a second BUILD-LOG entry appeared while this session was writing. Both extras were removed. One row and one log entry remain. The given TypeScript and CSS were pasted exactly.
+- **Invariants:** No canvasser GPS and no coordinates sent. No quality scoring in `/field`. Field writes still go through `lib/sync/queue.ts` only. That file was not edited. Coverage stays derived. No `/field` file reads CRM data. CRM outcomes stay admin and office only.
+- **Verified:** `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. `npx tsc --noEmit` exit 0.
+- **Not verified:** A browser. A phone (none for this session; the CRM phone check comes after CRM-2 D). eslint (the brief says it runs after the session). No live read of the three functions.
+- **External settings:** none
+- **Open questions for Claude:** none.

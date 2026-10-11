@@ -53,6 +53,11 @@
      later figure is used here. Flagged in the Session B1 report. */
   --color-outcome-rented-ink: #7a4507;
   --color-outcome-notin: #969ba4;
+  /* CRM-2 (2026-10-10): CRM outcome hues for admin charts and map rings. Validated with the dataviz
+     palette checker in light and dark (CVD ΔE ≥ 18, contrast ≥ 3:1). Admin only, never /field. */
+  --color-crm-sale: #2f8f57;
+  --color-crm-pm: #3f74d0;
+  --color-crm-blowout: #c0505a;
   --color-outcome-on-pill: #ffffff;
 
   --color-warn-bg: #fdf3e3;
@@ -226,6 +231,8 @@
   --color-outcome-rented: #3a2e1c; --color-outcome-rented-edge: #e09a3a;
   --color-outcome-rented-ink: #f1b968;
   --color-outcome-notin: #6d7480; --color-outcome-on-pill: #ffffff;
+  --color-crm-sale: #3f9e69;      --color-crm-pm: #5b8ff0;
+  --color-crm-blowout: #e06a72;
   --color-warn-bg: #3a2e1c;      --color-error-bg: #3d2326;
   --color-scrim: #000000;
   --color-you: #a58bff;

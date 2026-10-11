@@ -1226,3 +1226,31 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given SQL was pasted exactly. Types were written from the generator. The diff is the three function blocks only.
 - **Not done / deferred:** A browser. A phone. eslint in this session. A live door count (the MCP role is not staff). Did not commit. No new database row. No CRM call.
 - **Follow-ups:** CRM-2 B is the Insights "Company CRM" section. The phone check comes after CRM-2 D.
+
+### CRM-2 Session B — CRM pure logic, data loaders, colour tokens
+- **Date:** 2026-10-10
+- **Model:** Grok 4.7
+- **Built:** `lib/admin/crm-insights.ts` (Insights Company CRM figures, periods, chart, areas, props, booked this week). `lib/admin/crm-map.ts` (Coverage `crm=` layer, door filters, 250 m heat squares). `lib/admin/crm-data.ts` (reads `crm_insights`, `crm_heat_grid`, `crm_door_history`, paged 1,000). Colour tokens `crm-sale`, `crm-pm`, `crm-blowout` in light and dark. `scripts/verify-crm.ts` now checks the CRM-2 logic as well as the CRM-1 guards.
+- **Owner decisions:**
+  - OWNER — 2026-10-10 (P4a): Company CRM on Insights (periods This week to All time), a 250 m heat map on Coverage, and every CRM door by latest outcome on Coverage and Props, filterable. Admin and office only.
+  - OWNER — 2026-10-10: CRM-2 Figma mockups approved ("Admin — design", section "Admin / CRM-2", frames C1–C9, D1–D2): Canvassing / Company CRM switch on Insights; Booked this week first (ignores the period); one period button opens a sheet; hero = leads, sold, sales value + one bar of where every lead went + three rates; one chart with Leads / Value and a month readout; Areas Best / Worst switch; Props sorted Most sales / Highest average / Lowest average; CRM doors as rounded-square outlines (never rings, so they never look like lead pins); tapping a heat square shows its numbers and "Show its doors"; Props CRM history off by default with outcome filter buttons.
+- **Claude decisions:**
+  - CLAUDE — `lib/admin/crm-insights.ts`: Insights CRM view logic (view switch `view=crm`, period sheet and windows in London days, hero figures, where-leads-went split, rates with their working, chart columns and readout, axis ticks, area rankings, props sorts, booked-this-week rows). Definitions: pitched = sale + P&M; pitch → sale = sold ÷ pitched; sit rate = pitched ÷ (pitched + blowout + UTC); sale rate = sold ÷ leads; average sale = revenue ÷ sales with an amount.
+  - CLAUDE — `lib/admin/crm-map.ts`: Coverage `crm=` layer, door outcome groups and filters, heat squares (250 m, sale-rate and lead steps), tapped door and square words.
+  - CLAUDE — `lib/admin/crm-data.ts`: reads `crm_insights`, `crm_heat_grid`, `crm_door_history` (paged 1,000 at a time). Nothing new is written anywhere.
+  - CLAUDE — Colour tokens `crm-sale`, `crm-pm`, `crm-blowout` (light and dark), admin only.
+  - CLAUDE — Nothing here is imported by a /field file (`verify:crm` scans for it).
+- **Acceptance:**
+  - EDIT 1 DONE. New `lib/admin/crm-insights.ts`, pasted as given.
+  - EDIT 2 DONE. New `lib/admin/crm-map.ts`, pasted as given.
+  - EDIT 3 DONE. New `lib/admin/crm-data.ts`, pasted as given.
+  - EDIT 4 DONE. `scripts/verify-crm.ts` replaced with the given file.
+  - EDIT 5 DONE. `app/globals.css`: light tokens after `--color-outcome-notin`; dark tokens after the one-line `--color-outcome-on-pill`. Each find block occurred once.
+  - `npm run verify:crm`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0.
+  - eslint: **NOT VERIFIED**. The brief says eslint runs after the session.
+  - Phone: none for this session (pure logic; the CRM phone check comes after CRM-2 D).
+- **Deviations from brief:** none. The given TypeScript and CSS were pasted exactly. No database call. No CRM call.
+- **Not done / deferred:** A browser. A phone. eslint in this session. Did not commit. No new database row. No CRM call.
+- **Follow-ups:** The Insights, Coverage and Props screens that use this logic come in later CRM-2 sessions. The phone check comes after CRM-2 D.

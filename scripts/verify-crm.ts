@@ -26,6 +26,53 @@ import {
   type AppCrmStatus,
 } from "../lib/crm/parse";
 import { recordUnchanged } from "../lib/crm/sync";
+import {
+  areaRankings,
+  axisTicks,
+  columnReadout,
+  leadSplit,
+  longerPeriod,
+  parseInsightsView,
+  periodOptions,
+  rateFigures,
+  heroFigures,
+  sortedProps,
+  confirmedByDay,
+  confirmedPlace,
+  crmHref,
+  crmWindow,
+  crmWindowBounds,
+  crmWindowLine,
+  minLeadsForAreas,
+  outcomeColumns,
+  parseCrmInsights,
+  parseCrmPeriod,
+  percent,
+  pitchToSale,
+  pounds,
+  poundsShort,
+  propRows,
+  sitRate,
+} from "../lib/admin/crm-insights";
+import {
+  cellBox,
+  cellSquare,
+  crmDoorTally,
+  doorsInCell,
+  heatCellFigures,
+  crmChip,
+  crmDoorCounts,
+  crmDoorGroup,
+  crmDoorLatest,
+  crmViewDoorFilter,
+  crmViewKind,
+  filterCrmDoors,
+  heatStep,
+  parseCrmDoors,
+  parseCrmView,
+  parseHeatCells,
+  withCrmView,
+} from "../lib/admin/crm-map";
 
 let failures = 0;
 function check(name: string, ok: boolean): void {
@@ -103,6 +150,91 @@ check("stored point in an unexpected format -> changed", !recordUnchanged(rec, {
 check("moved point -> changed", !recordUnchanged(rec, { ...storedRec, location: { type: "Point", coordinates: [0.0001, 0] } }));
 check("changed status -> changed", !recordUnchanged(rec, { ...storedRec, location: storedPoint, status: "pm", status_raw: "Pitch&Miss" }));
 
+console.log("\nCRM-2 periods");
+const T = "2026-10-10"; // a Saturday
+check("period parse, default last 12 months", parseCrmPeriod("ytd") === "ytd" && parseCrmPeriod("nope") === "12m" && parseCrmPeriod(undefined) === "12m");
+check("this week = Mon 5 to Mon 12 (exclusive), by day", same(crmWindow("week", T), { from: "2026-10-05", to: "2026-10-12", byDay: true }));
+check("this month = 1 Oct to 1 Nov", same(crmWindow("month", T), { from: "2026-10-01", to: "2026-11-01", byDay: true }));
+check("last 3 months = 11 Jul to tomorrow", same(crmWindow("3m", T), { from: "2026-07-11", to: "2026-10-11", byDay: true }));
+check("last 12 months = from 1 Nov 2025, by month", same(crmWindow("12m", T), { from: "2025-11-01", to: "2026-10-11", byDay: false }));
+check("year to date = from 1 Jan", same(crmWindow("ytd", T), { from: "2026-01-01", to: "2026-10-11", byDay: false }));
+check("all time is open", same(crmWindow("all", T), { from: null, to: null, byDay: false }));
+check("bounds are London midnights (BST and GMT)", same(crmWindowBounds(crmWindow("month", T)), { p_from: "2026-09-30T23:00:00.000Z", p_to: "2026-11-01T00:00:00.000Z" }) && same(crmWindowBounds(crmWindow("all", T)), {}));
+check("window lines", crmWindowLine("week", crmWindow("week", T), T) === "Mon 5 to Sun 11 Oct" && crmWindowLine("12m", crmWindow("12m", T), T) === "Nov 2025 to today" && crmWindowLine("month", crmWindow("month", T), T) === "1 to 10 Oct" && crmWindowLine("3m", crmWindow("3m", T), T) === "11 Jul to today" && crmWindowLine("all", crmWindow("all", T), T) === "All time");
+check("CRM links open the CRM view", crmHref("12m") === "/admin/insights?view=crm" && crmHref("week") === "/admin/insights?view=crm&crm=week" && parseInsightsView("crm") === "crm" && parseInsightsView(undefined) === "canvassing");
+const opts = periodOptions(T);
+check("period sheet spans", opts.length === 6 && opts[3]?.span === "Since 1 Nov 2025" && opts[4]?.span === "Since 1 Jan" && opts[5]?.span === "Every CRM lead" && opts[0]?.span === "Mon 5 to Sun 11 Oct");
+check("empty period offers a longer one", longerPeriod("week") === "month" && longerPeriod("12m") === "all" && longerPeriod("all") === null && longerPeriod("ytd") === "12m");
+
+console.log("\nCRM-2 figures");
+const doc = parseCrmInsights({
+  totals: { leads: 100, sale: 5, pm: 15, blowout: 40, utc: 20, re_app: 2, confirmed: 3, pending: 0, no_outcome: 15, revenue: "40000.00", sales_with_amount: 4, placed: 60 },
+  months: [{ month: "2026-09", leads: 60, sale: 3, pm: 9, blowout: 24, utc: 12, revenue: 24000, sales_with_amount: 2 }, { month: "2026-10", leads: 40, sale: 2, pm: 6 }],
+  days: null,
+  sectors: [{ sector: "BS7 8", leads: 30, sale: 3, pitched: 8 }, { sector: "BS5 6", leads: 25, sale: 0, pitched: 5 }, { sector: "BS4 4", leads: 22, sale: 1, pitched: 2 }, { sector: "BS1 1", leads: 3, sale: 3, pitched: 3 }],
+  props: [{ id: "p1", name: "Upton", leads: 10, sale: 2, pitched: 4, revenue: 20000, sales_with_amount: 2 }, { id: "p2", name: "Elm", leads: 8, sale: 1, pitched: 1, revenue: 6000, sales_with_amount: 1 }, { id: "p3", name: "Ash", leads: 0 }],
+  confirmed: [
+    { crm_id: "c2", at: "2026-10-07T17:00:00+00:00", sector: "BS5 6", uprn: null, branch: "HO Bristol", canvasser: "Bob" },
+    { crm_id: "c1", at: "2026-10-06T09:30:00+00:00", sector: "BS7 8", uprn: 1, house_number: "21", street_name: "Upton Road", branch: "First Bristol", canvasser: "Amy" },
+  ],
+});
+check("rates: pitch → sale 25%, sit rate 25%", percent(pitchToSale(doc.totals)) === "25%" && percent(sitRate(doc.totals)) === "25%" && percent(pitchToSale({ sale: 0, pm: 0 })) === "–");
+check("money", pounds(40000) === "£40,000" && pounds(null) === "–" && poundsShort(3480310) === "£3.5m" && poundsShort(48200) === "£48k" && poundsShort(1250) === "£1.3k");
+check("hero figures", heroFigures(doc.totals).map((t) => t.value).join("|") === "100|5|£40k");
+const rates = rateFigures(doc.totals);
+check("rates with their working", rates.map((t) => t.value).join("|") === "25%|25%|£10,000" && rates[0]?.detail === "5 of 20" && rates[1]?.detail === "20 of 80" && rates[2]?.detail === "1 sale has no amount");
+const split = leadSplit(doc.totals);
+check("where leads went adds up", split.reduce((a, r) => a + r.count, 0) === 100 && split[4]?.count === 20 && split[0]?.percent === "5%" && split[3]?.label === "Unable to contact");
+const cols = outcomeColumns(doc, crmWindow("12m", T), T);
+check("12 month columns, gaps filled", cols.length === 12 && cols[0]?.key === "2025-11" && cols[10]?.leads === 60 && cols[11]?.segments.other === 32 && cols[0]?.leads === 0);
+const allCols = outcomeColumns(doc, crmWindow("all", T), T);
+check("all time starts at the first month with a lead", allCols.length === 2 && allCols[0]?.key === "2026-09");
+const dayDoc = parseCrmInsights({ days: [{ day: "2026-10-06", leads: 4, sale: 1 }] });
+const dayCols = outcomeColumns(dayDoc, crmWindow("week", T), T);
+check("this week = 7 day columns", dayCols.length === 7 && dayCols[1]?.leads === 4 && dayCols[0]?.label === "5 Oct");
+const areas = areaRankings(doc.sectors, minLeadsForAreas("12m"));
+check("areas: 20+ leads only, best and worst never overlap", areas.ranked === 3 && areas.best[0]?.sector === "BS7 8" && areas.worst[0]?.sector === "BS5 6" && !areas.worst.some((w) => areas.best.some((b) => b.sector === w.sector)) && minLeadsForAreas("week") === 5);
+const pr = propRows(doc.props);
+check("props: empty props dropped, sorted by sales", pr.map((r) => r.id).join() === "p1,p2" && percent(pr[0]!.pitchToSale) === "50%");
+const high = sortedProps(pr, "high");
+const low = sortedProps(pr, "low");
+check("props sort three ways", sortedProps(pr, "sales")[0]?.value === "£20,000" && high[0]?.value === "£10,000" && low[0]?.id === "p2" && high[0]?.sub === "£20,000 from 2 sales" && sortedProps(pr, "sales")[0]?.sub === "50% of pitches sold");
+check("chart readout", columnReadout(cols[11]!, T, "leads").title === "Oct 2026 so far" && columnReadout(cols[10]!, T, "leads").line === "60 leads, 3 sold, £24k" && columnReadout(cols[10]!, T, "value").line === "£24,000 from 3 sold");
+check("axis ticks: at most N, always the last", axisTicks(12, 12).length === 12 && axisTicks(92, 6).length <= 6 && axisTicks(92, 6).at(-1) === 91 && axisTicks(0, 6).length === 0);
+const conf = confirmedByDay(doc.confirmed);
+check("confirmed grouped by London day, earliest first", conf.length === 2 && conf[0]?.label === "Tue 6 Oct" && conf[0]?.rows[0]?.time === "10:30" && conf[0]?.rows[0]?.place === "21 Upton Road" && conf[1]?.rows[0]?.place === "BS5 6 area" && conf[1]?.rows[0]?.meta === "HO Bristol, Bob");
+check("confirmed place with a building only", confirmedPlace({ houseNumber: null, buildingName: "Creswicke House", streetName: "Upton Road", sector: null }) === "Creswicke House, Upton Road");
+check("a broken document reads as empty, never a crash", parseCrmInsights(null).totals.leads === 0 && parseCrmInsights({ months: "x" }).months.length === 0);
+
+console.log("\nCRM-2 map");
+const doorsRaw = [
+  { uprn: 1, lon: -2.5, lat: 51.4, latest_status: "sale", latest_at: "2025-03-12T10:00:00+00:00", leads: 3, sale: 1, pm: 1, blowout: 1, utc: 0, other: 0 },
+  { uprn: 2, lon: -2.6, lat: 51.45, latest_status: null, latest_at: null, leads: 1, sale: 0, pm: 0, blowout: 0, utc: 0, other: 1 },
+  { uprn: null, lon: 1, lat: 1 },
+];
+const crmDoors = parseCrmDoors(doorsRaw);
+check("doors parsed, broken rows dropped", crmDoors.length === 2 && crmDoors[1]?.latestStatus === null);
+check("groups: confirmed, re-app and no outcome are Other", crmDoorGroup("confirmed") === "other" && crmDoorGroup(null) === "other" && crmDoorGroup("pm") === "pm");
+check("door filter", filterCrmDoors(crmDoors, "sale").length === 1 && filterCrmDoors(crmDoors, "other").length === 1 && filterCrmDoors(crmDoors, "all").length === 2);
+check("door words", crmDoorLatest(crmDoors[0]!) === "Sold, 12 Mar 2025" && crmDoorCounts(crmDoors[0]!) === "3 CRM leads: 1 sold, 1 pitch & miss, 1 blowout" && crmDoorCounts(crmDoors[1]!) === "1 CRM lead" && crmDoorLatest(crmDoors[1]!) === "No outcome");
+check("view parse", parseCrmView("heat-rate") === "heat-rate" && parseCrmView("doors-pm") === "doors-pm" && parseCrmView("doors-x") === "off" && parseCrmView(undefined) === "off");
+check("view parts", crmViewKind("heat-leads") === "heat" && crmViewKind("doors-all") === "doors" && crmViewDoorFilter("doors-blowout") === "blowout" && crmViewDoorFilter("heat-rate") === "all");
+check("chip words", crmChip("off") === "CRM" && crmChip("doors-all") === "CRM doors" && crmChip("doors-sale") === "CRM: Sold" && crmChip("heat-rate") === "CRM: sale rate");
+check("the CRM layer rides along every filter link", withCrmView("/admin/coverage", "heat-rate") === "/admin/coverage?crm=heat-rate" && withCrmView("/admin/coverage?prop=x", "doors-sale") === "/admin/coverage?prop=x&crm=doors-sale" && withCrmView("/admin/coverage?prop=x", "off") === "/admin/coverage?prop=x");
+const cells = parseHeatCells([{ lon: -2.6, lat: 51.45, leads: 20, sales: 3, pitched: 6, revenue: "1" }, { lon: -2.6, lat: 51.46, leads: 6, sales: 0, pitched: 1 }, { lat: 1 }]);
+check("heat cells parsed", cells.length === 2 && cells[0]?.revenue === 1);
+check("heat steps: rate needs 3 pitched; leads step up", heatStep(cells[0]!, "rate") === 3 && heatStep(cells[1]!, "rate") === -1 && heatStep(cells[1]!, "leads") === 0 && heatStep(cells[0]!, "leads") === 2);
+const sq = cellSquare({ lon: -2.6, lat: 51.45 }).coordinates[0]!;
+const widthM = (sq[1]![0]! - sq[0]![0]!) * 111_320 * Math.cos((51.45 * Math.PI) / 180);
+const heightM = (sq[2]![1]! - sq[1]![1]!) * 111_320;
+const tally = crmDoorTally(crmDoors);
+check("picker counts per outcome", tally.all === 2 && tally.sale === 1 && tally.other === 1 && tally.pm === 0);
+const fig = heatCellFigures(cells[1]!);
+check("tapped square figures", fig.figures.map((f) => f.value).join("|") === "6|0|0%|–" && fig.line === "1 pitched, pitch → sale 0%");
+const box = cellBox({ lon: -2.5, lat: 51.4 });
+check("a square's doors", box[0][0] < -2.5 && box[1][1] > 51.4 && doorsInCell(crmDoors, { lon: -2.5, lat: 51.4 }) === 1 && doorsInCell(crmDoors, { lon: 0, lat: 0 }) === 0);
+check("heat squares are 250 m across", Math.abs(widthM - 250) < 0.5 && Math.abs(heightM - 250) < 0.5 && sq.length === 5);
+
 console.log("\nCRM read-only guard");
 check("only read operations listed", CRM_READ_OPERATIONS.join() === "getchallenge,login,listtypes,describe,query,logout");
 for (const op of ["create", "update", "delete", "revise", "convertlead", "sync_write", ""]) {
@@ -142,7 +274,10 @@ const clientSource = readFileSync(path.join(root, "lib/crm/client.ts"), "utf8");
 check("client names no write operation", !/["'`](create|update|delete|revise|convertlead)["'`]/i.test(clientSource));
 const publicKey = files.filter((f) => rel(f) !== self && /NEXT_PUBLIC_CRM/.test(readFileSync(f, "utf8"))).map(rel);
 check("no NEXT_PUBLIC_ CRM variable anywhere", publicKey.length === 0);
-const fieldImports = files.filter((f) => rel(f).startsWith("app/(field)") || rel(f).startsWith("components/field")).filter((f) => /lib\/crm|crm_leads/.test(readFileSync(f, "utf8"))).map(rel);
+const fieldImports = files
+  .filter((f) => rel(f).startsWith("app/(field)") || rel(f).startsWith("components/field") || rel(f).startsWith("lib/field"))
+  .filter((f) => /lib\/crm|crm_leads|crm-insights|crm-map|crm-data|crm-layers|crm_insights|crm_heat_grid|crm_door_history/.test(readFileSync(f, "utf8")))
+  .map(rel);
 check("no /field file reads CRM data", fieldImports.length === 0);
 
 console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILED`);
