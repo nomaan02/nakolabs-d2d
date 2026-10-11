@@ -5,7 +5,19 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { GeoJSONSource, MapMouseEvent, PaddingOptions } from "maplibre-gl";
 
+import { CrmMark, CrmPicker } from "@/components/admin/coverage/crm-picker";
 import { FilterPicker, PeriodPicker, type PickerOption } from "@/components/admin/coverage/filter-picker";
+import {
+  CRM_DOORS_LAYER,
+  CRM_HEAT_FILL,
+  CRM_RING,
+  HEAT_RAMP,
+  ensureCrmLayers,
+  setCrmDoors,
+  setCrmHeat,
+  setCrmVisibility,
+  setSelectedHeatCell,
+} from "@/components/admin/map/crm-layers";
 import { MapSheet } from "@/components/admin/map/map-sheet";
 import { useAdminMap } from "@/components/admin/map/use-admin-map";
 import { useIsDesktop } from "@/components/admin/map/use-is-desktop";
@@ -47,10 +59,31 @@ import {
   type OutcomeFilter,
   type PaintedDoor,
 } from "@/lib/admin/coverage-filters";
+import { loadCrmDoors, loadCrmHeat } from "@/lib/admin/crm-data";
+import {
+  CRM_DOOR_FILTERS,
+  LEAD_STEPS,
+  RATE_STEPS,
+  crmChip,
+  cellBox,
+  crmDoorCounts,
+  crmDoorGroup,
+  crmDoorLatest,
+  crmDoorTally,
+  crmViewDoorFilter,
+  crmViewKind,
+  filterCrmDoors,
+  heatCellFigures,
+  withCrmView,
+  type CrmDoor,
+  type CrmView,
+  type HeatCell,
+} from "@/lib/admin/crm-map";
 import { boxOf, type LngLatBox } from "@/lib/admin/map-fit";
 import type { Detent } from "@/lib/admin/sheet-detents";
 import { mapColours } from "@/lib/map/map-palette";
 import { useResolvedTheme } from "@/lib/field/theme";
+import { createClient } from "@/lib/supabase/client";
 
 const VIEW_KEY = "d2d.admin.coverage-view";
 const PICK_SOURCE = "admin-coverage-pick";
@@ -58,7 +91,7 @@ const PICK_LAYER = "admin-coverage-pick";
 /** A finger is not a mouse: a tap this close to a dot picks it. */
 const TAP_SLOP = 12;
 
-type Picker = "period" | "visit" | "slot" | "outcome" | "who" | null;
+type Picker = "period" | "visit" | "slot" | "outcome" | "who" | "crm" | null;
 
 function n(value: number): string {
   return value.toLocaleString("en-GB");
@@ -116,6 +149,7 @@ export function CoverageScreen({
   worked,
   people,
   missingProp,
+  crmView,
 }: {
   today: string;
   filters: CoverageFilters;
@@ -127,6 +161,8 @@ export function CoverageScreen({
   people: CoveragePerson[];
   /** `?prop=` is a prop that is not live (archived). */
   missingProp: { id: string; name: string } | null;
+  /** CRM-2 D: the CRM layer from `?crm=` (all CRM history; admin only). */
+  crmView: CrmView;
 }) {
   const router = useRouter();
   const mode = useResolvedTheme();
@@ -140,6 +176,24 @@ export function CoverageScreen({
   const [available, setAvailable] = useState(720);
   const [sheetHeight, setSheetHeight] = useState(0);
   const [doorId, setDoorId] = useState<number | null>(null);
+  const [crmDoors, setCrmDoorRows] = useState<CrmDoor[] | null>(null);
+  const [heatCells, setHeatCells] = useState<HeatCell[] | null>(null);
+  // A failed read is kept per kind and shown only while that kind has no data, so a later success clears it.
+  const [crmError, setCrmError] = useState<{ doors: string | null; heat: string | null }>({ doors: null, heat: null });
+  // A tapped CRM door or square belongs to the layer it was tapped on: Back or a new layer drops it.
+  const [crmPick, setCrmPick] = useState<{ view: CrmView; door: number | null; cell: number | null }>({ view: crmView, door: null, cell: null });
+  const viewRef = useRef(crmView);
+  useEffect(() => {
+    viewRef.current = crmView;
+  }, [crmView]);
+  const crmDoorId = crmPick.view === crmView ? crmPick.door : null;
+  const cellIndex = crmPick.view === crmView ? crmPick.cell : null;
+  const setCrmDoorId = useCallback((door: number | null) => setCrmPick({ view: viewRef.current, door, cell: null }), []);
+  const setCellIndex = useCallback((cell: number | null) => setCrmPick({ view: viewRef.current, door: null, cell }), []);
+  const crmKind = crmViewKind(crmView);
+  const crmFilter = crmViewDoorFilter(crmView);
+  const crmByDoor = useMemo(() => new Map((crmDoors ?? []).map((row) => [row.uprn, row] as const)), [crmDoors]);
+  const shownCrmDoors = useMemo(() => (crmDoors ? filterCrmDoors(crmDoors, crmFilter) : []), [crmDoors, crmFilter]);
 
   const names = useMemo(() => new Map(people.map((person) => [person.id, person.name] as const)), [people]);
   const visitById = useMemo(() => new Map(visits.map((visit) => [visit.id, visit] as const)), [visits]);
@@ -163,9 +217,17 @@ export function CoverageScreen({
     (next: CoverageFilters) => {
       setPicker(null);
       setDoorId(null);
-      startTransition(() => router.push(filtersHref(next, today)));
+      startTransition(() => router.push(withCrmView(filtersHref(next, today), crmView)));
     },
-    [router, today],
+    [router, today, crmView],
+  );
+
+  const pickCrm = useCallback(
+    (next: CrmView) => {
+      setPicker(null);
+      startTransition(() => router.push(withCrmView(filtersHref(filters, today), next)));
+    },
+    [router, today, filters],
   );
 
   useEffect(() => {
@@ -193,6 +255,7 @@ export function CoverageScreen({
   useEffect(() => {
     if (!map) return;
     ensurePropLayers(map, mode);
+    ensureCrmLayers(map, mode);
     applyLayerVisibility(map, { outlines: true, outcomes: true, leads: false, routes: false, nccz: false }, false);
     if (!map.getSource(PICK_SOURCE)) {
       const c = mapColours(mode);
@@ -221,10 +284,30 @@ export function CoverageScreen({
         const d = (p.x - x) ** 2 + (p.y - y) ** 2;
         if (!best || d < best.d) best = { uprn, d };
       }
-      if (best) {
-        setDoorId(best.uprn);
-        setDetent((current) => (current === "peek" ? "half" : current));
-      } else setDoorId(null);
+      // CRM-2 D: a CRM ring (any door with CRM history), else a heat square, when no knock door was hit.
+      let crmBest: { uprn: number; d: number } | null = null;
+      if (!best && map.getLayer(CRM_DOORS_LAYER)) {
+        const crmHits = map.queryRenderedFeatures(
+          [
+            [x - TAP_SLOP, y - TAP_SLOP],
+            [x + TAP_SLOP, y + TAP_SLOP],
+          ],
+          { layers: [CRM_DOORS_LAYER] },
+        );
+        for (const hit of crmHits) {
+          const uprn = Number(hit.properties?.uprn);
+          if (!Number.isFinite(uprn) || hit.geometry.type !== "Point") continue;
+          const p = map.project(hit.geometry.coordinates as [number, number]);
+          const d = (p.x - x) ** 2 + (p.y - y) ** 2;
+          if (!crmBest || d < crmBest.d) crmBest = { uprn, d };
+        }
+      }
+      const cell =
+        !best && !crmBest && map.getLayer(CRM_HEAT_FILL) ? map.queryRenderedFeatures(event.point, { layers: [CRM_HEAT_FILL] })[0] : undefined;
+      const cellAt = cell ? Number(cell.properties?.i) : NaN;
+      setDoorId(best ? best.uprn : null);
+      setCrmPick({ view: viewRef.current, door: crmBest ? crmBest.uprn : null, cell: Number.isFinite(cellAt) ? cellAt : null });
+      if (best || crmBest || Number.isFinite(cellAt)) setDetent((current) => (current === "peek" ? "half" : current));
     };
     map.on("click", onClick);
     return () => {
@@ -250,10 +333,46 @@ export function CoverageScreen({
     );
   }, [map, doors, resolved]);
 
+  // CRM-2 D: read the CRM layer's data once, the first time it is switched on.
+  useEffect(() => {
+    let live = true;
+    if (crmKind === "doors" && crmDoors === null) {
+      void loadCrmDoors(createClient()).then((result) => {
+        if (!live) return;
+        if (result.ok) setCrmDoorRows(result.data);
+        else setCrmError((current) => ({ ...current, doors: result.message }));
+      });
+    }
+    if (crmKind === "heat" && heatCells === null) {
+      void loadCrmHeat(createClient()).then((result) => {
+        if (!live) return;
+        if (result.ok) setHeatCells(result.data);
+        else setCrmError((current) => ({ ...current, heat: result.message }));
+      });
+    }
+    return () => {
+      live = false;
+    };
+  }, [crmKind, crmDoors, heatCells]);
+
+  useEffect(() => {
+    if (!map) return;
+    ensureCrmLayers(map, mode);
+    setCrmDoors(map, crmKind === "doors" ? shownCrmDoors : []);
+    setCrmHeat(map, crmKind === "heat" && heatCells ? heatCells : [], crmView === "heat-leads" ? "leads" : "rate");
+    setCrmVisibility(map, { heat: crmKind === "heat", doors: crmKind === "doors" });
+  }, [map, mode, crmKind, crmView, shownCrmDoors, heatCells]);
+
+  useEffect(() => {
+    if (map) setSelectedHeatCell(map, crmKind === "heat" ? cellIndex : null);
+  }, [map, crmKind, cellIndex]);
+
   useEffect(() => {
     const source = map?.getSource(PICK_SOURCE) as GeoJSONSource | undefined;
-    source?.setData({ type: "FeatureCollection", features: door ? [{ type: "Feature", geometry: door.geometry, properties: {} }] : [] });
-  }, [map, door]);
+    const crmPicked = !door && crmDoorId !== null ? (crmByDoor.get(crmDoorId) ?? null) : null;
+    const geometry: GeoJSON.Point | null = door ? door.geometry : crmPicked ? { type: "Point", coordinates: [crmPicked.lon, crmPicked.lat] } : null;
+    source?.setData({ type: "FeatureCollection", features: geometry ? [{ type: "Feature", geometry, properties: {} }] : [] });
+  }, [map, door, crmDoorId, crmByDoor]);
 
   // Frame the picked prop (or every prop) once per prop, never on a filter change within it.
   const framedFor = useRef<string | null | undefined>(undefined);
@@ -288,7 +407,7 @@ export function CoverageScreen({
   // ---- the filter sheets -----------------------------------------------------
 
   const visitNumbers = [...new Set(visits.filter((visit) => !filters.prop || visit.propId === filters.prop).map((visit) => visit.visitNumber))].sort((a, b) => a - b);
-  const options: Record<Exclude<Picker, "period" | null>, { title: string; list: PickerOption[] }> = {
+  const options: Record<Exclude<Picker, "period" | "crm" | null>, { title: string; list: PickerOption[] }> = {
     visit: {
       title: "Visit",
       list: [
@@ -441,6 +560,7 @@ export function CoverageScreen({
           <Chip label={slotChip(filters.slot)} active={filters.slot !== null} onClick={() => setPicker("slot")} />
           <Chip label={outcomeChip(filters.outcome)} active={filters.outcome !== null} onClick={() => setPicker("outcome")} />
           <Chip label={whoChip(filters.who, names)} active={filters.who !== null} onClick={() => setPicker("who")} />
+          <Chip label={crmChip(crmView)} active={crmView !== "off"} onClick={() => setPicker("crm")} />
         </div>
       </div>
 
@@ -492,7 +612,30 @@ export function CoverageScreen({
               ) : (
                 <p className="mt-2 text-admin-body text-ink-muted">Not knocked for these filters.</p>
               )}
+              {crmByDoor.get(door.properties.uprn) ? <CrmDoorLines row={crmByDoor.get(door.properties.uprn)!} mode={mode} /> : null}
             </section>
+          ) : crmDoorId !== null && crmByDoor.get(crmDoorId) ? (
+            <section aria-label="CRM door" className="mb-4 rounded-field-lg bg-field-bg p-4">
+              <div className="flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-admin-headline">CRM door</h3>
+                  <p className="text-admin-subhead text-ink-muted">Outside the live props</p>
+                </div>
+                <IconButton label="Close door" onClick={() => setCrmDoorId(null)} className="-mt-2 -mr-2">
+                  <CloseIcon className="size-5" />
+                </IconButton>
+              </div>
+              <CrmDoorLines row={crmByDoor.get(crmDoorId)!} mode={mode} />
+            </section>
+          ) : crmKind === "heat" && cellIndex !== null && heatCells?.[cellIndex] ? (
+            <HeatSquare
+              cell={heatCells[cellIndex]!}
+              onClose={() => setCellIndex(null)}
+              onDoors={() => {
+                fitBox(cellBox(heatCells[cellIndex]!));
+                pickCrm("doors-all");
+              }}
+            />
           ) : null}
           <ul aria-label="Key" className="flex flex-wrap gap-x-4 gap-y-1.5 text-admin-caption text-ink-soft">
             {LEGEND.map((item) => (
@@ -505,11 +648,22 @@ export function CoverageScreen({
           <p className="mt-3 text-admin-caption text-ink-muted">
             Each door shows its latest knock for these filters. Tap a dot to see it.
           </p>
+          {crmKind !== "off" ? (
+            <CrmKey
+              view={crmView}
+              mode={mode}
+              count={crmKind === "doors" ? shownCrmDoors.length : (heatCells?.length ?? 0)}
+              loading={crmKind === "doors" ? crmDoors === null : heatCells === null}
+              error={crmKind === "doors" ? (crmDoors === null ? crmError.doors : null) : heatCells === null ? crmError.heat : null}
+            />
+          ) : null}
         </div>
       </MapSheet>
 
       {picker === "period" ? (
         <PeriodPicker filters={filters} today={today} onClose={() => setPicker(null)} onApply={go} />
+      ) : picker === "crm" ? (
+        <CrmPicker view={crmView} mode={mode} tally={crmDoors ? crmDoorTally(crmDoors) : null} onClose={() => setPicker(null)} onPick={pickCrm} />
       ) : picker ? (
         <FilterPicker title={options[picker].title} options={options[picker].list} filters={filters} onClose={() => setPicker(null)} onApply={go} />
       ) : null}
@@ -546,5 +700,107 @@ export function CoverageFailed({ message, narrower }: { message: string; narrowe
         )}
       </div>
     </main>
+  );
+}
+
+/** CRM-2 D: a door's CRM history in words (latest outcome, then the counts). */
+function CrmDoorLines({ row, mode }: { row: CrmDoor; mode: "light" | "dark" }) {
+  return (
+    <div className="mt-3 border-t border-line pt-3">
+      <p className="text-admin-section text-ink-muted">CRM history</p>
+      <p className="mt-1 flex items-center gap-2.5 text-admin-body-strong">
+        <CrmMark colour={CRM_RING[mode][crmDoorGroup(row.latestStatus)]} className="size-3.5" />
+        <span className="flex-1">{crmDoorLatest(row)}</span>
+      </p>
+      <p className="text-admin-subhead text-ink-muted">{crmDoorCounts(row)}</p>
+    </div>
+  );
+}
+
+/** CRM-2 D: the CRM layer's key, in words beside each colour. */
+function CrmKey({ view, mode, count, loading, error }: { view: CrmView; mode: "light" | "dark"; count: number; loading: boolean; error: string | null }) {
+  const kind = crmViewKind(view);
+  const ramp = HEAT_RAMP[mode];
+  const steps = view === "heat-leads" ? LEAD_STEPS : RATE_STEPS;
+  return (
+    <section aria-label="CRM key" className="mt-4 border-t border-line pt-3">
+      <h3 className="text-admin-section text-ink-muted">
+        {kind === "heat" ? (view === "heat-leads" ? "CRM leads per 250 m square" : "CRM sale rate per 250 m square") : "CRM doors, by latest result"}
+      </h3>
+      {error ? (
+        <p role="alert" className="mt-1 text-admin-body">
+          {error}
+        </p>
+      ) : loading ? (
+        <p role="status" className="mt-1 text-admin-caption text-ink-muted">
+          Loading CRM history…
+        </p>
+      ) : (
+        <>
+          <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1.5 text-admin-caption text-ink-soft">
+            {kind === "heat"
+              ? [
+                  ...steps.map((step, i) => (
+                    <li key={step.label} className="flex items-center gap-1.5">
+                      <span aria-hidden className="size-3 rounded-xs" style={{ background: ramp.steps[i] }} />
+                      {step.label}
+                    </li>
+                  )),
+                  view === "heat-rate" ? (
+                    <li key="few" className="flex items-center gap-1.5">
+                      <span aria-hidden className="size-3 rounded-xs" style={{ background: ramp.few }} />
+                      Too few pitched
+                    </li>
+                  ) : null,
+                ]
+              : CRM_DOOR_FILTERS.filter((f) => f.value !== "all").map((f) => (
+                  <li key={f.value} className="flex items-center gap-1.5">
+                    <CrmMark colour={CRM_RING[mode][f.value as Exclude<typeof f.value, "all">]} />
+                    {f.label}
+                  </li>
+                ))}
+          </ul>
+          <p className="mt-2 text-admin-caption text-ink-muted tabular-nums">
+            {kind === "heat"
+              ? `${count.toLocaleString("en-GB")} squares with 5 or more placed leads, all time. Tap a square for its numbers.`
+              : `${count.toLocaleString("en-GB")} doors shown, all CRM history. Tap one for its history.`}
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+
+/** CRM-2 D (Figma CRM-2 C4): a tapped heat square. Four figures, one line of working, and a way to its doors. */
+function HeatSquare({ cell, onClose, onDoors }: { cell: HeatCell; onClose: () => void; onDoors: () => void }) {
+  const { figures, line } = heatCellFigures(cell);
+  return (
+    <section aria-label="Heat square" className="mb-4 rounded-field-lg bg-field-bg p-4">
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-admin-headline">This square</h3>
+          <p className="text-admin-caption text-ink-muted">250 m across, all CRM history</p>
+        </div>
+        <IconButton label="Close square" onClick={onClose} className="-mt-2 -mr-2">
+          <CloseIcon className="size-5" />
+        </IconButton>
+      </div>
+      <dl className="mt-3 grid grid-cols-4 gap-2">
+        {figures.map((f) => (
+          <div key={f.label} className="flex min-w-0 flex-col-reverse">
+            <dt className="text-admin-caption text-ink-muted">{f.label}</dt>
+            <dd className="truncate text-admin-figure tabular-nums">{f.value}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-2 text-admin-subhead text-ink-muted tabular-nums">{line}</p>
+      <button
+        type="button"
+        onClick={onDoors}
+        className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-field-md border border-line bg-surface text-admin-button focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-prop"
+      >
+        Show its doors
+      </button>
+    </section>
   );
 }

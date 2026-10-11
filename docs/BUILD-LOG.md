@@ -1279,3 +1279,32 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given TypeScript was pasted exactly. No database call. No CRM call.
 - **Not done / deferred:** A browser. A phone (listed for after CRM-2 E). Did not commit. No new database row. No CRM call.
 - **Follow-ups:** Coverage and Props CRM screens come in later CRM-2 sessions. Phone check: Insights → Company CRM, after CRM-2 E.
+
+### CRM-2 Session D — CRM layers on Coverage and Props
+- **Date:** 2026-10-10
+- **Model:** Grok 4.7
+- **Built:** Coverage has a CRM chip (`crm=`). The sheet is Off, a 250 m heat map (sale rate or number of leads, one blue ramp, under the props) or CRM doors by latest outcome, with door counts. CRM doors are rounded-square outlines, hollow, so the knock dot shows inside. A tap on a door shows the latest CRM outcome, its date and the counts. A tap on a heat square shows leads, sold, sale rate, sales value, and "Show its doors". Props Layers has CRM history, off by default, after Leads, with outcome filter buttons. It is hidden while drawing. The layer is read in the browser the first time it is switched on.
+- **Owner decisions:**
+  - OWNER — 2026-10-10 (P4a): Company CRM on Insights (periods This week to All time), a 250 m heat map on Coverage, and every CRM door by latest outcome on Coverage and Props, filterable. Admin and office only.
+  - OWNER — 2026-10-10: CRM-2 Figma mockups approved ("Admin — design", section "Admin / CRM-2", frames C1–C9, D1–D2). Canvassing / Company CRM switch on Insights. Booked this week first (ignores the period). One period button opens a sheet. Hero = leads, sold, sales value, plus one bar of where every lead went, plus three rates. One chart with Leads / Value and a month readout. Areas Best / Worst switch. Props sorted Most sales / Highest average / Lowest average. CRM doors as rounded-square outlines (never rings, so they never look like lead pins). Tapping a heat square shows its numbers and "Show its doors". Props CRM history off by default with outcome filter buttons.
+- **Claude decisions:**
+  - CLAUDE — Coverage: a "CRM" chip opens a sheet: Off, heat map (sale rate or number of leads, 250 m squares, one blue ramp, under the props) or CRM doors by latest outcome (with door counts). The layer rides along every other filter in the URL (`crm=`). Read in the browser the first time it is switched on.
+  - CLAUDE — CRM doors are rounded-square outlines drawn as map images per outcome colour: hollow, so the knock dot shows inside, and never round, so they never look like lead pins. UTC and Other are two clearly different greys.
+  - CLAUDE — Tap a CRM door: latest CRM outcome with its date and the counts. Tap a heat square: leads, sold, sale rate, sales value, and "Show its doors" (fits the square, switches to CRM doors).
+  - CLAUDE — A tapped door or square belongs to the layer it was tapped on (Back or a new layer drops it). A failed read is shown only while that layer has no data.
+  - CLAUDE — Props: Layers gets "CRM history" (off by default, after Leads) with 44 px outcome filter buttons; hidden while drawing.
+- **Acceptance:**
+  - EDIT 1 DONE. New `components/admin/map/crm-layers.ts`, pasted as given.
+  - EDIT 2 DONE. New `components/admin/coverage/crm-picker.tsx`, pasted as given.
+  - EDIT 3 DONE. `app/(admin)/admin/coverage/page.tsx` replaced with the given file.
+  - EDIT 4 DONE. `components/admin/coverage/coverage-screen.tsx` replaced with the given file.
+  - EDIT 5 DONE. `components/admin/props/layers-popover.tsx` replaced with the given file.
+  - EDIT 6 DONE. `components/admin/props/props-screen.tsx` replaced with the given file.
+  - `npm run verify:crm`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0.
+  - eslint: **PASS** — `npx eslint` on the six files, exit 0.
+  - Phone: Coverage CRM chip (heat map and doors) and Props Layers → CRM history, after CRM-2 E. No browser in this session.
+- **Deviations from brief:** none. The given TypeScript was pasted exactly. No database call. No CRM call.
+- **Not done / deferred:** A browser. A phone (listed for after CRM-2 E). A timed pass at 2,000 doors. Did not commit. No new database row. No CRM call.
+- **Follow-ups:** Phone check after CRM-2 E: Coverage CRM chip (heat map and doors) and Props Layers → CRM history. Insights → Company CRM stays on that same check.

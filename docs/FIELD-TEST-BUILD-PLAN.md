@@ -145,6 +145,7 @@
 | CRM-2 A | human: migration 034 `crm_insights`, `crm_heat_grid`, `crm_door_history` + types | DONE | 2026-10-10 | Migration 034 crm_insights, crm_heat_grid, crm_door_history applied (admin/office, read-only); types regenerated. | — |
 | CRM-2 B | CRM pure logic, data loaders, colour tokens, verify:crm checks | DONE | 2026-10-10 | CRM pure logic (crm-insights, crm-map), data loaders, crm colour tokens, verify:crm checks. | — |
 | CRM-2 C | Insights Company CRM view | DONE | 2026-10-10 | Insights Company CRM view (switch, booked this week, period sheet, hero, chart, areas, props). | — |
+| CRM-2 D | CRM layers on Coverage and Props | DONE | 2026-10-10 | CRM heat map and CRM doors on Coverage; CRM history layer on Props. | — |
 
 ---
 

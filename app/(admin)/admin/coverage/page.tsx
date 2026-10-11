@@ -1,5 +1,6 @@
 import { CoverageFailed, CoverageScreen } from "@/components/admin/coverage/coverage-screen";
 import { loadCoverage } from "@/lib/admin/coverage-data";
+import { parseCrmView } from "@/lib/admin/crm-map";
 import { filtersHref, parseFilters, periodOf, resolveDoors } from "@/lib/admin/coverage-filters";
 import { londonDate } from "@/lib/field/london-date";
 import { createClient } from "@/lib/supabase/server";
@@ -27,7 +28,10 @@ export default async function CoveragePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const today = londonDate();
-  const filters = parseFilters(await searchParams, today);
+  const params = await searchParams;
+  const filters = parseFilters(params, today);
+  // CRM-2 D (owner 2026-10-10): the CRM layer (`crm=`), read in the browser when switched on.
+  const crmView = parseCrmView(params.crm);
   const supabase = await createClient();
   const loaded = await loadCoverage(supabase, filters);
 
@@ -52,6 +56,7 @@ export default async function CoveragePage({
       worked={[...worked.values()]}
       people={loaded.people}
       missingProp={loaded.missingProp}
+      crmView={crmView}
     />
   );
 }

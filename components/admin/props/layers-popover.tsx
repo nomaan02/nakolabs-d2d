@@ -2,8 +2,11 @@
 
 import { useEffect, useRef } from "react";
 
+import { CRM_RING } from "@/components/admin/map/crm-layers";
 import { Toggle } from "@/components/admin/ui/toggle";
 import type { MapLayers } from "@/components/admin/props/prop-layers";
+import { CrmMark } from "@/components/admin/coverage/crm-picker";
+import { CRM_DOOR_FILTERS, CRM_FILTER_SHORT, type CrmDoorFilter, type CrmDoorGroup } from "@/lib/admin/crm-map";
 import { mapColours, type MapMode } from "@/lib/map/map-palette";
 
 type Row = { key: keyof MapLayers; label: string; help?: string };
@@ -27,12 +30,22 @@ export function LayersPopover({
   onChange,
   onClose,
   mode,
+  crm,
 }: {
   open: boolean;
   layers: MapLayers;
   onChange: (next: MapLayers) => void;
   onClose: () => void;
   mode: MapMode;
+  /** CRM-2 D: every CRM door by latest result (admin only), with an outcome filter. */
+  crm?: {
+    on: boolean;
+    filter: CrmDoorFilter;
+    count: number | null;
+    error: string | null;
+    onToggle: (on: boolean) => void;
+    onFilter: (filter: CrmDoorFilter) => void;
+  };
 }) {
   const panel = useRef<HTMLDivElement | null>(null);
   // Held in a ref so a parent re-render never re-runs the effect (and moves focus).
@@ -81,7 +94,72 @@ export function LayersPopover({
     >
       <h2 className="text-admin-headline">Map layers</h2>
       <ul className="mt-1">
-        {ROWS.map((row) => (
+        {ROWS.slice(0, 3).map((row) => (
+          <li key={row.key} className="py-1.5">
+            <label className="flex min-h-11 items-center gap-3">
+              <span className="min-w-0 flex-1">
+                <span className="block text-admin-body">{row.label}</span>
+                {row.help ? <span className="block text-admin-caption text-ink-muted">{row.help}</span> : null}
+              </span>
+              <Toggle
+                checked={layers[row.key]}
+                label={row.label}
+                onChange={(next) => onChange({ ...layers, [row.key]: next })}
+              />
+            </label>
+            {row.key === "leads" ? (
+              <ul aria-label="Lead pins" className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                {legend.map((item) => (
+                  <li key={item.label} className="flex items-center gap-1.5 text-admin-caption text-ink-soft">
+                    <span aria-hidden className="size-2.5 rounded-full" style={item.style} />
+                    {item.label}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </li>
+        ))}
+        {crm ? (
+          <li className="py-1.5">
+            <label className="flex min-h-11 items-center gap-3">
+              <span className="min-w-0 flex-1">
+                <span className="block text-admin-body">CRM history</span>
+                <span className="block text-admin-caption text-ink-muted">Every door with a CRM lead</span>
+              </span>
+              <Toggle checked={crm.on} label="CRM history" onChange={crm.onToggle} />
+            </label>
+            {crm.on ? (
+              <>
+                <div role="radiogroup" aria-label="CRM result" className="flex flex-wrap gap-x-1.5">
+                  {CRM_DOOR_FILTERS.map((f) => (
+                    <button
+                      key={f.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={crm.filter === f.value}
+                      onClick={() => crm.onFilter(f.value)}
+                      aria-label={f.label}
+                      className="group inline-flex h-11 items-center focus-visible:outline-none"
+                    >
+                      <span
+                        className={`inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-admin-pill group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-prop ${
+                          crm.filter === f.value ? "bg-ink text-paper" : "bg-field-bg text-ink"
+                        }`}
+                      >
+                        {f.value === "all" ? null : <CrmMark colour={CRM_RING[mode][f.value as CrmDoorGroup]} className="size-2.5" />}
+                        {CRM_FILTER_SHORT[f.value]}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-admin-caption text-ink-muted" role="status">
+                  {crm.error ?? (crm.count === null ? "Loading CRM history…" : `${crm.count.toLocaleString("en-GB")} doors. Hidden while drawing.`)}
+                </p>
+              </>
+            ) : null}
+          </li>
+        ) : null}
+        {ROWS.slice(3).map((row) => (
           <li key={row.key} className="py-1.5">
             <label className="flex min-h-11 items-center gap-3">
               <span className="min-w-0 flex-1">

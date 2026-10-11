@@ -10,6 +10,7 @@ import { useIsDesktop } from "@/components/admin/map/use-is-desktop";
 import { DrawMagnifier } from "@/components/admin/props/draw-magnifier";
 import { DrawPanel } from "@/components/admin/props/draw-panel";
 import { ensureDrawLayers, setDrawShape, type DragState } from "@/components/admin/props/draw-layers";
+import { ensureCrmLayers, setCrmDoors, setCrmVisibility } from "@/components/admin/map/crm-layers";
 import { LayersPopover } from "@/components/admin/props/layers-popover";
 import { PropDetail } from "@/components/admin/props/prop-detail";
 import {
@@ -52,6 +53,8 @@ import {
   undo,
   type DrawHistory,
 } from "@/lib/admin/draw-history";
+import { loadCrmDoors } from "@/lib/admin/crm-data";
+import { filterCrmDoors, type CrmDoor, type CrmDoorFilter } from "@/lib/admin/crm-map";
 import { loadLeadPins } from "@/lib/admin/lead-pins";
 import { boxOf, boxOfRing, outerRing, type LngLatBox } from "@/lib/admin/map-fit";
 import { coverageHref, visitHref } from "@/lib/admin/nav";
@@ -161,6 +164,11 @@ export function PropsScreen({
   const [sheetHeight, setSheetHeight] = useState(0);
   const [layers, setLayers] = useState<MapLayers>(DEFAULT_LAYERS);
   const [layersOpen, setLayersOpen] = useState(false);
+  // CRM-2 D (owner 2026-10-10): every CRM door by latest result, filterable. Read the first time it is switched on.
+  const [crmOn, setCrmOn] = useState(false);
+  const [crmFilter, setCrmFilter] = useState<CrmDoorFilter>("all");
+  const [crmDoors, setCrmDoorRows] = useState<CrmDoor[] | null>(null);
+  const [crmError, setCrmError] = useState<string | null>(null);
   const [doors, setDoors] = useState<Record<string, number>>({});
   const [coverage, setCoverage] = useState<CoveragePayload | null>(null);
   const [pins, setPins] = useState<Map<number, LeadPin> | null>(null);
@@ -312,6 +320,26 @@ export function PropsScreen({
   useEffect(() => {
     if (map) applyLayerVisibility(map, layers, session !== null);
   }, [map, layers, session]);
+
+  useEffect(() => {
+    if (!crmOn || crmDoors !== null) return;
+    let live = true;
+    void loadCrmDoors(createClient()).then((result) => {
+      if (!live) return;
+      if (result.ok) setCrmDoorRows(result.data);
+      else setCrmError(result.message);
+    });
+    return () => {
+      live = false;
+    };
+  }, [crmOn, crmDoors]);
+
+  useEffect(() => {
+    if (!map) return;
+    ensureCrmLayers(map, mode);
+    setCrmDoors(map, crmOn && crmDoors ? filterCrmDoors(crmDoors, crmFilter) : []);
+    setCrmVisibility(map, { heat: false, doors: crmOn && session === null });
+  }, [map, mode, crmOn, crmDoors, crmFilter, session]);
 
   // First view: the remembered one, else every live prop.
   const framed = useRef(false);
@@ -825,6 +853,18 @@ export function PropsScreen({
         onChange={setLayers}
         onClose={() => setLayersOpen(false)}
         mode={mode}
+        crm={{
+          on: crmOn,
+          filter: crmFilter,
+          count: crmDoors ? filterCrmDoors(crmDoors, crmFilter).length : null,
+          // Shown only while there are no doors yet; switching the layer on again clears it and retries.
+          error: crmDoors === null ? crmError : null,
+          onToggle: (on: boolean) => {
+            if (on) setCrmError(null);
+            setCrmOn(on);
+          },
+          onFilter: setCrmFilter,
+        }}
       />
 
       <ConfirmDialog

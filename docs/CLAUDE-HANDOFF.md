@@ -2,13 +2,14 @@
 
 ## Current state
 
-- Last updated: 2026-10-10 (CRM-2 Session C). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- New file, pasted as given: `components/admin/insights/crm-section.tsx`. Replaced, pasted as given: `components/admin/insights/insights-screen.tsx`, `app/(admin)/admin/insights/page.tsx`.
-- Insights: Canvassing / Company CRM switch (`?view=crm`). Company CRM view reads `crm_insights` only. Canvassing still reads `loadInsights` only. Booked this week ignores the period. Period is `crm=` (Last 12 months when absent).
-- CRM-2 C tracker row added after CRM-2 B. Status DONE. Date 2026-10-10. Result: `Insights Company CRM view (switch, booked this week, period sheet, hero, chart, areas, props).` Commit column `—`.
-- `npm run verify:crm` exit 0. Last line: `ALL PASS`. `npm run verify:ui10` exit 0. Last line: `ALL PASS`. `npx tsc --noEmit` exit 0. `npx eslint` on the three files exit 0.
-- No browser. No dev server. Phone check: Insights → Company CRM (after CRM-2 E).
-- No new table row. No `client_event_id`. No database call. No CRM call. The page calls `loadCrmInsights` only when rendered with `view=crm`. This session did not render it.
+- Last updated: 2026-10-10 (CRM-2 Session D). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- New files, pasted as given: `components/admin/map/crm-layers.ts`, `components/admin/coverage/crm-picker.tsx`. Replaced, pasted as given: `app/(admin)/admin/coverage/page.tsx`, `components/admin/coverage/coverage-screen.tsx`, `components/admin/props/layers-popover.tsx`, `components/admin/props/props-screen.tsx`.
+- Coverage: a CRM chip (`crm=`). Off, a 250 m heat map (sale rate or number of leads, under the props) or CRM doors by latest outcome. Read in the browser the first time it is switched on. The layer rides along the other filter links.
+- Props: Layers has CRM history, off by default, after Leads, with outcome filter buttons. Hidden while drawing.
+- CRM-2 D tracker row added after CRM-2 C. Status DONE. Date 2026-10-10. Result: `CRM heat map and CRM doors on Coverage; CRM history layer on Props.` Commit column `—`.
+- `npm run verify:crm` exit 0. Last line: `ALL PASS`. `npm run verify:ui10` exit 0. Last line: `ALL PASS`. `npx tsc --noEmit` exit 0. `npx eslint` on the six files exit 0.
+- No browser. No dev server. Phone check: Coverage CRM chip (heat map and doors) and Props Layers → CRM history (after CRM-2 E). Insights → Company CRM stays on that same check.
+- No new table row. No `client_event_id`. No database call. No CRM call. The maps call `loadCrmDoors` and `loadCrmHeat` only after the layer is switched on. This session did not render them.
 - `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts` and `lib/geo/walk/*` were not edited. `lib/supabase/types.ts` was not edited. No quality scoring in `/field`. No `/field` file reads CRM data (`verify:crm`).
 - Dark-ready paths are unchanged: `/admin/props`, `/admin/today`, `/admin/calendar`, `/admin/coverage`, `/admin/team`, `/admin/leads`, `/admin/insights`, `/admin/settings`.
 - Redirects are unchanged: `/admin` → `/admin/today`, `/admin/allocate` → Today or Add visit when `?prop=` is set, `/admin/dashboard` → `/admin/insights`.
@@ -21,7 +22,7 @@
 - No magic link this session. Password, profile and role were not changed.
 - External settings: none.
 - Migration 029 `admin_set_canvasser_active` remains applied from F5f.
-- UI-10 F1–F6 remain DONE. CRM-1 A, CRM-1 B, CRM-2 A and CRM-2 B remain DONE.
+- UI-10 F1–F6 remain DONE. CRM-1 A, CRM-1 B, CRM-2 A, CRM-2 B and CRM-2 C remain DONE.
 
 ## Log
 
@@ -2903,5 +2904,30 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Invariants:** No canvasser GPS and no coordinates sent. No quality scoring in `/field`. Field writes still go through `lib/sync/queue.ts` only. That file was not edited. Coverage stays derived. No `/field` file reads CRM data. CRM outcomes stay admin and office only.
 - **Verified:** `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. `npx tsc --noEmit` exit 0. `npx eslint` on the three Insights files exit 0.
 - **Not verified:** A browser. A phone. Phone check listed: Insights → Company CRM (after CRM-2 E). No live read of `crm_insights`.
+- **External settings:** none
+- **Open questions for Claude:** none.
+
+### 2026-10-10 — CRM-2 Session D (uncommitted)
+
+- **Item:** other
+- **What changed:** Coverage has a CRM chip. The choice lives in the URL as `crm=`. The sheet offers Off, a 250 m heat map (sale rate or number of leads, one blue ramp, drawn under the props) or CRM doors by latest outcome, with a door count on each choice once the doors are read. CRM doors are rounded-square outlines, hollow, so the knock dot still shows, and never round, so they never look like lead pins. UTC and Other are two different greys. A tap on a CRM door shows the latest outcome, its date and the counts. A tap on a heat square shows leads, sold, sale rate, sales value, and "Show its doors" (fits the square and switches to CRM doors). A tapped door or square belongs to the layer it was tapped on. A failed read is shown only while that layer has no data. Props Layers has "CRM history", off by default, after Leads, with 44 px outcome filter buttons. The doors are hidden while drawing.
+- **Files:**
+  - Changed: `app/(admin)/admin/coverage/page.tsx`, `components/admin/coverage/coverage-screen.tsx`, `components/admin/props/layers-popover.tsx`, `components/admin/props/props-screen.tsx`, `docs/FIELD-TEST-BUILD-PLAN.md` (CRM-2 D row after CRM-2 C), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `components/admin/map/crm-layers.ts`, `components/admin/coverage/crm-picker.tsx`, `.handoff/reports/crm-2-d.md`
+  - Deleted: none
+- **Database:** none. No migration. No call to `crm_insights`, `crm_heat_grid` or `crm_door_history`. No CRM call. No new row.
+- **Shared modules touched:** none. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - OWNER — 2026-10-10 (P4a): Company CRM on Insights (periods This week to All time), a 250 m heat map on Coverage, and every CRM door by latest outcome on Coverage and Props, filterable. Admin and office only.
+  - OWNER — 2026-10-10: CRM-2 Figma mockups approved ("Admin — design", section "Admin / CRM-2", frames C1–C9, D1–D2). Canvassing / Company CRM switch on Insights. Booked this week first (ignores the period). One period button opens a sheet. Hero = leads, sold, sales value, plus one bar of where every lead went, plus three rates. One chart with Leads / Value and a month readout. Areas Best / Worst switch. Props sorted Most sales / Highest average / Lowest average. CRM doors as rounded-square outlines (never rings, so they never look like lead pins). Tapping a heat square shows its numbers and "Show its doors". Props CRM history off by default with outcome filter buttons.
+  - CLAUDE — Coverage: a "CRM" chip opens a sheet: Off, heat map (sale rate or number of leads, 250 m squares, one blue ramp, under the props) or CRM doors by latest outcome (with door counts). The layer rides along every other filter in the URL (`crm=`). Read in the browser the first time it is switched on.
+  - CLAUDE — CRM doors are rounded-square outlines drawn as map images per outcome colour: hollow, so the knock dot shows inside, and never round, so they never look like lead pins. UTC and Other are two clearly different greys.
+  - CLAUDE — Tap a CRM door: latest CRM outcome with its date and the counts. Tap a heat square: leads, sold, sale rate, sales value, and "Show its doors" (fits the square, switches to CRM doors).
+  - CLAUDE — A tapped door or square belongs to the layer it was tapped on (Back or a new layer drops it). A failed read is shown only while that layer has no data.
+  - CLAUDE — Props: Layers gets "CRM history" (off by default, after Leads) with 44 px outcome filter buttons; hidden while drawing.
+- **Deviations from plan or brief:** none. The given TypeScript was pasted exactly.
+- **Invariants:** No canvasser GPS and no coordinates sent. No quality scoring in `/field`. Field writes still go through `lib/sync/queue.ts` only. That file was not edited. Coverage stays derived from knocks. No `/field` file reads CRM data. CRM outcomes stay admin and office only.
+- **Verified:** `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. `npx tsc --noEmit` exit 0. `npx eslint` on the six files exit 0. Each pasted file matches the brief byte for byte.
+- **Not verified:** A browser. A phone. Phone check listed: Coverage CRM chip (heat map and doors) and Props Layers → CRM history (after CRM-2 E). No live read of `crm_heat_grid` or `crm_door_history`. No timed pass at 2,000 doors. No device.
 - **External settings:** none
 - **Open questions for Claude:** none.
