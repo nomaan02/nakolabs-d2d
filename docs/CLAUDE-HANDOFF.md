@@ -2,12 +2,13 @@
 
 ## Current state
 
-- Last updated: 2026-10-10 (CRM-2 Session B). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- New files, pasted as given: `lib/admin/crm-insights.ts`, `lib/admin/crm-map.ts`, `lib/admin/crm-data.ts`. `scripts/verify-crm.ts` replaced. `app/globals.css` gained `--color-crm-sale`, `--color-crm-pm`, `--color-crm-blowout` in light and dark.
-- CRM-2 B tracker row added after CRM-2 A. Status DONE. Date 2026-10-10. Result: `CRM pure logic (crm-insights, crm-map), data loaders, crm colour tokens, verify:crm checks.` Commit column `—`.
-- `npm run verify:crm` exit 0. Last line: `ALL PASS`. `npm run verify:ui10` exit 0. Last line: `ALL PASS`. `npx tsc --noEmit` exit 0. eslint was not run in this session (the brief says it runs after the session).
-- No browser. No dev server. Phone check: none for this session (pure logic; the CRM phone check comes after CRM-2 D).
-- No new table row. No `client_event_id`. No database call. No CRM call. The loaders only read the three migration-034 functions; nothing in this session called them.
+- Last updated: 2026-10-10 (CRM-2 Session C). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- New file, pasted as given: `components/admin/insights/crm-section.tsx`. Replaced, pasted as given: `components/admin/insights/insights-screen.tsx`, `app/(admin)/admin/insights/page.tsx`.
+- Insights: Canvassing / Company CRM switch (`?view=crm`). Company CRM view reads `crm_insights` only. Canvassing still reads `loadInsights` only. Booked this week ignores the period. Period is `crm=` (Last 12 months when absent).
+- CRM-2 C tracker row added after CRM-2 B. Status DONE. Date 2026-10-10. Result: `Insights Company CRM view (switch, booked this week, period sheet, hero, chart, areas, props).` Commit column `—`.
+- `npm run verify:crm` exit 0. Last line: `ALL PASS`. `npm run verify:ui10` exit 0. Last line: `ALL PASS`. `npx tsc --noEmit` exit 0. `npx eslint` on the three files exit 0.
+- No browser. No dev server. Phone check: Insights → Company CRM (after CRM-2 E).
+- No new table row. No `client_event_id`. No database call. No CRM call. The page calls `loadCrmInsights` only when rendered with `view=crm`. This session did not render it.
 - `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts` and `lib/geo/walk/*` were not edited. `lib/supabase/types.ts` was not edited. No quality scoring in `/field`. No `/field` file reads CRM data (`verify:crm`).
 - Dark-ready paths are unchanged: `/admin/props`, `/admin/today`, `/admin/calendar`, `/admin/coverage`, `/admin/team`, `/admin/leads`, `/admin/insights`, `/admin/settings`.
 - Redirects are unchanged: `/admin` → `/admin/today`, `/admin/allocate` → Today or Add visit when `?prop=` is set, `/admin/dashboard` → `/admin/insights`.
@@ -20,7 +21,7 @@
 - No magic link this session. Password, profile and role were not changed.
 - External settings: none.
 - Migration 029 `admin_set_canvasser_active` remains applied from F5f.
-- UI-10 F1–F6 remain DONE. CRM-1 A, CRM-1 B and CRM-2 A remain DONE.
+- UI-10 F1–F6 remain DONE. CRM-1 A, CRM-1 B, CRM-2 A and CRM-2 B remain DONE.
 
 ## Log
 
@@ -2878,5 +2879,29 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Invariants:** No canvasser GPS and no coordinates sent. No quality scoring in `/field`. Field writes still go through `lib/sync/queue.ts` only. That file was not edited. Coverage stays derived. No `/field` file reads CRM data. CRM outcomes stay admin and office only.
 - **Verified:** `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. `npx tsc --noEmit` exit 0.
 - **Not verified:** A browser. A phone (none for this session; the CRM phone check comes after CRM-2 D). eslint (the brief says it runs after the session). No live read of the three functions.
+- **External settings:** none
+- **Open questions for Claude:** none.
+
+### 2026-10-10 — CRM-2 Session C (uncommitted)
+
+- **Item:** other
+- **What changed:** Insights has a Canvassing / Company CRM switch. The switch is two links, drawn as a segmented control. The view lives in the URL as `view=crm`. Company CRM shows Booked this week first (this London week, whatever the period), one period button that opens a sheet of links, a hero (leads, sold, sales value, one bar of where every lead went, three rates with their working), one chart (Leads / Value, readout for the chosen month or day), Areas Best / Worst, and Props sorted three ways. An empty period offers the next longer period. A failed load says what happened and offers Try again. Canvassing figures are unaffected. Only the chosen view's data is read.
+- **Files:**
+  - Changed: `components/admin/insights/insights-screen.tsx`, `app/(admin)/admin/insights/page.tsx`, `docs/FIELD-TEST-BUILD-PLAN.md` (CRM-2 C row after CRM-2 B), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `components/admin/insights/crm-section.tsx`, `.handoff/reports/crm-2-c.md`
+  - Deleted: none
+- **Database:** none. No migration. No call to `crm_insights`, `crm_heat_grid` or `crm_door_history`. No CRM call. No new row.
+- **Shared modules touched:** none. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - OWNER — 2026-10-10 (P4a): Company CRM on Insights (periods This week to All time), a 250 m heat map on Coverage, and every CRM door by latest outcome on Coverage and Props, filterable. Admin and office only.
+  - OWNER — 2026-10-10: CRM-2 Figma mockups approved ("Admin — design", section "Admin / CRM-2", frames C1–C9, D1–D2). Canvassing / Company CRM switch on Insights. Booked this week first (ignores the period). One period button opens a sheet. Hero = leads, sold, sales value, plus one bar of where every lead went, plus three rates. One chart with Leads / Value and a month readout. Areas Best / Worst switch. Props sorted Most sales / Highest average / Lowest average. CRM doors as rounded-square outlines (never rings). Tapping a heat square shows its numbers and "Show its doors". Props CRM history off by default with outcome filter buttons.
+  - CLAUDE — Insights gets a Canvassing / Company CRM switch (two links drawn as a segmented control; `?view=crm`). Only the chosen view's data is read.
+  - CLAUDE — Company CRM view: Booked this week first (this London week, whatever the period). One period button opens a sheet of links (Back works). Hero with leads, sold, sales value, one bar of where every lead went with counts, and three rates with their working. One chart with Leads / Value, a readout for the chosen month or day (tap, drag, hover or arrow keys; `role="slider"`), labels positioned so long day windows stay readable. Areas Best / Worst. Props sorted three ways (native select over the label, like Team).
+  - CLAUDE — Empty period offers the next longer period. Failure says what happened, with a Try again link. Canvassing is unaffected.
+  - CLAUDE — Every colour is named in words beside it. Every chart has a screen-reader summary.
+- **Deviations from plan or brief:** none. The given TypeScript was pasted exactly.
+- **Invariants:** No canvasser GPS and no coordinates sent. No quality scoring in `/field`. Field writes still go through `lib/sync/queue.ts` only. That file was not edited. Coverage stays derived. No `/field` file reads CRM data. CRM outcomes stay admin and office only.
+- **Verified:** `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. `npx tsc --noEmit` exit 0. `npx eslint` on the three Insights files exit 0.
+- **Not verified:** A browser. A phone. Phone check listed: Insights → Company CRM (after CRM-2 E). No live read of `crm_insights`.
 - **External settings:** none
 - **Open questions for Claude:** none.

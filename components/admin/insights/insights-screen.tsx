@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { LeadMarkDot } from "@/components/admin/leads/lead-mark";
 import { AdminMenuButton } from "@/components/admin/shell/admin-shell";
 import { ChevronRightIcon } from "@/components/field/icons";
+import { canvassingHref, crmHref, DEFAULT_CRM_PERIOD, type InsightsView } from "@/lib/admin/crm-insights";
 import type { CompletionRow, LeadOutcomeBar, SlotRow, StaleRow, WeeklyRow } from "@/lib/admin/insights";
 import { barShare, completionLine, weekLabel, weeksSummary } from "@/lib/admin/insights";
 
@@ -14,6 +15,50 @@ function n(value: number): string {
 /** Share → a CSS width; data-driven, so it is a style, not a class. */
 function pct(share: number): string {
   return `${Math.round(Math.max(0, Math.min(1, share)) * 1000) / 10}%`;
+}
+
+/**
+ * CRM-2 C (Figma CRM-2 C1, D1 approved 2026-10-10). The Insights frame:
+ * title and the Canvassing / Company CRM switch. The switch is two links
+ * (the view lives in the URL as `view=crm`), drawn as a segmented control.
+ */
+export function InsightsFrame({ view, line, children }: { view: InsightsView; line: string | null; children: ReactNode }) {
+  const tabs = [
+    { value: "canvassing" as const, label: "Canvassing", href: canvassingHref() },
+    { value: "crm" as const, label: "Company CRM", href: crmHref(DEFAULT_CRM_PERIOD) },
+  ];
+  return (
+    <main className="mx-auto max-w-2xl px-4 pt-2 pb-[max(2rem,env(safe-area-inset-bottom))] lg:max-w-5xl lg:px-10 lg:pt-8">
+      <div className="-ml-1.5 flex min-h-11 items-center lg:hidden">
+        <AdminMenuButton />
+      </div>
+      <div className="mt-1 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h1 className="text-admin-large-title">Insights</h1>
+          {line ? <p className="text-admin-subhead text-ink-muted">{line}</p> : null}
+        </div>
+        <nav aria-label="Insights view" className="flex gap-0.5 rounded-field-md border border-line p-1 lg:w-80">
+          {tabs.map((tab) => {
+            const on = tab.value === view;
+            return (
+              <Link
+                key={tab.value}
+                href={tab.href}
+                scroll={false}
+                aria-current={on ? "page" : undefined}
+                className={`flex h-9 flex-1 items-center justify-center rounded-field-sm px-4 text-admin-pill focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-prop ${
+                  on ? "bg-surface text-ink shadow-admin-float" : "text-ink-muted"
+                }`}
+              >
+                {tab.label}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+      {children}
+    </main>
+  );
 }
 
 /**
@@ -50,13 +95,7 @@ export function InsightsScreen({
 }) {
   const totalPeak = Math.max(0, ...weekTotals);
   return (
-    <main className="mx-auto max-w-2xl px-4 pt-2 pb-[max(2rem,env(safe-area-inset-bottom))] lg:max-w-5xl lg:px-10 lg:pt-8">
-      <div className="-ml-1.5 flex min-h-11 items-center lg:hidden">
-        <AdminMenuButton />
-      </div>
-      <h1 className="mt-1 text-admin-large-title">Insights</h1>
-      <p className="text-admin-subhead text-ink-muted">{asOf} · live props only</p>
-
+    <InsightsFrame view="canvassing" line={`${asOf} · live props only`}>
       <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
         <Card title="Doors per week" note="By visit date, last 8 weeks">
           <p className="sr-only">{weeksSummary(weeks, weekTotals)}</p>
@@ -184,7 +223,7 @@ export function InsightsScreen({
           )}
         </Card>
       </div>
-    </main>
+    </InsightsFrame>
   );
 }
 

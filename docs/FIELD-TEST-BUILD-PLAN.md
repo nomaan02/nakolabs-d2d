@@ -144,6 +144,7 @@
 | CRM-1 B | human: migration 033 matcher; read-only CRM client, sync and backfill script | DONE | 2026-10-10 | Migration 033 crm_match_batch applied, types regenerated; lib/crm client/parse/sync, crm:backfill (dry run default) and verify:crm added. Backfill not run. | — |
 | CRM-2 A | human: migration 034 `crm_insights`, `crm_heat_grid`, `crm_door_history` + types | DONE | 2026-10-10 | Migration 034 crm_insights, crm_heat_grid, crm_door_history applied (admin/office, read-only); types regenerated. | — |
 | CRM-2 B | CRM pure logic, data loaders, colour tokens, verify:crm checks | DONE | 2026-10-10 | CRM pure logic (crm-insights, crm-map), data loaders, crm colour tokens, verify:crm checks. | — |
+| CRM-2 C | Insights Company CRM view | DONE | 2026-10-10 | Insights Company CRM view (switch, booked this week, period sheet, hero, chart, areas, props). | — |
 
 ---
 

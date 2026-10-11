@@ -1254,3 +1254,28 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given TypeScript and CSS were pasted exactly. No database call. No CRM call.
 - **Not done / deferred:** A browser. A phone. eslint in this session. Did not commit. No new database row. No CRM call.
 - **Follow-ups:** The Insights, Coverage and Props screens that use this logic come in later CRM-2 sessions. The phone check comes after CRM-2 D.
+
+### CRM-2 Session C — Insights Company CRM view
+- **Date:** 2026-10-10
+- **Model:** Grok 4.7
+- **Built:** Insights has a Canvassing / Company CRM switch (`?view=crm`). The Company CRM view shows Booked this week (this London week, whatever the period), one period button that opens a sheet, a hero (leads, sold, sales value, where every lead went, three rates), one chart (Leads / Value, with a month or day readout), Areas Best / Worst, and Props sorted three ways. Only the chosen view's data is read. Empty period offers the next longer period. A failed load says what happened and offers Try again. Canvassing is unaffected.
+- **Owner decisions:**
+  - OWNER — 2026-10-10 (P4a): Company CRM on Insights (periods This week to All time), a 250 m heat map on Coverage, and every CRM door by latest outcome on Coverage and Props, filterable. Admin and office only.
+  - OWNER — 2026-10-10: CRM-2 Figma mockups approved ("Admin — design", section "Admin / CRM-2", frames C1–C9, D1–D2). Canvassing / Company CRM switch on Insights. Booked this week first (ignores the period). One period button opens a sheet. Hero = leads, sold, sales value, plus one bar of where every lead went, plus three rates. One chart with Leads / Value and a month readout. Areas Best / Worst switch. Props sorted Most sales / Highest average / Lowest average. CRM doors as rounded-square outlines (never rings). Tapping a heat square shows its numbers and "Show its doors". Props CRM history off by default with outcome filter buttons.
+- **Claude decisions:**
+  - CLAUDE — Insights gets a Canvassing / Company CRM switch (two links drawn as a segmented control; `?view=crm`). Only the chosen view's data is read.
+  - CLAUDE — Company CRM view: Booked this week first (this London week, whatever the period). One period button opens a sheet of links (Back works). Hero with leads, sold, sales value, one bar of where every lead went with counts, and three rates with their working. One chart with Leads / Value, a readout for the chosen month or day (tap, drag, hover or arrow keys; `role="slider"`), labels positioned so long day windows stay readable. Areas Best / Worst. Props sorted three ways (native select over the label, like Team).
+  - CLAUDE — Empty period offers the next longer period. Failure says what happened, with a Try again link. Canvassing is unaffected.
+  - CLAUDE — Every colour is named in words beside it. Every chart has a screen-reader summary.
+- **Acceptance:**
+  - EDIT 1 DONE. New `components/admin/insights/crm-section.tsx`, pasted as given.
+  - EDIT 2 DONE. `components/admin/insights/insights-screen.tsx` replaced with the given file.
+  - EDIT 3 DONE. `app/(admin)/admin/insights/page.tsx` replaced with the given file.
+  - `npm run verify:crm`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0.
+  - eslint: **PASS** — `npx eslint` on the three files, exit 0.
+  - Phone: Insights → Company CRM, after CRM-2 E. No browser in this session.
+- **Deviations from brief:** none. The given TypeScript was pasted exactly. No database call. No CRM call.
+- **Not done / deferred:** A browser. A phone (listed for after CRM-2 E). Did not commit. No new database row. No CRM call.
+- **Follow-ups:** Coverage and Props CRM screens come in later CRM-2 sessions. Phone check: Insights → Company CRM, after CRM-2 E.
