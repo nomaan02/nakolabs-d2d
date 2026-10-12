@@ -699,3 +699,25 @@ export function FitIcon({ className }: IconProps) {
     </StrokeIcon>
   );
 }
+
+/** CRM-5 C: ring a call-back lead. */
+export function PhoneIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <path d="M6.6 3.8h2.6l1.4 3.6-1.9 1.3a10.6 10.6 0 0 0 6.6 6.6l1.3-1.9 3.6 1.4v2.6a2 2 0 0 1-2.2 2A16.6 16.6 0 0 1 4.6 6a2 2 0 0 1 2-2.2z" />
+    </StrokeIcon>
+  );
+}
+
+/** CRM-5 C: You → Leaderboard. */
+export function TrophyIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <path d="M8 4.5h8v5a4 4 0 0 1-8 0z" />
+      <path d="M8 6.5H5.5a2.5 2.5 0 0 0 2.6 3.4" />
+      <path d="M16 6.5h2.5a2.5 2.5 0 0 1-2.6 3.4" />
+      <path d="M12 13.5v3.5" />
+      <path d="M8.5 19.5h7" />
+    </StrokeIcon>
+  );
+}

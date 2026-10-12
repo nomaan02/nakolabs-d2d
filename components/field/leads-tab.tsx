@@ -1,22 +1,28 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
+
+import { CallbacksPane } from "@/components/field/crm/callbacks-pane";
+import { Segmented } from "@/components/field/crm/segmented";
 import { useFieldData } from "@/components/field/field-data-provider";
+import { useCrmMe } from "@/lib/field/crm-data";
 import { doorPlate, mapLabel } from "@/lib/field/labels";
 import { leadsFromOutcomes } from "@/lib/field/local-outcomes";
 import { isSameLondonDay } from "@/lib/field/london-date";
 
 /**
- * Read-only. This canvasser, today, in the order they were taken.
+ * Leads tab. Two views (CRM-5 C, Figma F1):
  *
- * Never aggregated by street or by prop. A per-street lead count is a quality
- * signal, and a quality signal in the field view is cherry-picking fuel —
- * invariant 2. There is nothing to total here and nothing to sort by.
- *
- * Nothing on this screen writes. Field code never updates `leads`: a
- * canvasser has no UPDATE policy, so the write would match zero rows and
- * return no error, the queue would mark it synced, and nothing would have
- * happened. Settlement is the office's job.
+ * - Today: read-only, this canvasser, today, in the order they were taken.
+ *   Never aggregated by street or by prop (a per-street count is a quality
+ *   signal — invariant 2). Nothing here writes: settlement is the office's.
+ * - Call-backs (AGENTS.md P4b exception, owner 2026-10-11): this
+ *   canvasser's OWN CRM leads to ring back, with the result logged through
+ *   the offline queue. See components/field/crm/callbacks-pane.tsx.
  */
+
+type View = "today" | "callbacks";
+const VIEW_KEY = "d2d.leads.view";
 
 const TIME = new Intl.DateTimeFormat("en-GB", {
   hour: "2-digit",
@@ -34,66 +40,150 @@ const WHEN = new Intl.DateTimeFormat("en-GB", {
 });
 
 export function LeadsTab() {
-  const { phase, outcomes, labelFor } = useFieldData();
-  const leads = leadsFromOutcomes(outcomes);
+  const { phase, outcomes, labelFor, canvasserId } = useFieldData();
+  return <LeadsScreen phase={phase} leads={leadsFromOutcomes(outcomes)} labelFor={labelFor} canvasserId={canvasserId} />;
+}
 
+type FieldData = ReturnType<typeof useFieldData>;
+
+/** The tab without the field context, so it can be rendered on its own. */
+export function LeadsScreen({
+  phase,
+  leads,
+  labelFor,
+  canvasserId,
+}: {
+  phase: FieldData["phase"];
+  leads: ReturnType<typeof leadsFromOutcomes>;
+  labelFor: FieldData["labelFor"];
+  canvasserId: string | null;
+}) {
+  const me = useCrmMe(canvasserId);
+  const [view, setView] = useState<View>("today");
+  const [toCall, setToCall] = useState<number | null>(null);
+
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(VIEW_KEY) === "callbacks") setView("callbacks");
+    } catch {
+      // Private mode: start on Today.
+    }
+  }, []);
+
+  const choose = (next: View) => {
+    setView(next);
+    try {
+      window.localStorage.setItem(VIEW_KEY, next);
+    } catch {
+      // Private mode: the choice lasts for this visit only.
+    }
+  };
+
+  const onCount = useCallback((n: number | null) => setToCall(n), []);
+  const linked = me.kind === "ready" && me.data.name !== null;
+  const todayCount = phase.kind === "ready" ? leads.length : null;
+
+  return (
+    <div className="h-full overflow-y-auto bg-field-bg" data-testid="leads-tab">
+      <header className="mx-auto max-w-2xl px-4 pt-4">
+        <h1 className="text-field-hero text-ink">Leads</h1>
+        <div className="mt-3">
+          <Segmented<View>
+            label="Leads view"
+            value={view}
+            onChange={choose}
+            testId="leads-view"
+            options={[
+              { value: "today", label: <Count label="Today" n={todayCount} /> },
+              { value: "callbacks", label: <Count label="Call-backs" n={toCall} accent /> },
+            ]}
+          />
+        </div>
+      </header>
+
+      {view === "callbacks" ? (
+        me.kind === "ready" && canvasserId ? (
+          <CallbacksPane canvasserId={canvasserId} linked={linked} onCount={onCount} />
+        ) : (
+          <p className="px-4 pt-6 text-field-body text-ink-muted">
+            {me.kind === "offline" ? "No signal. Your call-backs load when you’re back online." : me.kind === "error" ? "Your call-backs didn’t load. Reopen the tab to try again." : "Loading your call-backs…"}
+          </p>
+        )
+      ) : (
+        <TodayPane phase={phase} leads={leads} labelFor={labelFor} />
+      )}
+    </div>
+  );
+}
+
+function Count({ label, n, accent = false }: { label: string; n: number | null; accent?: boolean }) {
+  return (
+    <>
+      {label}
+      {n !== null ? <span className={`ml-1.5 tabular-nums ${accent && n > 0 ? "text-prop" : "text-ink-muted"}`}>{n}</span> : null}
+    </>
+  );
+}
+
+function TodayPane({
+  phase,
+  leads,
+  labelFor,
+}: {
+  phase: FieldData["phase"];
+  leads: ReturnType<typeof leadsFromOutcomes>;
+  labelFor: FieldData["labelFor"];
+}) {
   if (phase.kind !== "ready") {
     return (
-      <p className="px-4 pt-8 text-sm text-ink-soft">
+      <p className="px-4 pt-6 text-field-body text-ink-muted">
         {phase.kind === "loading" ? "Loading today's prop…" : "No prop today, so no leads."}
       </p>
     );
   }
 
-  return (
-    <div className="h-full overflow-y-auto bg-worksheet" data-testid="leads-tab">
-      <header className="border-b border-ink/15 bg-paper px-4 py-3">
-        <h1 className="font-display text-lg tracking-tight">Leads taken today</h1>
-        <p className="font-data text-xs text-ink-soft">
-          {leads.length === 1 ? "1 lead" : `${leads.length} leads`} · this prop
-        </p>
-      </header>
+  if (leads.length === 0) {
+    return (
+      <p className="px-4 pt-6 text-field-body text-ink-muted">
+        No leads yet today. They appear here the moment you log one, before they sync.
+      </p>
+    );
+  }
 
-      {leads.length === 0 ? (
-        <p className="px-4 pt-6 text-sm leading-relaxed text-ink-soft">
-          No leads yet today. They appear here the moment you log one, before they sync.
-        </p>
-      ) : (
-        <ol className="divide-y divide-ink/10 bg-paper">
-          {leads.map((lead) => {
-            const label = labelFor(lead.uprn);
-            const immediate =
-              lead.bookedFor !== null &&
-              isSameLondonDay(new Date(lead.bookedFor), new Date(lead.occurredAt));
-            return (
-              <li key={lead.clientEventId} className="px-4 py-3">
-                <p className="font-display text-base tracking-tight">
-                  ★ {mapLabel(label) ?? doorPlate(label)}
-                </p>
-                <p className="mt-0.5 font-data text-xs text-ink-soft">
-                  Logged {TIME.format(new Date(lead.occurredAt))}
-                  {lead.undoable ? " · still undoable" : ""}
-                </p>
-                <p className="mt-1 flex flex-wrap items-center gap-2 text-sm">
-                  <span>
-                    {lead.bookedFor
-                      ? `Appointment ${WHEN.format(new Date(lead.bookedFor))}`
-                      : "No appointment time booked"}
+  return (
+    <div className="mx-auto max-w-2xl px-4 pb-8">
+      <h2 className="mb-2 mt-5 text-field-body-strong text-ink-muted">
+        {leads.length === 1 ? "1 lead" : `${leads.length} leads`} · this prop
+      </h2>
+      <ol className="divide-y divide-line overflow-hidden rounded-field-lg border border-line bg-surface">
+        {leads.map((lead) => {
+          const label = labelFor(lead.uprn);
+          const immediate =
+            lead.bookedFor !== null && isSameLondonDay(new Date(lead.bookedFor), new Date(lead.occurredAt));
+          return (
+            <li key={lead.clientEventId} className="px-4 py-3">
+              <p className="text-base font-semibold text-ink">{mapLabel(label) ?? doorPlate(label)}</p>
+              <p className="mt-0.5 text-field-body text-ink-muted tabular-nums">
+                Logged {TIME.format(new Date(lead.occurredAt))}
+                {lead.undoable ? " · still undoable" : ""}
+              </p>
+              <p className="mt-1 flex flex-wrap items-center gap-2 text-field-body text-ink">
+                <span>
+                  {lead.bookedFor ? `Appointment ${WHEN.format(new Date(lead.bookedFor))}` : "No appointment time booked"}
+                </span>
+                {immediate ? (
+                  <span
+                    className="inline-flex items-center rounded-field-sm bg-lead px-2 py-0.5 text-xs font-semibold text-paper"
+                    data-testid="lead-immediate-badge"
+                  >
+                    Immediate
                   </span>
-                  {immediate ? (
-                    <span
-                      className="inline-flex items-center rounded-md bg-lead px-2 py-1 text-xs font-semibold text-paper"
-                      data-testid="lead-immediate-badge"
-                    >
-                      Immediate
-                    </span>
-                  ) : null}
-                </p>
-              </li>
-            );
-          })}
-        </ol>
-      )}
+                ) : null}
+              </p>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }

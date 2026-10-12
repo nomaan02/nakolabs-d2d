@@ -3,11 +3,13 @@
 import Link from "next/link";
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { MyResults } from "@/components/field/crm/my-results";
 import { useFieldData } from "@/components/field/field-data-provider";
 import { ChevronRightIcon } from "@/components/field/icons";
 import { PropStatus } from "@/components/field/prop-status";
 import { SyncStatus } from "@/components/field/sync-status";
 import { SharedKnockNotice } from "@/components/field/shared-knock-notice";
+import { useCrmMe } from "@/lib/field/crm-data";
 import { isTeamProp, LOGGING_MODES, useLoggingMode } from "@/lib/field/logging-mode";
 import { ATTRIBUTION_LINES } from "@/lib/field/map-style";
 import { setThemePref, useThemePref, type ThemePref } from "@/lib/field/theme";
@@ -32,13 +34,23 @@ export function ProfileTab() {
   const themePref = useThemePref();
   const logging = useLoggingMode(canvasserId);
   const teamProp = isTeamProp(team);
+  const crm = useCrmMe(canvasserId);
+  const linked = crm.kind === "ready" && crm.data.name !== null;
 
   return (
     <div className="h-full overflow-y-auto bg-worksheet" data-testid="profile-tab">
-      <header className="border-b border-ink/15 bg-paper px-4 py-3">
-        <h1 className="font-display text-lg tracking-tight">{signedInAs || "Signed in"}</h1>
-        <p className="font-data text-xs uppercase tracking-wide text-ink-soft">{role}</p>
+      {/* CRM-5 C (Figma F3): large title, then my CRM results when the account is linked to the CRM. */}
+      <header className="mx-auto max-w-2xl bg-field-bg px-4 pt-4">
+        <h1 className="text-field-hero text-ink">You</h1>
+        <p className="mt-0.5 text-field-body text-ink-muted">
+          {signedInAs || "Signed in"} · {linked && crm.kind === "ready" && crm.data.branch ? crm.data.branch : role}
+        </p>
       </header>
+      {linked && crm.kind === "ready" ? (
+        <div className="bg-field-bg pb-2">
+          <MyResults me={crm.data} />
+        </div>
+      ) : null}
 
       {/* UI-10 F6b (owner A30, 2026-10-10): an admin who went canvassing gets back in one tap. */}
       {role === "admin" ? (

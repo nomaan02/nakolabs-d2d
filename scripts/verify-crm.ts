@@ -38,6 +38,7 @@ import { CRM_CALLBACK_GROUP, validateOp, type CrmCallbackOp } from "../lib/sync/
 import { sendOp } from "../lib/sync/queue";
 import { accountLabel, loginEmail, usernameFrom, USERNAME_DOMAIN } from "../lib/auth/username";
 import { parseArgs as parseAccountArgs, temporaryPassword } from "./create-accounts";
+import * as fieldCrm from "../lib/field/crm";
 import {
   areaRankings,
   axisTicks,
@@ -219,6 +220,54 @@ check("accounts script refuses bad input", refuses(["--user", "tom:Tom"]) && ref
 const pw = Array.from({ length: 50 }, () => temporaryPassword());
 check("temporary passwords: 12 characters, no look-alikes, all different", pw.every((p) => p.length === 12 && !/[0O1lI]/.test(p)) && new Set(pw).size === 50);
 
+console.log("\nCRM-5 C field screens (pure rules)");
+{
+  const NOW = new Date("2026-10-12T16:00:00Z"); // Mon 12 Oct, 17:00 London
+  const base = { status: "utc", callback_reason: "utc", appointment_at: null, title: "Mrs", surname: "Ashworth", phone: "07700900001", alt_phone: null, uprn: 1, house_number: "14", building_name: null, street_name: "Upton Road", postcode_sector: "BS7 8", last_result: null, last_called_at: null, call_back_on: null };
+  const row = (id: string, created: string, extra: Partial<fieldCrm.CallbackLead> = {}): fieldCrm.CallbackLead => ({ ...base, crm_id: id, crm_created_at: created, ...extra });
+  const rows = [
+    row("10x1", "2026-10-08T10:00:00Z"),
+    row("10x2", "2026-10-01T10:00:00Z"),
+    row("10x3", "2026-10-02T10:00:00Z", { last_result: "no_answer", last_called_at: "2026-10-12T09:00:00Z" }),
+    row("10x4", "2026-10-03T10:00:00Z", { last_result: "no_answer", last_called_at: "2026-10-10T09:00:00Z" }),
+    row("10x5", "2026-10-04T10:00:00Z", { last_result: "later", last_called_at: "2026-10-10T09:00:00Z", call_back_on: "2026-10-15" }),
+    row("10x6", "2026-10-05T10:00:00Z", { last_result: "later", last_called_at: "2026-10-09T09:00:00Z", call_back_on: "2026-10-12" }),
+    row("10x7", "2026-10-06T10:00:00Z", { last_result: "not_interested", last_called_at: "2026-10-09T09:00:00Z" }),
+    row("10x8", "2026-10-07T10:00:00Z", { last_result: "rebooked", last_called_at: "2026-10-11T09:00:00Z" }),
+  ];
+  const sec = fieldCrm.sectionCallbacks(rows, [], NOW);
+  check("to call: never called, no answer on an earlier day, later due today; oldest first", same(sec.toCall.map((r) => r.crm_id), ["10x2", "10x4", "10x6", "10x1"]));
+  check("done today and later sections", same(sec.doneToday.map((r) => r.crm_id), ["10x3"]) && same(sec.later.map((r) => r.crm_id), ["10x5"]));
+  check("rebooked and not interested leave the list", ![...sec.toCall, ...sec.doneToday, ...sec.later].some((r) => r.crm_id === "10x7" || r.crm_id === "10x8"));
+  const withLocal = fieldCrm.sectionCallbacks(rows, [{ crm_id: "10x2", result: "wrong_number", called_at: "2026-10-12T15:30:00Z", call_back_on: null }], NOW);
+  check("a call logged on the phone moves it at once (waiting to send)", withLocal.doneToday.some((r) => r.crm_id === "10x2" && r.pending && r.result === "wrong_number") && !withLocal.toCall.some((r) => r.crm_id === "10x2"));
+  const synced = fieldCrm.sectionCallbacks(rows, [{ crm_id: "10x2", result: "no_answer", called_at: "2026-10-12T15:30:00Z", call_back_on: null, synced: true }], NOW);
+  check("a synced local call is not 'waiting to send'", synced.doneToday.some((r) => r.crm_id === "10x2" && !r.pending));
+  check("call-back lines", fieldCrm.callbackLine(sec.toCall[3]!, NOW) === "Unable to contact · Thu 8 Oct" && fieldCrm.callbackLine(sec.doneToday[0]!, NOW) === "No answer at 10:00 · back tomorrow");
+  check("names: title + surname only; door line falls back", fieldCrm.contactName({ title: "Mr and Mrs", surname: "Hale" }) === "Mr and Mrs Hale" && fieldCrm.contactName({ title: null, surname: null }) === null && fieldCrm.doorLine({ house_number: null, building_name: null, street_name: null, postcode_sector: "BS7 8" }) === "Near BS7 8");
+  check("later days: the next 7 days", same(fieldCrm.laterDays(NOW), ["2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-17", "2026-10-18", "2026-10-19"]));
+  const m = fieldCrm.periodSpan("month", NOW);
+  const lm = fieldCrm.periodSpan("last_month", NOW);
+  const wk = fieldCrm.periodSpan("week", NOW);
+  check("periods in London time", m.from === "2026-09-30T23:00:00.000Z" && m.to === "2026-10-12T23:00:00.000Z" && m.line === "1 to 12 Oct" && lm.from === "2026-08-31T23:00:00.000Z" && lm.to === "2026-09-30T23:00:00.000Z" && wk.fromDay === "2026-10-12");
+  check("winter midnight is UTC", fieldCrm.londonMidnight("2026-12-01") === "2026-12-01T00:00:00.000Z");
+  const lead = (id: string, status: string | null, amount: number | null = null): fieldCrm.MyCrmLead => ({ crm_id: id, status, crm_created_at: "2026-10-12T09:00:00Z", appointment_at: null, sale_amount: amount, callback_reason: null, uprn: null, lon: null, lat: null, house_number: null, building_name: null, street_name: null, postcode_sector: null });
+  const t = fieldCrm.myTotals([lead("1", "sale", 6240), lead("2", "sale", 3760), lead("3", "pm"), lead("4", "blowout"), lead("5", "utc"), lead("6", null), lead("7", "sale")]);
+  check("my totals: leads, sold, value, pitched, sit rate", t.leads === 7 && t.sold === 3 && t.value === 10000 && t.salesWithAmount === 2 && t.pitched === 4 && t.sat === 4 && t.satOf === 6 && t.tones.other === 1);
+  const board: fieldCrm.LeaderRow[] = [
+    { canvasser: "Amy", branch: "HO Bristol", leads: 9, sold: 3, pitched: 5, revenue: 20000, sales_with_amount: 3 },
+    { canvasser: "Bob", branch: "HO Bristol", leads: 9, sold: 2, pitched: 2, revenue: 30000, sales_with_amount: 2 },
+    { canvasser: "Cat", branch: "First Bristol", leads: 9, sold: 2, pitched: 6, revenue: 9000, sales_with_amount: 2 },
+    { canvasser: "Nomaan", branch: "HO Bristol", leads: 9, sold: 0, pitched: 0, revenue: 0, sales_with_amount: 0 },
+  ];
+  const me = { name: "Nomaan", branch: "HO Bristol" };
+  const sales = fieldCrm.rankBoard(board, "sales", me);
+  check("leaderboard by sales: ties share a rank, you stay on with 0", same(sales.map((r) => `${r.rank}${r.canvasser}`), ["1Amy", "2Cat", "2Bob", "4Nomaan"]) && sales[3]?.you === true);
+  check("leaderboard by value and by pitch → sale", same(fieldCrm.rankBoard(board, "value", me).map((r) => r.canvasser), ["Bob", "Amy", "Cat", "Nomaan"]) && same(fieldCrm.rankBoard(board, "rate", me).map((r) => r.canvasser), ["Bob", "Amy", "Cat", "Nomaan"]));
+  check("summary line and ordinals", fieldCrm.boardSummary(sales, 4, "this month") === "No sales yet this month. 4 people booked leads" && fieldCrm.ordinal(1) === "1st" && fieldCrm.ordinal(12) === "12th" && fieldCrm.ordinal(23) === "23rd");
+  check("week starts Monday (London)", fieldCrm.weekStart("2026-10-18") === "2026-10-12" && fieldCrm.weekStart("2026-10-12") === "2026-10-12");
+}
+
 console.log("\nCRM-4 scheduled sync");
 const SECRET = "0123456789abcdef0123456789abcdef";
 check("cron refuses without the right secret", !cronAuthorised(null, SECRET) && !cronAuthorised("Bearer wrong", SECRET) && !cronAuthorised(`Bearer ${SECRET}x`, SECRET) && !cronAuthorised(`bearer ${SECRET}`, SECRET));
@@ -394,11 +443,21 @@ const clientSource = readFileSync(path.join(root, "lib/crm/client.ts"), "utf8");
 check("client names no write operation", !/["'`](create|update|delete|revise|convertlead)["'`]/i.test(clientSource));
 const publicKey = files.filter((f) => rel(f) !== self && /NEXT_PUBLIC_CRM/.test(readFileSync(f, "utf8"))).map(rel);
 check("no NEXT_PUBLIC_ CRM variable anywhere", publicKey.length === 0);
-const fieldImports = files
-  .filter((f) => rel(f).startsWith("app/(field)") || rel(f).startsWith("components/field") || rel(f).startsWith("lib/field"))
-  .filter((f) => /lib\/crm|crm_leads|crm-insights|crm-map|crm-data|crm-layers|crm_insights|crm_heat_grid|crm_door_history/.test(readFileSync(f, "utf8")))
+// CRM-5 C (AGENTS.md P4b exception): /field reads CRM data ONLY through the
+// own-leads / totals RPCs from 037, and only from lib/field/crm-data.ts.
+const fieldFiles = files.filter((f) => rel(f).startsWith("app/(field)") || rel(f).startsWith("components/field") || rel(f).startsWith("lib/field"));
+const fieldImports = fieldFiles
+  .filter((f) => /lib\/crm\/|lib\/admin\/crm|components\/admin|from\("crm_(leads|contacts|sync_runs|status_map)"\)|crm_insights|crm_heat_grid|crm_door_history|crm_canvasser_names|admin_set_crm_name/.test(readFileSync(f, "utf8")))
   .map(rel);
-check("no /field file reads CRM data", fieldImports.length === 0);
+check("no /field file reads admin CRM data or CRM tables directly", fieldImports.length === 0);
+const fieldRpcs = fieldFiles.flatMap((f) => [...readFileSync(f, "utf8").matchAll(/rpc\("(\w*crm\w*)"/g)].map((m) => `${rel(f)}:${m[1]}`));
+check(
+  "CRM-5 C: /field calls only my_crm_leads, my_crm_callbacks and crm_leaderboard, from lib/field/crm-data.ts",
+  fieldRpcs.every((r) => /^lib\/field\/crm-data\.ts:(my_crm_leads|my_crm_callbacks|crm_leaderboard)$/.test(r)) && fieldRpcs.length === 3,
+);
+const tel = fieldFiles.filter((f) => /tel:/.test(readFileSync(f, "utf8"))).map(rel).sort();
+check("phone numbers only on the call-back list and its sheet", same(tel, ["components/field/crm/call-result-sheet.tsx", "components/field/crm/callbacks-pane.tsx"]));
+check("the CRM field screens never touch a customer first name", !fieldFiles.filter((f) => /crm/.test(rel(f))).some((f) => /first_?name/i.test(readFileSync(f, "utf8"))));
 
 async function sendChecks(): Promise<void> {
   console.log("\nCRM-5 B sendOp (fake client, no network)");

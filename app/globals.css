@@ -85,6 +85,17 @@
   --text-field-eyebrow--letter-spacing: 0.12em;
   --text-field-eyebrow--font-weight: 600;
 
+  /* CRM-5 C: iOS large title for the Leads and You tabs (Figma F1 / F3). */
+  --text-field-hero: 32px;
+  --text-field-hero--line-height: 38px;
+  --text-field-hero--letter-spacing: -0.02em;
+  --text-field-hero--font-weight: 700;
+
+  /* CRM-5 C: the three big figures on You → my results (Figma F3). */
+  --text-field-figure: 28px;
+  --text-field-figure--line-height: 32px;
+  --text-field-figure--font-weight: 400;
+
   --text-field-title: 24px;
   --text-field-title--line-height: 30px;
   --text-field-title--letter-spacing: -0.01em;

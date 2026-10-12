@@ -1496,3 +1496,44 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none
 - **Not done / deferred:** The owner runs `accounts:create` after landing. This session did not create an account, did not link Nomaan, and did not call the database or the CRM. No browser. Did not commit.
 - **Follow-ups:** Owner runs the dry run, then `--write`, for Nomaan (link), Thomas, Blake, Tyron, Tito, Mohamed and Wayne (admin), branch "HO Bristol". Hand the temporary passwords over in person.
+
+### CRM-5 Session C1 — Leads call-backs, You results, leaderboard
+- **Date:** 2026-10-12
+- **Model:** Grok 4.7
+- **Built:** The canvasser Leads tab has Today and Call-backs. Call-backs lists this canvasser's own CRM leads (7 / 30 / 90 days, default 30). One tap rings. A tick logs Rebooked, No answer, Call back later (pick a day), Not interested or Wrong number through the existing `crm_callback` queue op. Rebooked, Not interested and Wrong number leave the list at once. A result on the phone wins over the server until the server copy is newer, and shows "waiting to send" until it has synced. The You tab, when the account is linked, shows my results (period switch, default this month), a leaderboard row and my week above the existing settings. The leaderboard is `/field/profile/leaderboard` (Sales / Value / Pitch → sale; £ for everyone; ties share a rank; top 8 and you). Not linked: one line to ask the admin. No migration. No queue change. No CRM call.
+- **Owner decisions:**
+  - OWNER — 2026-10-11: Leads gets a Call-backs view (own leads; 7 / 30 / 90 days, default 30); one tap rings; a tick logs Rebooked / No answer / Call back later (choose a day) / Not interested / Wrong number, offline-first. You gets my results (period switch), my week and the Bristol leaderboard (Sales / Value / Pitch → sale; £ visible for everyone; default this month).
+  - OWNER — 2026-10-12: Rebooked takes the lead off the list straight away (rebooking goes through the office as usual).
+  - OWNER — 2026-10-12: the F5 map layer (own CRM leads coloured by outcome) goes ahead, off by default — built in a later session (CRM-5 C2), not this one.
+- **Claude decisions:**
+  - CLAUDE — `lib/field/crm.ts`: pure rules. To call = never called, no answer on an earlier day, or "later" due today or before (oldest booked first). Done today = called today. Later = "later" for a future day. Rebooked / Not interested / Wrong number leave the list. A result logged on the phone wins over the server's until it is older, and shows "waiting to send" until synced.
+  - CLAUDE — `lib/field/crm-data.ts`: the field's only CRM reads (`my_crm_callbacks`, `my_crm_leads`, `crm_leaderboard`, plus the account's own `profiles.crm_name`) and the one write (`logCallResult` → `enqueue` op `crm_callback`). Local results are read back from the outbox with Dexie `liveQuery`.
+  - CLAUDE — Leads tab: large title, Today | Call-backs segmented control; Today keeps its rules (read-only, never aggregated by street). Not linked to the CRM → one line telling the canvasser to ask their admin.
+  - CLAUDE — You tab: large title "You" with name · CRM branch; when linked, the results card, leaderboard row and week card sit above the existing settings.
+  - CLAUDE — Leaderboard: `/field/profile/leaderboard`. Ties share a rank. People with nothing to rank on are left off, except you. Top 8 and you.
+  - CLAUDE — New tokens: `--text-field-hero` (32/38 bold) and `--text-field-figure` (28/32 regular). New icons: Phone, Trophy.
+  - CLAUDE — Phone numbers appear only on the call-back list and its sheet (a `verify:crm` scan enforces it).
+- **Acceptance:**
+  - EDIT 1 DONE. New `lib/field/crm.ts`, 524 lines, pasted as given. Round-trip match with the brief.
+  - EDIT 2 DONE. New `lib/field/crm-data.ts`, 155 lines, pasted as given. Round-trip match with the brief.
+  - EDIT 3 DONE. New `components/field/crm/segmented.tsx`, 50 lines, pasted as given.
+  - EDIT 4 DONE. New `components/field/crm/period-select.tsx`, 45 lines, pasted as given.
+  - EDIT 5 DONE. New `components/field/crm/call-result-sheet.tsx`, 128 lines, pasted as given.
+  - EDIT 6 DONE. New `components/field/crm/callbacks-pane.tsx`, 196 lines, pasted as given.
+  - EDIT 7 DONE. New `components/field/crm/my-results.tsx`, 260 lines, pasted as given.
+  - EDIT 8 DONE. New `components/field/crm/leaderboard-screen.tsx`, 126 lines, pasted as given.
+  - EDIT 9 DONE. New `app/(field)/field/profile/leaderboard/page.tsx`, 6 lines, pasted as given.
+  - EDIT 10 DONE. `components/field/leads-tab.tsx` replaced, 189 lines, pasted as given.
+  - EDIT 11 DONE. `scripts/verify-crm.ts` replaced, 478 lines, pasted as given.
+  - EDIT 12 DONE. `PhoneIcon` and `TrophyIcon` added after `FitIcon` in `components/field/icons.tsx`.
+  - EDIT 13 DONE. Five replacements in `components/field/profile-tab.tsx` (imports, CRM link, You header, results block).
+  - EDIT 14 DONE. `--text-field-hero` and `--text-field-figure` added in `app/globals.css`.
+  - `npm run verify:crm`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui1`: **PASS** — exit 0. Last line: `OK`.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0.
+  - eslint: **PASS** — `npx eslint` on the thirteen TypeScript files exit 0.
+  - Phone: no browser. Listed for after landing. Not opened on a phone.
+- **Deviations from brief:** none. The given files were pasted exactly. Line endings are CRLF, matching the rest of the repo.
+- **Not done / deferred:** A browser. The phone check (sign in as tom, call-backs, ring, log No answer offline, You and the leaderboard). Did not commit. No new table row. No `client_event_id`. No CRM call. The F5 map layer is CRM-5 C2.
+- **Follow-ups:** Phone check after landing. Wayne to OK before canvassers use call-back phones. CRM-5 C2 builds the map layer, off by default.

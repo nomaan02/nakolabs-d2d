@@ -2,16 +2,15 @@
 
 ## Current state
 
-- Last updated: 2026-10-12 (CRM-5 Session U). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Canvassers sign in with a username. `lib/auth/username.ts` (38 lines) stores it as `<username>@users.nakolabs-d2d.invalid`. A typed value that contains "@" is used as a real email. `/login` (`app/(auth)/login/page.tsx`, 76 lines) has one box, "Username or email". The credentials error is "Incorrect username or password." `lib/auth/actions.ts` (81 lines) maps the box through `loginEmail`.
-- "Signed in as" uses `accountLabel`: the username when there is no name, otherwise the email. Changed in `app/(admin)/layout.tsx`, `app/(field)/layout.tsx` and `app/(office)/office/page.tsx`.
-- `scripts/create-accounts.ts` (172 lines) is `npm run accounts:create`. Dry run unless `--write`. This session ran it with no arguments only. It printed `Nothing to do. Add --user or --link.` and exited 1, before any database call. No account was created. Nomaan was not linked. No CRM call.
-- `scripts/verify-crm.ts` (419 lines) adds the seven username checks. `npm run verify:crm` exit 0. Last line: `ALL PASS`. `npm run verify:ui10` exit 0. Last line: `ALL PASS`. `npx tsc --noEmit` exit 0. `npx eslint` on the eight TypeScript files exit 0.
-- No browser. Phone check is after landing: sign out and sign back in with an email on the live app, then the owner runs `accounts:create` and signs in as one canvasser by username.
-- CRM-5 U tracker row added after CRM-5 B. Status DONE. Date 2026-10-12. Result: `Sign in with a username; accounts:create script makes canvasser accounts linked to their CRM name.` Commit column `—`.
-- Invite-by-email in Settings was not changed. `middleware.ts`, `lib/supabase/*`, `app/auth/confirm`, set-password, signup, `lib/admin/accounts.ts`, migrations, `lib/sync`, `lib/crm` and `components/field` were not edited.
-- No table row. No `client_event_id`. No magic link. Password, profile and role were not changed.
-- Call results from CRM-5 B remain: kind `crm_callback` in `lib/sync/queue.ts`, insert into `crm_callbacks`. This session did not edit that file. Field writes still go through `lib/sync/queue.ts` only. No quality scoring was added in `/field`. No GPS left the device. `verify:crm` still reports no `/field` file reads CRM data.
+- Last updated: 2026-10-12 (CRM-5 Session C1). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- CRM-5 C1: Leads has Today | Call-backs. Call-backs is the canvasser's own leads (7 / 30 / 90 days, default 30). One tap rings. A tick logs a result through `enqueue` op `crm_callback`. Rebooked, Not interested and Wrong number leave the list at once. You, when linked, shows my results, my week and `/field/profile/leaderboard` above the existing settings. Not linked: one line to ask the admin.
+- New: `lib/field/crm.ts` (524), `lib/field/crm-data.ts` (155), `components/field/crm/segmented.tsx` (50), `period-select.tsx` (45), `call-result-sheet.tsx` (128), `callbacks-pane.tsx` (196), `my-results.tsx` (260), `leaderboard-screen.tsx` (126), `app/(field)/field/profile/leaderboard/page.tsx` (6). Replaced: `components/field/leads-tab.tsx` (189), `scripts/verify-crm.ts` (478). Patched: `components/field/icons.tsx` (Phone, Trophy), `components/field/profile-tab.tsx`, `app/globals.css` (`--text-field-hero`, `--text-field-figure`).
+- `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. `npm run verify:ui1` exit 0, last line `OK`. `npx tsc --noEmit` exit 0. `npx eslint` on the thirteen TypeScript files exit 0.
+- No browser. Phone check is after landing: sign in as tom; Leads → Call-backs; ring one number; log No answer in airplane mode and see "waiting to send", then back online it clears; You shows his month and the leaderboard.
+- CRM-5 C1 tracker row added after CRM-5 U. Status DONE. Date 2026-10-12. Result: `Leads → Call-backs + result sheet; You → my results, my week, leaderboard.` Commit column `—`.
+- No migration. `lib/sync/*`, `lib/field/db.ts`, `lib/crm/*`, `middleware.ts`, the Map tab and the Logger tab were not edited. No table row. No `client_event_id`. No CRM call. Password, profile and role were not changed.
+- Username sign-in from CRM-5 U remains. `lib/auth/username.ts` stores `<username>@users.nakolabs-d2d.invalid`. `/login` has one box, "Username or email". `accounts:create` is still dry-run unless `--write`. This session did not run it. No account was created.
+- Call results still insert into `crm_callbacks` via `lib/sync/queue.ts` only. That file was not edited. `/field` CRM reads are only `my_crm_callbacks`, `my_crm_leads` and `crm_leaderboard`, from `lib/field/crm-data.ts`. Phone numbers appear only on the call-back list and its sheet. The P4b screens are the only ranking in `/field`. No device GPS was read.
 - CRM sync schedule from CRM-4 remains: every 30 minutes, about 05:00 to 21:00 London. Migration 036 remains applied. No Vault secret was created this session.
 - Sale price from CRM-3 remains: Sale Amount, else Result, else Rep Result, number only, in `lib/crm/parse.ts`.
 - Dark-ready paths are unchanged: `/admin/props`, `/admin/today`, `/admin/calendar`, `/admin/coverage`, `/admin/team`, `/admin/leads`, `/admin/insights`, `/admin/settings`.
@@ -23,9 +22,9 @@
 - Migration 031 `admin_latest_knocks` remains applied. Calendar, Coverage and Team still read through it.
 - Migration 030 remains applied. `/field` still opens for a canvasser and for the admin. Office stays out. `/api/cron/` stays outside the session matcher.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
-- External settings: none. The owner runs `accounts:create` after landing (dry run, then `--write`) for Nomaan (link the existing admin), Thomas, Blake, Tyron, Tito, Mohamed and Wayne (admin), branch "HO Bristol". Wayne to OK before canvassers use call-back phones. Field screens that tick a call result are CRM-5 C. This session did not build them.
+- External settings: none. The owner runs `accounts:create` after landing (dry run, then `--write`) for Nomaan (link the existing admin), Thomas, Blake, Tyron, Tito, Mohamed and Wayne (admin), branch "HO Bristol". Wayne to OK before canvassers use call-back phones. The F5 map layer is CRM-5 C2, off by default, not built here.
 - Migration 029 `admin_set_canvasser_active` remains applied from F5f.
-- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-5 B remain DONE. CRM-5 U file work is in the tree.
+- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-5 U remain DONE. CRM-5 C1 file work is in the tree.
 
 ## Log
 
@@ -3088,3 +3087,31 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. A phone. Signing in with a real email on the live app. Creating or linking any account. A username sign-in.
 - **External settings:** none
 - **Open questions for Claude:** none from this session. The owner runs `accounts:create` after landing. Wayne to OK before canvassers use call-back phones. Field screens that tick a call result are CRM-5 C.
+
+### 2026-10-12 — CRM-5 Session C1 (uncommitted)
+
+- **Item:** other
+- **What changed:** Leads has Today and Call-backs. Call-backs is this canvasser's own CRM leads for the last 7, 30 or 90 days (default 30). One tap rings. A tick logs Rebooked, No answer, Call back later, Not interested or Wrong number through the existing offline queue. Rebooked, Not interested and Wrong number leave the list at once. You, when the account is linked to a CRM name, shows my results, my week and the Bristol leaderboard above the existing settings. The leaderboard is a separate screen. An account with no CRM name sees one line asking them to speak to their admin.
+- **Files:**
+  - Changed: `components/field/leads-tab.tsx`, `scripts/verify-crm.ts`, `components/field/icons.tsx`, `components/field/profile-tab.tsx`, `app/globals.css`, `docs/FIELD-TEST-BUILD-PLAN.md` (CRM-5 C1 row after CRM-5 U), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `lib/field/crm.ts`, `lib/field/crm-data.ts`, `components/field/crm/segmented.tsx`, `components/field/crm/period-select.tsx`, `components/field/crm/call-result-sheet.tsx`, `components/field/crm/callbacks-pane.tsx`, `components/field/crm/my-results.tsx`, `components/field/crm/leaderboard-screen.tsx`, `app/(field)/field/profile/leaderboard/page.tsx`, `.handoff/reports/crm-5-c1.md`
+  - Deleted: none
+- **Database:** none. No migration. No table row. No `client_event_id`. No CRM call.
+- **Shared modules touched:** `lib/field/crm.ts` (new, pure call-back / results / leaderboard rules) and `lib/field/crm-data.ts` (new, the field's only CRM reads, and `logCallResult` which calls `enqueue`). `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - OWNER — 2026-10-11: Leads gets a Call-backs view (own leads; 7 / 30 / 90 days, default 30); one tap rings; a tick logs Rebooked / No answer / Call back later (choose a day) / Not interested / Wrong number, offline-first. You gets my results (period switch), my week and the Bristol leaderboard (Sales / Value / Pitch → sale; £ visible for everyone; default this month).
+  - OWNER — 2026-10-12: Rebooked takes the lead off the list straight away (rebooking goes through the office as usual).
+  - OWNER — 2026-10-12: the F5 map layer (own CRM leads coloured by outcome) goes ahead, off by default — built in a later session (CRM-5 C2), not this one.
+  - CLAUDE — `lib/field/crm.ts`: pure rules. To call = never called, no answer on an earlier day, or "later" due today or before (oldest booked first). Done today = called today. Later = "later" for a future day. Rebooked / Not interested / Wrong number leave the list. A result logged on the phone wins over the server's until it is older, and shows "waiting to send" until synced.
+  - CLAUDE — `lib/field/crm-data.ts`: the field's only CRM reads (`my_crm_callbacks`, `my_crm_leads`, `crm_leaderboard`, plus the account's own `profiles.crm_name`) and the one write (`logCallResult` → `enqueue` op `crm_callback`). Local results are read back from the outbox with Dexie `liveQuery`.
+  - CLAUDE — Leads tab: large title, Today | Call-backs segmented control; Today keeps its rules (read-only, never aggregated by street). Not linked to the CRM → one line telling the canvasser to ask their admin.
+  - CLAUDE — You tab: large title "You" with name · CRM branch; when linked, the results card, leaderboard row and week card sit above the existing settings.
+  - CLAUDE — Leaderboard: `/field/profile/leaderboard`. Ties share a rank. People with nothing to rank on are left off, except you. Top 8 and you.
+  - CLAUDE — New tokens: `--text-field-hero` (32/38 bold) and `--text-field-figure` (28/32 regular). New icons: Phone, Trophy.
+  - CLAUDE — Phone numbers appear only on the call-back list and its sheet (a `verify:crm` scan enforces it).
+- **Deviations from plan or brief:** none. The given files were pasted exactly. Line endings are CRLF, matching the rest of the repo.
+- **Invariants:** No device GPS was read. No device coordinates left the device. `my_crm_leads` includes door lon/lat from the server; this session's screens do not draw them (the map layer is CRM-5 C2). The P4b exception is the only ranking in `/field`: own results, the Bristol leaderboard and the call-back list. Previous-visit outcome colour was not added to the map. The one new field write, a call result, goes through `lib/sync/queue.ts` (`enqueue`, op `crm_callback`) only. Coverage stays derived. No coverage table.
+- **Verified:** The eleven pasted files match the brief (524, 155, 50, 45, 128, 196, 260, 126, 6, 189 and 478 lines). The three patches (icons, profile tab, globals) matched once each. `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. `npm run verify:ui1` exit 0, last line `OK`. `npx tsc --noEmit` exit 0. `npx eslint` on the thirteen TypeScript files exit 0.
+- **Not verified:** A browser. A phone. Signing in as tom. The call-back list against live rows. Ringing a number. Logging No answer in airplane mode. You and the leaderboard on a device.
+- **External settings:** none
+- **Open questions for Claude:** none from this session. Phone check after landing. Wayne to OK before canvassers use call-back phones. CRM-5 C2 builds the map layer.
