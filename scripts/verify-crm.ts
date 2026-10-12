@@ -16,6 +16,10 @@ import {
   canvasserFirstName,
   CRM_LEAD_FIELDS,
   CRM_PRICE_TEXT_FIELDS,
+  CRM_CONTACT_FIELDS,
+  callbackReason,
+  tidyName,
+  tidyPhone,
   crmStampToIso,
   leadSaleAmount,
   priceInText,
@@ -29,7 +33,7 @@ import {
   type AppCrmStatus,
 } from "../lib/crm/parse";
 import { cronAuthorised, lastSuccess, nextCursor, runInProgress, syncFreshness, whenWords, type SyncRun } from "../lib/crm/schedule";
-import { recordUnchanged } from "../lib/crm/sync";
+import { keepsContact, purgeAfter, recordUnchanged } from "../lib/crm/sync";
 import {
   areaRankings,
   axisTicks,
@@ -143,7 +147,8 @@ const lead = parseCrmLead(
 check("parsed lead stores no street or number", !("lane" in lead) && lead.match.street === "Upton Rd" && lead.match.number === 23 && lead.match.suffix === "A");
 check("parsed lead fields", lead.postcode === "BS7 8AB" && lead.postcode_sector === "BS7 8" && lead.status === "confirmed" && lead.sale_amount === null && lead.canvasser_first_name === "John" && lead.branch === "First Bristol");
 check("unreadable created time throws", throws(() => parseCrmLead({ id: "x", createdtime: "", modifiedtime: "2026-10-10 11:00:00" }, map, "UTC")));
-check("no name, phone, note or best-time field is ever requested", !CRM_LEAD_FIELDS.some((f) => ["firstname", "lastname", "phone", "mobile", "email", "cf_1014", "cf_1016", "description"].includes(f)));
+check("first name, email, notes and best time are never requested", !CRM_LEAD_FIELDS.some((f) => ["firstname", "mobile", "email", "cf_1016", "description", "salutationtype"].includes(f)));
+check("CRM-5: the only contact fields read are title, surname and the two phones", same([...CRM_CONTACT_FIELDS], ["cf_877", "lastname", "phone", "cf_1014"]) && CRM_CONTACT_FIELDS.every((f) => (CRM_LEAD_FIELDS as readonly string[]).includes(f)));
 check("the only free-text boxes read are Result and Rep Result (for a price)", same([...CRM_PRICE_TEXT_FIELDS], ["cf_867", "cf_881"]) && CRM_PRICE_TEXT_FIELDS.every((f) => (CRM_LEAD_FIELDS as readonly string[]).includes(f)));
 
 console.log("\nCRM-3 sale price from Sale Amount, Result, Rep Result");
@@ -161,6 +166,26 @@ const resultText = "Bristol Charlotte £5015";
 const sold = parseCrmLead({ id: "10x9", leadstatus: "Sold", createdtime: "2026-10-08 10:00:00", modifiedtime: "2026-10-08 11:00:00", cf_861: "0.00000000", cf_867: resultText, cf_881: "Rep note" }, new Map([["Sold", "sale"]]), "UTC");
 check("Sold lead takes its price from Result", sold.sale_amount === 5015 && sold.sale_amount_source === "result");
 check("Result and Rep Result text never leave the parser", !Object.values(sold).some((v) => typeof v === "string" && (v.includes("Charlotte") || v.includes("Rep note"))) && !JSON.stringify(sold).includes("Charlotte"));
+
+console.log("\nCRM-5 call-back list");
+check("UTC, no outcome and Re-App are call-backs", callbackReason("utc", false, "", "") === "utc" && callbackReason(null, false, null, null) === "no_outcome" && callbackReason("re_app", false, "", "") === "reapp");
+check("sold, P&M and booked are not call-backs", callbackReason("sale", false, "call back", "") === null && callbackReason("pm", false, "single sit", "") === null && callbackReason("confirmed", false, "", "") === null);
+check("unknown status is never a call-back", callbackReason(null, true, "", "") === null);
+check("blowout reasons from the notes", callbackReason("blowout", false, "Bristol\nhubby at work, single sit", "") === "single_sit" && callbackReason("blowout", false, "wasn't convenient", "") === "not_convenient" && callbackReason("blowout", false, "too busy today", "") === "no_time" && callbackReason("blowout", false, "RTA", "") === "rta" && callbackReason("blowout", false, "call back next week", "") === "rearrange" && callbackReason("blowout", false, "no answer at door", "") === "no_answer" && callbackReason("blowout", false, "utc 3:21", "") === "utc");
+check("Rep Result notes count too", callbackReason("blowout", false, "", "single sit") === "single_sit");
+check("a blowout with no reason is not a call-back", callbackReason("blowout", false, "Bristol Earl", "") === null && callbackReason("blowout", false, "", "") === null);
+check("TITC / RITC / cancelled always keep it off", callbackReason("blowout", false, "TITC call back next week", "") === null && callbackReason("utc", false, "ritc", "") === null && callbackReason(null, false, "cancelled", "") === null && callbackReason("blowout", false, "single sit", "Cancelled by office") === null);
+check("not interested / changed mind / wrong number / already done keep it off", callbackReason("utc", false, "not interested", "") === null && callbackReason("blowout", false, "changed her mind, call back", "") === null && callbackReason("utc", false, "wrong number", "") === null && callbackReason("blowout", false, "had windows done within 5 years", "") === null && callbackReason("re_app", false, "already had it done", "") === null);
+check("'not in' is not 'not interested'", callbackReason("blowout", false, "not in when rep came", "") === "no_answer");
+check("phones tidied", tidyPhone("07700 900 123") === "07700900123" && tidyPhone("+44 7700 900123") === "+447700900123" && tidyPhone("") === null && tidyPhone("123") === null && tidyPhone(null) === null);
+check("names tidied", tidyName("SMITH") === "Smith" && tidyName("o'neil-jones") === "O'Neil-Jones" && tidyName("McDonald") === "McDonald" && tidyName("  ") === null && tidyName("MR AND MRS") === "Mr And Mrs");
+const cbLead = parseCrmLead({ id: "10x77", leadstatus: "UTC", createdtime: "2026-10-01 10:00:00", modifiedtime: "2026-10-01 11:00:00", cf_877: "MRS", lastname: "ashworth", phone: "07700 900001", cf_1014: "" }, new Map([["UTC", "utc"]]), "UTC");
+check("contact parsed: title, surname, phone (no first name anywhere)", cbLead.callback_reason === "utc" && cbLead.contact.title === "Mrs" && cbLead.contact.surname === "Ashworth" && cbLead.contact.phone === "07700900001" && cbLead.contact.alt_phone === null && !JSON.stringify(cbLead).includes("firstname"));
+const altOnly = parseCrmLead({ id: "10x78", leadstatus: "UTC", createdtime: "2026-10-01 10:00:00", modifiedtime: "2026-10-01 11:00:00", phone: "", cf_1014: "0117 900 0000" }, new Map([["UTC", "utc"]]), "UTC");
+check("alt phone is used when the main phone is blank", altOnly.contact.phone === "01179000000" && altOnly.contact.alt_phone === null);
+const NOW5 = new Date("2026-10-11T12:00:00Z");
+check("contacts kept only for call-backs under 90 days old", keepsContact({ callback_reason: "utc", crm_created_at: "2026-09-01T10:00:00Z" }, NOW5) && !keepsContact({ callback_reason: "utc", crm_created_at: "2026-07-01T10:00:00Z" }, NOW5) && !keepsContact({ callback_reason: null, crm_created_at: "2026-10-10T10:00:00Z" }, NOW5));
+check("purge date = lead date + 90 days", purgeAfter("2026-10-01T10:00:00Z") === "2026-12-30");
 
 console.log("\nCRM-4 scheduled sync");
 const SECRET = "0123456789abcdef0123456789abcdef";
@@ -183,7 +208,7 @@ check("overnight gap is fine until 07:00", !syncFreshness([evening], new Date("2
 check("never synced -> warning", syncFreshness([], NOW).stale && syncFreshness([], NOW).text === "CRM not synced yet");
 
 console.log("\nCRM idempotency compare");
-const rec = { crm_id: "10x5", lead_no: "LEA5", status_raw: "Sold", status: "sale" as const, crm_created_at: "2026-10-10T10:00:00.000Z", crm_modified_at: "2026-10-10T11:00:00.000Z", appointment_at: null, branch: "First Bristol", sale_amount: 8400, postcode: "BS7 8AB", postcode_sector: "BS7 8", uprn: 1, location: "SRID=4326;POINT(0 0)", match_tier: "exact" as const, canvasser_first_name: "John" };
+const rec = { crm_id: "10x5", lead_no: "LEA5", status_raw: "Sold", status: "sale" as const, crm_created_at: "2026-10-10T10:00:00.000Z", crm_modified_at: "2026-10-10T11:00:00.000Z", appointment_at: null, branch: "First Bristol", sale_amount: 8400, postcode: "BS7 8AB", postcode_sector: "BS7 8", uprn: 1, location: "SRID=4326;POINT(0 0)", match_tier: "exact" as const, canvasser_first_name: "John", callback_reason: null };
 const { location: _loc, ...storedRec } = rec;
 void _loc;
 const storedPoint = { type: "Point", coordinates: [0, 0] };
@@ -328,6 +353,10 @@ const mw = readFileSync("middleware.ts", "utf8");
 check("middleware skips /api/cron (no session redirect)", mw.includes("api/cron/"));
 const m036 = readFileSync("supabase/migrations/036_crm_sync_schedule.sql", "utf8");
 check("036 keeps the URL and secret in Vault, never in the file", m036.includes("vault.decrypted_secrets") && !/https:\/\/[a-z0-9-]+\.vercel\.app/.test(m036) && !/Bearer [A-Za-z0-9]{16,}/.test(m036));
+const m037 = readFileSync("supabase/migrations/037_crm_canvasser.sql", "utf8");
+check("037: contacts readable only by their canvasser, purged after 90 days", /create policy crm_contacts_select_own/.test(m037) && !/crm_contacts.*to authenticated\s+using \(\(select public\.app_role\(\)\) in/.test(m037) && /crm-contacts-purge/.test(m037) && /purge_after < current_date/.test(m037));
+check("037: no first name column anywhere", !/first_?name\s+text/i.test(m037.replace(/canvasser_first_name/g, "")));
+check("037: call results are insert-only (no update or delete grant)", /grant select, insert on public\.crm_callbacks to authenticated/.test(m037) && !/grant[^;]*(update|delete)[^;]*crm_callbacks/i.test(m037));
 check("036 tick is not callable through the API", /revoke all on function public\.crm_sync_tick\(\) from anon, authenticated/.test(m036));
 const clientSource = readFileSync(path.join(root, "lib/crm/client.ts"), "utf8");
 check("client names no write operation", !/["'`](create|update|delete|revise|convertlead)["'`]/i.test(clientSource));

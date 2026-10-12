@@ -1399,3 +1399,43 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given files were pasted exactly. Types were not hand-written. No Vault secret. No CRM call.
 - **Not done / deferred:** A browser. The phone check (listed, after the owner adds the Vault and Vercel secrets). tsc and eslint in this session (they run after). Did not commit. No new table row. No `client_event_id`. No Vault secret. No CRM call.
 - **Follow-ups:** Owner adds `crm_sync_url` and `crm_sync_secret` in Supabase Vault, and `CRON_SECRET` on Vercel. Then Insights → Company CRM shows "CRM updated" with a time from the last half hour.
+
+### CRM-5 Session A — canvasser CRM link, call-backs, leaderboard
+- **Date:** 2026-10-11
+- **Model:** Grok 4.7
+- **Built:** Migration file 037 (canvasser CRM name and branch, call-back reason, `crm_contacts` with a 90-day purge job, `crm_callbacks` insert-only, `my_crm_leads`, `my_crm_callbacks`, `crm_leaderboard`). `lib/crm/parse.ts` decides the call-back reason from status and Result / Rep Result keywords and reads title, surname and phones for call-back leads only. `lib/crm/sync.ts` stores the reason and writes or removes `crm_contacts`. The backfill printout counts reasons and contacts stored or removed. `verify:crm` covers the keyword rules. The live database was not changed: the Supabase MCP is not authenticated in this headless session, so 037 was not applied and types were not regenerated. No CRM call. Backfill was not run. No `crm_name` was set.
+- **Owner decisions:**
+  - OWNER — 2026-10-11 (P4b): canvassers see their own CRM leads, a Bristol leaderboard (switchable period, default this month; £ visible for everyone) and a daily call-back list in the app.
+  - OWNER — 2026-10-11: call-backs = UTC, no outcome recorded, Re-App, and blowouts whose Result / Rep Result notes say single sit, wasn't convenient, no time, RTA (ring to arrange), rearrange / call back, or no answer. TITC (texted in to cancel), RITC (rang in to cancel), cancelled, not interested, changed mind, wrong number and already-done are never call-backs.
+  - OWNER — 2026-10-11: store the phone number for call-back leads only: title, surname, phone and alt phone. Never first name. Only that canvasser can read it. Deleted 90 days after the lead was booked. Wayne to OK before canvassers use it.
+  - OWNER — 2026-10-11: call results (rebooked, no answer, call back later + date, not interested, wrong number) are ticked off in the app and synced; they are never written to the CRM.
+- **Claude decisions:**
+  - CLAUDE — `profiles.crm_name` and `profiles.crm_branch` link a canvasser to their CRM name. `admin_set_crm_name` (admin only; null name unlinks). `crm_canvasser_names` lists CRM names for the admin picker.
+  - CLAUDE — `crm_leads.callback_reason`: utc, no_outcome, reapp, single_sit, not_convenient, no_time, rta, rearrange, no_answer. A canvasser can read their own `crm_leads` rows (name match, branch null or equal).
+  - CLAUDE — `crm_contacts` (title, surname, phone, alt_phone, purge_after): select only, and only the lead's own canvasser. pg_cron `crm-contacts-purge` deletes rows past `purge_after` daily at 03:20 UTC.
+  - CLAUDE — `crm_callbacks`: insert and select only. Insert only for your own canvasser_id and your own lead. `later` must have a date; other results must not.
+  - CLAUDE — RPCs `my_crm_leads(from,to)`, `my_crm_callbacks(days)`, `crm_leaderboard(from,to)` (security definer, totals only, Bristol branches).
+  - CLAUDE — `lib/crm/parse.ts` reads title (`cf_877`), surname (`lastname`), phone and alt phone (`cf_1014`) and works out the call-back reason from status plus Result / Rep Result keywords. The note text is never stored.
+  - CLAUDE — `lib/crm/sync.ts` stores `callback_reason` and writes `crm_contacts` for call-back leads under 90 days old. Leads that stop qualifying lose their contact row in the same run. Counts only in the summary.
+  - CLAUDE — `scripts/crm-backfill.ts` prints the call-back reason counts and contacts stored / removed.
+  - CLAUDE — `verify:crm` adds 18 checks (keyword rules, never-rules, phone and name tidying, 90-day rules, migration scans).
+- **Acceptance:**
+  - EDIT 1 DONE. New `supabase/migrations/037_crm_canvasser.sql`, 288 lines, pasted as given. Newest file before it was `036_crm_sync_schedule.sql`. 037 was free.
+  - EDIT 2 DONE. `lib/crm/parse.ts` replaced, 377 lines, pasted as given. Line-by-line match with the brief.
+  - EDIT 3 DONE. `lib/crm/sync.ts` replaced, 516 lines, pasted as given. Line-by-line match with the brief.
+  - EDIT 4 DONE. `scripts/crm-backfill.ts` replaced, 82 lines, pasted as given. Line-by-line match with the brief.
+  - EDIT 5 DONE. `scripts/verify-crm.ts` replaced, 372 lines, pasted as given. Line-by-line match with the brief.
+  - EDIT 6 DONE. AGENTS.md P4b block inserted once. The old two-line outcomes block was found once and is gone.
+  - EDIT 7 NOT DONE. `apply_migration` was not called. `supabase-d2d` and `supabase` are `needsAuth`. `mcp_auth` on each returned: Interactive MCP authentication is only available in the Cursor desktop IDE. Interactive MCP authentication is not available in this agent environment. The SQL was not changed. No other apply path was used.
+  - EDIT 8 NOT DONE. `generate_typescript_types` needs the same MCP. `git diff --stat -- lib/supabase/types.ts` is empty. Types were not hand-written.
+  - `npm run verify:crm`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - RLS, grants, cron job, function privileges, contact count: **NOT VERIFIED**. `execute_sql` needs the same MCP. No query was sent.
+  - tsc: **NOT VERIFIED**. The brief says tsc runs after the session.
+  - eslint: **NOT VERIFIED**. The brief says eslint runs after the session.
+  - Phone: nothing changes on screen yet (the field screens come in CRM-5 C). Insights still loads. No browser in this session, so Insights was not opened.
+- **Deviations from brief:** EDITs 7 and 8 were not done. The Supabase MCP cannot authenticate in this headless session. The SQL was left exactly as given. Types were not hand-written. No other apply path was used.
+- **Not done / deferred:** Apply migration 037 on project `xerxsaptwpvhkkpyvkfi` and regenerate `lib/supabase/types.ts` once the Supabase MCP is authenticated in the Cursor desktop IDE. The five live SELECT checks. A browser. tsc and eslint in this session (they run after). Did not commit. No new table row. No `client_event_id`. No CRM call. Backfill was not run. No `crm_name` was set.
+- **Follow-ups:** Authenticate the Supabase MCP, apply `037_crm_canvasser` with the SQL in the migration file, regenerate types, and run the five SELECT checks. The owner sets `crm_name` after landing. Wayne to OK before canvassers use the phone numbers. Field screens are CRM-5 C.
+
+- **Follow-up done (2026-10-11 22:15, Claude, owner-approved "Approve 037 apply"):** Claude applied `037_crm_canvasser` to `xerxsaptwpvhkkpyvkfi` through its own Supabase MCP, using the file in this tree unchanged (md5 c06abfd0ef685893287f759826c9b588). It regenerated `lib/supabase/types.ts` (+162 lines, additions only). SELECT checks: RLS is on for `crm_contacts` and `crm_callbacks`. `authenticated` has SELECT on `crm_contacts` and INSERT,SELECT on `crm_callbacks`. Nothing is granted to anon. Cron job `crm-contacts-purge` `20 3 * * *` is active. All 7 functions refuse anon. `crm_contacts` has 0 rows. tsc, `verify:crm`, `verify:ui10` and `verify:ui1` pass with the real types.

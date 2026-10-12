@@ -57,7 +57,25 @@ Terra Draw, Dexie, Vercel.
   counts only. The URL and secret live in Supabase Vault (`crm_sync_url`,
   `crm_sync_secret`) and in Vercel env, never in the repo.
 - CRM outcomes are previous-visit quality signals: admin and office only,
-  never in any `/field` route.
+  never in any `/field` route, EXCEPT the P4b exceptions below.
+- P4b canvasser CRM views (owner 2026-10-11): a canvasser may see their OWN
+  CRM leads (matched by `profiles.crm_name` + `crm_branch`), the Bristol
+  leaderboard (leads, sold, pitched, £ for everyone) and their call-back list
+  in `/field`. These are the only ranking/quality signals allowed in `/field`.
+  Previous-visit outcome colour on the map stays banned.
+- Call-back contacts (owner 2026-10-11, Wayne to OK before go-live): for
+  call-back leads only, `crm_contacts` stores title, surname and phone /
+  alt phone. Never first name, email, notes or best time. Readable only by
+  the lead's own canvasser (not admin, not office). Rows are deleted 90 days
+  after the lead was created (pg_cron `crm-contacts-purge`, migration 037).
+  Only `lib/crm/parse.ts` reads `cf_877`, `lastname`, `phone`, `cf_1014`.
+- Call-back reason (owner 2026-10-11): `crm_leads.callback_reason` is a label
+  worked out in `lib/crm/parse.ts` from status plus Result / Rep Result
+  keywords. TITC, RITC, cancelled, not interested, changed mind, wrong number
+  and already-done always mean no call-back. The note text is never stored.
+- Call results (`crm_callbacks`) are written from the field through
+  `lib/sync/queue.ts` only (op `crm_callback`), insert-only, never sent to
+  the CRM.
 
 ## Structure
 

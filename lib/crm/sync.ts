@@ -18,6 +18,7 @@ import {
   CrmParseError,
   isoToCrmStamp,
   parseCrmLead,
+  type CallbackReason,
   type SaleAmountSource,
   type AppCrmStatus,
   type CrmDatetimeZone,
@@ -63,6 +64,11 @@ export type CrmSyncSummary = {
   priceSources: Record<string, number>;
   /** Sold leads with no price anywhere, by CRM created month (YYYY-MM, UTC). */
   soldWithoutPrice: Record<string, number>;
+  /** CRM-5: leads booked in the last 90 days by call-back reason (or "not a call-back"). Counts only. */
+  callbackReasons: Record<string, number>;
+  /** CRM-5: crm_contacts rows written / removed this run (would be, on a dry run). */
+  contactsStored: number;
+  contactsRemoved: number;
   matchCounts: Record<MatchTier, number>;
   appLeadsLinked: number;
   appLeadsAmbiguous: number;
@@ -89,10 +95,25 @@ type CrmLeadRecord = {
   location: string | null;
   match_tier: MatchTier;
   canvasser_first_name: string | null;
+  callback_reason: CallbackReason | null;
 };
 
 const COMPARE_COLUMNS =
-  "crm_id, lead_no, status_raw, status, crm_created_at, crm_modified_at, appointment_at, branch, sale_amount, postcode, postcode_sector, uprn, location, match_tier, canvasser_first_name";
+  "crm_id, lead_no, status_raw, status, crm_created_at, crm_modified_at, appointment_at, branch, sale_amount, postcode, postcode_sector, uprn, location, match_tier, canvasser_first_name, callback_reason";
+
+/** CRM-5 (owner 2026-10-11): contacts are kept for call-back leads booked in the last 90 days, then purged. */
+export const CONTACT_DAYS = 90;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** True when a lead's contact belongs in crm_contacts: it has a call-back reason and was booked under 90 days ago. */
+export function keepsContact(lead: Pick<ParsedCrmLead, "callback_reason" | "crm_created_at">, now: Date): boolean {
+  return lead.callback_reason !== null && now.getTime() - Date.parse(lead.crm_created_at) < CONTACT_DAYS * DAY_MS;
+}
+
+/** Lead date + 90 days, as a date (UTC). */
+export function purgeAfter(createdIso: string): string {
+  return new Date(Date.parse(createdIso) + CONTACT_DAYS * DAY_MS).toISOString().slice(0, 10);
+}
 
 function chunk<T>(items: readonly T[], size: number): T[][] {
   const out: T[][] = [];
@@ -148,7 +169,8 @@ export function recordUnchanged(next: CrmLeadRecord, stored: StoredRecord): bool
     next.postcode_sector === stored.postcode_sector &&
     (next.uprn ?? null) === (stored.uprn ?? null) &&
     next.match_tier === stored.match_tier &&
-    next.canvasser_first_name === stored.canvasser_first_name
+    next.canvasser_first_name === stored.canvasser_first_name &&
+    (next.callback_reason ?? null) === (stored.callback_reason ?? null)
   );
 }
 
@@ -219,6 +241,7 @@ function toRecord(lead: ParsedCrmLead, match: MatchResult | undefined): CrmLeadR
     location: placed ? `SRID=4326;POINT(${match.lon} ${match.lat})` : null,
     match_tier: tier,
     canvasser_first_name: lead.canvasser_first_name,
+    callback_reason: lead.callback_reason,
   };
 }
 
@@ -319,6 +342,35 @@ async function linkAppLeads(db: SupabaseClient, dryRun: boolean): Promise<{ link
   return { linked, ambiguous };
 }
 
+/**
+ * CRM-5 (owner 2026-10-11): phone, title and surname for call-back leads
+ * booked in the last 90 days, into crm_contacts (readable only by that
+ * canvasser; purged by pg_cron after 90 days). Leads in this run that no
+ * longer qualify lose their row straight away. Nothing about a contact is
+ * logged; only counts come back.
+ */
+async function writeContacts(db: SupabaseClient, parsed: readonly ParsedCrmLead[], dryRun: boolean): Promise<{ stored: number; removed: number }> {
+  const now = new Date();
+  const keep = parsed.filter((l) => keepsContact(l, now));
+  const drop = parsed.filter((l) => !keepsContact(l, now)).map((l) => l.crm_id);
+  if (dryRun) return { stored: keep.length, removed: 0 };
+  const syncedAt = now.toISOString();
+  for (const batch of chunk(keep, WRITE_BATCH)) {
+    const { error } = await db.from("crm_contacts").upsert(
+      batch.map((l) => ({ crm_id: l.crm_id, ...l.contact, purge_after: purgeAfter(l.crm_created_at), synced_at: syncedAt })),
+      { onConflict: "crm_id" },
+    );
+    if (error) throw new Error(`crm_contacts write: ${error.message}`);
+  }
+  let removed = 0;
+  for (const ids of chunk(drop, WRITE_BATCH)) {
+    const { error, count } = await db.from("crm_contacts").delete({ count: "exact" }).in("crm_id", ids);
+    if (error) throw new Error(`crm_contacts clear: ${error.message}`);
+    removed += count ?? 0;
+  }
+  return { stored: keep.length, removed };
+}
+
 export async function runCrmSync(db: SupabaseClient, crm: CrmReader, options: CrmSyncOptions): Promise<CrmSyncSummary> {
   const { log } = options;
   let runId: string | null = null;
@@ -359,10 +411,14 @@ export async function runCrmSync(db: SupabaseClient, crm: CrmReader, options: Cr
     const unknownStatuses: Record<string, number> = {};
     const matchCounts = Object.fromEntries(MATCH_TIERS.map((t) => [t, 0])) as Record<MatchTier, number>;
     const priceSources: Record<string, number> = {};
+    const callbackReasons: Record<string, number> = {};
     const soldWithoutPrice: Record<string, number> = {};
     for (const lead of parsed) {
       bump(statusCounts, lead.status ?? (lead.status_unknown ? `unknown: ${lead.status_raw}` : "no outcome"));
       if (lead.status_unknown && lead.status_raw) bump(unknownStatuses, lead.status_raw);
+      if (Date.now() - Date.parse(lead.crm_created_at) < CONTACT_DAYS * DAY_MS) {
+        bump(callbackReasons, lead.callback_reason ?? "not a call-back");
+      }
       if (lead.status === "sale") {
         bump(priceSources, lead.sale_amount_source ? PRICE_SOURCE_LABEL[lead.sale_amount_source] : "no price anywhere");
         if (!lead.sale_amount_source) bump(soldWithoutPrice, lead.crm_created_at.slice(0, 7));
@@ -395,6 +451,8 @@ export async function runCrmSync(db: SupabaseClient, crm: CrmReader, options: Cr
       }
     }
 
+    const contacts = await writeContacts(db, parsed, options.dryRun);
+
     const links = await linkAppLeads(db, options.dryRun);
 
     const newestModified = parsed.reduce<string | null>(
@@ -415,6 +473,9 @@ export async function runCrmSync(db: SupabaseClient, crm: CrmReader, options: Cr
       unknownStatuses,
       priceSources,
       soldWithoutPrice,
+      callbackReasons,
+      contactsStored: contacts.stored,
+      contactsRemoved: contacts.removed,
       matchCounts,
       appLeadsLinked: links.linked,
       appLeadsAmbiguous: links.ambiguous,

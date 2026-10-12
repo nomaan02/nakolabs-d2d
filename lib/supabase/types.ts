@@ -250,10 +250,97 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_callbacks: {
+        Row: {
+          call_back_on: string | null
+          called_at: string
+          canvasser_id: string
+          client_event_id: string
+          created_at: string
+          crm_id: string
+          id: string
+          result: string
+        }
+        Insert: {
+          call_back_on?: string | null
+          called_at: string
+          canvasser_id: string
+          client_event_id: string
+          created_at?: string
+          crm_id: string
+          id?: string
+          result: string
+        }
+        Update: {
+          call_back_on?: string | null
+          called_at?: string
+          canvasser_id?: string
+          client_event_id?: string
+          created_at?: string
+          crm_id?: string
+          id?: string
+          result?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_callbacks_canvasser_id_fkey"
+            columns: ["canvasser_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_callbacks_crm_id_fkey"
+            columns: ["crm_id"]
+            isOneToOne: false
+            referencedRelation: "crm_leads"
+            referencedColumns: ["crm_id"]
+          },
+        ]
+      }
+      crm_contacts: {
+        Row: {
+          alt_phone: string | null
+          crm_id: string
+          phone: string | null
+          purge_after: string
+          surname: string | null
+          synced_at: string
+          title: string | null
+        }
+        Insert: {
+          alt_phone?: string | null
+          crm_id: string
+          phone?: string | null
+          purge_after: string
+          surname?: string | null
+          synced_at?: string
+          title?: string | null
+        }
+        Update: {
+          alt_phone?: string | null
+          crm_id?: string
+          phone?: string | null
+          purge_after?: string
+          surname?: string | null
+          synced_at?: string
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_contacts_crm_id_fkey"
+            columns: ["crm_id"]
+            isOneToOne: true
+            referencedRelation: "crm_leads"
+            referencedColumns: ["crm_id"]
+          },
+        ]
+      }
       crm_leads: {
         Row: {
           appointment_at: string | null
           branch: string
+          callback_reason: string | null
           canvasser_first_name: string | null
           crm_created_at: string
           crm_id: string
@@ -273,6 +360,7 @@ export type Database = {
         Insert: {
           appointment_at?: string | null
           branch: string
+          callback_reason?: string | null
           canvasser_first_name?: string | null
           crm_created_at: string
           crm_id: string
@@ -292,6 +380,7 @@ export type Database = {
         Update: {
           appointment_at?: string | null
           branch?: string
+          callback_reason?: string | null
           canvasser_first_name?: string | null
           crm_created_at?: string
           crm_id?: string
@@ -694,6 +783,8 @@ export type Database = {
         Row: {
           active: boolean
           created_at: string
+          crm_branch: string | null
+          crm_name: string | null
           full_name: string | null
           id: string
           role: string
@@ -701,6 +792,8 @@ export type Database = {
         Insert: {
           active?: boolean
           created_at?: string
+          crm_branch?: string | null
+          crm_name?: string | null
           full_name?: string | null
           id: string
           role: string
@@ -708,6 +801,8 @@ export type Database = {
         Update: {
           active?: boolean
           created_at?: string
+          crm_branch?: string | null
+          crm_name?: string | null
           full_name?: string | null
           id?: string
           role?: string
@@ -1554,6 +1649,10 @@ export type Database = {
         Args: { p_active: boolean; p_profile_id: string }
         Returns: boolean
       }
+      admin_set_crm_name: {
+        Args: { p_crm_branch: string; p_crm_name: string; p_profile_id: string }
+        Returns: undefined
+      }
       allocate_prop: {
         Args: {
           canvasser_ids: string[]
@@ -1611,6 +1710,15 @@ export type Database = {
         }[]
       }
       coverage_map_payload: { Args: never; Returns: Json }
+      crm_canvasser_names: {
+        Args: never
+        Returns: {
+          branch: string
+          canvasser: string
+          latest: string
+          leads: number
+        }[]
+      }
       crm_door_history: {
         Args: never
         Returns: {
@@ -1639,6 +1747,18 @@ export type Database = {
         }[]
       }
       crm_insights: { Args: { p_from?: string; p_to?: string }; Returns: Json }
+      crm_leaderboard: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          branch: string
+          canvasser: string
+          leads: number
+          pitched: number
+          revenue: number
+          sales_with_amount: number
+          sold: number
+        }[]
+      }
       crm_match_batch: {
         Args: { p_rows: Json }
         Returns: {
@@ -1794,6 +1914,48 @@ export type Database = {
       }
       logging_default: { Args: never; Returns: string }
       longtransactionsenabled: { Args: never; Returns: boolean }
+      my_crm_branch: { Args: never; Returns: string }
+      my_crm_callbacks: {
+        Args: { p_days: number }
+        Returns: {
+          alt_phone: string
+          appointment_at: string
+          building_name: string
+          call_back_on: string
+          callback_reason: string
+          crm_created_at: string
+          crm_id: string
+          house_number: string
+          last_called_at: string
+          last_result: string
+          phone: string
+          postcode_sector: string
+          status: string
+          street_name: string
+          surname: string
+          title: string
+          uprn: number
+        }[]
+      }
+      my_crm_leads: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          appointment_at: string
+          building_name: string
+          callback_reason: string
+          crm_created_at: string
+          crm_id: string
+          house_number: string
+          lat: number
+          lon: number
+          postcode_sector: string
+          sale_amount: number
+          status: string
+          street_name: string
+          uprn: number
+        }[]
+      }
+      my_crm_name: { Args: never; Returns: string }
       nccz_zones_geojson: { Args: never; Returns: Json }
       populate_geometry_columns:
         | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }

@@ -10,6 +10,12 @@
  * (cf_867) or "Rep Result" (cf_881) box instead. Those two boxes are read
  * here, on the server, for Sold leads only; only the price number leaves this
  * file. The text itself is never stored, logged or returned.
+ *
+ * Owner 2026-10-11 (CRM-5, P4b): the same notes decide whether a lead goes on
+ * its canvasser's call-back list (`callbackReason`); only the reason label
+ * leaves this file. For call-back leads the title, surname and phone numbers
+ * are read too (`contact`); lib/crm/sync.ts stores them in crm_contacts for
+ * 90 days, readable only by that canvasser. First names are never read.
  */
 
 export const CRM_LEAD_FIELDS = [
@@ -27,7 +33,14 @@ export const CRM_LEAD_FIELDS = [
   "cf_867",
   "cf_879",
   "cf_881",
+  "cf_877",
+  "lastname",
+  "phone",
+  "cf_1014",
 ] as const;
+
+/** Contact fields (CRM-5): Title, Last Name, Primary Phone, Alt Phone. Never First Name. */
+export const CRM_CONTACT_FIELDS = ["cf_877", "lastname", "phone", "cf_1014"] as const;
 
 /** Free-text boxes read only for a price, never stored (owner 2026-10-11). */
 export const CRM_PRICE_TEXT_FIELDS = ["cf_867", "cf_881"] as const;
@@ -50,6 +63,13 @@ export type MatchInput = {
   street: string | null;
 };
 
+/** Why a lead belongs on its canvasser's call-back list (CRM-5). */
+export const CALLBACK_REASONS = ["utc", "no_outcome", "reapp", "single_sit", "not_convenient", "no_time", "rta", "rearrange", "no_answer"] as const;
+export type CallbackReason = (typeof CALLBACK_REASONS)[number];
+
+/** Held in memory for one sync; stored only for call-back leads (crm_contacts). */
+export type CrmContact = { title: string | null; surname: string | null; phone: string | null; alt_phone: string | null };
+
 export type ParsedCrmLead = {
   crm_id: string;
   lead_no: string | null;
@@ -62,6 +82,8 @@ export type ParsedCrmLead = {
   branch: string;
   sale_amount: number | null;
   sale_amount_source: SaleAmountSource | null;
+  callback_reason: CallbackReason | null;
+  contact: CrmContact;
   postcode: string | null;
   postcode_sector: string | null;
   canvasser_first_name: string | null;
@@ -188,6 +210,68 @@ export function leadSaleAmount(
   return { amount: null, source: null };
 }
 
+// ---- call-back list (owner 2026-10-11, CRM-5) --------------------------------
+
+/** Any of these in the notes keeps a lead OFF the list, whatever else matches. */
+const CALLBACK_NEVER: readonly RegExp[] = [
+  /\b(titc|ritc)\b/i, // texted / rang in to cancel
+  /\bcancel(l?ed|s|ling|lation)?\b/i,
+  /not interested|\bn\/i\b|no interest/i,
+  /chang(ed|e of) (their |her |his )?mind/i,
+  /wrong (number|no\b|num)/i,
+  /already (had|got|has|have|done)|had (it|them|the windows?|the doors?|windows?|doors?) done|\bwithin (the last )?\d+ ?(years?|yrs?)\b/i,
+  /do not (call|contact)|don'?t (call|contact)|deceased|passed away/i,
+];
+
+/** Blowout notes that make a lead worth ringing back, in priority order. */
+const CALLBACK_BLOWOUT: readonly [CallbackReason, RegExp][] = [
+  ["single_sit", /single sit|\b(1|one)[ -]?leg(ger)?\b|\b(partner|hubby|husband|wife|other half)\b.{0,25}\b(not|wasn'?t|isn'?t|out|away|work|working|late)\b/i],
+  ["not_convenient", /\b(not|wasn'?t|isn'?t|wasnt|isnt) (a )?(convenient|good time)|inconvenient|bad time/i],
+  ["no_time", /\bno time\b|(didn'?t|did not|don'?t|dont|didnt) have (the )?time|not enough time|running late|in a rush|had to (go|leave)|\bbusy\b/i],
+  ["rta", /\brta\b/i],
+  ["rearrange", /call ?back|ring back|re-?book|re-?arrange|re-?app|another (day|time)|next week|tomorrow/i],
+  ["no_answer", /no answer|\bnot in\b|nobody (in|home)|no show|didn'?t answer/i],
+  ["utc", /\butc\b/i],
+];
+
+/**
+ * UTC, no outcome and Re-App are always call-backs; a Blowout is one when its
+ * notes give a reason. Any "never" note (cancelled, not interested, wrong
+ * number, already done …) wins. Returns the label only; the notes stay here.
+ */
+export function callbackReason(
+  status: AppCrmStatus | null,
+  statusUnknown: boolean,
+  resultText: string | null | undefined,
+  repResultText: string | null | undefined,
+): CallbackReason | null {
+  if (statusUnknown) return null;
+  const notes = `${resultText ?? ""} ${repResultText ?? ""}`.replace(/\s+/g, " ");
+  if (CALLBACK_NEVER.some((re) => re.test(notes))) return null;
+  if (status === "utc") return "utc";
+  if (status === null) return "no_outcome";
+  if (status === "re_app") return "reapp";
+  if (status !== "blowout") return null;
+  for (const [reason, re] of CALLBACK_BLOWOUT) if (re.test(notes)) return reason;
+  return null;
+}
+
+/** '07700 900 123' -> '07700900123'; '+44 7700…' kept with its +; blank or under 7 digits -> null. */
+export function tidyPhone(raw: string | null | undefined): string | null {
+  const text = (raw ?? "").trim();
+  const digits = text.replace(/[^\d]/g, "");
+  if (digits.length < 7 || digits.length > 15) return null;
+  return text.startsWith("+") ? `+${digits}` : digits;
+}
+
+/** 'SMITH' or 'smith' -> 'Smith'; mixed case kept as typed ('McDonald'). */
+export function tidyName(raw: string | null | undefined): string | null {
+  const text = (raw ?? "").replace(/\s+/g, " ").trim();
+  if (!text) return null;
+  if (text !== text.toUpperCase() && text !== text.toLowerCase()) return text;
+  return text.toLowerCase().replace(/(^|[\s'-])([a-z])/g, (_m, sep: string, c: string) => sep + c.toUpperCase());
+}
+
 export type StatusResult = { status_raw: string | null; status: AppCrmStatus | null; unknown: boolean };
 
 /** Blank -> "No outcome" (null). A value missing from the map is kept raw and flagged, never guessed. */
@@ -269,6 +353,8 @@ export function parseCrmLead(
   const street = parseStreetLine(row.lane);
   const status = mapCrmStatus(row.leadstatus, statusMap);
   const sale = leadSaleAmount(status.status, row.cf_861, row.cf_867, row.cf_881);
+  const phone = tidyPhone(row.phone);
+  const altPhone = tidyPhone(row.cf_1014);
   return {
     crm_id: row.id,
     lead_no: (row.lead_no ?? "").trim() || null,
@@ -281,6 +367,8 @@ export function parseCrmLead(
     branch: (row.cf_879 ?? "").trim() || "Unknown",
     sale_amount: sale.amount,
     sale_amount_source: sale.source,
+    callback_reason: callbackReason(status.status, status.unknown, row.cf_867, row.cf_881),
+    contact: { title: tidyName(row.cf_877), surname: tidyName(row.lastname), phone: phone ?? altPhone, alt_phone: phone ? altPhone : null },
     postcode,
     postcode_sector: postcodeSector(postcode),
     canvasser_first_name: canvasserFirstName(row.cf_865),

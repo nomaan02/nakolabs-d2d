@@ -57,6 +57,8 @@ async function main(): Promise<void> {
     table("Status (app vocabulary)", summary.statusCounts);
     table("Unknown CRM statuses (not in crm_status_map)", summary.unknownStatuses);
     table("Sold leads: where the price came from", summary.priceSources);
+    table("Leads booked in the last 90 days: call-back reason", summary.callbackReasons);
+    console.log(`\nCall-back contacts ${write ? "stored / removed" : "that would be stored"}: ${summary.contactsStored}${write ? ` / ${summary.contactsRemoved}` : ""}`);
     console.log("\nSold leads with no price anywhere, by month created");
     for (const [month, n] of Object.entries(summary.soldWithoutPrice).sort((a, b) => a[0].localeCompare(b[0]))) {
       console.log(`  ${month}  ${String(n).padStart(4)}`);
