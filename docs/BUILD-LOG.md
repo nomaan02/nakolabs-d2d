@@ -1464,3 +1464,35 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none
 - **Not done / deferred:** A phone check that a knock still syncs. No browser. Did not commit. No new table row. No `client_event_id`. No CRM call. Field screens that tick a result are CRM-5 C.
 - **Follow-ups:** CRM-5 C builds the canvasser screens. Wayne to OK before canvassers use call-back phones.
+
+### CRM-5 Session U — username sign-in and accounts:create
+- **Date:** 2026-10-12
+- **Model:** Grok 4.7
+- **Built:** A canvasser can sign in with a username. Supabase still stores an email: `<username>@users.nakolabs-d2d.invalid`. Anything typed with an "@" is used as a real email. `/login` has one box, "Username or email". "Signed in as" shows the username when the account has no name. `npm run accounts:create` is a dry run by default. It was not run with `--write`. No account was created. No database call. No CRM call.
+- **Owner decisions:**
+  - OWNER — 2026-10-12: canvassers have no work emails yet: create accounts with usernames. Accounts for the CRM names Nomaan, Thomas (Tom), Blake, Tyron (Tyrone), Tito, Mohamed and Wayne, all CRM branch "HO Bristol". Wayne is an admin. Nomaan's existing admin account is linked, not recreated.
+- **Claude decisions:**
+  - CLAUDE — `lib/auth/username.ts`: a username is stored in Supabase Auth as `<username>@users.nakolabs-d2d.invalid`. `.invalid` is reserved (RFC 2606), so no email can ever be sent to it. Anything typed with an "@" is used as a real email, so existing accounts sign in as before.
+  - CLAUDE — `/login`: one box "Username or email" (`type="text"`, `autoComplete="username"`, no auto-capitalise). The error is now "Incorrect username or password."
+  - CLAUDE — "Signed in as" shows the username, never the hidden email, when an account has no name (admin, field and office layouts).
+  - CLAUDE — `scripts/create-accounts.ts` (`npm run accounts:create`): dry run by default. `--user username:CRM name:role` creates an account with `email_confirm` (no email is sent) and a 12-character temporary password, printed once on the owner's screen. `--link email:CRM name` links an existing account. `--branch` sets the CRM branch. It refuses to write if any CRM name has no CRM leads or a linked email has no account. It stops at the first failure. An account that already exists keeps its password.
+  - CLAUDE — The invite-by-email flow in Settings is unchanged.
+- **Acceptance:**
+  - EDIT 1 DONE. New `lib/auth/username.ts`, 38 lines, pasted as given.
+  - EDIT 2 DONE. New `scripts/create-accounts.ts`, 172 lines, pasted as given.
+  - EDIT 3 DONE. `lib/auth/actions.ts` replaced, 81 lines, pasted as given.
+  - EDIT 4 DONE. `app/(auth)/login/page.tsx` replaced, 76 lines, pasted as given.
+  - EDIT 5 DONE. `scripts/verify-crm.ts` replaced, 419 lines, pasted as given.
+  - EDIT 6 DONE. `app/(admin)/layout.tsx`: `accountLabel` import and shell name.
+  - EDIT 7 DONE. `app/(field)/layout.tsx`: `accountLabel` import and `signedInAs`.
+  - EDIT 8 DONE. `app/(office)/office/page.tsx`: `accountLabel` import and "Signed in as".
+  - EDIT 9 DONE. `package.json` script `accounts:create`.
+  - `npm run verify:crm`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run accounts:create` with no arguments: **PASS** — printed `Nothing to do. Add --user or --link.` and exited 1. No database call.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0.
+  - eslint: **PASS** — `npx eslint` on the eight TypeScript files exit 0.
+  - Phone: no browser. After landing, sign out and sign back in with an email on the live app. Then the owner runs `accounts:create` and signs in as one canvasser by username.
+- **Deviations from brief:** none
+- **Not done / deferred:** The owner runs `accounts:create` after landing. This session did not create an account, did not link Nomaan, and did not call the database or the CRM. No browser. Did not commit.
+- **Follow-ups:** Owner runs the dry run, then `--write`, for Nomaan (link), Thomas, Blake, Tyron, Tito, Mohamed and Wayne (admin), branch "HO Bristol". Hand the temporary passwords over in person.

@@ -2,28 +2,30 @@
 
 ## Current state
 
-- Last updated: 2026-10-12 (CRM-5 Session B). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Call results now have an offline-queue op. `lib/sync/ops.ts` (317 lines) adds kind `crm_callback`. `lib/sync/queue.ts` (632 lines) inserts that payload into `crm_callbacks` (step `callback`). A re-sent call that comes back 23505 counts as done. `scripts/verify-crm.ts` (405 lines) checks validation and `sendOp` against a fake client. All three files were pasted as given. No Dexie version bump. `lib/field/db.ts` was not edited.
-- `lib/supabase/types.ts` already has table `crm_callbacks` (dependency check passed). This session did not regenerate types and did not query the database. The 2026-10-11 follow-up on CRM-5 A records that migration 037 was applied and types were regenerated. This session did not re-check the live database.
-- This session made no CRM call. No table row. No `client_event_id`. No phone number, surname or CRM note was printed.
-- `npm run verify:crm` exit 0. Last line: `ALL PASS`. `npm run verify:ui1` exit 0. Last line: `OK`. `npx tsc --noEmit` exit 0. `npx eslint` on the three pasted files exit 0.
-- No browser. Phone check: logging a knock still syncs was not opened on a phone. The knock branch of `sendOp` is still knock, then lead, then tenure observation.
-- CRM-5 B tracker row added after CRM-5 A. Status DONE. Date 2026-10-12. Result: `Offline queue: crm_callback op (call results synced to crm_callbacks).` Commit column `—`.
-- `lib/crm` was not edited. Nothing under `app/` or `components/` was edited. No migration was edited. `lib/map/route-layers.ts` and `lib/geo/walk/*` were not edited. No `/field` file reads CRM data (`verify:crm`). No quality scoring screen was added in `/field`. Field writes still go through `lib/sync/queue.ts` only.
+- Last updated: 2026-10-12 (CRM-5 Session U). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Canvassers sign in with a username. `lib/auth/username.ts` (38 lines) stores it as `<username>@users.nakolabs-d2d.invalid`. A typed value that contains "@" is used as a real email. `/login` (`app/(auth)/login/page.tsx`, 76 lines) has one box, "Username or email". The credentials error is "Incorrect username or password." `lib/auth/actions.ts` (81 lines) maps the box through `loginEmail`.
+- "Signed in as" uses `accountLabel`: the username when there is no name, otherwise the email. Changed in `app/(admin)/layout.tsx`, `app/(field)/layout.tsx` and `app/(office)/office/page.tsx`.
+- `scripts/create-accounts.ts` (172 lines) is `npm run accounts:create`. Dry run unless `--write`. This session ran it with no arguments only. It printed `Nothing to do. Add --user or --link.` and exited 1, before any database call. No account was created. Nomaan was not linked. No CRM call.
+- `scripts/verify-crm.ts` (419 lines) adds the seven username checks. `npm run verify:crm` exit 0. Last line: `ALL PASS`. `npm run verify:ui10` exit 0. Last line: `ALL PASS`. `npx tsc --noEmit` exit 0. `npx eslint` on the eight TypeScript files exit 0.
+- No browser. Phone check is after landing: sign out and sign back in with an email on the live app, then the owner runs `accounts:create` and signs in as one canvasser by username.
+- CRM-5 U tracker row added after CRM-5 B. Status DONE. Date 2026-10-12. Result: `Sign in with a username; accounts:create script makes canvasser accounts linked to their CRM name.` Commit column `—`.
+- Invite-by-email in Settings was not changed. `middleware.ts`, `lib/supabase/*`, `app/auth/confirm`, set-password, signup, `lib/admin/accounts.ts`, migrations, `lib/sync`, `lib/crm` and `components/field` were not edited.
+- No table row. No `client_event_id`. No magic link. Password, profile and role were not changed.
+- Call results from CRM-5 B remain: kind `crm_callback` in `lib/sync/queue.ts`, insert into `crm_callbacks`. This session did not edit that file. Field writes still go through `lib/sync/queue.ts` only. No quality scoring was added in `/field`. No GPS left the device. `verify:crm` still reports no `/field` file reads CRM data.
 - CRM sync schedule from CRM-4 remains: every 30 minutes, about 05:00 to 21:00 London. Migration 036 remains applied. No Vault secret was created this session.
 - Sale price from CRM-3 remains: Sale Amount, else Result, else Rep Result, number only, in `lib/crm/parse.ts`.
 - Dark-ready paths are unchanged: `/admin/props`, `/admin/today`, `/admin/calendar`, `/admin/coverage`, `/admin/team`, `/admin/leads`, `/admin/insights`, `/admin/settings`.
 - Redirects are unchanged: `/admin` → `/admin/today`, `/admin/allocate` → Today or Add visit when `?prop=` is set, `/admin/dashboard` → `/admin/insights`.
+- Migration 037 remains applied (follow-up 2026-10-11). This session did not re-check the live database and did not regenerate types.
 - Migration 035 remains applied. `crm_insights` is the London-day body. `crm_heat_grid` and `crm_door_history` are unchanged from 034.
 - Migration 033 remains applied. `crm_norm_street` and `crm_match_batch` are unchanged.
 - Migration 032 remains applied. This session did not recount rows.
 - Migration 031 `admin_latest_knocks` remains applied. Calendar, Coverage and Team still read through it.
 - Migration 030 remains applied. `/field` still opens for a canvasser and for the admin. Office stays out. `/api/cron/` stays outside the session matcher.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
-- No magic link this session. Password, profile and role were not changed.
-- External settings: none. The owner sets `crm_name` after landing. Wayne to OK before canvassers use call-back phones. Field screens that tick a call result are CRM-5 C. This session did not build them.
+- External settings: none. The owner runs `accounts:create` after landing (dry run, then `--write`) for Nomaan (link the existing admin), Thomas, Blake, Tyron, Tito, Mohamed and Wayne (admin), branch "HO Bristol". Wayne to OK before canvassers use call-back phones. Field screens that tick a call result are CRM-5 C. This session did not build them.
 - Migration 029 `admin_set_canvasser_active` remains applied from F5f.
-- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-5 A remain DONE. CRM-5 B file work is in the tree.
+- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-5 B remain DONE. CRM-5 U file work is in the tree.
 
 ## Log
 
@@ -3062,3 +3064,27 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** Logging a knock still syncs, on a phone. No browser. No live insert into `crm_callbacks`.
 - **External settings:** none
 - **Open questions for Claude:** none from this session. Field screens that tick a call result are CRM-5 C. Wayne to OK before canvassers use call-back phones.
+
+### 2026-10-12 — CRM-5 Session U (uncommitted)
+
+- **Item:** other
+- **What changed:** Canvassers can sign in with a username. The login box takes a username or an email. A username is stored as `<username>@users.nakolabs-d2d.invalid`, a reserved domain, so no mail can be sent to it. A real email is used as typed. "Signed in as" shows the username when the account has no name. `npm run accounts:create` checks the plan and writes nothing unless `--write` is passed. This session did not create an account and did not call the database or the CRM.
+- **Files:**
+  - Changed: `lib/auth/actions.ts`, `app/(auth)/login/page.tsx`, `scripts/verify-crm.ts`, `app/(admin)/layout.tsx`, `app/(field)/layout.tsx`, `app/(office)/office/page.tsx`, `package.json`, `docs/FIELD-TEST-BUILD-PLAN.md` (CRM-5 U row after CRM-5 B), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `lib/auth/username.ts`, `scripts/create-accounts.ts`, `.handoff/reports/crm-5-u.md`
+  - Deleted: none
+- **Database:** none. No migration. No account. No table row. No `client_event_id`. No CRM call.
+- **Shared modules touched:** none. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. `lib/crm` was not edited.
+- **Decided by:**
+  - OWNER — 2026-10-12: canvassers have no work emails yet: create accounts with usernames. Accounts for the CRM names Nomaan, Thomas (Tom), Blake, Tyron (Tyrone), Tito, Mohamed and Wayne, all CRM branch "HO Bristol". Wayne is an admin. Nomaan's existing admin account is linked, not recreated.
+  - CLAUDE — `lib/auth/username.ts`: a username is stored in Supabase Auth as `<username>@users.nakolabs-d2d.invalid`. `.invalid` is reserved (RFC 2606), so no email can ever be sent to it. Anything typed with an "@" is used as a real email, so existing accounts sign in as before.
+  - CLAUDE — `/login`: one box "Username or email" (`type="text"`, `autoComplete="username"`, no auto-capitalise). The error is now "Incorrect username or password."
+  - CLAUDE — "Signed in as" shows the username, never the hidden email, when an account has no name (admin, field and office layouts).
+  - CLAUDE — `scripts/create-accounts.ts` (`npm run accounts:create`): dry run by default. `--user username:CRM name:role` creates an account with `email_confirm` (no email is sent) and a 12-character temporary password, printed once on the owner's screen. `--link email:CRM name` links an existing account. `--branch` sets the CRM branch. It refuses to write if any CRM name has no CRM leads or a linked email has no account. It stops at the first failure. An account that already exists keeps its password.
+  - CLAUDE — The invite-by-email flow in Settings is unchanged.
+- **Deviations from plan or brief:** none. The given files were pasted exactly. `accounts:create` was run with no arguments only.
+- **Invariants:** No device GPS and no coordinates left the device. No quality scoring was added in `/field`. Field writes still go through `lib/sync/queue.ts` only. That file was not edited. Coverage stays derived. No `/field` file reads CRM data (`verify:crm`).
+- **Verified:** The five pasted files match the brief (38, 172, 81, 76 and 419 lines). `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. `npm run accounts:create` with no arguments printed `Nothing to do. Add --user or --link.` and exited 1. `npx tsc --noEmit` exit 0. `npx eslint` on the eight TypeScript files exit 0.
+- **Not verified:** A browser. A phone. Signing in with a real email on the live app. Creating or linking any account. A username sign-in.
+- **External settings:** none
+- **Open questions for Claude:** none from this session. The owner runs `accounts:create` after landing. Wayne to OK before canvassers use call-back phones. Field screens that tick a call result are CRM-5 C.

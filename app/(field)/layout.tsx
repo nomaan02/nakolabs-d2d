@@ -12,6 +12,7 @@ import { RegisterServiceWorker } from "@/components/pwa/register-sw";
 import { getOwnProfile } from "@/lib/auth/profile";
 import { THEME_BOOT_SCRIPT } from "@/lib/field/theme";
 import { createClient } from "@/lib/supabase/server";
+import { accountLabel } from "@/lib/auth/username";
 
 /**
  * Sora, for the field app only (owner decision 9, P1 — including the data
@@ -52,7 +53,7 @@ export default async function FieldLayout({ children }: { children: ReactNode })
       <RegisterServiceWorker />
       <FieldThemeSync />
       <FieldDataProvider
-        signedInAs={profile?.full_name ?? user?.email ?? ""}
+        signedInAs={profile?.full_name ?? accountLabel(user?.email)}
         role={profile?.role ?? "canvasser"}
       >
         <GeoProvider>

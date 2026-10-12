@@ -1,6 +1,7 @@
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { getOwnProfile } from "@/lib/auth/profile";
 import { createClient } from "@/lib/supabase/server";
+import { accountLabel } from "@/lib/auth/username";
 
 export default async function OfficePage() {
   const supabase = await createClient();
@@ -15,7 +16,7 @@ export default async function OfficePage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Office</h1>
           <p className="mt-1 text-sm text-stone-600">
-            Signed in as {profile?.full_name ?? user?.email}
+            Signed in as {profile?.full_name ?? accountLabel(user?.email)}
           </p>
         </div>
         <SignOutButton />

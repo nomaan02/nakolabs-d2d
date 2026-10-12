@@ -1,12 +1,12 @@
 import { signIn } from "@/lib/auth/actions";
 
 const ERRORS: Record<string, string> = {
-  credentials: "Incorrect email or password.",
+  credentials: "Incorrect username or password.",
   link: "That link has expired or was already used. Ask your manager for a new invite.",
 };
 
 const NOTICES: Record<string, string> = {
-  created: "Account created. Sign in with your email and password.",
+  created: "Account created. Sign in with your username or email and your password.",
 };
 
 type PageProps = {
@@ -22,16 +22,19 @@ export default async function LoginPage({ searchParams }: PageProps) {
     <>
       <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
       <p className="mt-2 text-sm text-stone-600">
-        Use the email and password for your account.
+        Use the username (or email) and password your manager gave you.
       </p>
 
       <form action={signIn} className="mt-8 flex flex-col gap-4">
         <label className="flex flex-col gap-1 text-sm font-medium">
-          Email address
+          Username or email
           <input
-            type="email"
-            name="email"
-            autoComplete="email"
+            type="text"
+            name="login"
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             required
             className="min-h-11 rounded-md border border-stone-300 bg-white px-3 text-base font-normal"
           />

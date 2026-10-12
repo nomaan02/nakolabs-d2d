@@ -4,13 +4,15 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getOwnProfile } from "@/lib/auth/profile";
 import { homeForRole } from "@/lib/auth/roles";
+import { loginEmail } from "@/lib/auth/username";
 
 function readString(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
 }
 
 export async function signIn(formData: FormData) {
-  const email = readString(formData, "email");
+  // CRM-5 U: the box takes a username or an email (lib/auth/username.ts).
+  const email = loginEmail(readString(formData, "login") || readString(formData, "email"));
   const password = String(formData.get("password") ?? "");
 
   if (!email || !password) {

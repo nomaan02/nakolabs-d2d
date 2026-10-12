@@ -37,6 +37,7 @@
     "verify:ui10": "tsx scripts/verify-ui-10-admin.ts",
     "verify:crm": "tsx scripts/verify-crm.ts",
     "crm:backfill": "tsx scripts/crm-backfill.ts",
+    "accounts:create": "tsx scripts/create-accounts.ts",
     "verify:anchors": "tsx scripts/verify-map-anchors.ts",
     "verify:stage5cb": "tsx scripts/verify-stage-5c-b.ts",
     "verify:geom": "tsx scripts/verify-route-geom.ts",

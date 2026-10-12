@@ -36,6 +36,8 @@ import { cronAuthorised, lastSuccess, nextCursor, runInProgress, syncFreshness, 
 import { keepsContact, purgeAfter, recordUnchanged } from "../lib/crm/sync";
 import { CRM_CALLBACK_GROUP, validateOp, type CrmCallbackOp } from "../lib/sync/ops";
 import { sendOp } from "../lib/sync/queue";
+import { accountLabel, loginEmail, usernameFrom, USERNAME_DOMAIN } from "../lib/auth/username";
+import { parseArgs as parseAccountArgs, temporaryPassword } from "./create-accounts";
 import {
   areaRankings,
   axisTicks,
@@ -205,6 +207,18 @@ check("'later' needs a date, others must not carry one", validateOp(cbOp({ resul
 check("unknown result refused", validateOp(cbOp({ result: "sold" as never })) !== null);
 check("ids must agree with the op", validateOp(cbOp({ client_event_id: "other" })) !== null && validateOp(cbOp({ canvasser_id: "other" })) !== null && validateOp(cbOp({}, { assignment_id: "a-prop" })) !== null);
 check("crm_id must look like a CRM lead id", validateOp(cbOp({ crm_id: "LEA123" })) !== null);
+console.log("\nCRM-5 U username accounts");
+check("a username becomes a reserved-domain email", loginEmail(" Thomas ") === `thomas@${USERNAME_DOMAIN}` && USERNAME_DOMAIN.endsWith(".invalid"));
+check("a real email is used as typed", loginEmail("Someone@Gmail.com") === "someone@gmail.com");
+check("junk is refused", loginEmail("") === null && loginEmail("1abc") === null && loginEmail("a") === null && loginEmail("tom smith") === null);
+check("username shown instead of the hidden email", usernameFrom(`tyron@${USERNAME_DOMAIN}`) === "tyron" && usernameFrom("a@gmail.com") === null && accountLabel(`tito@${USERNAME_DOMAIN}`) === "tito" && accountLabel("a@gmail.com") === "a@gmail.com" && accountLabel(null) === "");
+const acc = parseAccountArgs(["--branch", "HO Bristol", "--user", "Thomas:Thomas:canvasser", "--user", "wayne:Wayne:admin", "--link", "me@gmail.com:Nomaan"]);
+check("accounts script reads users, links and branch", acc.write === false && acc.branch === "HO Bristol" && acc.accounts.length === 3 && acc.accounts[0]?.email === `thomas@${USERNAME_DOMAIN}` && acc.accounts[1]?.kind === "user" && acc.accounts[2]?.kind === "link");
+const refuses = (args: string[]) => { try { parseAccountArgs(args); return false; } catch { return true; } };
+check("accounts script refuses bad input", refuses(["--user", "tom:Tom"]) && refuses(["--user", "tom:Tom:boss"]) && refuses(["--user", "tom:Tom:canvasser", "--user", "tom:Thomas:canvasser"]) && refuses(["--user", "a:Tom:canvasser", "--user", "b:tom:canvasser"]) && refuses(["--link", "nomaan:Nomaan"]) && refuses(["--user"]));
+const pw = Array.from({ length: 50 }, () => temporaryPassword());
+check("temporary passwords: 12 characters, no look-alikes, all different", pw.every((p) => p.length === 12 && !/[0O1lI]/.test(p)) && new Set(pw).size === 50);
+
 console.log("\nCRM-4 scheduled sync");
 const SECRET = "0123456789abcdef0123456789abcdef";
 check("cron refuses without the right secret", !cronAuthorised(null, SECRET) && !cronAuthorised("Bearer wrong", SECRET) && !cronAuthorised(`Bearer ${SECRET}x`, SECRET) && !cronAuthorised(`bearer ${SECRET}`, SECRET));
