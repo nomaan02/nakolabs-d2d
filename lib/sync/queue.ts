@@ -52,7 +52,7 @@ export type SendOutcome = "ok" | SendClass;
 
 export type SendResult = {
   outcome: SendOutcome;
-  step: "knock" | "lead" | "observation" | "address";
+  step: "knock" | "lead" | "observation" | "address" | "callback";
   error: OutboxError | null;
 };
 
@@ -594,6 +594,13 @@ export async function sendOp(
     }
 
     return last;
+  }
+
+  if (row.kind === "crm_callback") {
+    const payload = row.payload as Extract<SyncOp, { kind: "crm_callback" }>["payload"];
+    return step("callback", timeoutMs, (signal) =>
+      supabase.from("crm_callbacks").insert(payload.callback).abortSignal(signal),
+    );
   }
 
   if (row.kind === "address_observation") {

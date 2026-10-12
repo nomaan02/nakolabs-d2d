@@ -2,28 +2,28 @@
 
 ## Current state
 
-- Last updated: 2026-10-11 (CRM-5 Session A). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- Migration file `supabase/migrations/037_crm_canvasser.sql` is in the tree (288 lines, pasted as given). It was NOT applied. `supabase-d2d` and `supabase` MCP are `needsAuth`. `mcp_auth` failed here: interactive authentication is only available in the Cursor desktop IDE. The SQL was not changed. No other apply path was used. `lib/supabase/types.ts` was not regenerated (`git diff --stat` empty). Types were not hand-written.
-- Replaced: `lib/crm/parse.ts` (call-back reason from status plus Result / Rep Result keywords; title, surname, phone, alt phone for call-back leads only; note text never stored), `lib/crm/sync.ts` (stores `callback_reason`; writes `crm_contacts` for call-back leads under 90 days; removes the contact when a lead stops qualifying; counts only), `scripts/crm-backfill.ts` (prints reason counts and contacts stored / removed), `scripts/verify-crm.ts` (18 new checks). AGENTS.md gained the P4b canvasser CRM, call-back contact, call-back reason and call-result paragraphs. The old two-line outcomes block was found once and is gone.
-- This session made no CRM call and did not run the backfill. No `crm_name` was set. No table row. No `client_event_id`.
-- `npm run verify:crm` exit 0. Last line: `ALL PASS`. `npm run verify:ui10` exit 0. Last line: `ALL PASS`. The five live SELECT checks were not run (same MCP). tsc and eslint were not run in this session. The brief says they run after the session. `lib/crm/sync.ts` calls `crm_contacts`, which is not in the generated types until they are regenerated.
-- No browser. Phone check: nothing changes on screen yet (the field screens come in CRM-5 C). Insights still loads was not opened.
-- CRM-5 A tracker row added after CRM-4 A. Status DONE. Date 2026-10-11. Result: `Migration 037: canvasser CRM link, call-back contacts (90-day purge), call results, leaderboard; sync fills call-back reason + contacts.` Commit column `—`. The live database does not have 037 yet.
-- `lib/crm/client.ts` was not edited. `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/field/*` were not edited. No `/field` file reads CRM data (`verify:crm`). No quality scoring screen was added in `/field`.
+- Last updated: 2026-10-12 (CRM-5 Session B). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Call results now have an offline-queue op. `lib/sync/ops.ts` (317 lines) adds kind `crm_callback`. `lib/sync/queue.ts` (632 lines) inserts that payload into `crm_callbacks` (step `callback`). A re-sent call that comes back 23505 counts as done. `scripts/verify-crm.ts` (405 lines) checks validation and `sendOp` against a fake client. All three files were pasted as given. No Dexie version bump. `lib/field/db.ts` was not edited.
+- `lib/supabase/types.ts` already has table `crm_callbacks` (dependency check passed). This session did not regenerate types and did not query the database. The 2026-10-11 follow-up on CRM-5 A records that migration 037 was applied and types were regenerated. This session did not re-check the live database.
+- This session made no CRM call. No table row. No `client_event_id`. No phone number, surname or CRM note was printed.
+- `npm run verify:crm` exit 0. Last line: `ALL PASS`. `npm run verify:ui1` exit 0. Last line: `OK`. `npx tsc --noEmit` exit 0. `npx eslint` on the three pasted files exit 0.
+- No browser. Phone check: logging a knock still syncs was not opened on a phone. The knock branch of `sendOp` is still knock, then lead, then tenure observation.
+- CRM-5 B tracker row added after CRM-5 A. Status DONE. Date 2026-10-12. Result: `Offline queue: crm_callback op (call results synced to crm_callbacks).` Commit column `—`.
+- `lib/crm` was not edited. Nothing under `app/` or `components/` was edited. No migration was edited. `lib/map/route-layers.ts` and `lib/geo/walk/*` were not edited. No `/field` file reads CRM data (`verify:crm`). No quality scoring screen was added in `/field`. Field writes still go through `lib/sync/queue.ts` only.
 - CRM sync schedule from CRM-4 remains: every 30 minutes, about 05:00 to 21:00 London. Migration 036 remains applied. No Vault secret was created this session.
 - Sale price from CRM-3 remains: Sale Amount, else Result, else Rep Result, number only, in `lib/crm/parse.ts`.
 - Dark-ready paths are unchanged: `/admin/props`, `/admin/today`, `/admin/calendar`, `/admin/coverage`, `/admin/team`, `/admin/leads`, `/admin/insights`, `/admin/settings`.
 - Redirects are unchanged: `/admin` → `/admin/today`, `/admin/allocate` → Today or Add visit when `?prop=` is set, `/admin/dashboard` → `/admin/insights`.
 - Migration 035 remains applied. `crm_insights` is the London-day body. `crm_heat_grid` and `crm_door_history` are unchanged from 034.
 - Migration 033 remains applied. `crm_norm_street` and `crm_match_batch` are unchanged.
-- Migration 032 remains applied. This session did not recount rows. The new canvasser read policy is in the 037 file only, not on the live table.
+- Migration 032 remains applied. This session did not recount rows.
 - Migration 031 `admin_latest_knocks` remains applied. Calendar, Coverage and Team still read through it.
 - Migration 030 remains applied. `/field` still opens for a canvasser and for the admin. Office stays out. `/api/cron/` stays outside the session matcher.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - No magic link this session. Password, profile and role were not changed.
-- External settings: none changed. Apply 037 and regenerate types after the Supabase MCP is authenticated in the Cursor desktop IDE. The owner sets `crm_name` after landing. Wayne to OK before canvassers use call-back phones.
+- External settings: none. The owner sets `crm_name` after landing. Wayne to OK before canvassers use call-back phones. Field screens that tick a call result are CRM-5 C. This session did not build them.
 - Migration 029 `admin_set_canvasser_active` remains applied from F5f.
-- UI-10 F1–F6 remain DONE. CRM-1 A, CRM-1 B, CRM-2 A, CRM-2 B, CRM-2 C, CRM-2 D, CRM-2 E, CRM-3 A and CRM-4 A remain DONE. CRM-5 A file work is in the tree. Live migration 037 is not applied.
+- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-5 A remain DONE. CRM-5 B file work is in the tree.
 
 ## Log
 
@@ -3038,3 +3038,27 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 
 
 - **Follow-up done (2026-10-11 22:15, Claude, owner-approved "Approve 037 apply"):** Claude applied `037_crm_canvasser` to `xerxsaptwpvhkkpyvkfi` through its own Supabase MCP, using the file in this tree unchanged (md5 c06abfd0ef685893287f759826c9b588). It regenerated `lib/supabase/types.ts` (+162 lines, additions only). SELECT checks: RLS is on for `crm_contacts` and `crm_callbacks`. `authenticated` has SELECT on `crm_contacts` and INSERT,SELECT on `crm_callbacks`. Nothing is granted to anon. Cron job `crm-contacts-purge` `20 3 * * *` is active. All 7 functions refuse anon. `crm_contacts` has 0 rows. tsc, `verify:crm`, `verify:ui10` and `verify:ui1` pass with the real types.
+
+### 2026-10-12 — CRM-5 Session B (uncommitted)
+
+- **Item:** other
+- **What changed:** Call results can leave the phone through the offline queue and land in `crm_callbacks`. They never go to the CRM. The new op kind is `crm_callback`. Every call shares the ordering group `crm-callbacks`. `validateOp` refuses a bad id, the wrong group, an unknown result, a crm_id that is not `NxN`, a bad time, `later` without a date, or a date on any other result. `sendOp` inserts the row. A re-sent call that comes back 23505 counts as done. No Dexie version bump. No screen. No CRM call.
+- **Files:**
+  - Changed: `lib/sync/ops.ts`, `lib/sync/queue.ts`, `scripts/verify-crm.ts`, `docs/FIELD-TEST-BUILD-PLAN.md` (CRM-5 B row after CRM-5 A), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `.handoff/reports/crm-5-b.md`
+  - Deleted: none
+- **Database:** none. No migration. No table row. No `client_event_id`. No CRM call.
+- **Shared modules touched:** `lib/sync/queue.ts` and `lib/sync/ops.ts` replaced as this session required (the `crm_callback` send path). `lib/field/db.ts` was not edited (no Dexie version bump). `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited. `lib/crm` was not edited.
+- **Decided by:**
+  - OWNER — 2026-10-11: call results are ticked off on the phone, work offline, and sync. They never go to the CRM.
+  - CLAUDE — new op kind `crm_callback` in `lib/sync/ops.ts`, payload `{ callback: { client_event_id, crm_id, canvasser_id, result, call_back_on, called_at } }`. Results: rebooked, no_answer, later, not_interested, wrong_number.
+  - CLAUDE — all call results share the ordering group `assignment_id = "crm-callbacks"` (they are not tied to a prop).
+  - CLAUDE — `validateOp` refuses mismatched ids, a group other than `crm-callbacks`, an unknown result, a crm_id that is not `NxN`, a bad `called_at`, `later` without a YYYY-MM-DD date, or a date on any other result.
+  - CLAUDE — `sendOp` inserts into `crm_callbacks` (step `callback`). A re-sent call comes back 23505 and counts as done, like knocks. Field writes still go through `lib/sync/queue.ts` only.
+  - CLAUDE — no Dexie schema change. The outbox already stores any op kind.
+- **Deviations from plan or brief:** none
+- **Invariants:** No device GPS and no coordinates left the device. No `/field` screen was added. `verify:crm` still reports no `/field` file reads CRM data. Field writes still go through `lib/sync/queue.ts` only. That file was edited so the new call result uses the same path. Coverage stays derived. No quality scoring was added in `/field`.
+- **Verified:** The three pasted files match the brief (317, 632 and 405 lines). `lib/supabase/types.ts` has table `crm_callbacks`. `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui1` exit 0, last line `OK`. `npx tsc --noEmit` exit 0. `npx eslint` on the three files exit 0.
+- **Not verified:** Logging a knock still syncs, on a phone. No browser. No live insert into `crm_callbacks`.
+- **External settings:** none
+- **Open questions for Claude:** none from this session. Field screens that tick a call result are CRM-5 C. Wayne to OK before canvassers use call-back phones.

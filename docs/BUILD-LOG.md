@@ -1439,3 +1439,28 @@ One entry per stage, appended by the agent at the end of each session.
 - **Follow-ups:** Authenticate the Supabase MCP, apply `037_crm_canvasser` with the SQL in the migration file, regenerate types, and run the five SELECT checks. The owner sets `crm_name` after landing. Wayne to OK before canvassers use the phone numbers. Field screens are CRM-5 C.
 
 - **Follow-up done (2026-10-11 22:15, Claude, owner-approved "Approve 037 apply"):** Claude applied `037_crm_canvasser` to `xerxsaptwpvhkkpyvkfi` through its own Supabase MCP, using the file in this tree unchanged (md5 c06abfd0ef685893287f759826c9b588). It regenerated `lib/supabase/types.ts` (+162 lines, additions only). SELECT checks: RLS is on for `crm_contacts` and `crm_callbacks`. `authenticated` has SELECT on `crm_contacts` and INSERT,SELECT on `crm_callbacks`. Nothing is granted to anon. Cron job `crm-contacts-purge` `20 3 * * *` is active. All 7 functions refuse anon. `crm_contacts` has 0 rows. tsc, `verify:crm`, `verify:ui10` and `verify:ui1` pass with the real types.
+
+### CRM-5 Session B — crm_callback op in the offline queue
+- **Date:** 2026-10-12
+- **Model:** Grok 4.7
+- **Built:** The field outbox can store a call result and send it to `crm_callbacks`. Kind `crm_callback` in `lib/sync/ops.ts`. Payload is `{ callback: { client_event_id, crm_id, canvasser_id, result, call_back_on, called_at } }`. Results: rebooked, no_answer, later, not_interested, wrong_number. Every call shares the ordering group `crm-callbacks`. `validateOp` refuses a mismatched id, any other group, an unknown result, a crm_id that is not `NxN`, a bad `called_at`, `later` without a YYYY-MM-DD date, or a date on any other result. `sendOp` inserts into `crm_callbacks` (step `callback`). A re-sent call that comes back 23505 counts as done. `scripts/verify-crm.ts` covers those checks against a fake client. No Dexie version bump. No CRM call. No screen.
+- **Owner decisions:**
+  - OWNER — 2026-10-11: call results are ticked off on the phone, work offline, and sync. They never go to the CRM.
+- **Claude decisions:**
+  - CLAUDE — new op kind `crm_callback` in `lib/sync/ops.ts`, payload `{ callback: { client_event_id, crm_id, canvasser_id, result, call_back_on, called_at } }`. Results: rebooked, no_answer, later, not_interested, wrong_number.
+  - CLAUDE — all call results share the ordering group `assignment_id = "crm-callbacks"` (they are not tied to a prop).
+  - CLAUDE — `validateOp` refuses mismatched ids, a group other than `crm-callbacks`, an unknown result, a crm_id that is not `NxN`, a bad `called_at`, `later` without a YYYY-MM-DD date, or a date on any other result.
+  - CLAUDE — `sendOp` inserts into `crm_callbacks` (step `callback`). A re-sent call comes back 23505 and counts as done, like knocks. Field writes still go through `lib/sync/queue.ts` only.
+  - CLAUDE — no Dexie schema change. The outbox already stores any op kind.
+- **Acceptance:**
+  - EDIT 1 DONE. `lib/sync/ops.ts` replaced, 317 lines, pasted as given.
+  - EDIT 2 DONE. `lib/sync/queue.ts` replaced, 632 lines, pasted as given.
+  - EDIT 3 DONE. `scripts/verify-crm.ts` replaced, 405 lines, pasted as given.
+  - `npm run verify:crm`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui1`: **PASS** — exit 0. Last line: `OK`.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0.
+  - eslint: **PASS** — `npx eslint lib/sync/ops.ts lib/sync/queue.ts scripts/verify-crm.ts` exit 0.
+  - Phone: logging a knock still syncs. No browser. Not opened on a phone.
+- **Deviations from brief:** none
+- **Not done / deferred:** A phone check that a knock still syncs. No browser. Did not commit. No new table row. No `client_event_id`. No CRM call. Field screens that tick a result are CRM-5 C.
+- **Follow-ups:** CRM-5 C builds the canvasser screens. Wayne to OK before canvassers use call-back phones.

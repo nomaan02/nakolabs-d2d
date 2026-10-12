@@ -34,6 +34,8 @@ import {
 } from "../lib/crm/parse";
 import { cronAuthorised, lastSuccess, nextCursor, runInProgress, syncFreshness, whenWords, type SyncRun } from "../lib/crm/schedule";
 import { keepsContact, purgeAfter, recordUnchanged } from "../lib/crm/sync";
+import { CRM_CALLBACK_GROUP, validateOp, type CrmCallbackOp } from "../lib/sync/ops";
+import { sendOp } from "../lib/sync/queue";
 import {
   areaRankings,
   axisTicks,
@@ -187,6 +189,22 @@ const NOW5 = new Date("2026-10-11T12:00:00Z");
 check("contacts kept only for call-backs under 90 days old", keepsContact({ callback_reason: "utc", crm_created_at: "2026-09-01T10:00:00Z" }, NOW5) && !keepsContact({ callback_reason: "utc", crm_created_at: "2026-07-01T10:00:00Z" }, NOW5) && !keepsContact({ callback_reason: null, crm_created_at: "2026-10-10T10:00:00Z" }, NOW5));
 check("purge date = lead date + 90 days", purgeAfter("2026-10-01T10:00:00Z") === "2026-12-30");
 
+console.log("\nCRM-5 B call results through the offline queue");
+const CB_ID = "3f0c1d9e-4a6b-4c2d-9e8f-1a2b3c4d5e6f";
+const ME = "00000000-0000-0000-0000-00000000000c";
+const cbOp = (over: Partial<CrmCallbackOp["payload"]["callback"]> = {}, opOver: Partial<CrmCallbackOp> = {}): CrmCallbackOp => ({
+  kind: "crm_callback",
+  client_event_id: CB_ID,
+  assignment_id: CRM_CALLBACK_GROUP,
+  canvasser_id: ME,
+  ...opOver,
+  payload: { callback: { client_event_id: CB_ID, crm_id: "10x5", canvasser_id: ME, result: "no_answer", call_back_on: null, called_at: "2026-10-11T12:00:00.000Z", ...over } },
+});
+check("a plain call result is valid", validateOp(cbOp()) === null);
+check("'later' needs a date, others must not carry one", validateOp(cbOp({ result: "later", call_back_on: "2026-10-14" })) === null && validateOp(cbOp({ result: "later" })) !== null && validateOp(cbOp({ result: "later", call_back_on: "14/10/2026" })) !== null && validateOp(cbOp({ call_back_on: "2026-10-14" })) !== null);
+check("unknown result refused", validateOp(cbOp({ result: "sold" as never })) !== null);
+check("ids must agree with the op", validateOp(cbOp({ client_event_id: "other" })) !== null && validateOp(cbOp({ canvasser_id: "other" })) !== null && validateOp(cbOp({}, { assignment_id: "a-prop" })) !== null);
+check("crm_id must look like a CRM lead id", validateOp(cbOp({ crm_id: "LEA123" })) !== null);
 console.log("\nCRM-4 scheduled sync");
 const SECRET = "0123456789abcdef0123456789abcdef";
 check("cron refuses without the right secret", !cronAuthorised(null, SECRET) && !cronAuthorised("Bearer wrong", SECRET) && !cronAuthorised(`Bearer ${SECRET}x`, SECRET) && !cronAuthorised(`bearer ${SECRET}`, SECRET));
@@ -368,5 +386,20 @@ const fieldImports = files
   .map(rel);
 check("no /field file reads CRM data", fieldImports.length === 0);
 
-console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILED`);
-process.exit(failures === 0 ? 0 : 1);
+async function sendChecks(): Promise<void> {
+  console.log("\nCRM-5 B sendOp (fake client, no network)");
+  const calls: { table: string; row: unknown }[] = [];
+  const fakeDb = (status: number, error: { message: string; code?: string } | null) =>
+    ({ from: (table: string) => ({ insert: (row: unknown) => ({ abortSignal: () => { calls.push({ table, row }); return Promise.resolve({ error, status }); } }) }) }) as never;
+  const okSend = await sendOp(fakeDb(201, null), { kind: "crm_callback", payload: cbOp().payload });
+  check("sendOp inserts into crm_callbacks only", okSend.outcome === "ok" && okSend.step === "callback" && calls.length === 1 && calls[0]?.table === "crm_callbacks");
+  const dupSend = await sendOp(fakeDb(409, { message: "duplicate key", code: "23505" }), { kind: "crm_callback", payload: cbOp().payload });
+  check("re-sync of the same call is a duplicate, not an error", dupSend.outcome === "duplicate");
+  const rlsSend = await sendOp(fakeDb(403, { message: "new row violates row-level security policy", code: "42501" }), { kind: "crm_callback", payload: cbOp().payload });
+  check("someone else's lead is refused, not retried", rlsSend.outcome !== "ok" && rlsSend.outcome !== "duplicate" && rlsSend.outcome !== "retryable");
+}
+
+void sendChecks().then(() => {
+  console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILED`);
+  process.exit(failures === 0 ? 0 : 1);
+});

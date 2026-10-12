@@ -15,6 +15,7 @@ type KnockEventsInsert = Tables["knock_events"]["Insert"];
 type LeadsInsert = Tables["leads"]["Insert"];
 type PropertyObservationsInsert = Tables["property_observations"]["Insert"];
 type AddressObservationsInsert = Tables["address_observations"]["Insert"];
+type CrmCallbacksInsert = Tables["crm_callbacks"]["Insert"];
 
 /** `knock_events.outcome` check constraint, 014_stage_8a_knock_logger_schema.sql. */
 export const KNOCK_OUTCOMES = [
@@ -150,7 +151,30 @@ export type AddressObservationOp = OpBase & {
   };
 };
 
-export type SyncOp = KnockEventOp | PropertyObservationOp | AddressObservationOp;
+/** CRM-5 B: what a canvasser can record after ringing a call-back lead. */
+export const CALL_RESULTS = ["rebooked", "no_answer", "later", "not_interested", "wrong_number"] as const;
+export type CallResult = (typeof CALL_RESULTS)[number];
+
+/**
+ * CRM-5 B (owner 2026-10-11). One call to a call-back lead. Insert-only; the
+ * latest row per lead wins. Never sent to the CRM. `id` and `created_at` are
+ * server defaults.
+ */
+export type CrmCallbackWrite = Required<
+  Pick<CrmCallbacksInsert, "client_event_id" | "crm_id" | "canvasser_id" | "call_back_on" | "called_at">
+> & { result: CallResult };
+
+/** Call results are not tied to a prop; they share one ordering group. */
+export const CRM_CALLBACK_GROUP = "crm-callbacks";
+
+export type CrmCallbackOp = OpBase & {
+  kind: "crm_callback";
+  payload: {
+    callback: CrmCallbackWrite;
+  };
+};
+
+export type SyncOp = KnockEventOp | PropertyObservationOp | AddressObservationOp | CrmCallbackOp;
 export type SyncOpKind = SyncOp["kind"];
 
 /**
@@ -215,6 +239,8 @@ export function validateOp(op: SyncOp): string | null {
     return checkObservation(op, op.payload.observation);
   }
 
+  if (op.kind === "crm_callback") return checkCallback(op, op.payload.callback);
+
   const { address } = op.payload;
   if (address.client_event_id !== op.client_event_id) {
     return "address.client_event_id differs from the op's client_event_id";
@@ -226,6 +252,27 @@ export function validateOp(op: SyncOp): string | null {
   const houseNumber = address.house_number.trim();
   if (houseNumber.length < 1 || houseNumber.length > HOUSE_NUMBER_MAX) {
     return `address.house_number must be 1 to ${HOUSE_NUMBER_MAX} characters`;
+  }
+  return null;
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function checkCallback(op: CrmCallbackOp, callback: CrmCallbackWrite): string | null {
+  if (op.assignment_id !== CRM_CALLBACK_GROUP) return `a call result must use assignment_id '${CRM_CALLBACK_GROUP}'`;
+  if (callback.client_event_id !== op.client_event_id) {
+    return "callback.client_event_id differs from the op's client_event_id";
+  }
+  if (callback.canvasser_id !== op.canvasser_id) {
+    return "callback.canvasser_id differs from the op's canvasser_id";
+  }
+  if (!/^\d+x\d+$/.test(callback.crm_id)) return "callback.crm_id is not a CRM lead id";
+  if (!CALL_RESULTS.includes(callback.result)) return `unknown call result ${String(callback.result)}`;
+  if (Number.isNaN(Date.parse(callback.called_at))) return "callback.called_at is not a time";
+  if (callback.result === "later") {
+    if (!callback.call_back_on || !ISO_DATE.test(callback.call_back_on)) return "'later' needs a call_back_on date (YYYY-MM-DD)";
+  } else if (callback.call_back_on !== null) {
+    return "only 'later' carries a call_back_on date";
   }
   return null;
 }
