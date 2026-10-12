@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
+import { CrmLayerPill, CrmLeadCard, useCrmMapLayer } from "@/components/field/crm/crm-map-layer";
 import { OtherOutcomeSheet } from "@/components/field/door-sheets";
 import { FieldMap } from "@/components/field/field-map";
 import { useFieldData } from "@/components/field/field-data-provider";
@@ -69,6 +70,8 @@ export function MapTab() {
     [geo.fix, geo.heading, geo.weak],
   );
   const locationOff = geo.status === "denied" || geo.status === "unavailable";
+  // CRM-5 C2 (owner 2026-10-12): own CRM leads layer, off by default.
+  const crm = useCrmMapLayer(canvasserId);
 
   if (phase.kind === "loading") {
     return <p className="px-4 pt-8 text-sm text-ink-soft">Loading today&apos;s prop…</p>;
@@ -156,8 +159,15 @@ export function MapTab() {
           selectedUprn={selectedUprn}
           cameraNonce={mapCameraNonce}
           onSelectUprn={(uprn) => {
+            crm.select(null);
             selectDoorOnMap(uprn);
             cursor.goToUprn(uprn);
+          }}
+          crmLeads={crm.points}
+          selectedCrmId={crm.selected}
+          onSelectCrm={(id) => {
+            selectDoorOnMap(null);
+            crm.select(id);
           }}
           active
           position={position}
@@ -178,7 +188,7 @@ export function MapTab() {
             <LocateIcon className="size-5" />
           </button>
         ) : locationOff ? (
-          <LocationOffNotice className="left-2 top-16" />
+          <LocationOffNotice className={crm.linked ? "left-2 top-30" : "left-2 top-16"} />
         ) : null}
         <button
           type="button"
@@ -189,8 +199,13 @@ export function MapTab() {
         >
           {mapView === "3d" ? "2D" : "3D"}
         </button>
+        {crm.linked ? <CrmLayerPill days={crm.days} onChange={crm.setDays} className="left-2 top-16" /> : null}
         <Legend mode={mode} />
       </div>
+
+      {crm.on && selectedUprn === null ? (
+        <CrmLeadCard lead={crm.lead} leads={crm.leads} state={crm.state} onClose={() => crm.select(null)} />
+      ) : null}
 
       {selectedUprn !== null ? (
         <section

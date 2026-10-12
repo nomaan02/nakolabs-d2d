@@ -268,6 +268,16 @@ console.log("\nCRM-5 C field screens (pure rules)");
   check("week starts Monday (London)", fieldCrm.weekStart("2026-10-18") === "2026-10-12" && fieldCrm.weekStart("2026-10-12") === "2026-10-12");
 }
 
+console.log("\nCRM-5 C2 map layer");
+{
+  const L = (id: string, lon: number | null, created: string, status: string | null, reason: string | null = null): fieldCrm.MyCrmLead => ({ crm_id: id, status, crm_created_at: created, appointment_at: null, sale_amount: null, callback_reason: reason, uprn: null, lon, lat: lon === null ? null : 51.47, house_number: null, building_name: null, street_name: null, postcode_sector: null });
+  const pts = fieldCrm.crmLeadPoints([L("10x1", -2.58, "2026-10-01T10:00:00Z", "pm"), L("10x2", -2.58, "2026-10-05T10:00:00Z", "sale"), L("10x3", null, "2026-10-06T10:00:00Z", "utc"), L("10x4", -2.581, "2026-10-02T10:00:00Z", null)]);
+  check("map points: unplaced leads skipped, newest wins on a shared door, tone carried", pts.features.length === 2 && pts.features[0]?.properties?.crm_id === "10x2" && pts.features[0]?.properties?.tone === "sale" && pts.features[1]?.properties?.tone === "other");
+  check("map layer windows: off by default", fieldCrm.parseMapLayerWindow(null) === 0 && fieldCrm.parseMapLayerWindow("30") === 30 && fieldCrm.parseMapLayerWindow("45") === 0);
+  check("map card line", fieldCrm.crmLeadLine(L("10x9", 0, "2026-10-02T10:00:00Z", "blowout", "single_sit")) === "Blowout · single sit · Fri 2 Oct" && fieldCrm.crmLeadLine(L("10x9", 0, "2026-10-02T10:00:00Z", "utc", "utc")) === "Unable to contact · Fri 2 Oct");
+  check("the layer starts off and is the canvasser's own leads", /useState<MapLayerWindow>\(0\)/.test(readFileSync("components/field/crm/crm-map-layer.tsx", "utf8")) && /fetchMyLeads/.test(readFileSync("components/field/crm/crm-map-layer.tsx", "utf8")));
+}
+
 console.log("\nCRM-4 scheduled sync");
 const SECRET = "0123456789abcdef0123456789abcdef";
 check("cron refuses without the right secret", !cronAuthorised(null, SECRET) && !cronAuthorised("Bearer wrong", SECRET) && !cronAuthorised(`Bearer ${SECRET}x`, SECRET) && !cronAuthorised(`bearer ${SECRET}`, SECRET));
@@ -457,6 +467,8 @@ check(
 );
 const tel = fieldFiles.filter((f) => /tel:/.test(readFileSync(f, "utf8"))).map(rel).sort();
 check("phone numbers only on the call-back list and its sheet", same(tel, ["components/field/crm/call-result-sheet.tsx", "components/field/crm/callbacks-pane.tsx"]));
+const layerFiles = fieldFiles.filter((f) => /field-crm-leads|CRM_MAP_RING/.test(readFileSync(f, "utf8"))).map(rel).sort();
+check("CRM-5 C2: the CRM colour layer lives only in field-map.tsx (rings) and lib/field/crm.ts (colours)", same(layerFiles, ["components/field/field-map.tsx", "lib/field/crm.ts"]));
 check("the CRM field screens never touch a customer first name", !fieldFiles.filter((f) => /crm/.test(rel(f))).some((f) => /first_?name/i.test(readFileSync(f, "utf8"))));
 
 async function sendChecks(): Promise<void> {

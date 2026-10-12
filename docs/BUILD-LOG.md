@@ -1537,3 +1537,33 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given files were pasted exactly. Line endings are CRLF, matching the rest of the repo.
 - **Not done / deferred:** A browser. The phone check (sign in as tom, call-backs, ring, log No answer offline, You and the leaderboard). Did not commit. No new table row. No `client_event_id`. No CRM call. The F5 map layer is CRM-5 C2.
 - **Follow-ups:** Phone check after landing. Wayne to OK before canvassers use call-back phones. CRM-5 C2 builds the map layer, off by default.
+
+### CRM-5 Session C2 — Map "My CRM leads" layer
+- **Date:** 2026-10-12
+- **Model:** Grok 4.7
+- **Built:** The Map tab has a "My CRM leads" layer. It draws the canvasser's own CRM leads as hollow rings coloured by CRM outcome, around the door dot, so this visit's door colour still shows inside. It is off by default and remembered on the phone. The canvasser can choose Off, last 7 days, last 30 days or last 90 days. A tap on a ring opens a bottom card (door, status, reason, date). A call-back lead links to Leads → Call-backs. No phone number is shown. Leads with no map position are counted on the card. The full map only.
+- **Owner decisions:**
+  - OWNER — 2026-10-12: the Map tab gets a "My CRM leads" layer (Figma F5): the canvasser's own CRM leads as rings coloured by CRM outcome, OFF by default, switched on by the canvasser for the last 7 / 30 / 90 days. This is the one exception to "previous-visit outcome colour on the map stays banned".
+- **Claude decisions:**
+  - CLAUDE — `components/field/crm/crm-map-layer.tsx`: `useCrmMapLayer` (choice remembered on the phone; reads `my_crm_leads` for the window), the pill ("My CRM leads · 30 days", menu Off / 7 / 30 / 90) and the bottom card (tapped lead: door, status · reason · date, "On your call-back list" link to Leads → Call-backs; otherwise the key with counts).
+  - CLAUDE — `components/field/field-map.tsx`: new source/layer `field-crm-leads` — a hollow ring (radius 10, selected 13) around the door dot so this visit's door colour still shows inside; colours from `CRM_MAP_RING` (light/dark, matching the `--color-crm-*` tokens). Full map only. With the layer on, a tap on a ring opens the lead and does not also select the door under it.
+  - CLAUDE — `components/field/map-tab.tsx`: the pill sits under the 2D/3D button (the location-off notice moves down when the pill shows); the card replaces nothing — it shows only when the layer is on and no door is selected.
+  - CLAUDE — `lib/field/crm.ts`: `crmLeadPoints` (unplaced leads skipped, newest lead wins on a shared door), `crmLeadLine`, `toneCounts`, `MAP_LAYER_WINDOWS`.
+  - CLAUDE — No phone number on the map. Leads with no map position are counted in the card ("N not on the map").
+- **Acceptance:**
+  - EDIT 1 DONE. New `components/field/crm/crm-map-layer.tsx`, 191 lines, pasted as given.
+  - EDIT 2 DONE. `scripts/verify-crm.ts` replaced, 490 lines, pasted as given.
+  - EDIT 3 DONE. Map-layer helpers appended to `lib/field/crm.ts` (now 581 lines).
+  - EDIT 4 DONE. Twelve replacements in `components/field/field-map.tsx` (now 1180 lines).
+  - EDIT 5 DONE. Seven replacements in `components/field/map-tab.tsx` (now 365 lines).
+  - EDIT 6 DONE. AGENTS.md P4b: one named exception for the Map "My CRM leads" layer.
+  - `npm run verify:crm`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui1`: **PASS** — exit 0. Last line: `OK`.
+  - `npm run verify:ui7`: **PASS** — exit 0. Last line: `All UI-7 geo checks passed.`
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0.
+  - eslint: **PASS** — `npx eslint` on the five TypeScript files exit 0.
+  - Phone: no browser. Listed for after landing. Not opened on a phone.
+- **Deviations from brief:** none. The given files and patches were pasted exactly. Line endings are CRLF, matching the rest of the repo.
+- **Not done / deferred:** A browser. The phone check (Map → My CRM leads → Last 30 days, tap a ring, call-back link, Off stays off). Did not commit. No new table row. No `client_event_id`. No CRM call. No database query.
+- **Follow-ups:** Phone check after landing. Wayne to OK before canvassers use call-back phones.

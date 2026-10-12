@@ -2,15 +2,16 @@
 
 ## Current state
 
-- Last updated: 2026-10-12 (CRM-5 Session C1). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- CRM-5 C1: Leads has Today | Call-backs. Call-backs is the canvasser's own leads (7 / 30 / 90 days, default 30). One tap rings. A tick logs a result through `enqueue` op `crm_callback`. Rebooked, Not interested and Wrong number leave the list at once. You, when linked, shows my results, my week and `/field/profile/leaderboard` above the existing settings. Not linked: one line to ask the admin.
-- New: `lib/field/crm.ts` (524), `lib/field/crm-data.ts` (155), `components/field/crm/segmented.tsx` (50), `period-select.tsx` (45), `call-result-sheet.tsx` (128), `callbacks-pane.tsx` (196), `my-results.tsx` (260), `leaderboard-screen.tsx` (126), `app/(field)/field/profile/leaderboard/page.tsx` (6). Replaced: `components/field/leads-tab.tsx` (189), `scripts/verify-crm.ts` (478). Patched: `components/field/icons.tsx` (Phone, Trophy), `components/field/profile-tab.tsx`, `app/globals.css` (`--text-field-hero`, `--text-field-figure`).
-- `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. `npm run verify:ui1` exit 0, last line `OK`. `npx tsc --noEmit` exit 0. `npx eslint` on the thirteen TypeScript files exit 0.
-- No browser. Phone check is after landing: sign in as tom; Leads → Call-backs; ring one number; log No answer in airplane mode and see "waiting to send", then back online it clears; You shows his month and the leaderboard.
-- CRM-5 C1 tracker row added after CRM-5 U. Status DONE. Date 2026-10-12. Result: `Leads → Call-backs + result sheet; You → my results, my week, leaderboard.` Commit column `—`.
-- No migration. `lib/sync/*`, `lib/field/db.ts`, `lib/crm/*`, `middleware.ts`, the Map tab and the Logger tab were not edited. No table row. No `client_event_id`. No CRM call. Password, profile and role were not changed.
+- Last updated: 2026-10-12 (CRM-5 Session C2). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- CRM-5 C2: Map tab "My CRM leads". The canvasser's own CRM leads as hollow rings coloured by CRM outcome, off by default, remembered on the phone (Off / 7 / 30 / 90 days). A tap opens a bottom card. "On your call-back list" opens Leads → Call-backs. No phone number on the map. Unplaced leads are counted ("N not on the map"). Full map only. This is the one exception to the ban on previous-visit outcome colour on the field map.
+- New: `components/field/crm/crm-map-layer.tsx` (191). Replaced: `scripts/verify-crm.ts` (490). Patched: `lib/field/crm.ts` (581, map points, windows, card line, ring colours), `components/field/field-map.tsx` (1180, source `field-crm-leads`), `components/field/map-tab.tsx` (365, pill and card), `AGENTS.md` (P4b exception).
+- `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. `npm run verify:ui1` exit 0, last line `OK`. `npm run verify:ui7` exit 0, last line `All UI-7 geo checks passed.` `npx tsc --noEmit` exit 0. `npx eslint` on the five TypeScript files exit 0.
+- No browser. Phone check is after landing: on a day with a prop, Map → My CRM leads → Last 30 days: rings on your own CRM doors; tap one → the card; "On your call-back list" opens Leads → Call-backs; switch Off → rings gone and it stays off after reopening the app.
+- CRM-5 C2 tracker row added after CRM-5 C1. Status DONE. Date 2026-10-12. Result: `Map → My CRM leads layer (own leads, off by default).` Commit column `—`.
+- No migration. `lib/sync/*`, `lib/field/db.ts`, `lib/crm/*` and the Logger tab were not edited. No table row. No `client_event_id`. No CRM call. No database query. Password, profile and role were not changed.
+- CRM-5 C1 remains: Leads has Today | Call-backs. Call-backs is the canvasser's own leads (7 / 30 / 90 days, default 30). One tap rings. A tick logs a result through `enqueue` op `crm_callback`. You, when linked, shows my results, my week and `/field/profile/leaderboard`. Not linked: one line to ask the admin.
 - Username sign-in from CRM-5 U remains. `lib/auth/username.ts` stores `<username>@users.nakolabs-d2d.invalid`. `/login` has one box, "Username or email". `accounts:create` is still dry-run unless `--write`. This session did not run it. No account was created.
-- Call results still insert into `crm_callbacks` via `lib/sync/queue.ts` only. That file was not edited. `/field` CRM reads are only `my_crm_callbacks`, `my_crm_leads` and `crm_leaderboard`, from `lib/field/crm-data.ts`. Phone numbers appear only on the call-back list and its sheet. The P4b screens are the only ranking in `/field`. No device GPS was read.
+- Call results still insert into `crm_callbacks` via `lib/sync/queue.ts` only. That file was not edited. `/field` CRM reads are only `my_crm_callbacks`, `my_crm_leads` and `crm_leaderboard`, from `lib/field/crm-data.ts`. Phone numbers appear only on the call-back list and its sheet. The P4b screens are the only ranking in `/field`. Previous-visit outcome colour on the map is allowed only on the "My CRM leads" layer (own leads, off by default). No device GPS was read. The rings use door positions already returned by `my_crm_leads`.
 - CRM sync schedule from CRM-4 remains: every 30 minutes, about 05:00 to 21:00 London. Migration 036 remains applied. No Vault secret was created this session.
 - Sale price from CRM-3 remains: Sale Amount, else Result, else Rep Result, number only, in `lib/crm/parse.ts`.
 - Dark-ready paths are unchanged: `/admin/props`, `/admin/today`, `/admin/calendar`, `/admin/coverage`, `/admin/team`, `/admin/leads`, `/admin/insights`, `/admin/settings`.
@@ -22,9 +23,9 @@
 - Migration 031 `admin_latest_knocks` remains applied. Calendar, Coverage and Team still read through it.
 - Migration 030 remains applied. `/field` still opens for a canvasser and for the admin. Office stays out. `/api/cron/` stays outside the session matcher.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
-- External settings: none. The owner runs `accounts:create` after landing (dry run, then `--write`) for Nomaan (link the existing admin), Thomas, Blake, Tyron, Tito, Mohamed and Wayne (admin), branch "HO Bristol". Wayne to OK before canvassers use call-back phones. The F5 map layer is CRM-5 C2, off by default, not built here.
+- External settings: none. The owner runs `accounts:create` after landing (dry run, then `--write`) for Nomaan (link the existing admin), Thomas, Blake, Tyron, Tito, Mohamed and Wayne (admin), branch "HO Bristol". Wayne to OK before canvassers use call-back phones.
 - Migration 029 `admin_set_canvasser_active` remains applied from F5f.
-- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-5 U remain DONE. CRM-5 C1 file work is in the tree.
+- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-5 U remain DONE. CRM-5 C1 and CRM-5 C2 file work is in the tree.
 
 ## Log
 
@@ -3115,3 +3116,27 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. A phone. Signing in as tom. The call-back list against live rows. Ringing a number. Logging No answer in airplane mode. You and the leaderboard on a device.
 - **External settings:** none
 - **Open questions for Claude:** none from this session. Phone check after landing. Wayne to OK before canvassers use call-back phones. CRM-5 C2 builds the map layer.
+
+### 2026-10-12 — CRM-5 Session C2 (uncommitted)
+
+- **Item:** other
+- **What changed:** The Map tab has a "My CRM leads" layer. It is off until the canvasser switches it on, and the choice is remembered on the phone. Own CRM leads from the last 7, 30 or 90 days are drawn as hollow rings coloured by CRM outcome, around the door dot, so this visit's colour still shows inside. A tap opens a card. A call-back lead links to Leads → Call-backs. No phone number is on the map. Leads with no position are counted on the card. This is the one exception to the ban on previous-visit outcome colour on the field map.
+- **Files:**
+  - Changed: `scripts/verify-crm.ts`, `lib/field/crm.ts`, `components/field/field-map.tsx`, `components/field/map-tab.tsx`, `AGENTS.md`, `docs/FIELD-TEST-BUILD-PLAN.md` (CRM-5 C2 row after CRM-5 C1), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `components/field/crm/crm-map-layer.tsx`, `.handoff/reports/crm-5-c2.md`
+  - Deleted: none
+- **Database:** none. No migration. No table row. No `client_event_id`. No CRM call. No database query.
+- **Shared modules touched:** `lib/field/crm.ts` (map-layer helpers: windows, points, card line, ring colours, tone counts). `lib/sync/queue.ts` was not edited. `lib/field/db.ts` was not edited. `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited. `lib/crm` was not edited.
+- **Decided by:**
+  - OWNER — 2026-10-12: the Map tab gets a "My CRM leads" layer (Figma F5): the canvasser's own CRM leads as rings coloured by CRM outcome, OFF by default, switched on by the canvasser for the last 7 / 30 / 90 days. This is the one exception to "previous-visit outcome colour on the map stays banned".
+  - CLAUDE — `components/field/crm/crm-map-layer.tsx`: `useCrmMapLayer` (choice remembered on the phone; reads `my_crm_leads` for the window), the pill ("My CRM leads · 30 days", menu Off / 7 / 30 / 90) and the bottom card (tapped lead: door, status · reason · date, "On your call-back list" link to Leads → Call-backs; otherwise the key with counts).
+  - CLAUDE — `components/field/field-map.tsx`: new source/layer `field-crm-leads` — a hollow ring (radius 10, selected 13) around the door dot so this visit's door colour still shows inside; colours from `CRM_MAP_RING` (light/dark, matching the `--color-crm-*` tokens). Full map only. With the layer on, a tap on a ring opens the lead and does not also select the door under it.
+  - CLAUDE — `components/field/map-tab.tsx`: the pill sits under the 2D/3D button (the location-off notice moves down when the pill shows); the card replaces nothing — it shows only when the layer is on and no door is selected.
+  - CLAUDE — `lib/field/crm.ts`: `crmLeadPoints` (unplaced leads skipped, newest lead wins on a shared door), `crmLeadLine`, `toneCounts`, `MAP_LAYER_WINDOWS`.
+  - CLAUDE — No phone number on the map. Leads with no map position are counted in the card ("N not on the map").
+- **Deviations from plan or brief:** none. The given files and patches were pasted exactly. Line endings are CRLF, matching the rest of the repo.
+- **Invariants:** No device GPS was read. No device coordinates left the device. Door lon/lat already returned by `my_crm_leads` are drawn as rings on the full map only. Previous-visit outcome colour on the field map is allowed only for this layer (own leads, off by default), recorded in AGENTS.md as the P4b exception. No new field write. Coverage stays derived. No coverage table. The Logger compact map was not redesigned.
+- **Verified:** `components/field/crm/crm-map-layer.tsx` is 191 lines. `scripts/verify-crm.ts` is 490 lines. `lib/field/crm.ts` is 581 lines. `components/field/field-map.tsx` is 1180 lines. `components/field/map-tab.tsx` is 365 lines. `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. `npm run verify:ui1` exit 0, last line `OK`. `npm run verify:ui7` exit 0, last line `All UI-7 geo checks passed.` `npx tsc --noEmit` exit 0. `npx eslint` on the five TypeScript files exit 0.
+- **Not verified:** A browser. A phone. Rings on a real prop. Tapping a ring. The call-back link. Switching the layer off and reopening the app.
+- **External settings:** none
+- **Open questions for Claude:** none from this session. Phone check after landing. Wayne to OK before canvassers use call-back phones.

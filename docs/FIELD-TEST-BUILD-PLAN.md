@@ -153,6 +153,7 @@
 | CRM-5 B | human: `crm_callback` op in the offline queue (call results synced from the phone) | DONE | 2026-10-12 | Offline queue: crm_callback op (call results synced to crm_callbacks). | — |
 | CRM-5 U | human: sign in with a username + a script to create canvasser accounts linked to their CRM name | DONE | 2026-10-12 | Sign in with a username; accounts:create script makes canvasser accounts linked to their CRM name. | — |
 | CRM-5 C1 | Leads → Call-backs + result sheet; You → my results, my week, leaderboard | DONE | 2026-10-12 | Leads → Call-backs + result sheet; You → my results, my week, leaderboard. | — |
+| CRM-5 C2 | Map → My CRM leads layer (own leads, off by default) | DONE | 2026-10-12 | Map → My CRM leads layer (own leads, off by default). | — |
 
 ---
 

@@ -522,3 +522,60 @@ export const PERIOD_WORDS: Record<ResultPeriod, string> = {
   last_month: "last month",
   ytd: "this year",
 };
+
+// ------------------------------------------------------------- map layer
+
+/**
+ * CRM-5 C2 (owner 2026-10-12): the Map tab's "My CRM leads" layer. Own leads
+ * only, OFF by default. The one place previous-visit outcome colour may
+ * appear on the field map (AGENTS.md P4b exception).
+ */
+export const MAP_LAYER_WINDOWS = [0, 7, 30, 90] as const;
+export type MapLayerWindow = (typeof MAP_LAYER_WINDOWS)[number];
+
+export function parseMapLayerWindow(value: unknown): MapLayerWindow {
+  const n = Number(value);
+  return (MAP_LAYER_WINDOWS as readonly number[]).includes(n) ? (n as MapLayerWindow) : 0;
+}
+
+/** Ring colours on the map, matching the --color-crm-* tokens per theme. */
+export const CRM_MAP_RING: Record<"light" | "dark", Record<StatusTone, string>> = {
+  light: { sale: "#2f8f57", pm: "#3f74d0", blowout: "#c0505a", utc: "#6a7078", other: "#a5abb3" },
+  dark: { sale: "#3f9e69", pm: "#5b8ff0", blowout: "#e06a72", utc: "#8c96a3", other: "#5b6470" },
+};
+
+/** Leads with a place on the map, as GeoJSON points (newest wins when two share a door). */
+export function crmLeadPoints(leads: readonly MyCrmLead[]): GeoJSON.FeatureCollection<GeoJSON.Point> {
+  const newestFirst = [...leads].sort((a, b) => b.crm_created_at.localeCompare(a.crm_created_at));
+  const seen = new Set<string>();
+  const features: GeoJSON.Feature<GeoJSON.Point>[] = [];
+  for (const lead of newestFirst) {
+    if (lead.lon === null || lead.lat === null) continue;
+    const spot = `${lead.lon.toFixed(6)},${lead.lat.toFixed(6)}`;
+    if (seen.has(spot)) continue;
+    seen.add(spot);
+    features.push({
+      type: "Feature",
+      id: lead.crm_id,
+      properties: { crm_id: lead.crm_id, tone: statusTone(lead.status) },
+      geometry: { type: "Point", coordinates: [lead.lon, lead.lat] },
+    });
+  }
+  return { type: "FeatureCollection", features };
+}
+
+/** "Blowout · single sit · Thu 2 Oct". */
+export function crmLeadLine(lead: Pick<MyCrmLead, "status" | "callback_reason" | "crm_created_at">): string {
+  const parts = [statusLabel(lead.status)];
+  if (lead.callback_reason && lead.callback_reason !== "utc" && lead.callback_reason !== "no_outcome" && lead.callback_reason !== "reapp") {
+    parts.push(reasonLabel(lead.callback_reason).toLowerCase());
+  }
+  parts.push(shortDay(lead.crm_created_at));
+  return parts.join(" · ");
+}
+
+export function toneCounts(leads: readonly MyCrmLead[]): Record<StatusTone, number> {
+  const out: Record<StatusTone, number> = { sale: 0, pm: 0, blowout: 0, utc: 0, other: 0 };
+  for (const lead of leads) out[statusTone(lead.status)] += 1;
+  return out;
+}

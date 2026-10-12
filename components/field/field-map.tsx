@@ -10,6 +10,7 @@ import {
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
+import { CRM_MAP_RING } from "@/lib/field/crm";
 import { accuracyPxAtZoom22, type MapPosition } from "@/lib/field/geo";
 import type { DoorLabels } from "@/lib/field/labels";
 import { mapLabel } from "@/lib/field/labels";
@@ -62,6 +63,9 @@ const BASEMAP_BUILDINGS_3D = "basemap-buildings-3d";
 const LEADER_SOURCE = "field-door-leader";
 const LEADER_LINE = "field-door-leader-line";
 const LEADER_END = "field-door-leader-end";
+// CRM-5 C2 (owner 2026-10-12): "My CRM leads", own leads only, off by default.
+const CRM_SOURCE = "field-crm-leads";
+const CRM_LAYER = "field-crm-leads";
 
 type FieldColours = ReturnType<typeof mapColours>;
 
@@ -364,6 +368,51 @@ function mountFootprints(
       before,
     );
   }
+}
+
+/**
+ * CRM-5 C2. A hollow ring per own CRM lead, coloured by its CRM outcome,
+ * drawn around the door dot (larger radius, no fill) so the door's own
+ * colour for this visit still shows inside it. Never mounted unless the
+ * canvasser switched the layer on.
+ */
+function mountCrm(instance: MapLibreMap, data: GeoJSON.FeatureCollection | null, mode: MapMode) {
+  if (!instance.getSource(CRM_SOURCE)) {
+    instance.addSource(CRM_SOURCE, { type: "geojson", data: data ?? EMPTY, promoteId: "crm_id" });
+  }
+  if (!instance.getLayer(CRM_LAYER)) {
+    const ring = CRM_MAP_RING[mode];
+    instance.addLayer({
+      id: CRM_LAYER,
+      type: "circle",
+      source: CRM_SOURCE,
+      paint: {
+        "circle-radius": ["case", ["boolean", ["feature-state", "selected"], false], 13, 10],
+        "circle-color": "rgba(0,0,0,0)",
+        "circle-stroke-width": ["case", ["boolean", ["feature-state", "selected"], false], 3.5, 2.5],
+        "circle-stroke-color": [
+          "match",
+          ["get", "tone"],
+          "sale",
+          ring.sale,
+          "pm",
+          ring.pm,
+          "blowout",
+          ring.blowout,
+          "utc",
+          ring.utc,
+          ring.other,
+        ],
+      },
+    });
+  }
+  instance.setLayoutProperty(CRM_LAYER, "visibility", data ? "visible" : "none");
+}
+
+function applyCrmSelection(instance: MapLibreMap, selected: string | null) {
+  if (!instance.getSource(CRM_SOURCE)) return;
+  instance.removeFeatureState({ source: CRM_SOURCE });
+  if (selected) instance.setFeatureState({ source: CRM_SOURCE, id: selected }, { selected: true });
 }
 
 function applyMapView(instance: MapLibreMap, view: MapView, mapVariant: "full" | "compact") {
@@ -690,6 +739,9 @@ export function FieldMap({
   recenterNonce = 0,
   position = null,
   recenterTarget = "door",
+  crmLeads = null,
+  selectedCrmId = null,
+  onSelectCrm,
 }: {
   doors: DoorCollection;
   labels: DoorLabels;
@@ -728,6 +780,10 @@ export function FieldMap({
   /** UI-7 C1b. The canvasser's live position, memory only. Null hides the marker. */
   position?: MapPosition | null;
   recenterTarget?: "door" | "position";
+  /** CRM-5 C2. Own CRM leads (points with crm_id + tone). Null = layer off. Full map only. */
+  crmLeads?: GeoJSON.FeatureCollection | null;
+  selectedCrmId?: string | null;
+  onSelectCrm?: (crmId: string) => void;
 }) {
   const container = useRef<HTMLDivElement | null>(null);
   const map = useRef<MapLibreMap | null>(null);
@@ -741,6 +797,9 @@ export function FieldMap({
   const tiersRef = useRef(routeTiers);
   const footprintsRef = useRef(footprints);
   const positionRef = useRef(position);
+  const crmRef = useRef(crmLeads);
+  const crmSelectedRef = useRef(selectedCrmId);
+  const onCrm = useRef(onSelectCrm);
   const mapView = useMapView();
   const mapViewRef = useRef(mapView);
   // Read-once: `variant` never changes for a mounted instance (a route
@@ -759,6 +818,9 @@ export function FieldMap({
   tiersRef.current = routeTiers;
   footprintsRef.current = footprints;
   positionRef.current = position;
+  crmRef.current = crmLeads;
+  crmSelectedRef.current = selectedCrmId;
+  onCrm.current = onSelectCrm;
   mapViewRef.current = mapView;
 
   useEffect(() => {
@@ -902,6 +964,12 @@ export function FieldMap({
           },
         });
 
+        // CRM-5 C2: own CRM leads, above the doors, under the labels' reach.
+        if (mapVariant === "full") {
+          mountCrm(instance, crmRef.current, mapMode);
+          applyCrmSelection(instance, crmSelectedRef.current);
+        }
+
         // UI-7 C1b: the canvasser's own position, on top of the doors.
         mountPosition(instance, c, positionRef.current);
 
@@ -930,6 +998,10 @@ export function FieldMap({
           );
           applyMapView(instance, mapViewRef.current, mapVariant);
           applyRoute(instance, routeRef.current, tiersRef.current, mapMode);
+          if (mapVariant === "full") {
+            mountCrm(instance, crmRef.current, mapMode);
+            applyCrmSelection(instance, crmSelectedRef.current);
+          }
           mountPosition(instance, c, positionRef.current);
           if (container.current) recordLayerOrder(instance, container.current, routeRef.current, tiersRef.current);
         });
@@ -944,7 +1016,14 @@ export function FieldMap({
         }
         applyMapView(instance, mapViewRef.current, mapVariant);
 
+        // CRM-5 C2: with the layer on, a tap on a CRM ring opens that lead
+        // and does not also select the door under it.
+        instance.on("click", CRM_LAYER, (event) => {
+          const id = event.features?.[0]?.properties?.crm_id;
+          if (typeof id === "string" && id !== "") onCrm.current?.(id);
+        });
         instance.on("click", DOORS_LAYER, (event) => {
+          if (instance.getLayer(CRM_LAYER) && instance.getLayoutProperty(CRM_LAYER, "visibility") === "visible" && instance.queryRenderedFeatures(event.point, { layers: [CRM_LAYER] }).length > 0) return;
           const feature = event.features?.[0];
           const uprn = feature?.properties?.uprn;
           if (typeof uprn === "number") onSelect.current(uprn);
@@ -1030,6 +1109,15 @@ export function FieldMap({
   useEffect(() => {
     if (active) map.current?.resize();
   }, [active]);
+
+  // CRM-5 C2. Gate on the source (2026-10-02 G1); mounted on load.
+  useEffect(() => {
+    const instance = map.current;
+    if (!instance || variant !== "full" || !instance.getSource(DOORS_SOURCE)) return;
+    mountCrm(instance, crmLeads, modeRef.current);
+    (instance.getSource(CRM_SOURCE) as GeoJSONSource).setData(crmLeads ?? EMPTY);
+    applyCrmSelection(instance, selectedCrmId);
+  }, [crmLeads, selectedCrmId, variant]);
 
   // The full map eases to a tapped door (a deliberate camera move on top of
   // whatever the canvasser was looking at), 400 ms. The compact mini map

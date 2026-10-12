@@ -62,7 +62,10 @@ Terra Draw, Dexie, Vercel.
   CRM leads (matched by `profiles.crm_name` + `crm_branch`), the Bristol
   leaderboard (leads, sold, pitched, £ for everyone) and their call-back list
   in `/field`. These are the only ranking/quality signals allowed in `/field`.
-  Previous-visit outcome colour on the map stays banned.
+  Previous-visit outcome colour on the map stays banned, with ONE exception
+  (owner 2026-10-12): the Map tab's "My CRM leads" layer — the canvasser's
+  own CRM leads as rings coloured by CRM outcome, OFF by default, switched on
+  by the canvasser (`components/field/crm/crm-map-layer.tsx`).
 - Call-back contacts (owner 2026-10-11, Wayne to OK before go-live): for
   call-back leads only, `crm_contacts` stores title, surname and phone /
   alt phone. Never first name, email, notes or best time. Readable only by
