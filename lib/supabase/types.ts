@@ -300,28 +300,43 @@ export type Database = {
       }
       crm_contacts: {
         Row: {
+          address_line: string | null
           alt_phone: string | null
+          best_time: string | null
           crm_id: string
+          description: string | null
           phone: string | null
+          product_interest: string | null
           purge_after: string
+          result_note: string | null
           surname: string | null
           synced_at: string
           title: string | null
         }
         Insert: {
+          address_line?: string | null
           alt_phone?: string | null
+          best_time?: string | null
           crm_id: string
+          description?: string | null
           phone?: string | null
+          product_interest?: string | null
           purge_after: string
+          result_note?: string | null
           surname?: string | null
           synced_at?: string
           title?: string | null
         }
         Update: {
+          address_line?: string | null
           alt_phone?: string | null
+          best_time?: string | null
           crm_id?: string
+          description?: string | null
           phone?: string | null
+          product_interest?: string | null
           purge_after?: string
+          result_note?: string | null
           surname?: string | null
           synced_at?: string
           title?: string | null
@@ -1918,18 +1933,24 @@ export type Database = {
       my_crm_callbacks: {
         Args: { p_days: number }
         Returns: {
+          address_line: string
           alt_phone: string
           appointment_at: string
+          best_time: string
           building_name: string
           call_back_on: string
           callback_reason: string
           crm_created_at: string
           crm_id: string
+          description: string
           house_number: string
           last_called_at: string
           last_result: string
           phone: string
+          postcode: string
           postcode_sector: string
+          product_interest: string
+          result_note: string
           status: string
           street_name: string
           surname: string

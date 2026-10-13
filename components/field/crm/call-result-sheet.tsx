@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { PhoneIcon } from "@/components/field/icons";
-import { CALL_RESULT_OPTIONS, contactName, doorLine, isoDayLabel, laterDays, reasonLabel, type CallbackRow } from "@/lib/field/crm";
+import { CALL_RESULT_OPTIONS, callbackAddress, contactName, isoDayLabel, laterDays, reasonLabel, type CallbackRow } from "@/lib/field/crm";
 import type { CallResult } from "@/lib/sync/ops";
 
 /**
@@ -54,10 +54,10 @@ export function CallResultSheet({
         <header className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 id="call-result-title" className="truncate text-field-title-sm text-ink">
-              {name ?? doorLine(row)}
+              {name ?? callbackAddress(row)}
             </h2>
             <p className="mt-0.5 truncate text-field-body text-ink-muted">
-              {name ? `${doorLine(row)} · ` : ""}
+              {name ? `${callbackAddress(row)} · ` : ""}
               {reasonLabel(row.callback_reason)}
             </p>
           </div>

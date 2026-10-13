@@ -2,25 +2,27 @@
 
 ## Current state
 
-- Last updated: 2026-10-13 (CRM-6 Session A). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- CRM-6 A: the leaderboard opens on Pitched (sale + pitch & miss). Tabs are Pitched · Sales · Value. The Pitch → sale tab is gone. The saved tab key is `d2d.crm.boardMetric.v2`, so an old saved "rate" opens on Pitched. Under the pitch count: "N sold · N P&M". Equal pitches share a rank; more sales is listed first. People with no pitches are left off, except you. My results leads with Pitched · Sold · Sales value. The lead count is on the date line. The leaderboard line ends "by pitches". The pitch → sale rate stays on My results.
-- Patched: `lib/field/crm.ts` (592), `components/field/crm/leaderboard-screen.tsx` (128), `components/field/crm/my-results.tsx` (263), `scripts/verify-crm.ts` (499).
-- `npm run verify:crm` exit 0, last line `ALL PASS`. `npx tsc --noEmit` exit 0. `npx eslint` on those four files exit 0. `git grep -n '"rate"' -- lib/field/crm.ts components/field/crm` printed nothing (exit 1).
-- No browser. Phone check is the owner's: Leaderboard opens on Pitched; each row is pitches plus "N sold · N P&M"; Sales and Value and the period picker still work; My results leads with Pitched and the date line shows the lead count; light and dark at 375 wide.
-- CRM-6 A tracker row added after CRM-5 C2. Status DONE. Date 2026-10-13. Result: `Leaderboard ranks by pitches by default (Pitched · Sales · Value); My results leads with Pitched.` Commit column `—`.
-- No migration. No database access. No table row. No `client_event_id`. No CRM call. `lib/sync/queue.ts`, `lib/field/crm-data.ts` and `components/field/crm/segmented.tsx` were not edited. Password, profile and role were not changed.
+- Last updated: 2026-10-13 (CRM-6 Session B). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- CRM-6 B: a call-back row shows the CRM address with the full postcode. Tapping the name opens Lead Status, "Booked …", Result, Product interest, Best time to call (when filled) and Description under the row. One row open at a time. Phone and tick stay as they were. The result sheet uses the same address.
+- Migration 038 is in the repo (`supabase/migrations/038_crm_callback_details.sql`, 71 lines): five nullable text columns on `crm_contacts`, and `my_crm_callbacks` dropped and re-created with `postcode` plus those columns. Claude had already applied it. This session did not call `apply_migration` and did not query the live database (Supabase MCP not signed in).
+- Patched: `AGENTS.md` (127), `lib/crm/parse.ts` (447), `lib/crm/sync.ts` (518, comment only), `lib/supabase/types.ts` (2807, pasted), `lib/field/crm.ts` (640), `components/field/crm/callbacks-pane.tsx` (275), `components/field/crm/call-result-sheet.tsx` (128), `scripts/verify-crm.ts` (538).
+- `npm run verify:crm` exit 0, last line `ALL PASS`. `npx tsc --noEmit` exit 0. `npx eslint` on those seven TypeScript files exit 0.
+- No browser. Phone check is the owner's, after the backfill: every call-back shows street and full postcode, wrapped; tap opens status and notes and tap closes; only one open; phone and tick still work and the sheet shows the same address; Tom sees only Tom's; light and dark at 375 wide.
+- CRM-6 B tracker row added after CRM-6 A. Status DONE. Date 2026-10-13. Result: `Call-backs show the CRM address + postcode and open to show status, Result, Product interest, Best time to call and Description (migration 038).` Commit column `—`.
+- No table row written. No `client_event_id`. No CRM call. `lib/sync/queue.ts` and `lib/field/crm-data.ts` were not edited. Password, profile and role were not changed.
+- CRM-6 A remains: the leaderboard opens on Pitched. Tabs are Pitched · Sales · Value. My results leads with Pitched.
 - CRM-5 C2 remains: Map tab "My CRM leads", own leads as hollow rings, off by default. That is still the one exception for previous-visit outcome colour on the field map.
 - CRM-5 C1 remains: Leads has Today | Call-backs. A tick logs a result through `enqueue` op `crm_callback`. You, when linked, shows my results, my week and `/field/profile/leaderboard`.
 - Username sign-in from CRM-5 U remains. `accounts:create` is still dry-run unless `--write`. This session did not run it. No account was created.
 - Call results still insert into `crm_callbacks` via `lib/sync/queue.ts` only. `/field` CRM reads are only `my_crm_callbacks`, `my_crm_leads` and `crm_leaderboard`, from `lib/field/crm-data.ts`. The P4b screens are the only ranking in `/field`. No device GPS was read.
-- CRM sync schedule from CRM-4 remains: every 30 minutes, about 05:00 to 21:00 London. Migration 036 remains applied.
-- Sale price from CRM-3 remains: Sale Amount, else Result, else Rep Result, number only, in `lib/crm/parse.ts`.
+- CRM sync schedule from CRM-4 remains: every 30 minutes, about 05:00 to 21:00 London. Migration 036 remains applied. The 30-minute sync only re-reads leads the CRM has changed, so existing call-backs get these notes when the owner runs the backfill once after landing.
+- Sale price from CRM-3 remains: Sale Amount, else Result, else Rep Result, number only, in `lib/crm/parse.ts`. For a lead that is not a call-back, the Result text is still dropped. Call-back leads keep Result in `crm_contacts`.
 - Dark-ready paths are unchanged: `/admin/props`, `/admin/today`, `/admin/calendar`, `/admin/coverage`, `/admin/team`, `/admin/leads`, `/admin/insights`, `/admin/settings`.
 - Redirects are unchanged: `/admin` → `/admin/today`, `/admin/allocate` → Today or Add visit when `?prop=` is set, `/admin/dashboard` → `/admin/insights`.
-- Migrations 029–037 remain applied. This session did not re-check the live database and did not regenerate types.
+- Migrations 029–037 remain applied. Migration 038's file is new in the repo; live columns were not re-checked here.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
-- External settings: none. The owner runs `accounts:create` after landing (dry run, then `--write`) for Nomaan (link the existing admin), Thomas, Blake, Tyron, Tito, Mohamed and Wayne (admin), branch "HO Bristol". Wayne to OK before canvassers use call-back phones.
-- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-5 C2 remain DONE. CRM-6 A file work is in the tree.
+- External settings: none. The owner runs the CRM backfill once after landing so call-backs already in the list get their notes. Wayne to OK before canvassers use call-back phones.
+- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-6 A remain DONE. CRM-6 B file work is in the tree.
 
 ## Log
 
@@ -3161,3 +3163,29 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. A phone. Leaderboard opening on Pitched. The sold · P&M line against the CRM. Sales and Value tabs. My results date line. Light and dark at 375 wide.
 - **External settings:** none
 - **Open questions for Claude:** none from this session. Phone check on the owner's phone. Wayne to OK before canvassers use call-back phones.
+
+### 2026-10-13 — CRM-6 Session B (uncommitted)
+
+- **Item:** other
+- **What changed:** Each call-back shows the CRM address with the full postcode, and opens under the row to show Lead Status plus Result, Product interest, Best time to call (when filled) and Description. Migration 038 adds five nullable text columns on `crm_contacts` and re-creates `my_crm_callbacks` with those columns plus `postcode`. Notes are stored only for call-back leads, on the same rows, own canvasser only, deleted 90 days after the lead date. The result sheet uses the same address.
+- **Files:**
+  - Changed: `AGENTS.md`, `lib/crm/parse.ts`, `lib/crm/sync.ts`, `lib/supabase/types.ts`, `lib/field/crm.ts`, `components/field/crm/callbacks-pane.tsx`, `components/field/crm/call-result-sheet.tsx`, `scripts/verify-crm.ts`, `docs/FIELD-TEST-BUILD-PLAN.md` (CRM-6 B row after CRM-6 A), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `supabase/migrations/038_crm_callback_details.sql`, `.handoff/reports/crm-6-b.md`
+  - Deleted: none
+- **Database:** migration 038 file added. Five nullable text columns on `crm_contacts` (`address_line`, `result_note`, `product_interest`, `best_time`, `description`). `my_crm_callbacks` dropped and re-created with `postcode` and those five columns, security invoker, same grants. No new table, policy or grant. Claude had already applied it. This session did not apply it and did not query the live database. No table row. No `client_event_id`. No CRM call.
+- **Shared modules touched:** `lib/supabase/types.ts` (pasted `crm_contacts` and `my_crm_callbacks` columns). `lib/crm/parse.ts` (detail fields, tidy, contact). `lib/crm/sync.ts` (comment only; the contact object already spreads into the upsert). `lib/field/crm.ts` (`callbackAddress`, `callbackBookedLine`, `callbackDetails`). `lib/sync/queue.ts` was not edited. `lib/field/crm-data.ts` was not edited. `lib/map/route-layers.ts` and `lib/geo/walk/*` were not edited.
+- **Decided by:**
+  - OWNER — 2026-10-13: a call-back with a name alone is too vague to ring. Each call-back shows the exact CRM address with the full postcode, and opens to show the CRM Lead Status and notes: Result, Product Interest (what we booked), Best Time To Call (when filled) and Description.
+  - OWNER — 2026-10-13: storing these is covered by the existing sign-off. Same rules as the phone numbers: call-back leads only, own canvasser only, deleted 90 days after the lead date, CRM read-only.
+  - OWNER — 2026-10-13: Pre Belled and Rep Result are not shown (Pre Belled is always "No"; Rep Result is empty on recent leads).
+  - OWNER — 2026-10-13: Figma F1b (Leads — Call-backs, details) approved.
+  - CLAUDE — Migration 038: five nullable text columns on `crm_contacts` (`address_line`, `result_note`, `product_interest`, `best_time`, `description`). No new table, policy or grant. `my_crm_callbacks` is dropped and re-created (return type changes) with the same body plus `postcode` and the five columns, same security invoker, same grants.
+  - CLAUDE — `lib/crm/parse.ts`: new `CRM_DETAIL_FIELDS` (`lane`, `cf_867`, `cf_871`, `cf_1016`, `description`); `cf_871`, `cf_1016`, `description` added to the fields read. The notes and address line are filled only when the lead has a call-back reason; every other lead gets null. `tidyNote` keeps line breaks, squeezes blank lines, caps at 2,000 characters. `tidyAddressLine` puts the Street box on one line.
+  - CLAUDE — `lib/crm/sync.ts`: no logic change (the contact object already spreads into the `crm_contacts` upsert); comment updated.
+  - CLAUDE — `/field`: `callbackAddress` (CRM line + postcode, falling back to the matched door), `callbackBookedLine`, `callbackDetails`. Each call-back row's text is a button (`aria-expanded`) with a chevron; the details open under the row. Addresses wrap. Phone and tick buttons unchanged. The result sheet uses the same address.
+- **Deviations from plan or brief:** none. The given file and replacements were pasted exactly. Line endings are CRLF.
+- **Invariants:** No device GPS was read. No coordinates left the device. No new field write. `lib/sync/queue.ts` was not edited. Coverage stays derived. Call-back notes are own-canvasser only, inside the existing P4b call-back list. Previous-visit outcome colour on the map is still only the "My CRM leads" layer. Rep Result is never stored.
+- **Verified:** Each find block occurred once (2.1–2.5, 3.1–3.7, 4.1, 5.1–5.6, 6.1–6.2, 7.1–7.7, 8.1–8.2, 9.1–9.7). `supabase/migrations/038_crm_callback_details.sql` is 71 lines and the newest migration before it is 037. `AGENTS.md` is 127 lines. `lib/crm/parse.ts` is 447 lines. `lib/crm/sync.ts` is 518 lines. `lib/supabase/types.ts` is 2807 lines. `lib/field/crm.ts` is 640 lines. `components/field/crm/callbacks-pane.tsx` is 275 lines. `components/field/crm/call-result-sheet.tsx` is 128 lines. `scripts/verify-crm.ts` is 538 lines. `npm run verify:crm` exit 0, last line `ALL PASS`. `npx tsc --noEmit` exit 0. `npx eslint` on the seven TypeScript files exit 0.
+- **Not verified:** A browser. A phone. The live `crm_contacts` columns and `my_crm_callbacks` (`prosecdef` false). Supabase MCP was not signed in (`supabase` and `supabase-d2d` both need auth). Address wrapping, opening and closing a row, the phone and tick buttons, Tom's list only, light and dark at 375 wide.
+- **External settings:** none
+- **Open questions for Claude:** none from this session. After landing, the owner runs the backfill once so call-backs already in the list get their notes. Phone check after that backfill. Wayne to OK before canvassers use call-back phones.

@@ -345,7 +345,9 @@ async function linkAppLeads(db: SupabaseClient, dryRun: boolean): Promise<{ link
 /**
  * CRM-5 (owner 2026-10-11): phone, title and surname for call-back leads
  * booked in the last 90 days, into crm_contacts (readable only by that
- * canvasser; purged by pg_cron after 90 days). Leads in this run that no
+ * canvasser; purged by pg_cron after 90 days). CRM-6 B (owner 2026-10-13):
+ * plus the CRM address line and notes (Result, Product Interest, Best Time
+ * To Call, Description), same rows, same rules. Leads in this run that no
  * longer qualify lose their row straight away. Nothing about a contact is
  * logged; only counts come back.
  */

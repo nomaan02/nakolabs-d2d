@@ -43,14 +43,14 @@ Terra Draw, Dexie, Vercel.
   create, update, delete, revise or convert anything in the CRM.
   `CRM_USER` / `CRM_API_KEY` are server-only, never `NEXT_PUBLIC_`.
 - `crm_leads` never stores names, phones, street text, house numbers, notes or
-  best time to call. Canvasser = tidied first name only. The CRM street and
+  best time to call (call-back details live only in `crm_contacts`, below). Canvasser = tidied first name only. The CRM street and
   house number are used once, server-side, to find the door (the one allowed
   exception to address-as-identifier), then dropped.
 - CRM sale price (owner 2026-10-11): since about Nov 2025 the price is typed
   into the free-text "Result" (`cf_867`) or "Rep Result" (`cf_881`) box.
   Only `lib/crm/parse.ts` reads them, server-side, for Sold leads only, and
-  keeps only the price number (`sale_amount`). The text is never stored,
-  logged or returned.
+  keeps only the price number (`sale_amount`). For pricing the text is never
+  stored, logged or returned (call-back leads keep Result, CRM-6 B, below).
 - CRM sync schedule (owner 2026-10-11): Supabase pg_cron (migration 036)
   calls `/api/cron/crm-sync` every 30 minutes, about 05:00 to 21:00 London.
   The route needs `Authorization: Bearer <CRON_SECRET>` and replies with
@@ -68,14 +68,21 @@ Terra Draw, Dexie, Vercel.
   by the canvasser (`components/field/crm/crm-map-layer.tsx`).
 - Call-back contacts (owner 2026-10-11, Wayne to OK before go-live): for
   call-back leads only, `crm_contacts` stores title, surname and phone /
-  alt phone. Never first name, email, notes or best time. Readable only by
+  alt phone. Never first name or email. Readable only by
   the lead's own canvasser (not admin, not office). Rows are deleted 90 days
   after the lead was created (pg_cron `crm-contacts-purge`, migration 037).
   Only `lib/crm/parse.ts` reads `cf_877`, `lastname`, `phone`, `cf_1014`.
+- Call-back details (owner 2026-10-13, CRM-6 B, migration 038): for call-back
+  leads only, `crm_contacts` also keeps the CRM address line (`lane`) and the
+  notes as typed: Result (`cf_867`), Product Interest (`cf_871`), Best Time To
+  Call (`cf_1016`) and Description. Same rows, same rules: own canvasser
+  only, 90-day purge. For any other lead `lib/crm/parse.ts` drops them. Rep
+  Result is never stored. They appear only in the expanded call-back row.
 - Call-back reason (owner 2026-10-11): `crm_leads.callback_reason` is a label
   worked out in `lib/crm/parse.ts` from status plus Result / Rep Result
   keywords. TITC, RITC, cancelled, not interested, changed mind, wrong number
-  and already-done always mean no call-back. The note text is never stored.
+  and already-done always mean no call-back. The note text is never stored in
+  `crm_leads` (call-back leads keep it in `crm_contacts`, CRM-6 B).
 - Call results (`crm_callbacks`) are written from the field through
   `lib/sync/queue.ts` only (op `crm_callback`), insert-only, never sent to
   the CRM.

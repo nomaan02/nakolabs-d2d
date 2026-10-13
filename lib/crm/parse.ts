@@ -16,6 +16,14 @@
  * leaves this file. For call-back leads the title, surname and phone numbers
  * are read too (`contact`); lib/crm/sync.ts stores them in crm_contacts for
  * 90 days, readable only by that canvasser. First names are never read.
+ *
+ * Owner 2026-10-13 (CRM-6 B): a call-back is too vague to ring with a name
+ * alone. For call-back leads only, crm_contacts also keeps the CRM address
+ * line, the Result note, Product Interest (what was booked), Best Time To Call
+ * and Description, as typed in the CRM (`details`), under the same rules: own
+ * canvasser only, deleted 90 days after the lead date. For any other lead
+ * these fields are read here and dropped. First names, emails and Rep Result
+ * are still never stored.
  */
 
 export const CRM_LEAD_FIELDS = [
@@ -37,12 +45,22 @@ export const CRM_LEAD_FIELDS = [
   "lastname",
   "phone",
   "cf_1014",
+  "cf_871",
+  "cf_1016",
+  "description",
 ] as const;
 
 /** Contact fields (CRM-5): Title, Last Name, Primary Phone, Alt Phone. Never First Name. */
 export const CRM_CONTACT_FIELDS = ["cf_877", "lastname", "phone", "cf_1014"] as const;
 
-/** Free-text boxes read only for a price, never stored (owner 2026-10-11). */
+/**
+ * Call-back detail fields (CRM-6 B, owner 2026-10-13): Street, Result,
+ * Product Interest, Best Time To Call, Description. Stored for call-back
+ * leads only (crm_contacts); dropped for every other lead.
+ */
+export const CRM_DETAIL_FIELDS = ["lane", "cf_867", "cf_871", "cf_1016", "description"] as const;
+
+/** Free-text boxes read for a price (owner 2026-10-11). Only the number is kept; Result is also kept for call-back leads (CRM-6 B). */
 export const CRM_PRICE_TEXT_FIELDS = ["cf_867", "cf_881"] as const;
 
 export type CrmLeadField = (typeof CRM_LEAD_FIELDS)[number];
@@ -68,7 +86,17 @@ export const CALLBACK_REASONS = ["utc", "no_outcome", "reapp", "single_sit", "no
 export type CallbackReason = (typeof CALLBACK_REASONS)[number];
 
 /** Held in memory for one sync; stored only for call-back leads (crm_contacts). */
-export type CrmContact = { title: string | null; surname: string | null; phone: string | null; alt_phone: string | null };
+export type CrmContact = {
+  title: string | null;
+  surname: string | null;
+  phone: string | null;
+  alt_phone: string | null;
+  address_line: string | null;
+  result_note: string | null;
+  product_interest: string | null;
+  best_time: string | null;
+  description: string | null;
+};
 
 export type ParsedCrmLead = {
   crm_id: string;
@@ -256,6 +284,35 @@ export function callbackReason(
   return null;
 }
 
+const NOTE_MAX = 2000;
+
+/**
+ * Free text as typed in the CRM, tidied for a phone screen: line breaks kept
+ * (at most one blank line), spaces collapsed, trimmed, capped at 2,000
+ * characters. Blank -> null.
+ */
+export function tidyNote(raw: string | null | undefined): string | null {
+  const text = (raw ?? "")
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/[ \t]+/g, " ").trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  if (!text) return null;
+  return text.length > NOTE_MAX ? `${text.slice(0, NOTE_MAX - 1)}…` : text;
+}
+
+/** The CRM Street box on one line: '23 Upton Road\nHorfield' -> '23 Upton Road, Horfield'. */
+export function tidyAddressLine(raw: string | null | undefined): string | null {
+  const text = (raw ?? "")
+    .split(/\r?\n|\|/)
+    .map((part) => part.replace(/\s+/g, " ").trim().replace(/,+$/, ""))
+    .filter(Boolean)
+    .join(", ");
+  return text ? text.slice(0, 200) : null;
+}
+
 /** '07700 900 123' -> '07700900123'; '+44 7700…' kept with its +; blank or under 7 digits -> null. */
 export function tidyPhone(raw: string | null | undefined): string | null {
   const text = (raw ?? "").trim();
@@ -355,6 +412,9 @@ export function parseCrmLead(
   const sale = leadSaleAmount(status.status, row.cf_861, row.cf_867, row.cf_881);
   const phone = tidyPhone(row.phone);
   const altPhone = tidyPhone(row.cf_1014);
+  const reason = callbackReason(status.status, status.unknown, row.cf_867, row.cf_881);
+  // CRM-6 B: the notes are carried only for call-back leads; any other lead drops them here.
+  const note = (raw: string | null | undefined) => (reason === null ? null : tidyNote(raw));
   return {
     crm_id: row.id,
     lead_no: (row.lead_no ?? "").trim() || null,
@@ -367,8 +427,18 @@ export function parseCrmLead(
     branch: (row.cf_879 ?? "").trim() || "Unknown",
     sale_amount: sale.amount,
     sale_amount_source: sale.source,
-    callback_reason: callbackReason(status.status, status.unknown, row.cf_867, row.cf_881),
-    contact: { title: tidyName(row.cf_877), surname: tidyName(row.lastname), phone: phone ?? altPhone, alt_phone: phone ? altPhone : null },
+    callback_reason: reason,
+    contact: {
+      title: tidyName(row.cf_877),
+      surname: tidyName(row.lastname),
+      phone: phone ?? altPhone,
+      alt_phone: phone ? altPhone : null,
+      address_line: reason === null ? null : tidyAddressLine(row.lane),
+      result_note: note(row.cf_867),
+      product_interest: note(row.cf_871),
+      best_time: note(row.cf_1016),
+      description: note(row.description),
+    },
     postcode,
     postcode_sector: postcodeSector(postcode),
     canvasser_first_name: canvasserFirstName(row.cf_865),

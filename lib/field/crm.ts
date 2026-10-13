@@ -45,6 +45,13 @@ export type CallbackLead = {
   last_result: string | null;
   last_called_at: string | null;
   call_back_on: string | null;
+  /** CRM-6 B: full postcode, the CRM address line and the CRM notes (own call-backs only). */
+  postcode: string | null;
+  address_line: string | null;
+  result_note: string | null;
+  product_interest: string | null;
+  best_time: string | null;
+  description: string | null;
 };
 
 /** One row of `my_crm_leads`. */
@@ -199,6 +206,47 @@ export function doorLine(row: Pick<CallbackLead, "house_number" | "building_name
   if (street) return street;
   if (building) return building;
   return row.postcode_sector ? `Near ${row.postcode_sector}` : "Address not matched";
+}
+
+/**
+ * CRM-6 B (owner 2026-10-13): the address as the CRM has it, with the full
+ * postcode: "14 Upton Road, BS7 9QD". Falls back to the matched door, then
+ * the postcode.
+ */
+export function callbackAddress(
+  row: Pick<CallbackLead, "address_line" | "postcode" | "house_number" | "building_name" | "street_name" | "postcode_sector">,
+): string {
+  const line = row.address_line?.trim() ?? "";
+  const postcode = row.postcode?.trim() ?? "";
+  if (line) {
+    const compact = (text: string) => text.replace(/\s+/g, "").toUpperCase();
+    return postcode && !compact(line).includes(compact(postcode)) ? `${line}, ${postcode}` : line;
+  }
+  const door = doorLine(row);
+  const matched = Boolean(row.street_name?.trim() || row.building_name?.trim());
+  if (matched) return postcode ? `${door}, ${postcode}` : door;
+  return postcode || door;
+}
+
+/** "Booked Mon 6 Oct · was due Wed 8 Oct, 18:00" (or "· due …" when the appointment is still ahead). */
+export function callbackBookedLine(row: Pick<CallbackLead, "crm_created_at" | "appointment_at">, now: Date): string {
+  const booked = `Booked ${shortDay(row.crm_created_at)}`;
+  if (!row.appointment_at) return booked;
+  const word = Date.parse(row.appointment_at) < now.getTime() ? "was due" : "due";
+  return `${booked} · ${word} ${dayAndTime(row.appointment_at)}`;
+}
+
+export type CallbackDetail = { label: string; value: string };
+
+/** The CRM notes shown when a call-back is opened, in this order, blanks left out. */
+export function callbackDetails(row: Pick<CallbackLead, "result_note" | "product_interest" | "best_time" | "description">): CallbackDetail[] {
+  const all: [string, string | null][] = [
+    ["Result", row.result_note],
+    ["Product interest", row.product_interest],
+    ["Best time to call", row.best_time],
+    ["Description", row.description],
+  ];
+  return all.flatMap(([label, value]) => (value?.trim() ? [{ label, value: value.trim() }] : []));
 }
 
 /** "Mrs Ashworth". Title and surname only (never a first name). */

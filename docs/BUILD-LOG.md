@@ -1597,3 +1597,36 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given replacements were pasted exactly. Line endings are CRLF.
 - **Not done / deferred:** A browser. The phone check (Pitched default, sold · P&M line, Sales and Value, My results, 375 wide). Did not commit. No new table row. No `client_event_id`. No CRM call. No database query.
 - **Follow-ups:** Phone check on the owner's phone. Wayne to OK before canvassers use call-back phones.
+
+### CRM-6 Session B — Call-backs show the CRM address and notes
+- **Date:** 2026-10-13
+- **Model:** Grok 4.7
+- **Built:** Each call-back shows the CRM address with the full postcode, and opens under the row to show Lead Status plus Result, Product interest, Best time to call (when filled) and Description. Migration 038 adds five nullable text columns on `crm_contacts` and re-creates `my_crm_callbacks` with those columns plus `postcode`. The file is in the repo. This session did not apply it (already applied by Claude). Notes are filled only for call-back leads. The result sheet uses the same address.
+- **Owner decisions:**
+  - OWNER — 2026-10-13: a call-back with a name alone is too vague to ring. Each call-back shows the exact CRM address with the full postcode, and opens to show the CRM Lead Status and notes: Result, Product Interest (what we booked), Best Time To Call (when filled) and Description.
+  - OWNER — 2026-10-13: storing these is covered by the existing sign-off. Same rules as the phone numbers: call-back leads only, own canvasser only, deleted 90 days after the lead date, CRM read-only.
+  - OWNER — 2026-10-13: Pre Belled and Rep Result are not shown (Pre Belled is always "No"; Rep Result is empty on recent leads).
+  - OWNER — 2026-10-13: Figma F1b (Leads — Call-backs, details) approved.
+- **Claude decisions:**
+  - CLAUDE — Migration 038: five nullable text columns on `crm_contacts` (`address_line`, `result_note`, `product_interest`, `best_time`, `description`). No new table, policy or grant. `my_crm_callbacks` is dropped and re-created (return type changes) with the same body plus `postcode` and the five columns, same security invoker, same grants.
+  - CLAUDE — `lib/crm/parse.ts`: new `CRM_DETAIL_FIELDS` (`lane`, `cf_867`, `cf_871`, `cf_1016`, `description`); `cf_871`, `cf_1016`, `description` added to the fields read. The notes and address line are filled only when the lead has a call-back reason; every other lead gets null. `tidyNote` keeps line breaks, squeezes blank lines, caps at 2,000 characters. `tidyAddressLine` puts the Street box on one line.
+  - CLAUDE — `lib/crm/sync.ts`: no logic change (the contact object already spreads into the `crm_contacts` upsert); comment updated.
+  - CLAUDE — `/field`: `callbackAddress` (CRM line + postcode, falling back to the matched door), `callbackBookedLine`, `callbackDetails`. Each call-back row's text is a button (`aria-expanded`) with a chevron; the details open under the row. Addresses wrap. Phone and tick buttons unchanged. The result sheet uses the same address.
+- **Acceptance:**
+  - EDIT 1 DONE. New `supabase/migrations/038_crm_callback_details.sql` (71 lines). Newest file before it is `037_crm_canvasser.sql`.
+  - EDIT 2 DONE. Five replacements in `AGENTS.md` (now 127 lines). Each find occurred once.
+  - EDIT 3 DONE. Seven replacements in `lib/crm/parse.ts` (now 447 lines). Each find occurred once.
+  - EDIT 4 DONE. One replacement in `lib/crm/sync.ts` (now 518 lines). The find occurred once.
+  - EDIT 5 DONE. Six replacements in `lib/supabase/types.ts` (now 2807 lines). Each find occurred once. Types pasted; not generated.
+  - EDIT 6 DONE. Two replacements in `lib/field/crm.ts` (now 640 lines). Each find occurred once.
+  - EDIT 7 DONE. Seven replacements in `components/field/crm/callbacks-pane.tsx` (now 275 lines). Each find occurred once.
+  - EDIT 8 DONE. Two replacements in `components/field/crm/call-result-sheet.tsx` (now 128 lines). Each find occurred once.
+  - EDIT 9 DONE. Seven replacements in `scripts/verify-crm.ts` (now 538 lines). Each find occurred once.
+  - `npm run verify:crm`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0.
+  - eslint: **PASS** — `npx eslint` on the seven TypeScript files exit 0.
+  - Live columns and `my_crm_callbacks`: **NOT VERIFIED** — Supabase MCP not signed in.
+  - Phone: no browser. Four checks listed for the owner. Not opened on a phone.
+- **Deviations from brief:** none. The given file and replacements were pasted exactly. Line endings are CRLF.
+- **Not done / deferred:** A browser. The phone check (address and postcode, open and close, phone and tick, Tom only, 375 wide). Did not apply migration 038. Did not commit. No new table row. No `client_event_id`. No CRM call. Live database not queried (MCP not available).
+- **Follow-ups:** After landing, the owner runs the backfill once so call-backs already in the list get their notes. Phone check after that backfill. Wayne to OK before canvassers use call-back phones.

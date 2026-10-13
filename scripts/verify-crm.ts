@@ -17,7 +17,10 @@ import {
   CRM_LEAD_FIELDS,
   CRM_PRICE_TEXT_FIELDS,
   CRM_CONTACT_FIELDS,
+  CRM_DETAIL_FIELDS,
   callbackReason,
+  tidyAddressLine,
+  tidyNote,
   tidyName,
   tidyPhone,
   crmStampToIso,
@@ -152,7 +155,8 @@ const lead = parseCrmLead(
 check("parsed lead stores no street or number", !("lane" in lead) && lead.match.street === "Upton Rd" && lead.match.number === 23 && lead.match.suffix === "A");
 check("parsed lead fields", lead.postcode === "BS7 8AB" && lead.postcode_sector === "BS7 8" && lead.status === "confirmed" && lead.sale_amount === null && lead.canvasser_first_name === "John" && lead.branch === "First Bristol");
 check("unreadable created time throws", throws(() => parseCrmLead({ id: "x", createdtime: "", modifiedtime: "2026-10-10 11:00:00" }, map, "UTC")));
-check("first name, email, notes and best time are never requested", !CRM_LEAD_FIELDS.some((f) => ["firstname", "mobile", "email", "cf_1016", "description", "salutationtype"].includes(f)));
+check("first name, mobile, email and salutation are never requested", !CRM_LEAD_FIELDS.some((f) => ["firstname", "mobile", "email", "salutationtype"].includes(f)));
+check("CRM-6 B: the call-back detail fields are exactly Street, Result, Product Interest, Best Time To Call, Description", same([...CRM_DETAIL_FIELDS], ["lane", "cf_867", "cf_871", "cf_1016", "description"]) && CRM_DETAIL_FIELDS.every((f) => (CRM_LEAD_FIELDS as readonly string[]).includes(f)));
 check("CRM-5: the only contact fields read are title, surname and the two phones", same([...CRM_CONTACT_FIELDS], ["cf_877", "lastname", "phone", "cf_1014"]) && CRM_CONTACT_FIELDS.every((f) => (CRM_LEAD_FIELDS as readonly string[]).includes(f)));
 check("the only free-text boxes read are Result and Rep Result (for a price)", same([...CRM_PRICE_TEXT_FIELDS], ["cf_867", "cf_881"]) && CRM_PRICE_TEXT_FIELDS.every((f) => (CRM_LEAD_FIELDS as readonly string[]).includes(f)));
 
@@ -170,7 +174,7 @@ check("never read a price from text on a lead that is not Sold", same(leadSaleAm
 const resultText = "Bristol Charlotte £5015";
 const sold = parseCrmLead({ id: "10x9", leadstatus: "Sold", createdtime: "2026-10-08 10:00:00", modifiedtime: "2026-10-08 11:00:00", cf_861: "0.00000000", cf_867: resultText, cf_881: "Rep note" }, new Map([["Sold", "sale"]]), "UTC");
 check("Sold lead takes its price from Result", sold.sale_amount === 5015 && sold.sale_amount_source === "result");
-check("Result and Rep Result text never leave the parser", !Object.values(sold).some((v) => typeof v === "string" && (v.includes("Charlotte") || v.includes("Rep note"))) && !JSON.stringify(sold).includes("Charlotte"));
+check("Result and Rep Result text never leave the parser for a lead that is not a call-back", !Object.values(sold).some((v) => typeof v === "string" && (v.includes("Charlotte") || v.includes("Rep note"))) && !JSON.stringify(sold).includes("Charlotte"));
 
 console.log("\nCRM-5 call-back list");
 check("UTC, no outcome and Re-App are call-backs", callbackReason("utc", false, "", "") === "utc" && callbackReason(null, false, null, null) === "no_outcome" && callbackReason("re_app", false, "", "") === "reapp");
@@ -186,6 +190,16 @@ check("phones tidied", tidyPhone("07700 900 123") === "07700900123" && tidyPhone
 check("names tidied", tidyName("SMITH") === "Smith" && tidyName("o'neil-jones") === "O'Neil-Jones" && tidyName("McDonald") === "McDonald" && tidyName("  ") === null && tidyName("MR AND MRS") === "Mr And Mrs");
 const cbLead = parseCrmLead({ id: "10x77", leadstatus: "UTC", createdtime: "2026-10-01 10:00:00", modifiedtime: "2026-10-01 11:00:00", cf_877: "MRS", lastname: "ashworth", phone: "07700 900001", cf_1014: "" }, new Map([["UTC", "utc"]]), "UTC");
 check("contact parsed: title, surname, phone (no first name anywhere)", cbLead.callback_reason === "utc" && cbLead.contact.title === "Mrs" && cbLead.contact.surname === "Ashworth" && cbLead.contact.phone === "07700900001" && cbLead.contact.alt_phone === null && !JSON.stringify(cbLead).includes("firstname"));
+const soldFull = parseCrmLead({ id: "10x80", leadstatus: "Sold", createdtime: "2026-10-08 10:00:00", modifiedtime: "2026-10-08 11:00:00", cf_861: "4000", lane: "14 Upton Road", code: "BS7 9QD", cf_867: "Bristol Earl", cf_871: "7 windows", cf_1016: "after 5", description: "semi" }, new Map([["Sold", "sale"]]), "UTC");
+check(
+  "CRM-6 B: a lead that is not a call-back carries no address line or notes",
+  soldFull.callback_reason === null && [soldFull.contact.address_line, soldFull.contact.result_note, soldFull.contact.product_interest, soldFull.contact.best_time, soldFull.contact.description].every((v) => v === null) && !/Earl|7 windows|after 5|semi/.test(JSON.stringify(soldFull)),
+);
+check("CRM-6 B: blank notes come through as null", Object.values({ a: cbLead.contact.address_line, r: cbLead.contact.result_note, p: cbLead.contact.product_interest, b: cbLead.contact.best_time, d: cbLead.contact.description }).every((v) => v === null));
+const detailLead = parseCrmLead({ id: "10x79", leadstatus: "Blowout", createdtime: "2026-10-01 10:00:00", modifiedtime: "2026-10-01 11:00:00", lane: "14 Upton Road\nHorfield", code: "bs79qd", cf_867: "3:30 4:50  said\r\ncall tomorrow", cf_871: "7 windows", cf_1016: "after 5", description: "Semi, &amp; front bay", firstname: "Jane" } as never, new Map([["Blowout", "blowout"]]), "UTC");
+check("CRM-6 B: address line, Result, Product Interest, Best Time and Description parsed; first name still dropped", detailLead.contact.address_line === "14 Upton Road, Horfield" && detailLead.contact.result_note === "3:30 4:50 said\ncall tomorrow" && detailLead.contact.product_interest === "7 windows" && detailLead.contact.best_time === "after 5" && detailLead.contact.description === "Semi, & front bay" && !JSON.stringify(detailLead).includes("Jane"));
+check("CRM-6 B: notes tidied (line breaks kept, blank lines squeezed, capped)", tidyNote("  a  b \n\n\n\n c ") === "a b\n\nc" && tidyNote("   ") === null && tidyNote(null) === null && (tidyNote("x".repeat(3000)) ?? "").length === 2000);
+check("CRM-6 B: address line on one line", tidyAddressLine("Flat 2,\n23 Upton Road |Horfield") === "Flat 2, 23 Upton Road, Horfield" && tidyAddressLine("  ") === null);
 const altOnly = parseCrmLead({ id: "10x78", leadstatus: "UTC", createdtime: "2026-10-01 10:00:00", modifiedtime: "2026-10-01 11:00:00", phone: "", cf_1014: "0117 900 0000" }, new Map([["UTC", "utc"]]), "UTC");
 check("alt phone is used when the main phone is blank", altOnly.contact.phone === "01179000000" && altOnly.contact.alt_phone === null);
 const NOW5 = new Date("2026-10-11T12:00:00Z");
@@ -223,7 +237,7 @@ check("temporary passwords: 12 characters, no look-alikes, all different", pw.ev
 console.log("\nCRM-5 C field screens (pure rules)");
 {
   const NOW = new Date("2026-10-12T16:00:00Z"); // Mon 12 Oct, 17:00 London
-  const base = { status: "utc", callback_reason: "utc", appointment_at: null, title: "Mrs", surname: "Ashworth", phone: "07700900001", alt_phone: null, uprn: 1, house_number: "14", building_name: null, street_name: "Upton Road", postcode_sector: "BS7 8", last_result: null, last_called_at: null, call_back_on: null };
+  const base = { status: "utc", callback_reason: "utc", appointment_at: null, title: "Mrs", surname: "Ashworth", phone: "07700900001", alt_phone: null, uprn: 1, house_number: "14", building_name: null, street_name: "Upton Road", postcode_sector: "BS7 8", last_result: null, last_called_at: null, call_back_on: null, postcode: null, address_line: null, result_note: null, product_interest: null, best_time: null, description: null };
   const row = (id: string, created: string, extra: Partial<fieldCrm.CallbackLead> = {}): fieldCrm.CallbackLead => ({ ...base, crm_id: id, crm_created_at: created, ...extra });
   const rows = [
     row("10x1", "2026-10-08T10:00:00Z"),
@@ -245,6 +259,25 @@ console.log("\nCRM-5 C field screens (pure rules)");
   check("a synced local call is not 'waiting to send'", synced.doneToday.some((r) => r.crm_id === "10x2" && !r.pending));
   check("call-back lines", fieldCrm.callbackLine(sec.toCall[3]!, NOW) === "Unable to contact · Thu 8 Oct" && fieldCrm.callbackLine(sec.doneToday[0]!, NOW) === "No answer at 10:00 · back tomorrow");
   check("names: title + surname only; door line falls back", fieldCrm.contactName({ title: "Mr and Mrs", surname: "Hale" }) === "Mr and Mrs Hale" && fieldCrm.contactName({ title: null, surname: null }) === null && fieldCrm.doorLine({ house_number: null, building_name: null, street_name: null, postcode_sector: "BS7 8" }) === "Near BS7 8");
+  check(
+    "CRM-6 B: call-back address = CRM line + full postcode; falls back to the matched door, then the postcode",
+    fieldCrm.callbackAddress({ ...base, address_line: "14 Upton Road", postcode: "BS7 9QD" }) === "14 Upton Road, BS7 9QD" &&
+      fieldCrm.callbackAddress({ ...base, address_line: "14 Upton Road, Bristol BS7 9QD", postcode: "BS7 9QD" }) === "14 Upton Road, Bristol BS7 9QD" &&
+      fieldCrm.callbackAddress({ ...base, address_line: null, postcode: "BS7 9QD" }) === "14 Upton Road, BS7 9QD" &&
+      fieldCrm.callbackAddress({ ...base, address_line: null, postcode: "BS7 9QD", house_number: null, street_name: null }) === "BS7 9QD" &&
+      fieldCrm.callbackAddress({ ...base, address_line: null, postcode: null, house_number: null, street_name: null }) === "Near BS7 8",
+  );
+  check(
+    "CRM-6 B: booked line says 'was due' once the appointment has passed",
+    fieldCrm.callbackBookedLine({ crm_created_at: "2026-10-05T23:30:00Z", appointment_at: "2026-10-08T17:00:00Z" }, NOW) === "Booked Tue 6 Oct · was due Thu 8 Oct, 18:00" &&
+      fieldCrm.callbackBookedLine({ crm_created_at: "2026-10-12T09:00:00Z", appointment_at: "2026-10-20T17:00:00Z" }, NOW) === "Booked Mon 12 Oct · due Tue 20 Oct, 18:00" &&
+      fieldCrm.callbackBookedLine({ crm_created_at: "2026-10-12T09:00:00Z", appointment_at: null }, NOW) === "Booked Mon 12 Oct",
+  );
+  check(
+    "CRM-6 B: details in order Result, Product interest, Best time, Description; blanks left out",
+    same(fieldCrm.callbackDetails({ result_note: "said call tomorrow", product_interest: "7 windows", best_time: "  ", description: "semi" }).map((d) => d.label), ["Result", "Product interest", "Description"]) &&
+      fieldCrm.callbackDetails({ result_note: null, product_interest: null, best_time: null, description: null }).length === 0,
+  );
   check("later days: the next 7 days", same(fieldCrm.laterDays(NOW), ["2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-17", "2026-10-18", "2026-10-19"]));
   const m = fieldCrm.periodSpan("month", NOW);
   const lm = fieldCrm.periodSpan("last_month", NOW);
@@ -455,6 +488,12 @@ const m036 = readFileSync("supabase/migrations/036_crm_sync_schedule.sql", "utf8
 check("036 keeps the URL and secret in Vault, never in the file", m036.includes("vault.decrypted_secrets") && !/https:\/\/[a-z0-9-]+\.vercel\.app/.test(m036) && !/Bearer [A-Za-z0-9]{16,}/.test(m036));
 const m037 = readFileSync("supabase/migrations/037_crm_canvasser.sql", "utf8");
 check("037: contacts readable only by their canvasser, purged after 90 days", /create policy crm_contacts_select_own/.test(m037) && !/crm_contacts.*to authenticated\s+using \(\(select public\.app_role\(\)\) in/.test(m037) && /crm-contacts-purge/.test(m037) && /purge_after < current_date/.test(m037));
+const m038 = readFileSync("supabase/migrations/038_crm_callback_details.sql", "utf8");
+check(
+  "038: notes live only in crm_contacts (same own-canvasser policy and 90-day purge); no new policy, grant or first name",
+  /alter table public\.crm_contacts/.test(m038) && !/alter table public\.crm_leads/.test(m038) && !/create policy|grant (select|insert|update|delete)/i.test(m038) && !/first_?name/i.test(m038.replace(/canvasser_first_name/g, "")) && /grant execute on function public\.my_crm_callbacks\(int\) to authenticated/.test(m038) && /revoke all on function public\.my_crm_callbacks\(int\) from public, anon/.test(m038) && /security invoker/.test(m038) &&
+    /where l\.callback_reason is not null/.test(m038) && /l\.canvasser_first_name = \(select public\.my_crm_name\(\)\)/.test(m038) && /\(select public\.my_crm_branch\(\)\) is null or l\.branch = \(select public\.my_crm_branch\(\)\)/.test(m038) && /least\(greatest\(coalesce\(p_days, 30\), 1\), 90\)/.test(m038) && /c\.crm_id = l\.crm_id/.test(m038),
+);
 check("037: no first name column anywhere", !/first_?name\s+text/i.test(m037.replace(/canvasser_first_name/g, "")));
 check("037: call results are insert-only (no update or delete grant)", /grant select, insert on public\.crm_callbacks to authenticated/.test(m037) && !/grant[^;]*(update|delete)[^;]*crm_callbacks/i.test(m037));
 check("036 tick is not callable through the API", /revoke all on function public\.crm_sync_tick\(\) from anon, authenticated/.test(m036));

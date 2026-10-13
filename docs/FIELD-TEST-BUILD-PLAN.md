@@ -155,6 +155,7 @@
 | CRM-5 C1 | Leads → Call-backs + result sheet; You → my results, my week, leaderboard | DONE | 2026-10-12 | Leads → Call-backs + result sheet; You → my results, my week, leaderboard. | — |
 | CRM-5 C2 | Map → My CRM leads layer (own leads, off by default) | DONE | 2026-10-12 | Map → My CRM leads layer (own leads, off by default). | — |
 | CRM-6 A | Leaderboard ranks by pitches by default; My results leads with Pitched | DONE | 2026-10-13 | Leaderboard ranks by pitches by default (Pitched · Sales · Value); My results leads with Pitched. | — |
+| CRM-6 B | human: call-backs show the CRM address and open to show the CRM notes (migration 038) | DONE | 2026-10-13 | Call-backs show the CRM address + postcode and open to show status, Result, Product interest, Best time to call and Description (migration 038). | — |
 
 ---
 
