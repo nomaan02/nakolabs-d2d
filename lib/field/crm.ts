@@ -458,35 +458,46 @@ export function weekTitle(start: string): string {
 
 // ------------------------------------------------------------ leaderboard
 
+/** Owner 2026-10-13: canvassers are paid on pitches (sale + P&M), so Pitched leads and is the default. */
 export const BOARD_METRICS = [
+  { value: "pitched", label: "Pitched" },
   { value: "sales", label: "Sales" },
   { value: "value", label: "Value" },
-  { value: "rate", label: "Pitch → sale" },
 ] as const;
 export type BoardMetric = (typeof BOARD_METRICS)[number]["value"];
 
 export function parseBoardMetric(value: unknown): BoardMetric {
-  return BOARD_METRICS.some((m) => m.value === value) ? (value as BoardMetric) : "sales";
+  return BOARD_METRICS.some((m) => m.value === value) ? (value as BoardMetric) : "pitched";
 }
 
 export type RankedRow = LeaderRow & { rank: number; you: boolean; main: string; sub: string };
 
-/** The number that ranks a row, highest first. Pitch → sale needs at least one pitch. */
+/** The number that ranks a row, highest first. */
 function score(row: LeaderRow, metric: BoardMetric): number {
   if (metric === "value") return Number(row.revenue);
-  if (metric === "rate") return row.pitched > 0 ? row.sold / row.pitched : -1;
+  if (metric === "pitched") return row.pitched;
   return row.sold;
+}
+
+/** The figure that breaks a tie: sales on Pitched, pitches on Sales / Value. */
+function tieBreak(row: LeaderRow, metric: BoardMetric): number {
+  return metric === "pitched" ? row.sold : row.pitched;
+}
+
+/** "6 sold · 9 P&M" */
+export function pitchSplit(row: { sold: number; pitched: number }): string {
+  return `${row.sold} sold · ${row.pitched - row.sold} P&M`;
 }
 
 /**
  * Ranked for one metric. Ties share a rank ("2, 2, 4"). People with nothing
- * to rank on (no sales for Sales / Value, no pitches for Pitch → sale) are
- * left off, except you.
+ * to rank on (no pitches for Pitched, no sales for Sales / Value) are left
+ * off, except you.
  */
 export function rankBoard(rows: readonly LeaderRow[], metric: BoardMetric, me: { name: string | null; branch: string | null }): RankedRow[] {
   const isMe = (r: LeaderRow) => me.name !== null && r.canvasser === me.name && (me.branch === null || r.branch === me.branch);
-  const counted = rows.filter((r) => isMe(r) || (metric === "rate" ? r.pitched > 0 : r.sold > 0));
-  const sorted = [...counted].sort((a, b) => score(b, metric) - score(a, metric) || b.pitched - a.pitched || a.canvasser.localeCompare(b.canvasser));
+  const counted = rows.filter((r) => isMe(r) || (metric === "pitched" ? r.pitched > 0 : r.sold > 0));
+  const sorted = [...counted].sort((a, b) => score(b, metric) - score(a, metric) || tieBreak(b, metric) - tieBreak(a, metric) || a.canvasser.localeCompare(b.canvasser));
   let rank = 0;
   let last: number | null = null;
   return sorted.map((r, i) => {
@@ -495,8 +506,8 @@ export function rankBoard(rows: readonly LeaderRow[], metric: BoardMetric, me: {
       rank = i + 1;
       last = s;
     }
-    const main = metric === "value" ? poundsShort(Number(r.revenue)) : metric === "rate" ? rate(r.sold, r.pitched) : String(r.sold);
-    const sub = metric === "value" ? `${r.sold} sold` : metric === "rate" ? `${r.sold} of ${r.pitched}` : `of ${r.pitched} pitched`;
+    const main = metric === "value" ? poundsShort(Number(r.revenue)) : metric === "pitched" ? String(r.pitched) : String(r.sold);
+    const sub = metric === "value" ? `${r.sold} sold` : metric === "pitched" ? pitchSplit(r) : `of ${r.pitched} pitched`;
     return { ...r, rank, you: isMe(r), main, sub };
   });
 }
@@ -508,12 +519,12 @@ export function boardView(ranked: readonly RankedRow[], n = 8): { top: RankedRow
   return { top, me: me && !top.includes(me) ? me : null };
 }
 
-/** "You're 4th of 23 this month, by sales" / null when you are not on it. */
+/** "You're 4th of 23 this month, by pitches" (rank from rankBoard(…, "pitched", …)). */
 export function boardSummary(ranked: readonly RankedRow[], peopleWithLeads: number, periodWords: string): string {
   const me = ranked.find((r) => r.you);
   if (!me) return `${peopleWithLeads} people booked leads ${periodWords}`;
-  if (me.sold === 0) return `No sales yet ${periodWords}. ${peopleWithLeads} people booked leads`;
-  return `You're ${ordinal(me.rank)} of ${peopleWithLeads} ${periodWords}, by sales`;
+  if (me.pitched === 0) return `No pitches yet ${periodWords}. ${peopleWithLeads} people booked leads`;
+  return `You're ${ordinal(me.rank)} of ${peopleWithLeads} ${periodWords}, by pitches`;
 }
 
 export const PERIOD_WORDS: Record<ResultPeriod, string> = {

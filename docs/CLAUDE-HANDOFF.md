@@ -2,30 +2,25 @@
 
 ## Current state
 
-- Last updated: 2026-10-12 (CRM-5 Session C2). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- CRM-5 C2: Map tab "My CRM leads". The canvasser's own CRM leads as hollow rings coloured by CRM outcome, off by default, remembered on the phone (Off / 7 / 30 / 90 days). A tap opens a bottom card. "On your call-back list" opens Leads → Call-backs. No phone number on the map. Unplaced leads are counted ("N not on the map"). Full map only. This is the one exception to the ban on previous-visit outcome colour on the field map.
-- New: `components/field/crm/crm-map-layer.tsx` (191). Replaced: `scripts/verify-crm.ts` (490). Patched: `lib/field/crm.ts` (581, map points, windows, card line, ring colours), `components/field/field-map.tsx` (1180, source `field-crm-leads`), `components/field/map-tab.tsx` (365, pill and card), `AGENTS.md` (P4b exception).
-- `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. `npm run verify:ui1` exit 0, last line `OK`. `npm run verify:ui7` exit 0, last line `All UI-7 geo checks passed.` `npx tsc --noEmit` exit 0. `npx eslint` on the five TypeScript files exit 0.
-- No browser. Phone check is after landing: on a day with a prop, Map → My CRM leads → Last 30 days: rings on your own CRM doors; tap one → the card; "On your call-back list" opens Leads → Call-backs; switch Off → rings gone and it stays off after reopening the app.
-- CRM-5 C2 tracker row added after CRM-5 C1. Status DONE. Date 2026-10-12. Result: `Map → My CRM leads layer (own leads, off by default).` Commit column `—`.
-- No migration. `lib/sync/*`, `lib/field/db.ts`, `lib/crm/*` and the Logger tab were not edited. No table row. No `client_event_id`. No CRM call. No database query. Password, profile and role were not changed.
-- CRM-5 C1 remains: Leads has Today | Call-backs. Call-backs is the canvasser's own leads (7 / 30 / 90 days, default 30). One tap rings. A tick logs a result through `enqueue` op `crm_callback`. You, when linked, shows my results, my week and `/field/profile/leaderboard`. Not linked: one line to ask the admin.
-- Username sign-in from CRM-5 U remains. `lib/auth/username.ts` stores `<username>@users.nakolabs-d2d.invalid`. `/login` has one box, "Username or email". `accounts:create` is still dry-run unless `--write`. This session did not run it. No account was created.
-- Call results still insert into `crm_callbacks` via `lib/sync/queue.ts` only. That file was not edited. `/field` CRM reads are only `my_crm_callbacks`, `my_crm_leads` and `crm_leaderboard`, from `lib/field/crm-data.ts`. Phone numbers appear only on the call-back list and its sheet. The P4b screens are the only ranking in `/field`. Previous-visit outcome colour on the map is allowed only on the "My CRM leads" layer (own leads, off by default). No device GPS was read. The rings use door positions already returned by `my_crm_leads`.
-- CRM sync schedule from CRM-4 remains: every 30 minutes, about 05:00 to 21:00 London. Migration 036 remains applied. No Vault secret was created this session.
+- Last updated: 2026-10-13 (CRM-6 Session A). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- CRM-6 A: the leaderboard opens on Pitched (sale + pitch & miss). Tabs are Pitched · Sales · Value. The Pitch → sale tab is gone. The saved tab key is `d2d.crm.boardMetric.v2`, so an old saved "rate" opens on Pitched. Under the pitch count: "N sold · N P&M". Equal pitches share a rank; more sales is listed first. People with no pitches are left off, except you. My results leads with Pitched · Sold · Sales value. The lead count is on the date line. The leaderboard line ends "by pitches". The pitch → sale rate stays on My results.
+- Patched: `lib/field/crm.ts` (592), `components/field/crm/leaderboard-screen.tsx` (128), `components/field/crm/my-results.tsx` (263), `scripts/verify-crm.ts` (499).
+- `npm run verify:crm` exit 0, last line `ALL PASS`. `npx tsc --noEmit` exit 0. `npx eslint` on those four files exit 0. `git grep -n '"rate"' -- lib/field/crm.ts components/field/crm` printed nothing (exit 1).
+- No browser. Phone check is the owner's: Leaderboard opens on Pitched; each row is pitches plus "N sold · N P&M"; Sales and Value and the period picker still work; My results leads with Pitched and the date line shows the lead count; light and dark at 375 wide.
+- CRM-6 A tracker row added after CRM-5 C2. Status DONE. Date 2026-10-13. Result: `Leaderboard ranks by pitches by default (Pitched · Sales · Value); My results leads with Pitched.` Commit column `—`.
+- No migration. No database access. No table row. No `client_event_id`. No CRM call. `lib/sync/queue.ts`, `lib/field/crm-data.ts` and `components/field/crm/segmented.tsx` were not edited. Password, profile and role were not changed.
+- CRM-5 C2 remains: Map tab "My CRM leads", own leads as hollow rings, off by default. That is still the one exception for previous-visit outcome colour on the field map.
+- CRM-5 C1 remains: Leads has Today | Call-backs. A tick logs a result through `enqueue` op `crm_callback`. You, when linked, shows my results, my week and `/field/profile/leaderboard`.
+- Username sign-in from CRM-5 U remains. `accounts:create` is still dry-run unless `--write`. This session did not run it. No account was created.
+- Call results still insert into `crm_callbacks` via `lib/sync/queue.ts` only. `/field` CRM reads are only `my_crm_callbacks`, `my_crm_leads` and `crm_leaderboard`, from `lib/field/crm-data.ts`. The P4b screens are the only ranking in `/field`. No device GPS was read.
+- CRM sync schedule from CRM-4 remains: every 30 minutes, about 05:00 to 21:00 London. Migration 036 remains applied.
 - Sale price from CRM-3 remains: Sale Amount, else Result, else Rep Result, number only, in `lib/crm/parse.ts`.
 - Dark-ready paths are unchanged: `/admin/props`, `/admin/today`, `/admin/calendar`, `/admin/coverage`, `/admin/team`, `/admin/leads`, `/admin/insights`, `/admin/settings`.
 - Redirects are unchanged: `/admin` → `/admin/today`, `/admin/allocate` → Today or Add visit when `?prop=` is set, `/admin/dashboard` → `/admin/insights`.
-- Migration 037 remains applied (follow-up 2026-10-11). This session did not re-check the live database and did not regenerate types.
-- Migration 035 remains applied. `crm_insights` is the London-day body. `crm_heat_grid` and `crm_door_history` are unchanged from 034.
-- Migration 033 remains applied. `crm_norm_street` and `crm_match_batch` are unchanged.
-- Migration 032 remains applied. This session did not recount rows.
-- Migration 031 `admin_latest_knocks` remains applied. Calendar, Coverage and Team still read through it.
-- Migration 030 remains applied. `/field` still opens for a canvasser and for the admin. Office stays out. `/api/cron/` stays outside the session matcher.
+- Migrations 029–037 remain applied. This session did not re-check the live database and did not regenerate types.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - External settings: none. The owner runs `accounts:create` after landing (dry run, then `--write`) for Nomaan (link the existing admin), Thomas, Blake, Tyron, Tito, Mohamed and Wayne (admin), branch "HO Bristol". Wayne to OK before canvassers use call-back phones.
-- Migration 029 `admin_set_canvasser_active` remains applied from F5f.
-- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-5 U remain DONE. CRM-5 C1 and CRM-5 C2 file work is in the tree.
+- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-5 C2 remain DONE. CRM-6 A file work is in the tree.
 
 ## Log
 
@@ -3140,3 +3135,29 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. A phone. Rings on a real prop. Tapping a ring. The call-back link. Switching the layer off and reopening the app.
 - **External settings:** none
 - **Open questions for Claude:** none from this session. Phone check after landing. Wayne to OK before canvassers use call-back phones.
+
+### 2026-10-13 — CRM-6 Session A (uncommitted)
+
+- **Item:** other
+- **What changed:** The leaderboard opens on Pitched (sale + pitch & miss). Tabs are Pitched · Sales · Value. The Pitch → sale tab is gone. Under the pitch count the line is "N sold · N P&M". Equal pitches share a rank; more sales is listed first. The saved tab key is `d2d.crm.boardMetric.v2`. My results leads with Pitched · Sold · Sales value. The lead count sits on the date line. The leaderboard line ends "by pitches". The pitch → sale rate stays on My results.
+- **Files:**
+  - Changed: `lib/field/crm.ts`, `components/field/crm/leaderboard-screen.tsx`, `components/field/crm/my-results.tsx`, `scripts/verify-crm.ts`, `docs/FIELD-TEST-BUILD-PLAN.md` (CRM-6 A row after CRM-5 C2), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `.handoff/reports/crm-6-a.md`
+  - Deleted: none
+- **Database:** none. No migration. No table row. No `client_event_id`. No CRM call. No database query.
+- **Shared modules touched:** `lib/field/crm.ts` (leaderboard metric, ranking, pitch split, summary line). `lib/sync/queue.ts` was not edited. `lib/field/crm-data.ts` was not edited. `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited. `lib/crm` was not edited.
+- **Decided by:**
+  - OWNER — 2026-10-13: canvassers are paid on pitches (sale + pitch & miss), not sales. The leaderboard's default view ranks by Pitched. Sales and Value stay as tabs. The Pitch → sale tab is removed (the rate stays on My results).
+  - OWNER — 2026-10-13: tab order Pitched · Sales · Value. Under each person's number on Pitched: "6 sold · 9 P&M".
+  - OWNER — 2026-10-13: You → My results leads with Pitched · Sold · Sales value; the lead count moves to the date line; the leaderboard line reads "You're 4th of 23 this month, by pitches".
+  - OWNER — 2026-10-13: Figma F4 (186:520) and F3 (185:497) updated and approved before build.
+  - CLAUDE — No database change: `crm_leaderboard` already returns `pitched` (sale + pm, by date booked, Bristol branches).
+  - CLAUDE — Ranking on Pitched: most pitches first; equal pitches share a rank ("5, 5, 7"); among equal pitches, more sales is listed first. People with no pitches are left off, except you.
+  - CLAUDE — The saved tab choice moves to a new key (`d2d.crm.boardMetric.v2`) so everyone opens on Pitched once. An old saved "rate" falls back to Pitched.
+  - CLAUDE — `pitchSplit(row)` → "6 sold · 9 P&M" (P&M = pitched − sold).
+- **Deviations from plan or brief:** none. The given replacements were pasted exactly. Line endings are CRLF.
+- **Invariants:** No device GPS was read. No coordinates left the device. No new field write. `lib/sync/queue.ts` was not edited. Coverage stays derived. The leaderboard and My results stay inside the existing P4b exception (own results and the Bristol leaderboard). Previous-visit outcome colour on the map is still only the "My CRM leads" layer.
+- **Verified:** Each find block occurred once (1.1–1.8, 2.1–2.5, 3.1–3.3, 4.1). `lib/field/crm.ts` is 592 lines. `components/field/crm/leaderboard-screen.tsx` is 128 lines. `components/field/crm/my-results.tsx` is 263 lines. `scripts/verify-crm.ts` is 499 lines. `npm run verify:crm` exit 0, last line `ALL PASS`. `npx tsc --noEmit` exit 0. `npx eslint` on the four files exit 0. `git grep -n '"rate"' -- lib/field/crm.ts components/field/crm` printed nothing (exit 1).
+- **Not verified:** A browser. A phone. Leaderboard opening on Pitched. The sold · P&M line against the CRM. Sales and Value tabs. My results date line. Light and dark at 375 wide.
+- **External settings:** none
+- **Open questions for Claude:** none from this session. Phone check on the owner's phone. Wayne to OK before canvassers use call-back phones.

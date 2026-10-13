@@ -154,6 +154,7 @@
 | CRM-5 U | human: sign in with a username + a script to create canvasser accounts linked to their CRM name | DONE | 2026-10-12 | Sign in with a username; accounts:create script makes canvasser accounts linked to their CRM name. | — |
 | CRM-5 C1 | Leads → Call-backs + result sheet; You → my results, my week, leaderboard | DONE | 2026-10-12 | Leads → Call-backs + result sheet; You → my results, my week, leaderboard. | — |
 | CRM-5 C2 | Map → My CRM leads layer (own leads, off by default) | DONE | 2026-10-12 | Map → My CRM leads layer (own leads, off by default). | — |
+| CRM-6 A | Leaderboard ranks by pitches by default; My results leads with Pitched | DONE | 2026-10-13 | Leaderboard ranks by pitches by default (Pitched · Sales · Value); My results leads with Pitched. | — |
 
 ---
 

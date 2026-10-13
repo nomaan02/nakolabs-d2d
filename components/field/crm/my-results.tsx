@@ -50,7 +50,7 @@ export function MyResults({ me }: { me: CrmMe }) {
   const totals = leads.kind === "ready" ? myTotals(leads.data) : null;
   const summary = useMemo(() => {
     if (board.kind !== "ready") return null;
-    return boardSummary(rankBoard(board.data, "sales", me), board.data.length, PERIOD_WORDS[period]);
+    return boardSummary(rankBoard(board.data, "pitched", me), board.data.length, PERIOD_WORDS[period]);
   }, [board, me, period]);
 
   const choose = (p: ResultPeriod) => {
@@ -62,7 +62,10 @@ export function MyResults({ me }: { me: CrmMe }) {
     <div className="mx-auto max-w-2xl px-4" data-testid="my-results">
       <div className="mt-4 flex items-center gap-3">
         <PeriodSelect value={period} onChange={choose} testId="my-results-period" />
-        <span className="text-field-body text-ink-muted">{span.line}, by date booked</span>
+        <span className="text-field-body text-ink-muted">
+          {span.line}
+          {totals ? ` · ${totals.leads === 1 ? "1 lead" : `${totals.leads} leads`}` : ""}, by date booked
+        </span>
       </div>
 
       <section className="mt-4 rounded-field-lg border border-line bg-surface p-4" aria-label="My results">
@@ -98,7 +101,7 @@ function Totals({ totals }: { totals: ReturnType<typeof myTotals> }) {
   return (
     <>
       <dl className="grid grid-cols-3 gap-2">
-        <Big value={String(totals.leads)} label="Leads" />
+        <Big value={String(totals.pitched)} label="Pitched" />
         <Big value={String(totals.sold)} label="Sold" />
         <Big value={totals.salesWithAmount > 0 ? poundsShort(totals.value) : "–"} label="Sales value" right />
       </dl>

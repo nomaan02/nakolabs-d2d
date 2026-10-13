@@ -1567,3 +1567,33 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given files and patches were pasted exactly. Line endings are CRLF, matching the rest of the repo.
 - **Not done / deferred:** A browser. The phone check (Map → My CRM leads → Last 30 days, tap a ring, call-back link, Off stays off). Did not commit. No new table row. No `client_event_id`. No CRM call. No database query.
 - **Follow-ups:** Phone check after landing. Wayne to OK before canvassers use call-back phones.
+
+---
+
+### CRM-6 Session A — Leaderboard ranks by pitches
+- **Date:** 2026-10-13
+- **Model:** Grok 4.7
+- **Built:** The leaderboard opens on Pitched (sale + pitch & miss). Tabs are Pitched · Sales · Value. The Pitch → sale tab is gone. Under the pitch count the line is "N sold · N P&M". Equal pitches share a rank; more sales is listed first. The saved tab key is `d2d.crm.boardMetric.v2`. My results leads with Pitched · Sold · Sales value. The lead count sits on the date line. The leaderboard line ends "by pitches". The pitch → sale rate stays on My results.
+- **Owner decisions:**
+  - OWNER — 2026-10-13: canvassers are paid on pitches (sale + pitch & miss), not sales. The leaderboard's default view ranks by Pitched. Sales and Value stay as tabs. The Pitch → sale tab is removed (the rate stays on My results).
+  - OWNER — 2026-10-13: tab order Pitched · Sales · Value. Under each person's number on Pitched: "6 sold · 9 P&M".
+  - OWNER — 2026-10-13: You → My results leads with Pitched · Sold · Sales value; the lead count moves to the date line; the leaderboard line reads "You're 4th of 23 this month, by pitches".
+  - OWNER — 2026-10-13: Figma F4 (186:520) and F3 (185:497) updated and approved before build.
+- **Claude decisions:**
+  - CLAUDE — No database change: `crm_leaderboard` already returns `pitched` (sale + pm, by date booked, Bristol branches).
+  - CLAUDE — Ranking on Pitched: most pitches first; equal pitches share a rank ("5, 5, 7"); among equal pitches, more sales is listed first. People with no pitches are left off, except you.
+  - CLAUDE — The saved tab choice moves to a new key (`d2d.crm.boardMetric.v2`) so everyone opens on Pitched once. An old saved "rate" falls back to Pitched.
+  - CLAUDE — `pitchSplit(row)` → "6 sold · 9 P&M" (P&M = pitched − sold).
+- **Acceptance:**
+  - EDIT 1 DONE. Eight replacements in `lib/field/crm.ts` (now 592 lines). Each find occurred once.
+  - EDIT 2 DONE. Five replacements in `components/field/crm/leaderboard-screen.tsx` (now 128 lines). Each find occurred once.
+  - EDIT 3 DONE. Three replacements in `components/field/crm/my-results.tsx` (now 263 lines). Each find occurred once.
+  - EDIT 4 DONE. One replacement in `scripts/verify-crm.ts` (now 499 lines). The find occurred once.
+  - `npm run verify:crm`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0.
+  - eslint: **PASS** — `npx eslint` on the four files exit 0.
+  - `git grep -n '"rate"' -- lib/field/crm.ts components/field/crm`: **PASS** — no output (exit 1).
+  - Phone: no browser. Five checks listed for the owner. Not opened on a phone.
+- **Deviations from brief:** none. The given replacements were pasted exactly. Line endings are CRLF.
+- **Not done / deferred:** A browser. The phone check (Pitched default, sold · P&M line, Sales and Value, My results, 375 wide). Did not commit. No new table row. No `client_event_id`. No CRM call. No database query.
+- **Follow-ups:** Phone check on the owner's phone. Wayne to OK before canvassers use call-back phones.

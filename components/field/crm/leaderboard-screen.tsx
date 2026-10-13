@@ -10,12 +10,14 @@ import { ChevronLeftIcon } from "@/components/field/icons";
 import { BOARD_METRICS, boardView, parseBoardMetric, PERIOD_WORDS, periodSpan, rankBoard, type BoardMetric, type RankedRow, type ResultPeriod } from "@/lib/field/crm";
 import { fetchLeaderboard, useCrmMe, useLoad } from "@/lib/field/crm-data";
 
-const METRIC_KEY = "d2d.crm.boardMetric";
+/** v2 (owner 2026-10-13): a new key so everyone starts on Pitched once. */
+const METRIC_KEY = "d2d.crm.boardMetric.v2";
 
 /**
  * CRM-5 C, Figma F4 (186:520). Bristol branches, everyone in the CRM, by
- * first name: Sales, Value (£, visible for everyone — owner 2026-10-11) or
- * Pitch → sale. Totals only (crm_leaderboard). Top 8 and you.
+ * first name: Pitched (sale + P&M, the default — owner 2026-10-13), Sales or
+ * Value (£, visible for everyone — owner 2026-10-11). Totals only
+ * (crm_leaderboard). Top 8 and you.
  */
 export function LeaderboardTab() {
   const { canvasserId } = useFieldData();
@@ -24,7 +26,7 @@ export function LeaderboardTab() {
 
 export function LeaderboardScreen({ canvasserId }: { canvasserId: string | null }) {
   const me = useCrmMe(canvasserId);
-  const [metric, setMetric] = useState<BoardMetric>("sales");
+  const [metric, setMetric] = useState<BoardMetric>("pitched");
   const [period, setPeriod] = useState<ResultPeriod>("month");
 
   useEffect(() => {
@@ -32,7 +34,7 @@ export function LeaderboardScreen({ canvasserId }: { canvasserId: string | null 
     try {
       setMetric(parseBoardMetric(window.localStorage.getItem(METRIC_KEY)));
     } catch {
-      // Private mode: start on Sales.
+      // Private mode: start on Pitched.
     }
   }, []);
 
@@ -81,7 +83,7 @@ export function LeaderboardScreen({ canvasserId }: { canvasserId: string | null 
         </p>
       ) : view.top.length === 0 ? (
         <p className="mt-6 rounded-field-lg border border-line bg-surface px-4 py-4 text-field-body text-ink-muted">
-          {metric === "rate" ? "Nobody has pitched" : "Nobody has sold"} {PERIOD_WORDS[period]} yet.
+          {metric === "pitched" ? "Nobody has pitched" : "Nobody has sold"} {PERIOD_WORDS[period]} yet.
         </p>
       ) : (
         <>

@@ -261,10 +261,19 @@ console.log("\nCRM-5 C field screens (pure rules)");
     { canvasser: "Nomaan", branch: "HO Bristol", leads: 9, sold: 0, pitched: 0, revenue: 0, sales_with_amount: 0 },
   ];
   const me = { name: "Nomaan", branch: "HO Bristol" };
+  const pitched = fieldCrm.rankBoard(board, "pitched", me);
+  check("leaderboard by pitches is the default: most pitches first, you stay on with 0", fieldCrm.parseBoardMetric(null) === "pitched" && fieldCrm.parseBoardMetric("rate") === "pitched" && same(pitched.map((r) => `${r.rank}${r.canvasser}`), ["1Cat", "2Amy", "3Bob", "4Nomaan"]) && pitched[3]?.you === true);
+  check("pitched rows: big number is pitches, line is sold · P&M", pitched[0]?.main === "6" && pitched[0]?.sub === "2 sold · 4 P&M" && fieldCrm.pitchSplit({ sold: 6, pitched: 15 }) === "6 sold · 9 P&M");
+  const tie: fieldCrm.LeaderRow[] = [
+    { canvasser: "Dee", branch: "HO Bristol", leads: 9, sold: 1, pitched: 5, revenue: 0, sales_with_amount: 0 },
+    { canvasser: "Eve", branch: "HO Bristol", leads: 9, sold: 2, pitched: 5, revenue: 0, sales_with_amount: 0 },
+    { canvasser: "Fay", branch: "HO Bristol", leads: 9, sold: 0, pitched: 4, revenue: 0, sales_with_amount: 0 },
+  ];
+  check("equal pitches share a rank; more sales listed first", same(fieldCrm.rankBoard(tie, "pitched", me).map((r) => `${r.rank}${r.canvasser}`), ["1Eve", "1Dee", "3Fay"]));
   const sales = fieldCrm.rankBoard(board, "sales", me);
   check("leaderboard by sales: ties share a rank, you stay on with 0", same(sales.map((r) => `${r.rank}${r.canvasser}`), ["1Amy", "2Cat", "2Bob", "4Nomaan"]) && sales[3]?.you === true);
-  check("leaderboard by value and by pitch → sale", same(fieldCrm.rankBoard(board, "value", me).map((r) => r.canvasser), ["Bob", "Amy", "Cat", "Nomaan"]) && same(fieldCrm.rankBoard(board, "rate", me).map((r) => r.canvasser), ["Bob", "Amy", "Cat", "Nomaan"]));
-  check("summary line and ordinals", fieldCrm.boardSummary(sales, 4, "this month") === "No sales yet this month. 4 people booked leads" && fieldCrm.ordinal(1) === "1st" && fieldCrm.ordinal(12) === "12th" && fieldCrm.ordinal(23) === "23rd");
+  check("leaderboard by value; tabs are Pitched, Sales, Value", same(fieldCrm.rankBoard(board, "value", me).map((r) => r.canvasser), ["Bob", "Amy", "Cat", "Nomaan"]) && same(fieldCrm.BOARD_METRICS.map((m) => m.label), ["Pitched", "Sales", "Value"]));
+  check("summary line by pitches, and ordinals", fieldCrm.boardSummary(pitched, 4, "this month") === "No pitches yet this month. 4 people booked leads" && fieldCrm.boardSummary(fieldCrm.rankBoard(board, "pitched", { name: "Amy", branch: "HO Bristol" }), 4, "this month") === "You're 2nd of 4 this month, by pitches" && fieldCrm.ordinal(1) === "1st" && fieldCrm.ordinal(12) === "12th" && fieldCrm.ordinal(23) === "23rd");
   check("week starts Monday (London)", fieldCrm.weekStart("2026-10-18") === "2026-10-12" && fieldCrm.weekStart("2026-10-12") === "2026-10-12");
 }
 
