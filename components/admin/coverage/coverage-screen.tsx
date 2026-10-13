@@ -61,23 +61,26 @@ import {
 } from "@/lib/admin/coverage-filters";
 import { loadCrmDoors, loadCrmHeat } from "@/lib/admin/crm-data";
 import {
-  CRM_DOOR_FILTERS,
-  LEAD_STEPS,
-  RATE_STEPS,
-  crmChip,
   cellBox,
+  coverageCrmWindow,
+  CRM_DOOR_FILTERS,
+  crmChip,
+  type CrmDoor,
   crmDoorCounts,
   crmDoorGroup,
   crmDoorLatest,
   crmDoorTally,
+  type CrmView,
   crmViewDoorFilter,
   crmViewKind,
+  crmWindowKey,
   filterCrmDoors,
-  heatCellFigures,
-  withCrmView,
-  type CrmDoor,
-  type CrmView,
   type HeatCell,
+  heatCellFigures,
+  heatMinLeads,
+  leadSteps,
+  RATE_STEPS,
+  withCrmView,
 } from "@/lib/admin/crm-map";
 import { boxOf, type LngLatBox } from "@/lib/admin/map-fit";
 import type { Detent } from "@/lib/admin/sheet-detents";
@@ -161,7 +164,7 @@ export function CoverageScreen({
   people: CoveragePerson[];
   /** `?prop=` is a prop that is not live (archived). */
   missingProp: { id: string; name: string } | null;
-  /** CRM-2 D: the CRM layer from `?crm=` (all CRM history; admin only). */
+  /** CRM-2 D: the CRM layer from `?crm=` (admin only). CRM-6 C: it follows the Days chip, by CRM date booked. */
   crmView: CrmView;
 }) {
   const router = useRouter();
@@ -176,10 +179,17 @@ export function CoverageScreen({
   const [available, setAvailable] = useState(720);
   const [sheetHeight, setSheetHeight] = useState(0);
   const [doorId, setDoorId] = useState<number | null>(null);
-  const [crmDoors, setCrmDoorRows] = useState<CrmDoor[] | null>(null);
-  const [heatCells, setHeatCells] = useState<HeatCell[] | null>(null);
-  // A failed read is kept per kind and shown only while that kind has no data, so a later success clears it.
-  const [crmError, setCrmError] = useState<{ doors: string | null; heat: string | null }>({ doors: null, heat: null });
+  // CRM-6 C (owner 2026-10-13): the CRM layer follows the Days chip. Each read is kept with the window it was
+  // read for; a read for another window counts as not loaded, so a new period never shows the old picture.
+  const crmWindow = useMemo(() => coverageCrmWindow({ from: filters.from, to: filters.to }), [filters.from, filters.to]);
+  const crmKey = crmWindowKey(crmWindow);
+  const heatMin = heatMinLeads(crmWindow, new Date());
+  const [crmDoorRead, setCrmDoorRead] = useState<{ key: string; rows: CrmDoor[] } | null>(null);
+  const [heatRead, setHeatRead] = useState<{ key: string; cells: HeatCell[] } | null>(null);
+  const crmDoors = crmDoorRead?.key === crmKey ? crmDoorRead.rows : null;
+  const heatCells = heatRead?.key === crmKey ? heatRead.cells : null;
+  // A failed read is kept per kind and window and shown only while that kind has no data, so a later success clears it.
+  const [crmError, setCrmError] = useState<{ doors: string | null; heat: string | null; key: string }>({ doors: null, heat: null, key: "" });
   // A tapped CRM door or square belongs to the layer it was tapped on: Back or a new layer drops it.
   const [crmPick, setCrmPick] = useState<{ view: CrmView; door: number | null; cell: number | null }>({ view: crmView, door: null, cell: null });
   const viewRef = useRef(crmView);
@@ -217,6 +227,8 @@ export function CoverageScreen({
     (next: CoverageFilters) => {
       setPicker(null);
       setDoorId(null);
+      // CRM-6 C: a tapped CRM door or square belongs to the period it was tapped in.
+      setCrmPick({ view: crmView, door: null, cell: null });
       startTransition(() => router.push(withCrmView(filtersHref(next, today), crmView)));
     },
     [router, today, crmView],
@@ -333,35 +345,38 @@ export function CoverageScreen({
     );
   }, [map, doors, resolved]);
 
-  // CRM-2 D: read the CRM layer's data once, the first time it is switched on.
+  // CRM-2 D: read the CRM layer's data when it is switched on. CRM-6 C: and again whenever the Days chip changes.
   useEffect(() => {
     let live = true;
+    const key = crmWindowKey(crmWindow);
+    const failed = (kind: "doors" | "heat", message: string) =>
+      setCrmError((current) => (current.key === key ? { ...current, [kind]: message } : { doors: null, heat: null, key, [kind]: message }));
     if (crmKind === "doors" && crmDoors === null) {
-      void loadCrmDoors(createClient()).then((result) => {
+      void loadCrmDoors(createClient(), crmWindow).then((result) => {
         if (!live) return;
-        if (result.ok) setCrmDoorRows(result.data);
-        else setCrmError((current) => ({ ...current, doors: result.message }));
+        if (result.ok) setCrmDoorRead({ key, rows: result.data });
+        else failed("doors", result.message);
       });
     }
     if (crmKind === "heat" && heatCells === null) {
-      void loadCrmHeat(createClient()).then((result) => {
+      void loadCrmHeat(createClient(), crmWindow).then((result) => {
         if (!live) return;
-        if (result.ok) setHeatCells(result.data);
-        else setCrmError((current) => ({ ...current, heat: result.message }));
+        if (result.ok) setHeatRead({ key, cells: result.data });
+        else failed("heat", result.message);
       });
     }
     return () => {
       live = false;
     };
-  }, [crmKind, crmDoors, heatCells]);
+  }, [crmKind, crmWindow, crmDoors, heatCells]);
 
   useEffect(() => {
     if (!map) return;
     ensureCrmLayers(map, mode);
     setCrmDoors(map, crmKind === "doors" ? shownCrmDoors : []);
-    setCrmHeat(map, crmKind === "heat" && heatCells ? heatCells : [], crmView === "heat-leads" ? "leads" : "rate");
+    setCrmHeat(map, crmKind === "heat" && heatCells ? heatCells : [], crmView === "heat-leads" ? "leads" : "rate", heatMin);
     setCrmVisibility(map, { heat: crmKind === "heat", doors: crmKind === "doors" });
-  }, [map, mode, crmKind, crmView, shownCrmDoors, heatCells]);
+  }, [map, mode, crmKind, crmView, shownCrmDoors, heatCells, heatMin]);
 
   useEffect(() => {
     if (map) setSelectedHeatCell(map, crmKind === "heat" ? cellIndex : null);
@@ -612,7 +627,7 @@ export function CoverageScreen({
               ) : (
                 <p className="mt-2 text-admin-body text-ink-muted">Not knocked for these filters.</p>
               )}
-              {crmByDoor.get(door.properties.uprn) ? <CrmDoorLines row={crmByDoor.get(door.properties.uprn)!} mode={mode} /> : null}
+              {crmByDoor.get(door.properties.uprn) ? <CrmDoorLines row={crmByDoor.get(door.properties.uprn)!} mode={mode} period={periodLabel(filters, today)} /> : null}
             </section>
           ) : crmDoorId !== null && crmByDoor.get(crmDoorId) ? (
             <section aria-label="CRM door" className="mb-4 rounded-field-lg bg-field-bg p-4">
@@ -625,11 +640,12 @@ export function CoverageScreen({
                   <CloseIcon className="size-5" />
                 </IconButton>
               </div>
-              <CrmDoorLines row={crmByDoor.get(crmDoorId)!} mode={mode} />
+              <CrmDoorLines row={crmByDoor.get(crmDoorId)!} mode={mode} period={periodLabel(filters, today)} />
             </section>
           ) : crmKind === "heat" && cellIndex !== null && heatCells?.[cellIndex] ? (
             <HeatSquare
               cell={heatCells[cellIndex]!}
+              period={periodLabel(filters, today)}
               onClose={() => setCellIndex(null)}
               onDoors={() => {
                 fitBox(cellBox(heatCells[cellIndex]!));
@@ -654,7 +670,9 @@ export function CoverageScreen({
               mode={mode}
               count={crmKind === "doors" ? shownCrmDoors.length : (heatCells?.length ?? 0)}
               loading={crmKind === "doors" ? crmDoors === null : heatCells === null}
-              error={crmKind === "doors" ? (crmDoors === null ? crmError.doors : null) : heatCells === null ? crmError.heat : null}
+              error={crmError.key !== crmKey ? null : crmKind === "doors" ? (crmDoors === null ? crmError.doors : null) : heatCells === null ? crmError.heat : null}
+              period={periodLabel(filters, today)}
+              minLeads={heatMin}
             />
           ) : null}
         </div>
@@ -663,7 +681,7 @@ export function CoverageScreen({
       {picker === "period" ? (
         <PeriodPicker filters={filters} today={today} onClose={() => setPicker(null)} onApply={go} />
       ) : picker === "crm" ? (
-        <CrmPicker view={crmView} mode={mode} tally={crmDoors ? crmDoorTally(crmDoors) : null} onClose={() => setPicker(null)} onPick={pickCrm} />
+        <CrmPicker view={crmView} mode={mode} tally={crmDoors ? crmDoorTally(crmDoors) : null} period={periodLabel(filters, today)} onClose={() => setPicker(null)} onPick={pickCrm} />
       ) : picker ? (
         <FilterPicker title={options[picker].title} options={options[picker].list} filters={filters} onClose={() => setPicker(null)} onApply={go} />
       ) : null}
@@ -704,10 +722,10 @@ export function CoverageFailed({ message, narrower }: { message: string; narrowe
 }
 
 /** CRM-2 D: a door's CRM history in words (latest outcome, then the counts). */
-function CrmDoorLines({ row, mode }: { row: CrmDoor; mode: "light" | "dark" }) {
+function CrmDoorLines({ row, mode, period }: { row: CrmDoor; mode: "light" | "dark"; period: string }) {
   return (
     <div className="mt-3 border-t border-line pt-3">
-      <p className="text-admin-section text-ink-muted">CRM history</p>
+      <p className="text-admin-section text-ink-muted">CRM history · {period}</p>
       <p className="mt-1 flex items-center gap-2.5 text-admin-body-strong">
         <CrmMark colour={CRM_RING[mode][crmDoorGroup(row.latestStatus)]} className="size-3.5" />
         <span className="flex-1">{crmDoorLatest(row)}</span>
@@ -718,10 +736,27 @@ function CrmDoorLines({ row, mode }: { row: CrmDoor; mode: "light" | "dark" }) {
 }
 
 /** CRM-2 D: the CRM layer's key, in words beside each colour. */
-function CrmKey({ view, mode, count, loading, error }: { view: CrmView; mode: "light" | "dark"; count: number; loading: boolean; error: string | null }) {
+function CrmKey({
+  view,
+  mode,
+  count,
+  loading,
+  error,
+  period,
+  minLeads,
+}: {
+  view: CrmView;
+  mode: "light" | "dark";
+  count: number;
+  loading: boolean;
+  error: string | null;
+  period: string;
+  /** CRM-6 C: 5, or 2 for a period shorter than three months. */
+  minLeads: number;
+}) {
   const kind = crmViewKind(view);
   const ramp = HEAT_RAMP[mode];
-  const steps = view === "heat-leads" ? LEAD_STEPS : RATE_STEPS;
+  const steps = view === "heat-leads" ? leadSteps(minLeads) : RATE_STEPS;
   return (
     <section aria-label="CRM key" className="mt-4 border-t border-line pt-3">
       <h3 className="text-admin-section text-ink-muted">
@@ -762,8 +797,8 @@ function CrmKey({ view, mode, count, loading, error }: { view: CrmView; mode: "l
           </ul>
           <p className="mt-2 text-admin-caption text-ink-muted tabular-nums">
             {kind === "heat"
-              ? `${count.toLocaleString("en-GB")} squares with 5 or more placed leads, all time. Tap a square for its numbers.`
-              : `${count.toLocaleString("en-GB")} doors shown, all CRM history. Tap one for its history.`}
+              ? `${count.toLocaleString("en-GB")} squares with ${minLeads} or more placed leads · ${period}, by date booked. Tap a square for its numbers.`
+              : `${count.toLocaleString("en-GB")} doors shown · ${period}, by date booked. Tap one for its history.`}
           </p>
         </>
       )}
@@ -772,14 +807,14 @@ function CrmKey({ view, mode, count, loading, error }: { view: CrmView; mode: "l
 }
 
 /** CRM-2 D (Figma CRM-2 C4): a tapped heat square. Four figures, one line of working, and a way to its doors. */
-function HeatSquare({ cell, onClose, onDoors }: { cell: HeatCell; onClose: () => void; onDoors: () => void }) {
+function HeatSquare({ cell, period, onClose, onDoors }: { cell: HeatCell; period: string; onClose: () => void; onDoors: () => void }) {
   const { figures, line } = heatCellFigures(cell);
   return (
     <section aria-label="Heat square" className="mb-4 rounded-field-lg bg-field-bg p-4">
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <h3 className="text-admin-headline">This square</h3>
-          <p className="text-admin-caption text-ink-muted">250 m across, all CRM history</p>
+          <p className="text-admin-caption text-ink-muted">250 m across · {period}</p>
         </div>
         <IconButton label="Close square" onClick={onClose} className="-mt-2 -mr-2">
           <CloseIcon className="size-5" />

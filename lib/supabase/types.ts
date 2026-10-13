@@ -1735,7 +1735,7 @@ export type Database = {
         }[]
       }
       crm_door_history: {
-        Args: never
+        Args: { p_from?: string; p_to?: string }
         Returns: {
           blowout: number
           lat: number

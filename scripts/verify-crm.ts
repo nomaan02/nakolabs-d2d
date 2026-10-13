@@ -74,6 +74,8 @@ import {
 import {
   cellBox,
   cellSquare,
+  coverageCrmWindow,
+  crmWindowKey,
   crmDoorTally,
   doorsInCell,
   heatCellFigures,
@@ -84,7 +86,9 @@ import {
   crmViewDoorFilter,
   crmViewKind,
   filterCrmDoors,
+  heatMinLeads,
   heatStep,
+  leadSteps,
   parseCrmDoors,
   parseCrmView,
   parseHeatCells,
@@ -430,6 +434,30 @@ check("chip words", crmChip("off") === "CRM" && crmChip("doors-all") === "CRM do
 check("the CRM layer rides along every filter link", withCrmView("/admin/coverage", "heat-rate") === "/admin/coverage?crm=heat-rate" && withCrmView("/admin/coverage?prop=x", "doors-sale") === "/admin/coverage?prop=x&crm=doors-sale" && withCrmView("/admin/coverage?prop=x", "off") === "/admin/coverage?prop=x");
 const cells = parseHeatCells([{ lon: -2.6, lat: 51.45, leads: 20, sales: 3, pitched: 6, revenue: "1" }, { lon: -2.6, lat: 51.46, leads: 6, sales: 0, pitched: 1 }, { lat: 1 }]);
 check("heat cells parsed", cells.length === 2 && cells[0]?.revenue === 1);
+check(
+  "CRM-6 C: the Coverage CRM layer follows the Days chip (to is the day after, all time = no bounds)",
+  same(coverageCrmWindow({ from: "2026-09-14", to: "2026-10-13" }), { from: "2026-09-14", to: "2026-10-14", byDay: false }) &&
+    same(coverageCrmWindow({ from: null, to: null }), { from: null, to: null, byDay: false }) &&
+    crmWindowKey(coverageCrmWindow({ from: "2026-09-14", to: "2026-10-13" })) !== crmWindowKey(coverageCrmWindow({ from: null, to: null })),
+);
+{
+  const NOW6 = new Date("2026-10-13T18:00:00Z");
+  check(
+    "CRM-6 C: heat squares from 2 leads for under three months, 5 for longer or all time",
+    heatMinLeads(coverageCrmWindow({ from: "2026-09-14", to: "2026-10-13" }), NOW6) === 2 &&
+      heatMinLeads(coverageCrmWindow({ from: "2026-10-13", to: "2026-10-13" }), NOW6) === 2 &&
+      heatMinLeads(coverageCrmWindow({ from: "2026-07-13", to: "2026-10-13" }), NOW6) === 5 &&
+      heatMinLeads(coverageCrmWindow({ from: null, to: null }), NOW6) === 5 &&
+      heatMinLeads(coverageCrmWindow({ from: "2026-10-01", to: null }), NOW6) === 2 &&
+      heatMinLeads({ from: "2026-01-01", to: "2026-03-31", byDay: false }, NOW6) === 5 &&
+      heatMinLeads({ from: "2026-01-01", to: "2026-03-30", byDay: false }, NOW6) === 2,
+  );
+  const small = { lon: 0, lat: 51.5, leads: 3, sales: 1, pitched: 2, revenue: 0 };
+  check(
+    "CRM-6 C: short periods use 2–3 / 4–6 / 7–9 / 10+; a sale-rate colour still needs 3 pitched",
+    leadSteps(2)[0]?.label === "2–3 leads" && leadSteps(5)[0]?.label === "5–9 leads" && heatStep(small, "leads", 2) === 0 && heatStep(small, "rate", 2) === -1 && heatStep({ ...small, pitched: 3 }, "rate", 2) >= 0,
+  );
+}
 check("heat steps: rate needs 3 pitched; leads step up", heatStep(cells[0]!, "rate") === 3 && heatStep(cells[1]!, "rate") === -1 && heatStep(cells[1]!, "leads") === 0 && heatStep(cells[0]!, "leads") === 2);
 const sq = cellSquare({ lon: -2.6, lat: 51.45 }).coordinates[0]!;
 const widthM = (sq[1]![0]! - sq[0]![0]!) * 111_320 * Math.cos((51.45 * Math.PI) / 180);
@@ -488,6 +516,23 @@ const m036 = readFileSync("supabase/migrations/036_crm_sync_schedule.sql", "utf8
 check("036 keeps the URL and secret in Vault, never in the file", m036.includes("vault.decrypted_secrets") && !/https:\/\/[a-z0-9-]+\.vercel\.app/.test(m036) && !/Bearer [A-Za-z0-9]{16,}/.test(m036));
 const m037 = readFileSync("supabase/migrations/037_crm_canvasser.sql", "utf8");
 check("037: contacts readable only by their canvasser, purged after 90 days", /create policy crm_contacts_select_own/.test(m037) && !/crm_contacts.*to authenticated\s+using \(\(select public\.app_role\(\)\) in/.test(m037) && /crm-contacts-purge/.test(m037) && /purge_after < current_date/.test(m037));
+const m039 = readFileSync("supabase/migrations/039_crm_layer_window.sql", "utf8");
+check(
+  "039: door history takes an optional window, stays admin/office only, invoker, no anon; heat squares from 2 leads under three months",
+  /create function public\.crm_door_history\(p_from timestamptz default null, p_to timestamptz default null\)/.test(m039) &&
+    /is distinct from 'admin' and \(select public\.app_role\(\)\) is distinct from 'office'/.test(m039) &&
+    !/security definer/i.test(m039) &&
+    /revoke all on function public\.crm_door_history\(timestamptz, timestamptz\) from public, anon/.test(m039) &&
+    /grant execute on function public\.crm_door_history\(timestamptz, timestamptz\) to authenticated/.test(m039) &&
+    /p_from is null or c\.crm_created_at >= p_from/.test(m039) && /p_to is null or c\.crm_created_at < p_to/.test(m039) &&
+    /create or replace function public\.crm_heat_grid\(p_from timestamptz default null, p_to timestamptz default null\)/.test(m039) &&
+    /\(coalesce\(p_to, now\(\)\) at time zone 'Europe\/London'\)::date - \(p_from at time zone 'Europe\/London'\)::date < 89 then 2/.test(m039) && /having count\(\*\) >= v_min/.test(m039),
+);
+const coverageSrc = readFileSync("components/admin/coverage/coverage-screen.tsx", "utf8");
+check(
+  "CRM-6 C: Coverage reads the CRM layer for the Days chip and re-reads when it changes",
+  /loadCrmDoors\(createClient\(\), crmWindow\)/.test(coverageSrc) && /loadCrmHeat\(createClient\(\), crmWindow\)/.test(coverageSrc) && /\[crmKind, crmWindow, crmDoors, heatCells\]/.test(coverageSrc) && !/all CRM history/i.test(coverageSrc),
+);
 const m038 = readFileSync("supabase/migrations/038_crm_callback_details.sql", "utf8");
 check(
   "038: notes live only in crm_contacts (same own-canvasser policy and 90-day purge); no new policy, grant or first name",

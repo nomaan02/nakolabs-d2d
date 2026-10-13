@@ -20,18 +20,23 @@ export async function loadCrmInsights(supabase: SupabaseClient<Database>, window
   return { ok: true, data: parseCrmInsights(data) };
 }
 
-export async function loadCrmHeat(supabase: SupabaseClient<Database>): Promise<Loaded<HeatCell[]>> {
-  const { data, error } = await supabase.rpc("crm_heat_grid", {});
+/** CRM-6 C: `window` limits the squares to leads booked in it (Coverage's Days chip); none = all CRM history. */
+export async function loadCrmHeat(supabase: SupabaseClient<Database>, window?: CrmWindow): Promise<Loaded<HeatCell[]>> {
+  const { data, error } = await supabase.rpc("crm_heat_grid", window ? crmWindowBounds(window) : {});
   if (error) return { ok: false, message: "The CRM heat map didn't load.", detail: error.message };
   return { ok: true, data: parseHeatCells(data) };
 }
 
-/** About 5,000 rows: PostgREST's 1,000-row cap applies to RPCs too, so read in pages. */
-export async function loadCrmDoors(supabase: SupabaseClient<Database>): Promise<Loaded<CrmDoor[]>> {
+/**
+ * About 5,000 rows: PostgREST's 1,000-row cap applies to RPCs too, so read in pages.
+ * CRM-6 C: `window` limits doors, counts and latest outcome to leads booked in it; none = all CRM history (Props).
+ */
+export async function loadCrmDoors(supabase: SupabaseClient<Database>, window?: CrmWindow): Promise<Loaded<CrmDoor[]>> {
+  const bounds = window ? crmWindowBounds(window) : {};
   const PAGE = 1000;
   const out: CrmDoor[] = [];
   for (let from = 0; from < 50 * PAGE; from += PAGE) {
-    const { data, error } = await supabase.rpc("crm_door_history").order("uprn", { ascending: true }).range(from, from + PAGE - 1);
+    const { data, error } = await supabase.rpc("crm_door_history", bounds).order("uprn", { ascending: true }).range(from, from + PAGE - 1);
     if (error) return { ok: false, message: "CRM doors didn't load.", detail: error.message };
     const rows = parseCrmDoors(data);
     out.push(...rows);

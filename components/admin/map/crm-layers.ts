@@ -115,8 +115,8 @@ export function setCrmDoors(map: MapLibreMap, doors: CrmDoor[]): void {
   setData(map, CRM_DOORS_SOURCE, crmDoorFeatures(doors));
 }
 
-export function setCrmHeat(map: MapLibreMap, cells: HeatCell[], metric: "rate" | "leads"): void {
-  setData(map, CRM_HEAT_SOURCE, heatFeatures(cells, metric));
+export function setCrmHeat(map: MapLibreMap, cells: HeatCell[], metric: "rate" | "leads", minLeads = 5): void {
+  setData(map, CRM_HEAT_SOURCE, heatFeatures(cells, metric, minLeads));
 }
 
 export function setSelectedHeatCell(map: MapLibreMap, index: number | null): void {

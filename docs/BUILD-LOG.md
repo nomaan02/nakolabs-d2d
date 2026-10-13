@@ -1630,3 +1630,34 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given file and replacements were pasted exactly. Line endings are CRLF.
 - **Not done / deferred:** A browser. The phone check (address and postcode, open and close, phone and tick, Tom only, 375 wide). Did not apply migration 038. Did not commit. No new table row. No `client_event_id`. No CRM call. Live database not queried (MCP not available).
 - **Follow-ups:** After landing, the owner runs the backfill once so call-backs already in the list get their notes. Phone check after that backfill. Wayne to OK before canvassers use call-back phones.
+
+### CRM-6 Session C — Coverage CRM layer follows the Days chip
+- **Date:** 2026-10-13
+- **Model:** Grok 4.7
+- **Built:** On Coverage, the CRM heat map and CRM doors follow the Days chip, by CRM date booked. A read is kept with the window it was read for, and a new period never shows the old picture. A heat square shows from 2 leads when the window is under 89 London days, and from 5 for three months or longer (and All time). The key, a tapped square, a door card and the CRM picker name the period. The Props map still loads all CRM history. Migration 039 is in the repo and was not applied.
+- **Owner decisions:**
+  - OWNER — 2026-10-13 (bug, demo blocker): on Coverage, the CRM heat map and CRM doors ignored the Days chip ("All time" looked the same as "Last 30 days"). The CRM layer now follows the Days chip, by CRM date booked. Heat map and Doors views both.
+  - OWNER — 2026-10-13: a heat square shows from 5 leads for three months or longer (and All time), from 2 leads for anything shorter, so "Last 30 days" is a real picture (live: 61 squares instead of 2).
+  - OWNER — 2026-10-13: the Props map's CRM history stays all CRM history (unchanged).
+- **Claude decisions:**
+  - CLAUDE — Migration 039: `crm_door_history()` is dropped and re-created as `crm_door_history(p_from, p_to)` (both default null = all history, so the Props call is unchanged); the window limits the counts and the latest outcome. `crm_heat_grid` keeps its signature; only the minimum per square changes (`v_min`: 2 when the window is under 89 London days, else 5). Guards, grants and comments kept.
+  - CLAUDE — `lib/admin/crm-map.ts`: `coverageCrmWindow` (Coverage days are inclusive, so `to` is the next day), `crmWindowKey`, `heatMinLeads` (same London-day rule as the SQL), `leadSteps` (2–3 / 4–6 / 7–9 / 10+ for short periods). A sale-rate colour still needs 3 pitched.
+  - CLAUDE — Coverage keeps each CRM read with its window key and re-reads when the Days chip changes; a read for another window never shows. A tapped CRM door or square is cleared when the filters change. The key, the tapped square, the door card and the CRM picker say which period they show.
+- **Acceptance:**
+  - EDIT 1 DONE. New `supabase/migrations/039_crm_layer_window.sql` (113 lines). Newest file before it is `038_crm_callback_details.sql`.
+  - EDIT 2 DONE. Four replacements in `lib/admin/crm-map.ts` (now 345 lines). Each find occurred once.
+  - EDIT 3 DONE. Three replacements in `lib/admin/crm-data.ts` (now 56 lines). Each find occurred once.
+  - EDIT 4 DONE. One replacement in `components/admin/map/crm-layers.ts` (now 135 lines). The find occurred once.
+  - EDIT 5 DONE. Nineteen replacements in `components/admin/coverage/coverage-screen.tsx` (now 841 lines). Each find occurred once.
+  - EDIT 6 DONE. Four replacements in `components/admin/coverage/crm-picker.tsx` (now 92 lines). Each find occurred once.
+  - EDIT 7 DONE. One replacement in `lib/supabase/types.ts` (still 2807 lines). The find occurred once. Types pasted; not generated.
+  - EDIT 8 DONE. Four replacements in `scripts/verify-crm.ts` (now 583 lines). Each find occurred once.
+  - `npm run verify:crm`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0.
+  - eslint: **PASS** — `npx eslint` on the seven TypeScript files exit 0.
+  - Live `crm_door_history` / `crm_heat_grid` arguments: **NOT VERIFIED** — Supabase MCP not signed in.
+  - Phone: no browser. Five checks listed for the owner. Not opened on a desktop or a phone.
+- **Deviations from brief:** none. The given file and replacements were pasted exactly. Line endings are CRLF.
+- **Not done / deferred:** A browser. The phone check (Last 30 days, All time, Last 7 days and a custom range, door cards, Props unchanged). Did not apply migration 039. Did not commit. No new table row. No `client_event_id`. No CRM call. Live database not queried (MCP not available).
+- **Follow-ups:** Claude or the owner applies migration 039. Phone check on desktop and phone after that.

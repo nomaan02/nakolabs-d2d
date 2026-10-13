@@ -27,18 +27,22 @@ function Ramp({ mode }: { mode: MapMode }) {
  * CRM-2 D (owner 2026-10-10; Figma CRM-2 C3 approved). The Coverage "CRM"
  * chip's sheet: off, a heat map (sale rate or number of leads), or CRM doors
  * by latest outcome, with each choice's door count once the doors are read.
- * The CRM layer covers all CRM history; the other chips filter knocks only.
+ * CRM-6 C (owner 2026-10-13): the CRM layer follows the Days chip, by CRM
+ * date booked; the other chips filter knocks only.
  */
 export function CrmPicker({
   view,
   mode,
   tally,
+  period,
   onClose,
   onPick,
 }: {
   view: CrmView;
   mode: MapMode;
   tally: Record<CrmDoorFilter, number> | null;
+  /** The Days chip in words ("Last 30 days"); the CRM layer follows it. */
+  period: string;
   onClose: () => void;
   onPick: (next: CrmView) => void;
 }) {
@@ -63,7 +67,7 @@ export function CrmPicker({
   const doors = (n: number | undefined) => (n === undefined ? undefined : `${n.toLocaleString("en-GB")} ${n === 1 ? "door" : "doors"}`);
 
   return (
-    <Sheet open title="CRM layer" subtitle="All CRM history, admin only. Knock filters still apply to the dots." onClose={onClose}>
+    <Sheet open title="CRM layer" subtitle={`${period}, by date booked. Admin only. Other filters apply to knocks only.`} onClose={onClose}>
       <div role="radiogroup" aria-label="CRM layer" className="px-5 pb-4">
         <ul>{row("off", "Off", null)}</ul>
         <h3 className="pt-4 pb-1 text-admin-section text-ink-muted">Heat map, 250 m squares</h3>

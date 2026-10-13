@@ -2,13 +2,15 @@
 
 ## Current state
 
-- Last updated: 2026-10-13 (CRM-6 Session B). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Last updated: 2026-10-13 (CRM-6 Session C). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
 - CRM-6 B: a call-back row shows the CRM address with the full postcode. Tapping the name opens Lead Status, "Booked …", Result, Product interest, Best time to call (when filled) and Description under the row. One row open at a time. Phone and tick stay as they were. The result sheet uses the same address.
-- Migration 038 is in the repo (`supabase/migrations/038_crm_callback_details.sql`, 71 lines): five nullable text columns on `crm_contacts`, and `my_crm_callbacks` dropped and re-created with `postcode` plus those columns. Claude had already applied it. This session did not call `apply_migration` and did not query the live database (Supabase MCP not signed in).
-- Patched: `AGENTS.md` (127), `lib/crm/parse.ts` (447), `lib/crm/sync.ts` (518, comment only), `lib/supabase/types.ts` (2807, pasted), `lib/field/crm.ts` (640), `components/field/crm/callbacks-pane.tsx` (275), `components/field/crm/call-result-sheet.tsx` (128), `scripts/verify-crm.ts` (538).
-- `npm run verify:crm` exit 0, last line `ALL PASS`. `npx tsc --noEmit` exit 0. `npx eslint` on those seven TypeScript files exit 0.
-- No browser. Phone check is the owner's, after the backfill: every call-back shows street and full postcode, wrapped; tap opens status and notes and tap closes; only one open; phone and tick still work and the sheet shows the same address; Tom sees only Tom's; light and dark at 375 wide.
-- CRM-6 B tracker row added after CRM-6 A. Status DONE. Date 2026-10-13. Result: `Call-backs show the CRM address + postcode and open to show status, Result, Product interest, Best time to call and Description (migration 038).` Commit column `—`.
+- CRM-6 C: on Coverage, the CRM heat map and CRM doors follow the Days chip, by CRM date booked. A heat square shows from 2 leads when the window is under 89 London days, and from 5 for three months or longer (and All time). The Props map's CRM history is still all history (it calls `loadCrmDoors` with no window).
+- Migration 039 is in the repo (`supabase/migrations/039_crm_layer_window.sql`, 113 lines). It was not applied. This session did not call `apply_migration` and did not query the live database (Supabase MCP not signed in).
+- Migration 038 remains in the repo (`supabase/migrations/038_crm_callback_details.sql`, 71 lines): five nullable text columns on `crm_contacts`, and `my_crm_callbacks` dropped and re-created with `postcode` plus those columns. Claude had already applied it.
+- Patched this session: `lib/admin/crm-map.ts` (345), `lib/admin/crm-data.ts` (56), `components/admin/map/crm-layers.ts` (135), `components/admin/coverage/coverage-screen.tsx` (841), `components/admin/coverage/crm-picker.tsx` (92), `lib/supabase/types.ts` (2807, `crm_door_history` args pasted), `scripts/verify-crm.ts` (583). New: `supabase/migrations/039_crm_layer_window.sql` (113).
+- `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. `npx tsc --noEmit` exit 0. `npx eslint` on the seven TypeScript files exit 0.
+- No browser. Phone check is the owner's, on desktop and phone: Coverage CRM heat map and doors change with the Days chip; the key, square card, door card and picker name the period; Props CRM history stays all history.
+- CRM-6 C tracker row added after CRM-6 B. Status DONE. Date 2026-10-13. Result: `Coverage CRM layer (heat map and doors) follows the Days chip; squares from 2 leads under three months (migration 039).` Commit column `—`.
 - No table row written. No `client_event_id`. No CRM call. `lib/sync/queue.ts` and `lib/field/crm-data.ts` were not edited. Password, profile and role were not changed.
 - CRM-6 A remains: the leaderboard opens on Pitched. Tabs are Pitched · Sales · Value. My results leads with Pitched.
 - CRM-5 C2 remains: Map tab "My CRM leads", own leads as hollow rings, off by default. That is still the one exception for previous-visit outcome colour on the field map.
@@ -19,10 +21,10 @@
 - Sale price from CRM-3 remains: Sale Amount, else Result, else Rep Result, number only, in `lib/crm/parse.ts`. For a lead that is not a call-back, the Result text is still dropped. Call-back leads keep Result in `crm_contacts`.
 - Dark-ready paths are unchanged: `/admin/props`, `/admin/today`, `/admin/calendar`, `/admin/coverage`, `/admin/team`, `/admin/leads`, `/admin/insights`, `/admin/settings`.
 - Redirects are unchanged: `/admin` → `/admin/today`, `/admin/allocate` → Today or Add visit when `?prop=` is set, `/admin/dashboard` → `/admin/insights`.
-- Migrations 029–037 remain applied. Migration 038's file is new in the repo; live columns were not re-checked here.
+- Migrations 029–038 remain applied. Migration 039's file is new in the repo; the live functions were not re-checked here.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - External settings: none. The owner runs the CRM backfill once after landing so call-backs already in the list get their notes. Wayne to OK before canvassers use call-back phones.
-- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-6 A remain DONE. CRM-6 B file work is in the tree.
+- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-6 B remain DONE. CRM-6 C file work is in the tree. Migration 039 still needs applying by Claude or the owner.
 
 ## Log
 
@@ -3189,3 +3191,27 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. A phone. The live `crm_contacts` columns and `my_crm_callbacks` (`prosecdef` false). Supabase MCP was not signed in (`supabase` and `supabase-d2d` both need auth). Address wrapping, opening and closing a row, the phone and tick buttons, Tom's list only, light and dark at 375 wide.
 - **External settings:** none
 - **Open questions for Claude:** none from this session. After landing, the owner runs the backfill once so call-backs already in the list get their notes. Phone check after that backfill. Wayne to OK before canvassers use call-back phones.
+
+### 2026-10-13 — CRM-6 Session C (uncommitted)
+
+- **Item:** other
+- **What changed:** On Coverage, the CRM heat map and CRM doors follow the Days chip, by CRM date booked. Each read is kept with the window it was read for, so a new period never shows the old picture. A heat square shows from 2 leads when the window is under 89 London days, and from 5 for three months or longer (and All time). The key, a tapped square, a door card and the CRM picker name the period. The Props map still loads all CRM history. Migration 039 is in the repo and was not applied.
+- **Files:**
+  - Changed: `lib/admin/crm-map.ts`, `lib/admin/crm-data.ts`, `components/admin/map/crm-layers.ts`, `components/admin/coverage/coverage-screen.tsx`, `components/admin/coverage/crm-picker.tsx`, `lib/supabase/types.ts`, `scripts/verify-crm.ts`, `docs/FIELD-TEST-BUILD-PLAN.md` (CRM-6 C row after CRM-6 B), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `supabase/migrations/039_crm_layer_window.sql`, `.handoff/reports/crm-6-c.md`
+  - Deleted: none
+- **Database:** migration 039 file added. `crm_door_history()` dropped and re-created as `crm_door_history(p_from, p_to)` (both default null). `crm_heat_grid` replaced in place: a square shows from 2 leads when the window is under 89 London days, else from 5. Admin and office only. Not applied. No table row. No `client_event_id`. No CRM call.
+- **Shared modules touched:** `lib/supabase/types.ts` (`crm_door_history` args pasted, not generated). `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/field/*` were not edited. `lib/crm` was not edited.
+- **Decided by:**
+  - OWNER — 2026-10-13 (bug, demo blocker): on Coverage, the CRM heat map and CRM doors ignored the Days chip ("All time" looked the same as "Last 30 days"). The CRM layer now follows the Days chip, by CRM date booked. Heat map and Doors views both.
+  - OWNER — 2026-10-13: a heat square shows from 5 leads for three months or longer (and All time), from 2 leads for anything shorter, so "Last 30 days" is a real picture (live: 61 squares instead of 2).
+  - OWNER — 2026-10-13: the Props map's CRM history stays all CRM history (unchanged).
+  - CLAUDE — Migration 039: `crm_door_history()` is dropped and re-created as `crm_door_history(p_from, p_to)` (both default null = all history, so the Props call is unchanged); the window limits the counts and the latest outcome. `crm_heat_grid` keeps its signature; only the minimum per square changes (`v_min`: 2 when the window is under 89 London days, else 5). Guards, grants and comments kept.
+  - CLAUDE — `lib/admin/crm-map.ts`: `coverageCrmWindow` (Coverage days are inclusive, so `to` is the next day), `crmWindowKey`, `heatMinLeads` (same London-day rule as the SQL), `leadSteps` (2–3 / 4–6 / 7–9 / 10+ for short periods). A sale-rate colour still needs 3 pitched.
+  - CLAUDE — Coverage keeps each CRM read with its window key and re-reads when the Days chip changes; a read for another window never shows. A tapped CRM door or square is cleared when the filters change. The key, the tapped square, the door card and the CRM picker say which period they show.
+- **Deviations from plan or brief:** none. The given file and replacements were pasted exactly. Line endings are CRLF.
+- **Invariants:** No device GPS was read. No coordinates left the device. No field write. `lib/sync/queue.ts` was not edited. Coverage of knocks stays derived. No scoring was added in `/field`. The CRM layer change is admin Coverage only. Previous-visit outcome colour on the field map is still only the "My CRM leads" layer.
+- **Verified:** Each find block occurred once (2.1–2.4, 3.1–3.3, 4.1, 5.1–5.19, 6.1–6.4, 7.1, 8.1–8.4). `supabase/migrations/039_crm_layer_window.sql` is 113 lines and the newest migration before it is 038. `lib/admin/crm-map.ts` is 345 lines. `lib/admin/crm-data.ts` is 56 lines. `components/admin/map/crm-layers.ts` is 135 lines. `components/admin/coverage/coverage-screen.tsx` is 841 lines. `components/admin/coverage/crm-picker.tsx` is 92 lines. `lib/supabase/types.ts` is 2807 lines. `scripts/verify-crm.ts` is 583 lines. `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. `npx tsc --noEmit` exit 0. `npx eslint` on the seven TypeScript files exit 0.
+- **Not verified:** A browser. A desktop. A phone. The live function arguments (`crm_door_history` and `crm_heat_grid` both `p_from timestamp with time zone, p_to timestamp with time zone`). Supabase MCP was not signed in (`supabase` and `supabase-d2d` both need auth). Last 30 days squares, All time, Last 7 days and a custom range, a door card naming the period, Props CRM history unchanged.
+- **External settings:** none
+- **Open questions for Claude:** none from this session. Apply migration 039, then the phone check on desktop and phone.

@@ -6,9 +6,25 @@
  * for a tapped door or square. Admin only: nothing here is ever imported by
  * a /field file (`verify:crm` checks). Checked by `npm run verify:crm`.
  */
-import { shortDate } from "@/lib/admin/props";
+import { addDays, shortDate } from "@/lib/admin/props";
 import { londonDay } from "@/lib/admin/calendar";
-import { percent, pounds, poundsShort, share } from "@/lib/admin/crm-insights";
+import { percent, pounds, poundsShort, share, type CrmWindow } from "@/lib/admin/crm-insights";
+
+// ---- the Days chip ---------------------------------------------------------------
+
+/**
+ * CRM-6 C (owner 2026-10-13): the Coverage CRM layer follows the Days chip,
+ * by CRM date booked. Coverage days are inclusive London dates; the CRM
+ * window's `to` is exclusive, so it is the day after.
+ */
+export function coverageCrmWindow(days: { from: string | null; to: string | null }): CrmWindow {
+  return { from: days.from, to: days.to ? addDays(days.to, 1) : null, byDay: false };
+}
+
+/** One key per window, to cache a read and drop a stale one. */
+export function crmWindowKey(window: CrmWindow): string {
+  return `${window.from ?? ""}|${window.to ?? ""}`;
+}
 
 // ---- door outcomes -------------------------------------------------------------
 
@@ -220,11 +236,43 @@ export const LEAD_STEPS: ReadonlyArray<{ min: number; label: string }> = [
   { min: 35, label: "35 or more" },
 ];
 
+/** CRM-6 C: the steps for a period shorter than three months, when squares from 2 leads show. */
+export const SHORT_LEAD_STEPS: ReadonlyArray<{ min: number; label: string }> = [
+  { min: 2, label: "2–3 leads" },
+  { min: 4, label: "4–6" },
+  { min: 7, label: "7–9" },
+  { min: 10, label: "10 or more" },
+];
+
+/** Under this many London days a period is "short" (just under three months). Matches crm_heat_grid (039). */
+export const SHORT_PERIOD_DAYS = 89;
+
+function dayNumber(date: string): number {
+  return Math.round(Date.parse(`${date}T12:00:00Z`) / 86_400_000);
+}
+
+/**
+ * CRM-6 C (owner 2026-10-13): a heat square shows from 5 leads for three
+ * months or longer (and all time), from 2 for anything shorter, so "Last 30
+ * days" is a real picture. Counted in London calendar days (`to` is
+ * exclusive; no end = today), exactly as crm_heat_grid (039) counts them.
+ */
+export function heatMinLeads(window: CrmWindow, now: Date): number {
+  if (!window.from) return 5;
+  const end = window.to ?? londonDay(now.toISOString());
+  return dayNumber(end) - dayNumber(window.from) < SHORT_PERIOD_DAYS ? 2 : 5;
+}
+
+export function leadSteps(minLeads: number): ReadonlyArray<{ min: number; label: string }> {
+  return minLeads < 5 ? SHORT_LEAD_STEPS : LEAD_STEPS;
+}
+
 /** 0–3 (a step of the single-hue ramp) or -1 for "too few to say". */
-export function heatStep(cell: HeatCell, metric: "rate" | "leads"): number {
+export function heatStep(cell: HeatCell, metric: "rate" | "leads", minLeads = 5): number {
+  // A sale-rate colour still needs 3 pitched, whatever the period (1 of 2 would read as 50%).
   if (metric === "leads") {
     let step = 0;
-    LEAD_STEPS.forEach((s, i) => {
+    leadSteps(minLeads).forEach((s, i) => {
       if (cell.leads >= s.min) step = i;
     });
     return step;
@@ -259,14 +307,14 @@ export function cellSquare(cell: Pick<HeatCell, "lon" | "lat">): GeoJSON.Polygon
   };
 }
 
-export function heatFeatures(cells: HeatCell[], metric: "rate" | "leads"): GeoJSON.FeatureCollection<GeoJSON.Polygon> {
+export function heatFeatures(cells: HeatCell[], metric: "rate" | "leads", minLeads = 5): GeoJSON.FeatureCollection<GeoJSON.Polygon> {
   return {
     type: "FeatureCollection",
     features: cells.map((cell, i) => ({
       type: "Feature",
       id: i,
       geometry: cellSquare(cell),
-      properties: { i, step: heatStep(cell, metric) },
+      properties: { i, step: heatStep(cell, metric, minLeads) },
     })),
   };
 }
