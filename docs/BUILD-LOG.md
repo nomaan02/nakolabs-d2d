@@ -1688,3 +1688,104 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given file and replacements were pasted exactly. Line endings are CRLF.
 - **Not done / deferred:** Did not apply migration 040. Did not call `apply_migration`. Did not regenerate types. Did not query the live database. No browser. Did not commit. No new table row. No `client_event_id`.
 - **Follow-ups:** The owner applies migration 040. The drawing screen is a later session. /field is unchanged.
+
+### RT Session 2 — manual routes, converter, save and keys
+- **Date:** 2026-10-14
+- **Model:** Grok 4.7
+- **Built:** A drawn chain of UPRNs becomes the same `WalkVariant` document the automatic generator makes. `lib/geo/walk/manual.ts` builds `manual` (as drawn) and `manual_reversed` (the chain reversed, rebuilt). `lib/geo/walk/manual-save.ts` loads the drawing, saves it (`territory_manual_route_save`) and sets the mode (`territory_route_mode_set`). `VariantKey` and the freeze override accept `manual` and `manual_reversed`. Freeze maps the `manual_unfinished` hint. The stage 5b-r2 mismatch check writes both `uprn_snapshot` and `uprn_allocated`. `npm run verify:rt` checks a synthetic street network.
+- **Owner decisions:**
+  - OWNER — 2026-10-13: the admin can draw a prop's route by hand (drag through the door dots in walking order), offered next to the automatic Route A / Route B. Moving to the other side of the street adds a crossing, anywhere along it, drawn like the automatic route's crossing. The drawn order is the door order and the Logger order.
+  - OWNER — 2026-10-13: rotation: odd visits walk the drawn route as drawn, even visits reversed. Doors left out are excluded on purpose. When the prop's doors change, visits use the automatic routes until the admin saves the drawing again.
+- **Claude decisions:**
+  - CLAUDE — `lib/geo/walk/manual.ts` turns the drawn chain of UPRNs into the same `WalkVariant` document the automatic generator makes, keys `manual` (as drawn) and `manual_reversed` (the chain reversed, rebuilt). The automatic code path is not changed; only its geometry pieces are reused (`sliceAlong`, `offsetRunAdaptive`, `uTurnArc`, `shortestPath`).
+  - CLAUDE — Between two doors: same segment and pavement → one work leg; same segment, other pavement → a crossing right after the first door (U-turn arc when turning back, a straight line when carrying on); different segments → the shortest way along the roads on the walker's pavement; turning off a road away from that pavement crosses the road being left at the junction; otherwise, when the next door is on the other hand, a straight crossing where the leg joins its road; no road path → a straight transfer.
+  - CLAUDE — `door_order` is the chain exactly; nothing is stranded or reordered; each door is in exactly one work step's `first_seq..last_seq`, in order. A route with no length (one door, or every door at one spot) is refused (`too_short`): it could not be frozen.
+  - CLAUDE — Deterministic: no clock, no randomness, no Map/Set iteration (lookups only), fixed tie-breaks.
+  - CLAUDE — `lib/geo/walk/manual-save.ts`: `loadManualRoute`, `saveManualRoute` (`territory_manual_route_save`), `setRouteMode` (`territory_route_mode_set`); never throw; admin's own session.
+  - CLAUDE — `VariantKey` and the freeze override regex accept `manual` / `manual_reversed`; freeze maps hint `manual_unfinished` (migration 041, next session).
+  - CLAUDE — `scripts/verify-stage-5b-r2.ts` section 4 makes its door-set mismatch on `uprn_snapshot` AND `uprn_allocated` (freeze checks the allocated doors since 040).
+  - CLAUDE — `npm run verify:rt`: synthetic street network, no real doors, no database.
+- **Acceptance:**
+  - EDIT 1 DONE. One replacement in `lib/geo/walk/types.ts`. The find occurred once.
+  - EDIT 2 DONE. New `lib/geo/walk/manual.ts` (669 lines). Pasted from the brief. Diff against the brief code block: 0 lines.
+  - EDIT 3 DONE. New `lib/geo/walk/manual-save.ts` (173 lines). Pasted from the brief. Diff against the brief code block: 0 lines.
+  - EDIT 4 DONE. Four replacements in `lib/geo/walk/freeze.ts`. Each find occurred once.
+  - EDIT 5 DONE. Two replacements in `lib/props/freeze-variant.ts`. Each find occurred once.
+  - EDIT 6 DONE. New `scripts/verify-rt-manual.ts` (297 lines). Pasted from the brief. Diff against the brief code block: 0 lines.
+  - EDIT 7 DONE. One replacement in `scripts/verify-stage-5b-r2.ts`. The find occurred once.
+  - EDIT 8 DONE. One replacement in `package.json` (`verify:rt`). The find occurred once.
+  - `npm run verify:rt`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:stage5b-r2`: **NOT VERIFIED** — not run (needs live DB; owner).
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0.
+  - eslint: **PASS** — `npx eslint` on the seven TypeScript files exit 0.
+  - Phone: no browser. No phone check: no UI in this session.
+- **Deviations from brief:** none. The given files and replacements were pasted exactly. Line endings are CRLF.
+- **Not done / deferred:** Did not run `verify:stage5b-r2`. Did not query the database. No browser. Did not commit. No new table row. No `client_event_id`. Migration 041 was not written. The drawing screen was not built.
+- **Follow-ups:** Migration 041 (the `manual_unfinished` hint) is the next session. The owner runs `npm run verify:stage5b-r2` against the live database. The drawing screen is a later session. /field is unchanged.
+
+### RT Session 3 — manual routes, the drawing screen and the Routes panel
+- **Date:** 2026-10-14
+- **Model:** Grok 4.7
+- **Built:** The admin draws a prop's route on the Props map. One finger or a mouse drag links every door the stroke passes, in order. Undo and redo step one door at a time. Erase takes doors off with a tap or a stroke, and the snackbar Undo puts that stroke back. Saving with doors left out asks first. After Save, the Routes panel offers Your route or Automatic routes, and the prop ⋯ menu opens Routes. Upcoming unworked visits are re-frozen. /field routes were not changed.
+- **Owner decisions:**
+  - OWNER — 2026-10-13: the admin can draw a prop's route by hand (drag through the door dots in walking order), offered next to the automatic Route A / Route B. Moving to the other side of the street adds a crossing, anywhere along it, drawn like the automatic route's crossing. The drawn order is the door order and the Logger order.
+  - OWNER — 2026-10-13: rotation: odd visits walk the drawn route as drawn, even visits reversed. Doors left out are excluded on purpose. When the prop's doors change, visits use the automatic routes until the admin saves the drawing again.
+  - OWNER — 2026-10-13: undo and redo step one link at a time; erase takes doors off with a tap or a stroke; lift the finger and carry on from the last door. Doors left out are greyed on the admin map; the save asks first when any are left out.
+  - OWNER — 2026-10-13: after Save, unworked visits from today on take the prop's route again (a visit with knocks keeps its route). /field is unchanged.
+- **Claude decisions:**
+  - CLAUDE — Figma "Admin / RT — Manual routes": R1 (Routes panel, "Draw your own route"), R2–R4 (phone drawing: header, hint, bottom toolbar Undo / Redo / Erase / count / Save, erase snackbar), R5 (save sheet "Save this route?"), R6 (choice "Your route" / "Automatic routes", "Edit your route"), R8 (zoom in to draw), D1 (desktop floating toolbar with shortcuts).
+  - CLAUDE — Entry: after a prop is saved (Routes panel) and from the prop's ⋯ menu → Routes (reads the saved routes and the drawing; no regeneration).
+  - CLAUDE — Drawing (`use-route-draw-gestures.ts`): one finger or a mouse drag links every door the stroke passes over, in order (`doorsAlongStroke`, sampled every 3 px, so a fast stroke skips none). Phones and tablets: MapLibre cooperative gestures, two fingers move the map, its "use two fingers" message hidden. Mouse: drag-pan off, Space + drag moves the map, wheel zooms. Touch laptops: cooperative gestures follow the pointer in use. Drawing starts at zoom 17 ("Zoom in to draw").
+  - CLAUDE — History (`lib/admin/route-draw.ts`, pure): one door linked or taken off = one step; the erase snackbar's Undo puts back the whole erase stroke.
+  - CLAUDE — Door dots (`lib/map/route-draw-layers.ts`): one GeoJSON feature per door, keyed by UPRN; drawing changes feature-state only (linked, end, left, fresh), so no `setData` per stroke. States are cleared on close, reopen and theme change.
+  - CLAUDE — Live route: the drawing is converted (`buildManualVariant`) at most once a frame and painted with the existing route layers, so it looks exactly like an automatic route (crossings included).
+  - CLAUDE — Save: both variants are built on the device and saved with `saveManualRoute`; a save that returns after the editor closed is ignored. Saving also sets the prop to the drawn route; upcoming unworked visits are re-frozen and the panel says how many use the drawn route and how many keep Route A and B (their doors differ).
+  - CLAUDE — Routes panel: with a drawing, a radio choice (Your route / Automatic routes); "Automatic routes" is disabled while the prop has none; a drawing saved before new doors appeared shows "needs finishing" and visits use A / B until it is saved again.
+  - CLAUDE — `loadTerritoryRouteModel` also returns one summary per saved variant (length, hand, streets) for the cards when the panel is opened from the menu.
+  - CLAUDE — No geolocation, no `/field` route change, no database change. `components/field/icons.tsx` only gains `EraseIcon`.
+- **Acceptance:**
+  - EDIT 1 DONE. New `lib/admin/route-draw.ts` (188 lines). Pasted from the brief. Diff against the brief code block: 0 lines.
+  - EDIT 2 DONE. New `lib/map/route-draw-layers.ts` (138 lines). Pasted from the brief. Diff against the brief code block: 0 lines.
+  - EDIT 3 DONE. One replacement in `lib/map/route-layers.ts`. The find occurred once.
+  - EDIT 4 DONE. Four replacements in `lib/map/route-load.ts` (now 130 lines). Each find occurred once.
+  - EDIT 5 DONE. Three replacements in `lib/admin/draw-copy.ts` (now 94 lines). Each find occurred once.
+  - EDIT 6 DONE. One replacement in `components/field/icons.tsx` (`EraseIcon`). The find occurred once.
+  - EDIT 7 DONE. One replacement in `app/globals.css`. The find occurred once.
+  - EDIT 8 DONE. New `components/admin/props/use-route-draw-gestures.ts` (206 lines). Pasted from the brief. Diff against the brief code block: 0 lines.
+  - EDIT 9 DONE. New `components/admin/props/use-route-draw.ts` (366 lines). Pasted from the brief. Diff against the brief code block: 0 lines.
+  - EDIT 10 DONE. New `components/admin/props/route-draw-panel.tsx` (204 lines). Pasted from the brief. Diff against the brief code block: 0 lines.
+  - EDIT 11 DONE. Five replacements in `components/admin/props/route-panel.tsx` (now 250 lines). Each find occurred once.
+  - EDIT 12 DONE. Six replacements in `components/admin/props/prop-detail.tsx`. Each find occurred once.
+  - EDIT 13 DONE. Fourteen replacements in `components/admin/props/props-screen.tsx` (now 1121 lines). Each find occurred once.
+  - EDIT 14 DONE. Two replacements in `scripts/verify-rt-manual.ts` (now 362 lines). Each find occurred once.
+  - `npm run verify:rt`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0.
+  - eslint: **PASS** — `npx eslint` on the thirteen TypeScript files exit 0.
+  - ux-audit: the skill file is not in the tree. The two panels were read against `.ux-profile.md`. One finding, code not changed: the save sheet focuses its first button and does not trap Tab or restore focus.
+  - Phone: no browser. Nine checks listed for the owner. Not opened.
+- **Deviations from brief:** none. The given files and replacements were pasted exactly. Line endings are CRLF.
+- **Not done / deferred:** A browser. The phone check. Did not query the database. Did not commit. No new table row. No `client_event_id`. Migration 041 was not written.
+- **Follow-ups:** The owner runs the phone check after landing. The save sheet does not trap focus (pasted as given). Migration 041 is still unwritten. /field routes are unchanged.
+
+### RT Session 1b — migration 041, a visit uses the drawing only when it fits
+- **Date:** 2026-10-14
+- **Model:** Grok 4.7
+- **Built:** Migration 041 file only. `assignment_route_freeze` uses the drawn route only when it fits this visit's doors (every drawn door allocated, every allocated door drawn or left out). Otherwise best / best_reversed. An explicit manual key that does not fit is refused (hint `manual_unfinished`). `territory_manual_route_save` refuses a route with no length (hint `no_length`). Same signatures. Not applied. No type change.
+- **Owner decisions:**
+  - OWNER — 2026-10-13: the admin can draw a prop's route by hand (drag through the door dots in walking order), offered next to the automatic Route A / Route B. Moving to the other side of the street adds a crossing, anywhere along it, drawn like the automatic route's crossing. The drawn order is the door order and the Logger order.
+  - OWNER — 2026-10-13: rotation: odd visits walk the drawn route as drawn, even visits reversed. Doors left out are excluded on purpose. When the prop's doors change, visits use the automatic routes until the admin saves the drawing again.
+- **Claude decisions:**
+  - CLAUDE — `assignment_route_freeze` (body only): manual / manual_reversed only when the drawing fits the visit: every drawn door was allocated to it and every allocated door is drawn or left out. Worked out from the visit's own doors, never from the stored status (which a later ingest or eligibility refresh makes stale). Otherwise best / best_reversed. An explicit manual key that does not fit is refused (hint `manual_unfinished`).
+  - CLAUDE — `territory_manual_route_save` (body only): refuses a route with no length (hint `no_length`); freeze could never copy it.
+- **Acceptance:**
+  - EDIT 1 DONE. New `supabase/migrations/041_manual_route_fit.sql` (615 lines). Newest file before it is `040_manual_routes.sql`. 041 was free. Pasted from the brief. Diff against the brief code block: 0 lines. Not applied.
+  - `npm run verify:rt`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0.
+  - eslint: **PASS** — `npm run lint` exit 0. 0 errors. 1118 warnings, all in `public/maplibre/maplibre-gl-shared.mjs` (untouched).
+  - Live `assignment_route_freeze` contains `manual_unfinished`: **NOT VERIFIED** — MCP not available.
+  - Phone: no browser. No phone check: database only.
+- **Deviations from brief:** none. The given file was pasted exactly. Line endings are CRLF.
+- **Not done / deferred:** Did not apply migration 041. Did not call `apply_migration`. Did not regenerate types. Did not query the live database. No browser. Did not commit. No new table row. No `client_event_id`.
+- **Follow-ups:** The owner applies migration 041 in the Supabase SQL editor. /field is unchanged.

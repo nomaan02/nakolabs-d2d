@@ -406,8 +406,10 @@ async function main(): Promise<void> {
 
     // -----------------------------------------------------------------------
     heading("4. Freeze rejects a door-set mismatch");
+    // RT (migration 040): freeze checks the allocated doors (uprn_allocated), which a manual route keeps
+    // when it shrinks uprn_snapshot. The mismatch is therefore made on both columns.
     const shortened = rowB.uprn_snapshot.slice(0, -1);
-    ok("shorten B snapshot", await service.from("assignments").update({ uprn_snapshot: shortened }).eq("id", b.id));
+    ok("shorten B doors", await service.from("assignments").update({ uprn_snapshot: shortened, uprn_allocated: shortened }).eq("id", b.id));
     const mismatch = await freezeAssignmentRoute(admin.client, b.id);
     const rowB2 = await assignmentRow(b.id);
     const stepsB2 = await routeStepRows(b.id);
@@ -417,15 +419,15 @@ async function main(): Promise<void> {
     const foreign = candidates.map((p) => Number(p.uprn)).find((u) => !inProp.has(u));
     if (foreign === undefined) throw new Error("could not find a UPRN outside the prop");
     const swapped = [...rowB.uprn_snapshot.slice(0, -1), foreign];
-    ok("swap B snapshot", await service.from("assignments").update({ uprn_snapshot: swapped }).eq("id", b.id));
+    ok("swap B doors", await service.from("assignments").update({ uprn_snapshot: swapped, uprn_allocated: swapped }).eq("id", b.id));
     const mismatch2 = await freezeAssignmentRoute(admin.client, b.id);
     const ok4 =
       !mismatch.ok && mismatch.code === "snapshot_mismatch" && !mismatch2.ok && mismatch2.code === "snapshot_mismatch" && rowB2.route_variant_key === "best_reversed" && stepsB2.length === stepsB.length;
     record(
       "Freeze rejects a door-set mismatch",
       ok4 ? "PASS" : "FAIL",
-      `B's uprn_snapshot cut from ${rowB.uprn_snapshot.length} to ${shortened.length} doors → freeze: ${mismatch.ok ? "SUCCEEDED (wrong)" : `refused, code ${mismatch.code}: "${mismatch.message}"`}.\n` +
-        `B's uprn_snapshot same size, one door swapped for a UPRN outside the prop → freeze: ${mismatch2.ok ? "SUCCEEDED (wrong)" : `refused, code ${mismatch2.code}`}.\n` +
+      `B's uprn_snapshot and uprn_allocated cut from ${rowB.uprn_snapshot.length} to ${shortened.length} doors → freeze: ${mismatch.ok ? "SUCCEEDED (wrong)" : `refused, code ${mismatch.code}: "${mismatch.message}"`}.\n` +
+        `B's doors same size, one door swapped for a UPRN outside the prop → freeze: ${mismatch2.ok ? "SUCCEEDED (wrong)" : `refused, code ${mismatch2.code}`}.\n` +
         `B re-queried after the first refusal: route_variant_key ${rowB2.route_variant_key}, route_steps ${stepsB2.length} (unchanged from ${stepsB.length}).`,
     );
 

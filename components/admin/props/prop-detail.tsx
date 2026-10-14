@@ -13,6 +13,7 @@ import {
   DrawIcon,
   MoreIcon,
   NoteIcon,
+  RouteIcon,
   WarningIcon,
 } from "@/components/field/icons";
 import {
@@ -69,6 +70,7 @@ export function PropDetail({
   onClose,
   onRename,
   onEditShape,
+  onRoutes,
   onArchive,
   onRestore,
 }: {
@@ -84,6 +86,8 @@ export function PropDetail({
   onRename: (name: string) => Promise<string | null>;
   /** Absent until Edit shape lands (F2d): no menu item. */
   onEditShape?: () => void;
+  /** RT-3: the prop's Routes panel (automatic routes, or draw your own). */
+  onRoutes?: () => void;
   onArchive: () => void;
   onRestore: () => void;
 }) {
@@ -134,6 +138,7 @@ export function PropDetail({
             onClose={() => setMenuOpen(false)}
             onRename={() => setRenaming(true)}
             onEditShape={onEditShape}
+            onRoutes={onRoutes}
             onArchive={onArchive}
             onRestore={onRestore}
           />
@@ -347,6 +352,7 @@ function PropMenu({
   onClose,
   onRename,
   onEditShape,
+  onRoutes,
   onArchive,
   onRestore,
 }: {
@@ -356,6 +362,7 @@ function PropMenu({
   onClose: () => void;
   onRename: () => void;
   onEditShape?: () => void;
+  onRoutes?: () => void;
   onArchive: () => void;
   onRestore: () => void;
 }) {
@@ -419,6 +426,12 @@ function PropMenu({
         <button type="button" role="menuitem" className={item} onClick={pick(onEditShape)}>
           <DrawIcon className="size-5 text-ink-soft" />
           Edit shape
+        </button>
+      ) : null}
+      {!archived && onRoutes ? (
+        <button type="button" role="menuitem" className={item} onClick={pick(onRoutes)}>
+          <RouteIcon className="size-5 text-ink-soft" />
+          Routes
         </button>
       ) : null}
       <Link href={coverageHref} role="menuitem" className={item} onClick={onClose}>

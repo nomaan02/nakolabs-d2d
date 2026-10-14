@@ -3,11 +3,12 @@
 import { revalidatePath } from "next/cache";
 
 import { freezeAssignmentRoute } from "@/lib/geo/walk/freeze";
+import type { VariantKey } from "@/lib/geo/walk/types";
 import type { RouteActionResult } from "@/lib/props/generate-route";
 import { createClient } from "@/lib/supabase/server";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const VARIANT_KEY = /^(best|best_reversed|alt_[1-9][0-9]*)$/;
+const VARIANT_KEY = /^(best|best_reversed|alt_[1-9][0-9]*|manual|manual_reversed)$/;
 
 /**
  * Freeze one chosen variant onto an allocation. Used when the admin picks
@@ -37,7 +38,7 @@ export async function freezeVariantAction(assignmentId: string, variantKey: stri
     };
   }
 
-  const frozen = await freezeAssignmentRoute(supabase, id, key as "best" | "best_reversed" | `alt_${number}`);
+  const frozen = await freezeAssignmentRoute(supabase, id, key as VariantKey);
   revalidatePath("/admin");
   revalidatePath("/admin/allocate");
   if (!frozen.ok) return { ok: false, code: frozen.code, message: frozen.message };

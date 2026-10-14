@@ -5,7 +5,20 @@
  * Pure: no React, no network. Checked by `npm run verify:ui10`.
  */
 import type { KnockableCount } from "@/lib/geo/count-knockable";
-import type { WalkVariant } from "@/lib/geo/walk/types";
+import type { Hand } from "@/lib/geo/walk/types";
+
+/**
+ * What the route cards and Route details need from a variant. A fresh
+ * `WalkVariant` fits, and so does a saved route read back from
+ * `territory_routes` (RT-3: the Routes panel opened from the prop menu).
+ */
+export type RouteSummary = {
+  key: string;
+  hand: Hand;
+  total_m: number;
+  stranded_count: number;
+  steps: readonly { street_name: string | null }[];
+};
 
 /** Frame 11: "6 doors left out: No Cold Calling zone". Null when none are. */
 export function ncczNote(count: Pick<KnockableCount, "nccz">): string | null {
@@ -40,7 +53,7 @@ export function kmOf(metres: number): string {
 }
 
 /** The first named street a variant walks. */
-export function startStreet(variant: Pick<WalkVariant, "steps">): string | null {
+export function startStreet(variant: Pick<RouteSummary, "steps">): string | null {
   for (const step of variant.steps) {
     if (step.street_name && step.street_name.trim() !== "") return step.street_name.trim();
   }
@@ -61,7 +74,7 @@ export type RouteCard = {
  * `best_reversed`). Tapping a card previews it; nothing is "chosen". The
  * alternatives live under Route details (A23).
  */
-export function routeCards(variants: Pick<WalkVariant, "key" | "total_m" | "steps">[]): RouteCard[] {
+export function routeCards(variants: readonly Pick<RouteSummary, "key" | "total_m" | "steps">[]): RouteCard[] {
   const cards: RouteCard[] = [];
   const a = variants.find((variant) => variant.key === "best");
   const b = variants.find((variant) => variant.key === "best_reversed");
@@ -71,7 +84,7 @@ export function routeCards(variants: Pick<WalkVariant, "key" | "total_m" | "step
 }
 
 /** One line per saved variant for Route details. */
-export function routeDetailLine(variant: Pick<WalkVariant, "key" | "hand" | "total_m" | "steps" | "stranded_count">): string {
+export function routeDetailLine(variant: RouteSummary): string {
   const name =
     variant.key === "best" ? "Route A" : variant.key === "best_reversed" ? "Route B" : `Spare ${variant.key.replace("alt_", "")}`;
   const hand = variant.hand === "left" ? "doors on the left" : "doors on the right";

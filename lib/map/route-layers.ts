@@ -199,7 +199,7 @@ export function routeSaveEnabled(state: { hasPreview: boolean; stale: boolean; b
   return state.hasPreview && !state.stale && !state.busy;
 }
 
-export function walkResultToPaintInput(result: WalkResult): {
+export function walkResultToPaintInput(result: Pick<WalkResult, "variants">): {
   steps: RouteStepInput[];
   endpoints: RouteEndpointInput[];
 } {

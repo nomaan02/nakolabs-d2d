@@ -2,12 +2,19 @@
 
 ## Current state
 
-- Last updated: 2026-10-13 (RT Session 1). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- RT-1: migration 040 is in the repo (`supabase/migrations/040_manual_routes.sql`, 1023 lines). It was not applied. This session did not call `apply_migration` and did not query the live database (Supabase MCP not signed in: `supabase` and `supabase-d2d` both need auth).
-- The file adds `territories.route_mode` (`auto` or `manual`), `territory_manual_routes` (admin-only RLS), `assignments.uprn_allocated` plus a BEFORE INSERT trigger, and `manual` / `manual_reversed` variant keys. `territory_routes_save` keeps the manual pair. New RPCs: `territory_manual_route_save`, `territory_route_mode_set`. `assignment_route_freeze` follows `route_mode` when the drawing is ready. The backfill of `uprn_allocated` is in the file and was not run.
-- Types pasted in `lib/supabase/types.ts` (2868 lines, 61 insertions). Not generated. `npx tsc --noEmit` exit 0. `npx eslint lib/supabase/types.ts` exit 0.
-- RT-1 tracker row added after CRM-6 C. Status DONE. Date 2026-10-13. Result: `Manual routes: migration 040 file (route_mode, territory_manual_routes, uprn_allocated, manual variant keys, manual save / mode RPCs, freeze follows route_mode) and types. Applied to live by the owner.` Commit column `—`.
-- No table row written. No `client_event_id`. No browser. No phone check (database and types only). `lib/sync/queue.ts`, `lib/geo/walk/*` and `/field` were not edited. Password, profile and role were not changed.
+- Last updated: 2026-10-14 (RT Session 1b). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- RT-1b: migration 041 file only (`supabase/migrations/041_manual_route_fit.sql`, 615 lines). Bodies only, same signatures. `assignment_route_freeze` uses manual / manual_reversed only when the drawing fits this visit's doors (every drawn door allocated, every allocated door drawn or left out). Otherwise best / best_reversed. An explicit manual key that does not fit is refused (hint `manual_unfinished`). `territory_manual_route_save` refuses a route with no length (hint `no_length`). Not applied. No type change. No table row. No `client_event_id`.
+- Diff against the brief SQL block: 0 lines. Line endings CRLF. Newest file before it is `040_manual_routes.sql`. 041 was free.
+- `npx tsc --noEmit` exit 0. `npm run lint` exit 0 (0 errors; 1118 warnings, all in `public/maplibre/maplibre-gl-shared.mjs`, untouched). `npm run verify:rt` exit 0, last line `ALL PASS`.
+- RT-1b tracker row added after RT-3. Status DONE. Date 2026-10-14. Result: `Migration 041: freeze uses the drawn route only when it fits the visit's doors (else best / best_reversed; explicit manual refused, manual_unfinished); manual save refuses a route with no length. Applied to live by the owner.` Commit column `—`.
+- No browser. Phone check: database only. Supabase MCP not signed in (`supabase` and `supabase-d2d` both need auth). Did not apply 041. Did not call `apply_migration`. Did not regenerate types. Password, profile and role were not changed. `lib/sync/queue.ts` was not edited.
+- RT-3: the admin draws a prop's route on the Props map. `lib/admin/route-draw.ts` (188 lines) is the chain, undo, redo, erase and the stroke hit test. `lib/map/route-draw-layers.ts` (138 lines) paints one dot per door and changes feature-state only. `use-route-draw-gestures.ts` (206 lines), `use-route-draw.ts` (366 lines) and `route-draw-panel.tsx` (204 lines) are the editor. `route-panel.tsx` (250 lines) offers Draw your own route, then Your route / Automatic routes. The prop ⋯ menu has Routes. `loadTerritoryRouteModel` returns one summary per saved variant. `components/field/icons.tsx` gained `EraseIcon` only. No `/field` route was edited.
+- `npx tsc --noEmit` exit 0. `npx eslint` on the thirteen TypeScript files exit 0. `npm run verify:rt` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. `verify:stage5b-r2` was not run (needs the live database).
+- RT-3 tracker row added after RT-2. Status DONE. Date 2026-10-14. Result: `Manual routes: drawing screen (finger and mouse, undo/redo/erase, save sheet) and the Routes panel choice; prop menu → Routes.` Commit column `—`.
+- No table row. No `client_event_id`. No browser. Phone check is nine steps for the owner after landing. No database access. Password, profile and role were not changed. `lib/sync/queue.ts` was not edited. `lib/geo/walk/*` was not edited.
+- The `ux-audit` skill file is not in the tree. The two panels were checked against `.ux-profile.md`. One finding, code left as pasted: the save sheet focuses its first button and does not trap Tab or restore focus.
+- RT-2 remains in the tree: `lib/geo/walk/manual.ts` (669 lines) and `lib/geo/walk/manual-save.ts` (173 lines). `scripts/verify-stage-5b-r2.ts` section 4 mismatches both `uprn_snapshot` and `uprn_allocated`. `scripts/verify-rt-manual.ts` is now 362 lines.
+- The RT-3 brief states migration 040 is live. This session did not query the database and did not apply a migration. RT-1 remains: migration 040 file (1023 lines) and pasted types in `lib/supabase/types.ts` (2868 lines). Migration 041 is the file added in this session (615 lines) and was not applied. The client already maps the `manual_unfinished` hint.
 - CRM-6 C remains: Coverage CRM heat map and doors follow the Days chip. Migration 039 is in the repo (113 lines) and was not applied here. Props CRM history is still all history.
 - CRM-6 B remains: a call-back row shows the CRM address and opens to the notes. Migration 038 remains applied.
 - CRM-6 A remains: the leaderboard opens on Pitched. Tabs are Pitched · Sales · Value. My results leads with Pitched.
@@ -19,10 +26,10 @@
 - Sale price from CRM-3 remains: Sale Amount, else Result, else Rep Result, number only, in `lib/crm/parse.ts`. For a lead that is not a call-back, the Result text is still dropped. Call-back leads keep Result in `crm_contacts`.
 - Dark-ready paths are unchanged: `/admin/props`, `/admin/today`, `/admin/calendar`, `/admin/coverage`, `/admin/team`, `/admin/leads`, `/admin/insights`, `/admin/settings`.
 - Redirects are unchanged: `/admin` → `/admin/today`, `/admin/allocate` → Today or Add visit when `?prop=` is set, `/admin/dashboard` → `/admin/insights`.
-- Migrations 029–038 remain applied. Migration 039's file is in the repo and still needs applying. Migration 040's file is new and needs applying by the owner.
+- Migrations 029–038 remain applied, as recorded before this session. Migration 039's file is in the repo; this session did not check whether it is applied. The RT-2 brief states migration 040 is live; this session did not check. Migration 041's file is in the repo (615 lines); this session did not apply it.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
-- External settings: none. The owner applies migration 040. Wayne to OK before canvassers use call-back phones. The owner runs the CRM backfill once after landing so call-backs already in the list get their notes.
-- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-6 C remain DONE. RT-1 file work is in the tree. The drawing screen is a later session. /field is unchanged.
+- External settings: none. The RT-2 brief states migration 040 is already live. Wayne to OK before canvassers use call-back phones. The owner runs the CRM backfill once after landing so call-backs already in the list get their notes. The owner runs `npm run verify:stage5b-r2` against the live database. The owner applies migration 041 in the Supabase SQL editor.
+- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-6 C remain DONE. RT-1, RT-2 and RT-3 file work is in the tree. RT-1b adds the migration 041 file only. /field routes are unchanged. `components/field/icons.tsx` gained `EraseIcon` only.
 
 ## Log
 
@@ -3241,3 +3248,83 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** Applying migration 040. The live functions `territory_manual_route_save` and `territory_route_mode_set`. A canvasser JWT against `territory_manual_routes`. The backfill of `uprn_allocated`. Supabase MCP was not signed in (`supabase` and `supabase-d2d` both need auth). A browser. A phone.
 - **External settings:** none
 - **Open questions for Claude:** none from this session. The owner applies migration 040. The drawing screen is a later session.
+
+### 2026-10-14 — RT Session 2 (uncommitted)
+
+- **Item:** other
+- **What changed:** A drawn chain of UPRNs becomes the same walk document as an automatic route. `manual` is the chain as drawn; `manual_reversed` is that chain reversed and rebuilt. Saving and switching mode go through the admin's own session (`territory_manual_route_save`, `territory_route_mode_set`) and never throw. The freeze override accepts those keys. A door-set mismatch in the stage 5b-r2 script is made on both `uprn_snapshot` and `uprn_allocated`. `npm run verify:rt` checks a synthetic street. /field was not changed.
+- **Files:**
+  - Changed: `lib/geo/walk/types.ts`, `lib/geo/walk/freeze.ts`, `lib/props/freeze-variant.ts`, `scripts/verify-stage-5b-r2.ts`, `package.json`, `docs/FIELD-TEST-BUILD-PLAN.md` (RT-2 row after RT-1), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `lib/geo/walk/manual.ts`, `lib/geo/walk/manual-save.ts`, `scripts/verify-rt-manual.ts`, `.handoff/reports/rt-2-convert.md`
+  - Deleted: none
+- **Database:** none. No migration. No table row. No `client_event_id`. The brief states migration 040 is live. This session did not query the database. Migration 041 (the `manual_unfinished` hint) is the next session. The client already maps that hint.
+- **Shared modules touched:** `lib/geo/walk/types.ts` (`VariantKey` accepts `manual` and `manual_reversed`), `lib/geo/walk/freeze.ts` (comment, `manual_unfinished` failure code, hint map), new `lib/geo/walk/manual.ts` and `lib/geo/walk/manual-save.ts`. `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts` and `lib/field/*` were not edited. `lib/supabase/types.ts` was not edited.
+- **Decided by:**
+  - OWNER — 2026-10-13: the admin can draw a prop's route by hand (drag through the door dots in walking order), offered next to the automatic Route A / Route B. Moving to the other side of the street adds a crossing, anywhere along it, drawn like the automatic route's crossing. The drawn order is the door order and the Logger order.
+  - OWNER — 2026-10-13: rotation: odd visits walk the drawn route as drawn, even visits reversed. Doors left out are excluded on purpose. When the prop's doors change, visits use the automatic routes until the admin saves the drawing again.
+  - CLAUDE — `lib/geo/walk/manual.ts` turns the drawn chain of UPRNs into the same `WalkVariant` document the automatic generator makes, keys `manual` (as drawn) and `manual_reversed` (the chain reversed, rebuilt). The automatic code path is not changed; only its geometry pieces are reused (`sliceAlong`, `offsetRunAdaptive`, `uTurnArc`, `shortestPath`).
+  - CLAUDE — Between two doors: same segment and pavement → one work leg; same segment, other pavement → a crossing right after the first door (U-turn arc when turning back, a straight line when carrying on); different segments → the shortest way along the roads on the walker's pavement; turning off a road away from that pavement crosses the road being left at the junction; otherwise, when the next door is on the other hand, a straight crossing where the leg joins its road; no road path → a straight transfer.
+  - CLAUDE — `door_order` is the chain exactly; nothing is stranded or reordered; each door is in exactly one work step's `first_seq..last_seq`, in order. A route with no length (one door, or every door at one spot) is refused (`too_short`): it could not be frozen.
+  - CLAUDE — Deterministic: no clock, no randomness, no Map/Set iteration (lookups only), fixed tie-breaks.
+  - CLAUDE — `lib/geo/walk/manual-save.ts`: `loadManualRoute`, `saveManualRoute` (`territory_manual_route_save`), `setRouteMode` (`territory_route_mode_set`); never throw; admin's own session.
+  - CLAUDE — `VariantKey` and the freeze override regex accept `manual` / `manual_reversed`; freeze maps hint `manual_unfinished` (migration 041, next session).
+  - CLAUDE — `scripts/verify-stage-5b-r2.ts` section 4 makes its door-set mismatch on `uprn_snapshot` AND `uprn_allocated` (freeze checks the allocated doors since 040).
+  - CLAUDE — `npm run verify:rt`: synthetic street network, no real doors, no database.
+- **Deviations from plan or brief:** none. The given files and replacements were pasted exactly. Line endings are CRLF.
+- **Invariants:** No device GPS was read. No coordinates left the device. No field write. `lib/sync/queue.ts` was not edited. Coverage stays derived. No scoring was added in `/field`. /field was not changed.
+- **Verified:** Each find block occurred once (EDIT 1, EDIT 4's four replacements, EDIT 5's two replacements, EDIT 7, EDIT 8). New files match the brief code blocks line for line (`manual.ts` 669, `manual-save.ts` 173, `verify-rt-manual.ts` 297). `npx tsc --noEmit` exit 0. `npx eslint` on the seven TypeScript files exit 0. `npm run verify:rt` exit 0, last line `ALL PASS` (rebuild 0.09 ms average). `npm run verify:ui10` exit 0, last line `ALL PASS`.
+- **Not verified:** `npm run verify:stage5b-r2` (needs the live database; not run). A browser. A phone. The live RPCs `territory_manual_route_save` and `territory_route_mode_set`. Whether migration 040 is applied.
+- **External settings:** none
+- **Open questions for Claude:** none from this session. Migration 041 is the next session. The owner runs `npm run verify:stage5b-r2` against the live database. The drawing screen is a later session.
+
+### 2026-10-14 — RT Session 3 (uncommitted)
+
+- **Item:** other
+- **What changed:** The admin can draw a prop's route on the Props map. A stroke links the doors it passes, in order. Undo and redo step one door. Erase takes doors off, and its snackbar puts the whole stroke back. Saving with doors left out asks first, then saves both variants and re-freezes unworked visits from today on. The Routes panel chooses Your route or Automatic routes. The prop ⋯ menu opens Routes. /field routes were not changed.
+- **Files:**
+  - Changed: `lib/map/route-layers.ts`, `lib/map/route-load.ts`, `lib/admin/draw-copy.ts`, `components/field/icons.tsx`, `app/globals.css`, `components/admin/props/route-panel.tsx`, `components/admin/props/prop-detail.tsx`, `components/admin/props/props-screen.tsx`, `scripts/verify-rt-manual.ts`, `docs/FIELD-TEST-BUILD-PLAN.md` (RT-3 row after RT-2), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `lib/admin/route-draw.ts`, `lib/map/route-draw-layers.ts`, `components/admin/props/use-route-draw-gestures.ts`, `components/admin/props/use-route-draw.ts`, `components/admin/props/route-draw-panel.tsx`, `.handoff/reports/rt-3-draw.md`
+  - Deleted: none
+- **Database:** none. No migration. No table row. No `client_event_id`. The brief states migration 040 is live. This session did not query the database. Migration 041 is still not written.
+- **Shared modules touched:** `lib/map/route-layers.ts` (`walkResultToPaintInput` accepts a variants pick, so one drawn variant can be painted) and `lib/map/route-load.ts` (saved-variant summaries for the Routes panel). `lib/sync/queue.ts` was not edited. `lib/geo/walk/*` was not edited. `lib/field/*` was not edited. `components/field/icons.tsx` gained `EraseIcon` only.
+- **Decided by:**
+  - OWNER — 2026-10-13: the admin can draw a prop's route by hand (drag through the door dots in walking order), offered next to the automatic Route A / Route B. Moving to the other side of the street adds a crossing, anywhere along it, drawn like the automatic route's crossing. The drawn order is the door order and the Logger order.
+  - OWNER — 2026-10-13: rotation: odd visits walk the drawn route as drawn, even visits reversed. Doors left out are excluded on purpose. When the prop's doors change, visits use the automatic routes until the admin saves the drawing again.
+  - OWNER — 2026-10-13: undo and redo step one link at a time; erase takes doors off with a tap or a stroke; lift the finger and carry on from the last door. Doors left out are greyed on the admin map; the save asks first when any are left out.
+  - OWNER — 2026-10-13: after Save, unworked visits from today on take the prop's route again (a visit with knocks keeps its route). /field is unchanged.
+  - CLAUDE — Figma "Admin / RT — Manual routes": R1, R2–R4, R5, R6, R8, D1, as in the session brief.
+  - CLAUDE — Entry after Save, and from the prop ⋯ menu → Routes (reads saved routes and the drawing; no regeneration).
+  - CLAUDE — One finger or a mouse drag links every door the stroke passes (`doorsAlongStroke`, every 3 px). Two fingers move the map. Mouse: Space + drag pans, wheel zooms. Drawing starts at zoom 17.
+  - CLAUDE — One door linked or taken off is one history step. The erase snackbar Undo puts back the whole erase stroke.
+  - CLAUDE — Door dots change feature-state only. The live route is `buildManualVariant` at most once a frame, painted with the existing route layers.
+  - CLAUDE — Save builds both variants on the device (`saveManualRoute`). A save that returns after the editor closed is ignored. Unworked visits from today on are re-frozen. The panel says how many use the drawn route and how many keep Route A and B.
+  - CLAUDE — With a drawing, the panel is a radio: Your route / Automatic routes. Automatic routes is disabled while the prop has none. A drawing that needs finishing keeps visits on A / B until it is saved again.
+  - CLAUDE — `loadTerritoryRouteModel` returns one summary per saved variant. No geolocation. No database change.
+- **Deviations from plan or brief:** none. The given files and replacements were pasted exactly. Line endings are CRLF. The `ux-audit` skill file is not in the tree; the two panels were checked against `.ux-profile.md` and the pasted code was not changed.
+- **Invariants:** No device GPS was read. No coordinates left the device. No field write. `lib/sync/queue.ts` was not edited. Coverage stays derived. No scoring was added in `/field`. No `/field` route was changed. `EraseIcon` was added to the shared icon file.
+- **Verified:** New files match the brief code blocks (`route-draw.ts` 188, `route-draw-layers.ts` 138, `use-route-draw-gestures.ts` 206, `use-route-draw.ts` 366, `route-draw-panel.tsx` 204). Each find block occurred once. `npx tsc --noEmit` exit 0. `npx eslint` on the thirteen TypeScript files exit 0. `npm run verify:rt` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`.
+- **Not verified:** A browser. A phone. The nine phone-check steps. The live save and re-freeze. Whether migration 040 is applied. The save sheet does not trap focus (left as pasted).
+- **External settings:** none
+- **Open questions for Claude:** none from this session. The owner runs the phone check after landing. Migration 041 is still unwritten. The owner runs `npm run verify:stage5b-r2` against the live database.
+
+### 2026-10-14 — RT Session 1b (uncommitted)
+
+- **Item:** other
+- **What changed:** Migration 041 is in the repo and was not applied. Freeze uses the drawn route only when the drawing fits this visit's own doors. Otherwise the visit uses the automatic route. An explicit manual key that does not fit is refused. A drawn route with no length is refused on save. Same function signatures. Types were not changed. /field was not changed.
+- **Files:**
+  - Changed: `docs/FIELD-TEST-BUILD-PLAN.md` (RT-1b row after RT-3), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `supabase/migrations/041_manual_route_fit.sql`, `.handoff/reports/rt-1b-db.md`
+  - Deleted: none
+- **Database:** migration 041 file added (615 lines). Newest file before it is `040_manual_routes.sql`. Replaces the bodies of `assignment_route_freeze(uuid, text)` and `territory_manual_route_save(uuid, bigint[], bigint[], jsonb)`. Same signatures, so grants stay. Comments refreshed. No new table. No RLS change. No data write in the file. Not applied. No table row. No `client_event_id`.
+- **Shared modules touched:** none. `lib/sync/queue.ts` was not edited. `lib/geo/walk/*`, `lib/map/route-layers.ts`, `lib/field/*` and `lib/supabase/types.ts` were not edited.
+- **Decided by:**
+  - OWNER — 2026-10-13: the admin can draw a prop's route by hand (drag through the door dots in walking order), offered next to the automatic Route A / Route B. Moving to the other side of the street adds a crossing, anywhere along it, drawn like the automatic route's crossing. The drawn order is the door order and the Logger order.
+  - OWNER — 2026-10-13: rotation: odd visits walk the drawn route as drawn, even visits reversed. Doors left out are excluded on purpose. When the prop's doors change, visits use the automatic routes until the admin saves the drawing again.
+  - CLAUDE — `assignment_route_freeze` (body only): manual / manual_reversed only when the drawing fits the visit: every drawn door was allocated to it and every allocated door is drawn or left out. Worked out from the visit's own doors, never from the stored status (which a later ingest or eligibility refresh makes stale). Otherwise best / best_reversed. An explicit manual key that does not fit is refused (hint `manual_unfinished`).
+  - CLAUDE — `territory_manual_route_save` (body only): refuses a route with no length (hint `no_length`); freeze could never copy it.
+- **Deviations from plan or brief:** none. The given file was pasted exactly. Line endings are CRLF.
+- **Invariants:** No device GPS was read. No coordinates left the device. No field write. `lib/sync/queue.ts` was not edited. Coverage stays derived. No scoring was added in `/field`. /field was not changed.
+- **Verified:** `supabase/migrations/041_manual_route_fit.sql` is 615 lines and matches the brief SQL block (0 differing lines). Newest migration before it is 040. 041 was free. `npm run verify:rt` exit 0, last line `ALL PASS`. `npx tsc --noEmit` exit 0. `npm run lint` exit 0 (0 errors; 1118 warnings, all in `public/maplibre/maplibre-gl-shared.mjs`, untouched).
+- **Not verified:** Applying migration 041. The live function body (`pg_get_functiondef` of `assignment_route_freeze` contains `manual_unfinished`). Supabase MCP was not signed in (`supabase` and `supabase-d2d` both need auth). A browser. A phone.
+- **External settings:** none
+- **Open questions for Claude:** none from this session. The owner applies migration 041 in the Supabase SQL editor.

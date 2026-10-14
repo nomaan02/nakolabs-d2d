@@ -10,7 +10,7 @@ import type { LonLat } from "@/lib/geo/route-graph";
 
 export type Hand = "left" | "right";
 export type StepKind = "work" | "cross" | "walk";
-export type VariantKey = "best" | "best_reversed" | `alt_${number}`;
+export type VariantKey = "best" | "best_reversed" | `alt_${number}` | "manual" | "manual_reversed";
 
 export type WalkStep = {
   kind: StepKind;

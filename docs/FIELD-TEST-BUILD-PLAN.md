@@ -158,6 +158,9 @@
 | CRM-6 B | human: call-backs show the CRM address and open to show the CRM notes (migration 038) | DONE | 2026-10-13 | Call-backs show the CRM address + postcode and open to show status, Result, Product interest, Best time to call and Description (migration 038). | — |
 | CRM-6 C | human: the Coverage CRM layer follows the Days chip (migration 039) | DONE | 2026-10-13 | Coverage CRM layer (heat map and doors) follows the Days chip; squares from 2 leads under three months (migration 039). | — |
 | RT-1 | human: manual routes — migration 040 and types | DONE | 2026-10-13 | Manual routes: migration 040 file (route_mode, territory_manual_routes, uprn_allocated, manual variant keys, manual save / mode RPCs, freeze follows route_mode) and types. Applied to live by the owner. | — |
+| RT-2 | human: manual routes — the drawing becomes a route | DONE | 2026-10-14 | Manual routes: lib/geo/walk/manual.ts turns a drawn door chain into manual / manual_reversed variants; manual-save.ts (load, save, mode); keys; verify:rt. | — |
+| RT-3 | human: manual routes — the drawing screen and the Routes panel | DONE | 2026-10-14 | Manual routes: drawing screen (finger and mouse, undo/redo/erase, save sheet) and the Routes panel choice; prop menu → Routes. | — |
+| RT-1b | human: migration 041 — a visit uses the drawing only when it fits | DONE | 2026-10-14 | Migration 041: freeze uses the drawn route only when it fits the visit's doors (else best / best_reversed; explicit manual refused, manual_unfinished); manual save refuses a route with no length. Applied to live by the owner. | — |
 
 ---
 

@@ -645,6 +645,17 @@ export function RouteIcon({ className }: IconProps) {
   );
 }
 
+/** RT-3 (Figma icon/erase). The erase tool on the route drawing toolbar. */
+export function EraseIcon({ className }: IconProps) {
+  return (
+    <StrokeIcon className={className}>
+      <path d="M7 20 3.3 16.3a1.8 1.8 0 0 1 0-2.6l9.4-9.4a1.8 1.8 0 0 1 2.6 0l4.4 4.4a1.8 1.8 0 0 1 0 2.6L12 19" />
+      <path d="M7 20h13" />
+      <path d="m8.5 8.5 7 7" />
+    </StrokeIcon>
+  );
+}
+
 export function LiveIcon({ className }: IconProps) {
   return (
     <StrokeIcon className={className}>

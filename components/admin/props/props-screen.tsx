@@ -29,8 +29,10 @@ import {
   type MapProp,
 } from "@/components/admin/props/prop-layers";
 import { PropsList, PropsListHeader } from "@/components/admin/props/props-list";
-import { RoutePanel, type RoutePhase } from "@/components/admin/props/route-panel";
+import { RouteDrawPanel } from "@/components/admin/props/route-draw-panel";
+import { RoutePanel, type DrawnRoute, type RoutePhase } from "@/components/admin/props/route-panel";
 import { useDrawGestures } from "@/components/admin/props/use-draw-gestures";
+import { useRouteDraw, type RouteDrawSaved, type RouteDrawTarget } from "@/components/admin/props/use-route-draw";
 import { useShapeCount } from "@/components/admin/props/use-shape-count";
 import { AdminMenuButton } from "@/components/admin/shell/admin-shell";
 import { ConfirmDialog } from "@/components/admin/ui/confirm-dialog";
@@ -71,10 +73,13 @@ import {
   type PropRow,
   type VisitStats,
 } from "@/lib/admin/props";
+import { MIN_DRAW_ZOOM, drawnRouteLine } from "@/lib/admin/route-draw";
 import { detentHeights, type Detent } from "@/lib/admin/sheet-detents";
 import { useResolvedTheme } from "@/lib/field/theme";
 import { countKnockable, type KnockableCount } from "@/lib/geo/count-knockable";
 import { fetchNcczZones } from "@/lib/geo/nccz-zones";
+import { freezeAssignmentRoute } from "@/lib/geo/walk/freeze";
+import { loadManualRoute, setRouteMode, type RouteMode } from "@/lib/geo/walk/manual-save";
 import { saveTerritoryRoutes } from "@/lib/geo/walk/save";
 import { describeGeometryIssues } from "@/lib/geo/walk/validate";
 import { loadAssignmentRouteModel, loadTerritoryRouteModel } from "@/lib/map/route-load";
@@ -112,7 +117,25 @@ type RouteStep = {
   phase: RoutePhase;
   previewKey: string | null;
   model: RoutePaintModel | null;
+  /** RT-3: the prop's drawn route (R6), or null (R1). */
+  drawn: DrawnRoute | null;
+  modeBusy: boolean;
+  /** RT-3: "hub" when opened from the prop menu (Try again re-reads), "made" after Save (Try again makes the routes again). */
+  source: "hub" | "made";
 };
+
+/** The model with one variant's steps and points replaced by another model's. */
+function withVariant(model: RoutePaintModel | null, key: string, extra: RoutePaintModel): RoutePaintModel {
+  const base = model ?? emptyRouteModel();
+  return {
+    steps: [...base.steps.filter((step) => step.variantKey !== key), ...extra.steps.filter((step) => step.variantKey === key)],
+    points: [...base.points.filter((point) => point.variantKey !== key), ...extra.points.filter((point) => point.variantKey === key)],
+  };
+}
+
+function visitsWord(n: number): string {
+  return n === 1 ? "1 upcoming visit" : `${n} upcoming visits`;
+}
 
 function onlyVariant(model: RoutePaintModel, key: string): RoutePaintModel {
   return {
@@ -186,8 +209,11 @@ export function PropsScreen({
   const [routeStep, setRouteStep] = useState<RouteStep | null>(null);
   // The prop whose routes are on screen. A slower, older generation never lands on another prop.
   const routeFor = useRef<string | null>(null);
+  // RT-3: the manual route editor (R2–R5, D1), opened from the Routes panel.
+  const [routeDraw, setRouteDraw] = useState<RouteDrawTarget | null>(null);
+  const [routeDiscardOpen, setRouteDiscardOpen] = useState(false);
 
-  const browsing = session === null && routeStep === null;
+  const browsing = session === null && routeStep === null && routeDraw === null;
   const browsingRef = useRef(browsing);
   browsingRef.current = browsing;
 
@@ -238,11 +264,11 @@ export function PropsScreen({
 
   const padding = useCallback(
     (bottom?: number): PaddingOptions => {
-      if (desktop) return { top: 72, right: 72, bottom: 48, left: browsingRef.current || routeStep ? 400 : 72 };
+      if (desktop) return { top: 72, right: 72, bottom: 48, left: (browsingRef.current || routeStep) && !routeDraw ? 400 : 72 };
       if (!browsingRef.current && !routeStep) return { top: 120, right: 32, bottom: 120, left: 32 };
       return { top: 72, right: 32, bottom: (bottom ?? sheetHeight) + 24, left: 32 };
     },
-    [desktop, routeStep, sheetHeight],
+    [desktop, routeStep, routeDraw, sheetHeight],
   );
 
   const fitBox = useCallback(
@@ -419,6 +445,8 @@ export function PropsScreen({
     const paint = (model: RoutePaintModel, key: string) => {
       if (live) paintRouteLayers(map, model, key, DOORS_LAYER, null, mode);
     };
+    // The route editor paints its own live route.
+    if (routeDraw) return;
     if (routeStep) {
       if (routeStep.model && routeStep.previewKey) paint(onlyVariant(routeStep.model, routeStep.previewKey), routeStep.previewKey);
       else paint(emptyRouteModel(), "");
@@ -448,7 +476,7 @@ export function PropsScreen({
     return () => {
       live = false;
     };
-  }, [map, mode, routeStep, layers.routes, selected, session]);
+  }, [map, mode, routeStep, routeDraw, layers.routes, selected, session]);
 
   // ---- draw and edit ----------------------------------------------------
 
@@ -555,11 +583,16 @@ export function PropsScreen({
       setRouteStep((current) => (current && mine(current) ? { ...current, phase: { status: "failed", message } } : current));
       return;
     }
-    const model = toRoutePaintModel(walkResultToPaintInput(saved.result));
+    let model = toRoutePaintModel(walkResultToPaintInput(saved.result));
     const notice = saved.issues.length > 0 ? describeGeometryIssues(saved.issues) : null;
+    const drawn = await loadDrawn(propId);
+    if (drawn) {
+      const stored = await loadTerritoryRouteModel(createClient(), propId);
+      if (stored.ok) model = withVariant(model, "manual", stored.model);
+    }
     setRouteStep((current) =>
       current && mine(current)
-        ? { ...current, phase: { status: "ready", variants: saved.result.variants, notice }, previewKey: "best", model }
+        ? { ...current, phase: { status: "ready", variants: saved.result.variants, notice }, previewKey: drawn?.mode === "manual" && drawn.finished ? "manual" : "best", model, drawn }
         : current,
     );
     const box = routeBounds(model, "best");
@@ -581,7 +614,7 @@ export function PropsScreen({
       }
       leaveDraw();
       routeFor.current = result.id;
-      setRouteStep({ propId: result.id, title: result.name, savedLine: `Saved ${result.name}.`, edit: false, phase: { status: "working" }, previewKey: null, model: null });
+      setRouteStep({ propId: result.id, title: result.name, savedLine: `Saved ${result.name}.`, edit: false, phase: { status: "working" }, previewKey: null, model: null, drawn: null, modeBusy: false, source: "made" });
       router.refresh();
       void makeRoutes(result.id, false);
       return;
@@ -596,7 +629,7 @@ export function PropsScreen({
     const propId = session.propId;
     leaveDraw();
     routeFor.current = propId;
-    setRouteStep({ propId, title: result.name, savedLine: "New shape saved.", edit: true, phase: { status: "working" }, previewKey: null, model: null });
+    setRouteStep({ propId, title: result.name, savedLine: "New shape saved.", edit: true, phase: { status: "working" }, previewKey: null, model: null, drawn: null, modeBusy: false, source: "made" });
     router.refresh();
     void makeRoutes(propId, true);
   };
@@ -613,10 +646,190 @@ export function PropsScreen({
     router.refresh();
   };
 
+  // ---- RT-3: drawn routes ---------------------------------------------------
+
+  /** The prop's drawn route for the Routes panel, or null when it has none (or it could not be read). */
+  async function loadDrawn(propId: string): Promise<DrawnRoute | null> {
+    const manual = await loadManualRoute(createClient(), propId);
+    if (!manual.ok || !manual.record.drawing) return null;
+    const drawing = manual.record.drawing;
+    return { mode: manual.record.routeMode, line: drawnRouteLine(drawing.chain.length, drawing.leftOut.length), finished: drawing.status === "ready" };
+  }
+
+  /**
+   * Owner O8: unworked visits from today on take the prop's route again
+   * (freeze picks it: the drawn route when it fits the visit, else A / B).
+   * A visit with knocks keeps its route (freeze refuses it). Counts the
+   * visits re-frozen on the drawn route and on A / B (a visit whose doors
+   * differ from the drawing keeps A / B: 041).
+   */
+  async function refreezeUpcoming(propId: string): Promise<{ manual: number; auto: number }> {
+    const counts = { manual: 0, auto: 0 };
+    const row = rows.find((item) => item.id === propId);
+    if (!row) return counts;
+    const supabase = createClient();
+    for (const visit of row.visits) {
+      if (visit.workDate < today || visit.startedAt !== null || visit.closedAt !== null) continue;
+      const frozen = await freezeAssignmentRoute(supabase, visit.id);
+      if (!frozen.ok) continue;
+      if (frozen.summary.variantKey.startsWith("manual")) counts.manual += 1;
+      else counts.auto += 1;
+    }
+    return counts;
+  }
+
+  /** The Routes panel for a saved prop (prop ⋯ → Routes): its saved routes, and the drawn one if any. */
+  const openRoutes = async (propId: string) => {
+    const row = rows.find((item) => item.id === propId);
+    if (!row) return;
+    routeFor.current = propId;
+    setRouteStep({ propId, title: row.name, savedLine: row.name, edit: false, phase: { status: "working" }, previewKey: null, model: null, drawn: null, modeBusy: false, source: "hub" });
+    const [drawn, stored] = await Promise.all([loadDrawn(propId), loadTerritoryRouteModel(createClient(), propId)]);
+    if (routeFor.current !== propId) return;
+    if (!stored.ok) {
+      setRouteStep((current) => (current && current.propId === propId ? { ...current, phase: { status: "failed", message: stored.message } } : current));
+      return;
+    }
+    setRouteStep((current) =>
+      current && current.propId === propId
+        ? {
+            ...current,
+            phase: { status: "ready", variants: stored.summaries.filter((summary) => !summary.key.startsWith("manual")), notice: null },
+            model: stored.model,
+            drawn,
+            previewKey: drawn?.mode === "manual" && drawn.finished ? "manual" : "best",
+          }
+        : current,
+    );
+    const box = routeBounds(stored.model, drawn?.mode === "manual" && drawn.finished ? "manual" : "best");
+    const clear = desktop ? { top: 72, right: 72, bottom: 48, left: 400 } : { top: 72, right: 32, bottom: Math.min(460, Math.round(available * 0.6)), left: 32 };
+    if (map && box) map.fitBounds(box, { padding: clear, maxZoom: 17, duration: 400 });
+  };
+
+  const fitDraw = useCallback(
+    (box: [[number, number], [number, number]], focus: [number, number]) => {
+      if (!map) return;
+      const pad = desktop ? { top: 96, right: 96, bottom: 72, left: 96 } : { top: 140, right: 32, bottom: 120, left: 32 };
+      const camera = map.cameraForBounds(box, { padding: pad, maxZoom: 18 });
+      if (camera && typeof camera.zoom === "number" && camera.zoom >= MIN_DRAW_ZOOM) {
+        map.fitBounds(box, { padding: pad, maxZoom: 18, duration: 400 });
+      } else {
+        map.easeTo({ center: focus, zoom: MIN_DRAW_ZOOM + 0.5, duration: 400 });
+      }
+    },
+    [map, desktop],
+  );
+
+  const onRouteSaved = useCallback(
+    (saved: RouteDrawSaved) => {
+      const propId = routeDraw?.propId;
+      setRouteDraw(null);
+      if (!propId) return;
+      const extra = toRoutePaintModel(walkResultToPaintInput({ variants: [saved.manual] }));
+      const drawn: DrawnRoute = { mode: "manual", line: drawnRouteLine(saved.linked, saved.leftOut), finished: saved.summary.status === "ready" };
+      const base = saved.summary.status === "ready" ? "Your route is saved." : "Your route is saved. New doors are not on it yet.";
+      setRouteStep((current) =>
+        current && current.propId === propId
+          ? { ...current, drawn, model: withVariant(current.model, "manual", extra), previewKey: drawn.finished ? "manual" : "best", savedLine: base }
+          : current,
+      );
+      // Show the whole saved route above the Routes panel.
+      const box = routeBounds(extra, "manual");
+      const clear = desktop ? { top: 72, right: 72, bottom: 48, left: 400 } : { top: 72, right: 32, bottom: Math.min(460, Math.round(available * 0.6)), left: 32 };
+      if (map && box) map.fitBounds(box, { padding: clear, maxZoom: 17, duration: 400 });
+      void refreezeUpcoming(propId).then(({ manual, auto }) => {
+        const parts = [base];
+        if (manual > 0) parts.push(`${visitsWord(manual)} now ${manual === 1 ? "uses" : "use"} it.`);
+        if (auto > 0) parts.push(`${visitsWord(auto)} ${auto === 1 ? "keeps" : "keep"} Route A and B: ${auto === 1 ? "its" : "their"} doors differ from your route.`);
+        if (parts.length === 1) return;
+        setRouteStep((current) => (current && current.propId === propId ? { ...current, savedLine: parts.join(" ") } : current));
+      });
+      router.refresh();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [routeDraw, rows, today, map, desktop, available],
+  );
+
+  const changeMode = async (mode: RouteMode) => {
+    const propId = routeStep?.propId;
+    if (!propId) return;
+    setRouteStep((current) => (current ? { ...current, modeBusy: true } : current));
+    const result = await setRouteMode(createClient(), propId, mode);
+    if (!result.ok) {
+      setRouteStep((current) => (current && current.propId === propId ? { ...current, modeBusy: false, savedLine: result.message } : current));
+      return;
+    }
+    const counts = await refreezeUpcoming(propId);
+    const unfinished = mode === "manual" && result.manualStatus !== "ready";
+    const count = mode === "manual" ? counts.manual : counts.manual + counts.auto;
+    const what = unfinished
+      ? "Your route needs finishing: visits use Route A and B until you save it again."
+      : mode === "manual"
+        ? "Visits now use your route."
+        : "Visits now use the automatic routes.";
+    setRouteStep((current) =>
+      current && current.propId === propId && current.drawn
+        ? {
+            ...current,
+            modeBusy: false,
+            drawn: { ...current.drawn, mode },
+            savedLine: [
+              what,
+              count > 0 ? `${visitsWord(count)} updated.` : "",
+              mode === "manual" && !unfinished && counts.auto > 0
+                ? `${visitsWord(counts.auto)} ${counts.auto === 1 ? "keeps" : "keep"} Route A and B: ${counts.auto === 1 ? "its" : "their"} doors differ from your route.`
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" "),
+          }
+        : current,
+    );
+    router.refresh();
+  };
+
+  const draw = useRouteDraw(map, mode, routeDraw, fitDraw, onRouteSaved, routeDiscardOpen);
+
+  const leaveRouteDraw = () => {
+    setRouteDiscardOpen(false);
+    setRouteDraw(null);
+  };
+
+  const cancelRouteDraw = () => {
+    if (draw.saving) return;
+    if (draw.confirming) {
+      draw.closeConfirm();
+      return;
+    }
+    if (draw.dirty) setRouteDiscardOpen(true);
+    else leaveRouteDraw();
+  };
+
   // Keyboard: "/" to search; while drawing ⌘Z, ⇧⌘Z, Enter, Escape (D3).
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (discardOpen || archiveOpen || layersOpen) return;
+      if (discardOpen || archiveOpen || layersOpen || routeDiscardOpen) return;
+      if (routeDraw) {
+        if (isTyping(event.target) || draw.saving) return;
+        // The save sheet is up: only Escape (Keep drawing).
+        if (draw.confirming && event.key !== "Escape") return;
+        const mod = event.metaKey || event.ctrlKey;
+        if (mod && event.key.toLowerCase() === "z") {
+          event.preventDefault();
+          if (event.shiftKey) draw.redo();
+          else draw.undo();
+        } else if (mod && event.key.toLowerCase() === "y") {
+          event.preventDefault();
+          draw.redo();
+        } else if (!mod && event.key.toLowerCase() === "e" && draw.ready) {
+          event.preventDefault();
+          draw.toggleErase();
+        } else if (event.key === "Escape") {
+          event.preventDefault();
+          cancelRouteDraw();
+        }
+        return;
+      }
       if (browsing) {
         if (event.key === "/" && searchRef.current && !isTyping(event.target)) {
           event.preventDefault();
@@ -789,6 +1002,7 @@ export function PropsScreen({
                 onClose={closeDetail}
                 onRename={rename}
                 onEditShape={startEdit}
+                onRoutes={() => void openRoutes(selected.row.id)}
                 onArchive={() => setArchiveOpen(true)}
                 onRestore={() => void restore()}
               />
@@ -833,7 +1047,9 @@ export function PropsScreen({
         </>
       ) : null}
 
-      {routeStep ? (
+      {routeDraw ? <RouteDrawPanel title={routeDraw.title} onCancel={cancelRouteDraw} {...draw.panel} /> : null}
+
+      {routeStep && !routeDraw ? (
         <RoutePanel
           title={routeStep.title}
           savedLine={routeStep.savedLine}
@@ -842,8 +1058,12 @@ export function PropsScreen({
           onPreview={(key) => {
             setRouteStep((current) => (current ? { ...current, previewKey: key } : current));
           }}
-          onRetry={() => void makeRoutes(routeStep.propId, routeStep.edit)}
+          onRetry={() => (routeStep.source === "hub" ? void openRoutes(routeStep.propId) : void makeRoutes(routeStep.propId, routeStep.edit))}
           onDone={finishRoutes}
+          drawn={routeStep.drawn}
+          modeBusy={routeStep.modeBusy}
+          onDrawOwn={() => setRouteDraw({ propId: routeStep.propId, title: routeStep.title })}
+          onMode={(next) => void changeMode(next)}
         />
       ) : null}
 
@@ -875,6 +1095,18 @@ export function PropsScreen({
         busy={busy}
         onConfirm={() => void archive()}
         onCancel={() => setArchiveOpen(false)}
+      />
+      <ConfirmDialog
+        open={routeDiscardOpen}
+        title="Discard this drawing?"
+        body={
+          routeStep?.drawn
+            ? "The doors you linked or took off since you opened it will be lost. The saved route stays as it was."
+            : "The doors you linked will be lost."
+        }
+        confirmLabel="Discard drawing"
+        onConfirm={leaveRouteDraw}
+        onCancel={() => setRouteDiscardOpen(false)}
       />
       <ConfirmDialog
         open={discardOpen}

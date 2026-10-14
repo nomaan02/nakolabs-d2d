@@ -41,7 +41,8 @@
     "verify:anchors": "tsx scripts/verify-map-anchors.ts",
     "verify:stage5cb": "tsx scripts/verify-stage-5c-b.ts",
     "verify:geom": "tsx scripts/verify-route-geom.ts",
-    "verify:footprints": "tsx scripts/verify-door-footprints.ts"
+    "verify:footprints": "tsx scripts/verify-door-footprints.ts",
+    "verify:rt": "tsx scripts/verify-rt-manual.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

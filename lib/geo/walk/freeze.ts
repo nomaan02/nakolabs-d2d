@@ -7,7 +7,8 @@
  * route_steps and sets route_geom / uprn_snapshot / route_variant_key.
  *
  * `variantKey` omitted → the function picks by visit_number parity: odd →
- * best, even → best_reversed.
+ * best, even → best_reversed. RT (040, 041): a prop in manual mode whose
+ * drawing fits the visit takes manual / manual_reversed the same way.
  */
 
 import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
@@ -21,6 +22,7 @@ export type FreezeFailureCode =
   | "missing_variant"
   | "snapshot_mismatch"
   | "stale_variant"
+  | "manual_unfinished"
   | "freeze_rejected"
   | "unavailable";
 
@@ -46,6 +48,7 @@ const SERVER_HINTS: Record<string, FreezeFailureCode> = {
   missing_variant: "missing_variant",
   snapshot_mismatch: "snapshot_mismatch",
   stale_variant: "stale_variant",
+  manual_unfinished: "manual_unfinished",
   bad_variant: "freeze_rejected",
   duplicate_uprn: "freeze_rejected",
   bad_stranded_count: "freeze_rejected",
@@ -72,8 +75,10 @@ function asNumber(value: unknown): number {
 }
 
 /**
- * The key `assignment_route_freeze` uses when `p_variant_key` is omitted.
- * Odd visit → best, even visit → best_reversed.
+ * The key `assignment_route_freeze` uses when `p_variant_key` is omitted, for
+ * a prop on automatic routes. Odd visit → best, even visit → best_reversed. A
+ * prop in manual mode whose drawing fits the visit uses manual /
+ * manual_reversed by the same parity (decided in SQL, migration 041).
  */
 export function defaultVariantKey(visitNumber: number): "best" | "best_reversed" {
   return visitNumber % 2 === 0 ? "best_reversed" : "best";

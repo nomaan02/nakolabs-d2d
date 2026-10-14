@@ -14,10 +14,18 @@ import {
   type RoutePaintModel,
   type RouteStepInput,
 } from "@/lib/map/route-layers";
+import type { RouteSummary } from "@/lib/admin/draw-copy";
 import type { Database } from "@/lib/supabase/types";
 
 export type LoadedRoute =
-  | { ok: true; model: RoutePaintModel; variants: number; steps: number }
+  | {
+      ok: true;
+      model: RoutePaintModel;
+      variants: number;
+      steps: number;
+      /** RT-3: one per saved variant, steps in order (territory routes only; empty for a frozen visit). */
+      summaries: RouteSummary[];
+    }
   | { ok: false; message: string };
 
 const PAGE = 1000;
@@ -42,11 +50,11 @@ export async function loadTerritoryRouteModel(
 ): Promise<LoadedRoute> {
   const routes = await supabase
     .from("territory_routes")
-    .select("id, variant_key, start_geom, end_geom")
+    .select("id, variant_key, start_geom, end_geom, total_m, hand, stranded_count")
     .eq("territory_id", territoryId);
   if (routes.error) return { ok: false, message: "The saved routes could not be read." };
   const routeRows = routes.data ?? [];
-  if (routeRows.length === 0) return { ok: true, model: emptyRouteModel(), variants: 0, steps: 0 };
+  if (routeRows.length === 0) return { ok: true, model: emptyRouteModel(), variants: 0, steps: 0, summaries: [] };
 
   const keyByRoute = new Map(routeRows.map((row) => [row.id, row.variant_key]));
   const loaded = await pages(async (from, to) => {
@@ -81,7 +89,14 @@ export async function loadTerritoryRouteModel(
     end: row.end_geom,
   }));
   const model = toRoutePaintModel({ steps, endpoints });
-  return { ok: true, model, variants: routeRows.length, steps: model.steps.length };
+  const summaries: RouteSummary[] = routeRows.map((row) => ({
+    key: row.variant_key,
+    hand: row.hand === "left" ? "left" : "right",
+    total_m: row.total_m,
+    stranded_count: row.stranded_count,
+    steps: steps.filter((step) => step.variant_key === row.variant_key).map((step) => ({ street_name: step.street_name ?? null })),
+  }));
+  return { ok: true, model, variants: routeRows.length, steps: model.steps.length, summaries };
 }
 
 /** The frozen copy on one assignment. `variantKey` is `assignments.route_variant_key`. */
@@ -111,5 +126,5 @@ export async function loadAssignmentRouteModel(
     last_seq: row.last_seq,
   }));
   const model = toRoutePaintModel({ steps, variantKey });
-  return { ok: true, model, variants: 1, steps: model.steps.length };
+  return { ok: true, model, variants: 1, steps: model.steps.length, summaries: [] };
 }
