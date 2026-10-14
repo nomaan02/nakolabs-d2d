@@ -2,29 +2,27 @@
 
 ## Current state
 
-- Last updated: 2026-10-13 (CRM-6 Session C). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- CRM-6 B: a call-back row shows the CRM address with the full postcode. Tapping the name opens Lead Status, "Booked …", Result, Product interest, Best time to call (when filled) and Description under the row. One row open at a time. Phone and tick stay as they were. The result sheet uses the same address.
-- CRM-6 C: on Coverage, the CRM heat map and CRM doors follow the Days chip, by CRM date booked. A heat square shows from 2 leads when the window is under 89 London days, and from 5 for three months or longer (and All time). The Props map's CRM history is still all history (it calls `loadCrmDoors` with no window).
-- Migration 039 is in the repo (`supabase/migrations/039_crm_layer_window.sql`, 113 lines). It was not applied. This session did not call `apply_migration` and did not query the live database (Supabase MCP not signed in).
-- Migration 038 remains in the repo (`supabase/migrations/038_crm_callback_details.sql`, 71 lines): five nullable text columns on `crm_contacts`, and `my_crm_callbacks` dropped and re-created with `postcode` plus those columns. Claude had already applied it.
-- Patched this session: `lib/admin/crm-map.ts` (345), `lib/admin/crm-data.ts` (56), `components/admin/map/crm-layers.ts` (135), `components/admin/coverage/coverage-screen.tsx` (841), `components/admin/coverage/crm-picker.tsx` (92), `lib/supabase/types.ts` (2807, `crm_door_history` args pasted), `scripts/verify-crm.ts` (583). New: `supabase/migrations/039_crm_layer_window.sql` (113).
-- `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. `npx tsc --noEmit` exit 0. `npx eslint` on the seven TypeScript files exit 0.
-- No browser. Phone check is the owner's, on desktop and phone: Coverage CRM heat map and doors change with the Days chip; the key, square card, door card and picker name the period; Props CRM history stays all history.
-- CRM-6 C tracker row added after CRM-6 B. Status DONE. Date 2026-10-13. Result: `Coverage CRM layer (heat map and doors) follows the Days chip; squares from 2 leads under three months (migration 039).` Commit column `—`.
-- No table row written. No `client_event_id`. No CRM call. `lib/sync/queue.ts` and `lib/field/crm-data.ts` were not edited. Password, profile and role were not changed.
+- Last updated: 2026-10-13 (RT Session 1). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- RT-1: migration 040 is in the repo (`supabase/migrations/040_manual_routes.sql`, 1023 lines). It was not applied. This session did not call `apply_migration` and did not query the live database (Supabase MCP not signed in: `supabase` and `supabase-d2d` both need auth).
+- The file adds `territories.route_mode` (`auto` or `manual`), `territory_manual_routes` (admin-only RLS), `assignments.uprn_allocated` plus a BEFORE INSERT trigger, and `manual` / `manual_reversed` variant keys. `territory_routes_save` keeps the manual pair. New RPCs: `territory_manual_route_save`, `territory_route_mode_set`. `assignment_route_freeze` follows `route_mode` when the drawing is ready. The backfill of `uprn_allocated` is in the file and was not run.
+- Types pasted in `lib/supabase/types.ts` (2868 lines, 61 insertions). Not generated. `npx tsc --noEmit` exit 0. `npx eslint lib/supabase/types.ts` exit 0.
+- RT-1 tracker row added after CRM-6 C. Status DONE. Date 2026-10-13. Result: `Manual routes: migration 040 file (route_mode, territory_manual_routes, uprn_allocated, manual variant keys, manual save / mode RPCs, freeze follows route_mode) and types. Applied to live by the owner.` Commit column `—`.
+- No table row written. No `client_event_id`. No browser. No phone check (database and types only). `lib/sync/queue.ts`, `lib/geo/walk/*` and `/field` were not edited. Password, profile and role were not changed.
+- CRM-6 C remains: Coverage CRM heat map and doors follow the Days chip. Migration 039 is in the repo (113 lines) and was not applied here. Props CRM history is still all history.
+- CRM-6 B remains: a call-back row shows the CRM address and opens to the notes. Migration 038 remains applied.
 - CRM-6 A remains: the leaderboard opens on Pitched. Tabs are Pitched · Sales · Value. My results leads with Pitched.
 - CRM-5 C2 remains: Map tab "My CRM leads", own leads as hollow rings, off by default. That is still the one exception for previous-visit outcome colour on the field map.
 - CRM-5 C1 remains: Leads has Today | Call-backs. A tick logs a result through `enqueue` op `crm_callback`. You, when linked, shows my results, my week and `/field/profile/leaderboard`.
 - Username sign-in from CRM-5 U remains. `accounts:create` is still dry-run unless `--write`. This session did not run it. No account was created.
 - Call results still insert into `crm_callbacks` via `lib/sync/queue.ts` only. `/field` CRM reads are only `my_crm_callbacks`, `my_crm_leads` and `crm_leaderboard`, from `lib/field/crm-data.ts`. The P4b screens are the only ranking in `/field`. No device GPS was read.
-- CRM sync schedule from CRM-4 remains: every 30 minutes, about 05:00 to 21:00 London. Migration 036 remains applied. The 30-minute sync only re-reads leads the CRM has changed, so existing call-backs get these notes when the owner runs the backfill once after landing.
+- CRM sync schedule from CRM-4 remains: every 30 minutes, about 05:00 to 21:00 London. Migration 036 remains applied.
 - Sale price from CRM-3 remains: Sale Amount, else Result, else Rep Result, number only, in `lib/crm/parse.ts`. For a lead that is not a call-back, the Result text is still dropped. Call-back leads keep Result in `crm_contacts`.
 - Dark-ready paths are unchanged: `/admin/props`, `/admin/today`, `/admin/calendar`, `/admin/coverage`, `/admin/team`, `/admin/leads`, `/admin/insights`, `/admin/settings`.
 - Redirects are unchanged: `/admin` → `/admin/today`, `/admin/allocate` → Today or Add visit when `?prop=` is set, `/admin/dashboard` → `/admin/insights`.
-- Migrations 029–038 remain applied. Migration 039's file is new in the repo; the live functions were not re-checked here.
+- Migrations 029–038 remain applied. Migration 039's file is in the repo and still needs applying. Migration 040's file is new and needs applying by the owner.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
-- External settings: none. The owner runs the CRM backfill once after landing so call-backs already in the list get their notes. Wayne to OK before canvassers use call-back phones.
-- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-6 B remain DONE. CRM-6 C file work is in the tree. Migration 039 still needs applying by Claude or the owner.
+- External settings: none. The owner applies migration 040. Wayne to OK before canvassers use call-back phones. The owner runs the CRM backfill once after landing so call-backs already in the list get their notes.
+- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-6 C remain DONE. RT-1 file work is in the tree. The drawing screen is a later session. /field is unchanged.
 
 ## Log
 
@@ -3215,3 +3213,31 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. A desktop. A phone. The live function arguments (`crm_door_history` and `crm_heat_grid` both `p_from timestamp with time zone, p_to timestamp with time zone`). Supabase MCP was not signed in (`supabase` and `supabase-d2d` both need auth). Last 30 days squares, All time, Last 7 days and a custom range, a door card naming the period, Props CRM history unchanged.
 - **External settings:** none
 - **Open questions for Claude:** none from this session. Apply migration 039, then the phone check on desktop and phone.
+
+### 2026-10-13 — RT Session 1 (uncommitted)
+
+- **Item:** other
+- **What changed:** Migration 040 is in the repo and was not applied. A hand-drawn route is two ordinary variants, `manual` and `manual_reversed`. `territories.route_mode` chooses automatic or manual. `territory_manual_routes` stores the drawing for admins only. `assignments.uprn_allocated` keeps the doors allocated to a visit. Saving automatic routes keeps the manual pair. Freeze follows `route_mode` on an unworked visit when the drawing is ready. Types were pasted to match. /field was not changed.
+- **Files:**
+  - Changed: `lib/supabase/types.ts`, `docs/FIELD-TEST-BUILD-PLAN.md` (RT-1 row after CRM-6 C), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `supabase/migrations/040_manual_routes.sql`, `.handoff/reports/rt-1-db.md`
+  - Deleted: none
+- **Database:** migration 040 file added (1023 lines). Newest file before it is `039_crm_layer_window.sql`. Adds `territories.route_mode` (`auto` default, or `manual`). New table `territory_manual_routes` (RLS on; select, insert, update and delete for admin only; no office or canvasser policy). Variant-key checks on `territory_routes` and `assignments` accept `manual` and `manual_reversed`. Adds `assignments.uprn_allocated`, with a BEFORE INSERT trigger `assignments_fill_uprn_allocated` and a backfill from `uprn_snapshot` in the file. Replaces `territory_routes_save` and `assignment_route_freeze` in place (same signatures). New `territory_manual_route_save` and `territory_route_mode_set`, both SECURITY INVOKER, execute granted to `authenticated`. Not applied. No table row. No `client_event_id`.
+- **Shared modules touched:** `lib/supabase/types.ts` (pasted `uprn_allocated`, `route_mode`, `territory_manual_routes`, `territory_manual_route_save`, `territory_route_mode_set`). `lib/sync/queue.ts` was not edited. `lib/geo/walk/save.ts` and `lib/geo/walk/freeze.ts` were read and not edited. `lib/map/route-layers.ts` and `lib/field/*` were not edited.
+- **Decided by:**
+  - OWNER — 2026-10-13: the admin can draw a prop's route by hand (drag through the door dots in walking order, undo / redo / erase), offered next to the automatic Route A / Route B.
+  - OWNER — 2026-10-13: moving to the other side of the same street adds a crossing, anywhere along it, drawn like the automatic route's crossing. The drawn order is the door order and the Logger order.
+  - OWNER — 2026-10-13: rotation: odd visits walk the manual route as drawn, even visits reversed.
+  - OWNER — 2026-10-13: doors left out of a manual route are excluded on purpose: they are not on the visit (completion and Coverage count drawn doors only) and show greyed on the admin map.
+  - OWNER — 2026-10-13: when the prop's shape changes, removed doors drop out of the drawing; new doors show unlinked, and visits use the automatic routes until the admin saves the drawing again.
+  - OWNER — 2026-10-13: only unworked visits are re-frozen. /field is unchanged. A new migration is fine.
+  - CLAUDE — A manual route is stored as two ordinary variants, `manual` and `manual_reversed`, in `territory_routes` / `territory_route_steps`, so freeze, `route_steps`, the field walkline and the Logger order are unchanged.
+  - CLAUDE — `territories.route_mode` (`auto` | `manual`) and `territory_manual_routes` (chain, left_out, status `ready` | `needs_finishing`, admin-only RLS) hold the choice and the drawing.
+  - CLAUDE — `assignments.uprn_allocated` keeps the doors allocated to a visit (backfilled from `uprn_snapshot`; a BEFORE INSERT trigger fills it, so `allocate_prop` is untouched). Freeze checks automatic variants for the exact allocated set and manual variants for a subset, then sets `uprn_snapshot` to the variant's door order.
+  - CLAUDE — `territory_routes_save` (body only) keeps the manual pair when the automatic set is regenerated. `territory_manual_route_save` and `territory_route_mode_set` are new. `assignment_route_freeze` (body only): the default key follows `route_mode` (manual / manual_reversed by visit parity when the drawing is ready, otherwise best / best_reversed).
+- **Deviations from plan or brief:** none. The given file and replacements were pasted exactly. Line endings are CRLF.
+- **Invariants:** No device GPS was read. No coordinates left the device. No field write. `lib/sync/queue.ts` was not edited. Coverage stays derived. No scoring was added in `/field`. /field was not changed. The backfill `update` on `assignments` is in the migration file and was not run.
+- **Verified:** Each find block occurred once (EDIT 2, five replacements, in order). `supabase/migrations/040_manual_routes.sql` is 1023 lines and the newest migration before it is 039. `lib/supabase/types.ts` is 2868 lines (`git diff --stat`: 61 insertions). `npx tsc --noEmit` exit 0. `npx eslint lib/supabase/types.ts` exit 0. The door set in `territory_manual_route_save` matches `route_walk_inputs` in migration 025 (`geom &&`, `st_within`, `is_knockable`).
+- **Not verified:** Applying migration 040. The live functions `territory_manual_route_save` and `territory_route_mode_set`. A canvasser JWT against `territory_manual_routes`. The backfill of `uprn_allocated`. Supabase MCP was not signed in (`supabase` and `supabase-d2d` both need auth). A browser. A phone.
+- **External settings:** none
+- **Open questions for Claude:** none from this session. The owner applies migration 040. The drawing screen is a later session.

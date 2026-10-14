@@ -1661,3 +1661,30 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given file and replacements were pasted exactly. Line endings are CRLF.
 - **Not done / deferred:** A browser. The phone check (Last 30 days, All time, Last 7 days and a custom range, door cards, Props unchanged). Did not apply migration 039. Did not commit. No new table row. No `client_event_id`. No CRM call. Live database not queried (MCP not available).
 - **Follow-ups:** Claude or the owner applies migration 039. Phone check on desktop and phone after that.
+
+### RT Session 1 — manual routes, migration 040 and types
+- **Date:** 2026-10-13
+- **Model:** Grok 4.7
+- **Built:** Migration 040 file only. A prop can store a hand-drawn route as two ordinary variants, `manual` and `manual_reversed`. `territories.route_mode` is `auto` or `manual`. `territory_manual_routes` holds the drawing (chain, left_out, status `ready` or `needs_finishing`) with admin-only RLS. `assignments.uprn_allocated` keeps the doors allocated to a visit. `territory_routes_save` keeps the manual pair. New RPCs: `territory_manual_route_save` and `territory_route_mode_set`. `assignment_route_freeze` follows `route_mode` when the drawing is ready, and a manual variant may order a subset of the allocated doors. Types pasted to match. Not applied.
+- **Owner decisions:**
+  - OWNER — 2026-10-13: the admin can draw a prop's route by hand (drag through the door dots in walking order, undo / redo / erase), offered next to the automatic Route A / Route B.
+  - OWNER — 2026-10-13: moving to the other side of the same street adds a crossing, anywhere along it, drawn like the automatic route's crossing. The drawn order is the door order and the Logger order.
+  - OWNER — 2026-10-13: rotation: odd visits walk the manual route as drawn, even visits reversed.
+  - OWNER — 2026-10-13: doors left out of a manual route are excluded on purpose: they are not on the visit (completion and Coverage count drawn doors only) and show greyed on the admin map.
+  - OWNER — 2026-10-13: when the prop's shape changes, removed doors drop out of the drawing; new doors show unlinked, and visits use the automatic routes until the admin saves the drawing again.
+  - OWNER — 2026-10-13: only unworked visits are re-frozen. /field is unchanged. A new migration is fine.
+- **Claude decisions:**
+  - CLAUDE — A manual route is stored as two ordinary variants, `manual` and `manual_reversed`, in `territory_routes` / `territory_route_steps`, so freeze, `route_steps`, the field walkline and the Logger order are unchanged.
+  - CLAUDE — `territories.route_mode` (`auto` | `manual`) and `territory_manual_routes` (chain, left_out, status `ready` | `needs_finishing`, admin-only RLS) hold the choice and the drawing.
+  - CLAUDE — `assignments.uprn_allocated` keeps the doors allocated to a visit (backfilled from `uprn_snapshot`; a BEFORE INSERT trigger fills it, so `allocate_prop` is untouched). Freeze checks automatic variants for the exact allocated set and manual variants for a subset, then sets `uprn_snapshot` to the variant's door order.
+  - CLAUDE — `territory_routes_save` (body only) keeps the manual pair when the automatic set is regenerated. `territory_manual_route_save` and `territory_route_mode_set` are new. `assignment_route_freeze` (body only): the default key follows `route_mode` (manual / manual_reversed by visit parity when the drawing is ready, otherwise best / best_reversed).
+- **Acceptance:**
+  - EDIT 1 DONE. New `supabase/migrations/040_manual_routes.sql` (1023 lines). Newest file before it is `039_crm_layer_window.sql`. 040 was free. Pasted from the brief. Not applied.
+  - EDIT 2 DONE. Five replacements in `lib/supabase/types.ts` (now 2868 lines, 61 insertions). Each find occurred once. Types pasted; not generated.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0.
+  - eslint: **PASS** — `npx eslint lib/supabase/types.ts` exit 0.
+  - Live `territory_manual_route_save` / `territory_route_mode_set`: **NOT VERIFIED** — MCP not available.
+  - Phone: no browser. None for this session (database and types only).
+- **Deviations from brief:** none. The given file and replacements were pasted exactly. Line endings are CRLF.
+- **Not done / deferred:** Did not apply migration 040. Did not call `apply_migration`. Did not regenerate types. Did not query the live database. No browser. Did not commit. No new table row. No `client_event_id`.
+- **Follow-ups:** The owner applies migration 040. The drawing screen is a later session. /field is unchanged.

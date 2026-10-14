@@ -156,6 +156,7 @@ export type Database = {
           started_at: string | null
           sweep_direction: string
           territory_id: string
+          uprn_allocated: number[] | null
           uprn_snapshot: number[]
           visit_number: number
           work_date: string
@@ -177,6 +178,7 @@ export type Database = {
           started_at?: string | null
           sweep_direction: string
           territory_id: string
+          uprn_allocated?: number[] | null
           uprn_snapshot: number[]
           visit_number: number
           work_date: string
@@ -198,6 +200,7 @@ export type Database = {
           started_at?: string | null
           sweep_direction?: string
           territory_id?: string
+          uprn_allocated?: number[] | null
           uprn_snapshot?: number[]
           visit_number?: number
           work_date?: string
@@ -1138,6 +1141,7 @@ export type Database = {
           id: string
           last_visited_at: string | null
           name: string
+          route_mode: string
           visit_count: number
         }
         Insert: {
@@ -1148,6 +1152,7 @@ export type Database = {
           id?: string
           last_visited_at?: string | null
           name: string
+          route_mode?: string
           visit_count?: number
         }
         Update: {
@@ -1158,12 +1163,55 @@ export type Database = {
           id?: string
           last_visited_at?: string | null
           name?: string
+          route_mode?: string
           visit_count?: number
         }
         Relationships: [
           {
             foreignKeyName: "territories_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      territory_manual_routes: {
+        Row: {
+          chain: number[]
+          left_out: number[]
+          status: string
+          territory_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          chain: number[]
+          left_out?: number[]
+          status: string
+          territory_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          chain?: number[]
+          left_out?: number[]
+          status?: string
+          territory_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "territory_manual_routes_territory_id_fkey"
+            columns: ["territory_id"]
+            isOneToOne: true
+            referencedRelation: "territories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "territory_manual_routes_updated_by_fkey"
+            columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -2643,6 +2691,19 @@ export type Database = {
       stop_sharing_position: {
         Args: { p_assignment_id: string }
         Returns: undefined
+      }
+      territory_manual_route_save: {
+        Args: {
+          p_chain: number[]
+          p_left_out: number[]
+          p_territory_id: string
+          p_variants: Json
+        }
+        Returns: Json
+      }
+      territory_route_mode_set: {
+        Args: { p_mode: string; p_territory_id: string }
+        Returns: Json
       }
       territory_routes_save: {
         Args: { p_territory_id: string; p_variants: Json }

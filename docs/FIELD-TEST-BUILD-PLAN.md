@@ -157,6 +157,7 @@
 | CRM-6 A | Leaderboard ranks by pitches by default; My results leads with Pitched | DONE | 2026-10-13 | Leaderboard ranks by pitches by default (Pitched · Sales · Value); My results leads with Pitched. | — |
 | CRM-6 B | human: call-backs show the CRM address and open to show the CRM notes (migration 038) | DONE | 2026-10-13 | Call-backs show the CRM address + postcode and open to show status, Result, Product interest, Best time to call and Description (migration 038). | — |
 | CRM-6 C | human: the Coverage CRM layer follows the Days chip (migration 039) | DONE | 2026-10-13 | Coverage CRM layer (heat map and doors) follows the Days chip; squares from 2 leads under three months (migration 039). | — |
+| RT-1 | human: manual routes — migration 040 and types | DONE | 2026-10-13 | Manual routes: migration 040 file (route_mode, territory_manual_routes, uprn_allocated, manual variant keys, manual save / mode RPCs, freeze follows route_mode) and types. Applied to live by the owner. | — |
 
 ---
 
