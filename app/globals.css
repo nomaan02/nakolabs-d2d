@@ -59,6 +59,15 @@
   --color-crm-pm: #3f74d0;
   --color-crm-blowout: #c0505a;
   --color-outcome-on-pill: #ffffff;
+  /* CRM-7 (owner 2026-10-15): the status word on the canvasser's "This week" rows, as a tinted
+     chip so the word stays readable (4.5:1+ in light and dark). UTC yellow, Re-App purple,
+     Blowout red, Booked blue (as the CRM shows them); Sold green; the rest neutral. */
+  --color-st-utc-bg: #fdf0b8;     --color-st-utc-fg: #6b4e00;
+  --color-st-reapp-bg: #e9ddfb;   --color-st-reapp-fg: #4b2a8a;
+  --color-st-blowout-bg: #f8dcdf; --color-st-blowout-fg: #8f2630;
+  --color-st-booked-bg: #d6e4fb;  --color-st-booked-fg: #164a9c;
+  --color-st-sold-bg: #d7f0e0;    --color-st-sold-fg: #17623a;
+  --color-st-neutral-bg: #e7e9ee; --color-st-neutral-fg: #3d444b;
 
   --color-warn-bg: #fdf3e3;
   --color-error-bg: #f8e9ea;
@@ -244,6 +253,12 @@
   --color-outcome-notin: #6d7480; --color-outcome-on-pill: #ffffff;
   --color-crm-sale: #3f9e69;      --color-crm-pm: #5b8ff0;
   --color-crm-blowout: #e06a72;
+  --color-st-utc-bg: #3a3212;     --color-st-utc-fg: #f2d36b;
+  --color-st-reapp-bg: #33284f;   --color-st-reapp-fg: #c9b3ff;
+  --color-st-blowout-bg: #3d2326; --color-st-blowout-fg: #ffb3b8;
+  --color-st-booked-bg: #1f3357;  --color-st-booked-fg: #a9c8ff;
+  --color-st-sold-bg: #1b3b2a;    --color-st-sold-fg: #8fe0b0;
+  --color-st-neutral-bg: #2e353f; --color-st-neutral-fg: #c2c9d2;
   --color-warn-bg: #3a2e1c;      --color-error-bg: #3d2326;
   --color-scrim: #000000;
   --color-you: #a58bff;

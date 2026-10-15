@@ -3,9 +3,10 @@
 /**
  * CRM-5 C. The field app's only reads of CRM data, and its only CRM write.
  *
- * Reads go through the 037 RPCs, which return the signed-in canvasser's OWN
- * leads (my_crm_leads, my_crm_callbacks) or totals only (crm_leaderboard).
- * Nothing here reads crm_leads directly.
+ * Reads go through the 037 and 042 RPCs, which return the signed-in
+ * canvasser's OWN leads (my_crm_leads, my_crm_callbacks, my_crm_week) or
+ * totals only (crm_leaderboard, my_crm_freshness). Nothing here reads
+ * crm_leads directly.
  *
  * The one write, a call result, goes through the offline queue
  * (`lib/sync/queue.ts`, op `crm_callback`). It is never sent to the CRM.
@@ -16,7 +17,7 @@
 import { liveQuery } from "dexie";
 import { useEffect, useState } from "react";
 
-import type { CallbackLead, LeaderRow, LocalCall, MyCrmLead } from "@/lib/field/crm";
+import type { CallbackLead, Freshness, LeaderRow, LocalCall, MyCrmLead, WeekLead } from "@/lib/field/crm";
 import { fieldDb } from "@/lib/field/db";
 import { createClient } from "@/lib/supabase/client";
 import { CRM_CALLBACK_GROUP, newClientEventId, type CallResult, type CrmCallbackOp } from "@/lib/sync/ops";
@@ -82,6 +83,50 @@ export async function fetchMyLeads(from: string, to: string): Promise<MyCrmLead[
   const { data, error } = await createClient().rpc("my_crm_leads", { p_from: from, p_to: to });
   if (error) throw error;
   return (data ?? []).map((r) => ({ ...r, sale_amount: r.sale_amount === null ? null : Number(r.sale_amount) })) as MyCrmLead[];
+}
+
+/** CRM-7: my leads for the window, with their details (own leads only; RLS decides). */
+export async function fetchWeek(from: string, to: string): Promise<WeekLead[]> {
+  const { data, error } = await createClient().rpc("my_crm_week", { p_from: from, p_to: to });
+  if (error) throw error;
+  return (data ?? []).map((r) => ({ ...r, sale_amount: r.sale_amount === null ? null : Number(r.sale_amount) })) as WeekLead[];
+}
+
+/** CRM-7: when this canvasser last refreshed and when the scheduled sync last finished. */
+export async function fetchFreshness(): Promise<Freshness> {
+  const { data, error } = await createClient().rpc("my_crm_freshness");
+  if (error) throw error;
+  const row = data?.[0];
+  return { lastRefreshAt: row?.last_refresh_at ?? null, lastSyncAt: row?.last_sync_at ?? null };
+}
+
+/** What the refresh route answers: counts only. */
+export type RefreshReply =
+  | { ok: true; seen: number; changed: number }
+  | { ok: false; error: "not_signed_in" | "not_linked" | "too_soon" | "busy" | "failed" | "offline"; retryAfterSec?: number };
+
+/**
+ * CRM-7: "Refresh from CRM". Asks the server to re-read this canvasser's leads
+ * for this week from the CRM now, instead of waiting for the half-hourly sync.
+ * It is a pull, not a field write: nothing from the canvasser is sent, so it
+ * does not use the offline queue and carries no client_event_id.
+ */
+export async function refreshFromCrm(): Promise<RefreshReply> {
+  if (offline()) return { ok: false, error: "offline" };
+  try {
+    const response = await fetch("/api/crm/refresh-mine", { method: "POST", cache: "no-store" });
+    const body: unknown = await response.json().catch(() => null);
+    if (body && typeof body === "object" && "ok" in body) {
+      const reply = body as { ok: boolean; seen?: number; changed?: number; error?: string; retryAfterSec?: number };
+      if (reply.ok) return { ok: true, seen: reply.seen ?? 0, changed: reply.changed ?? 0 };
+      const known = ["not_signed_in", "not_linked", "too_soon", "busy", "failed"] as const;
+      const error = known.find((k) => k === reply.error) ?? "failed";
+      return { ok: false, error, retryAfterSec: reply.retryAfterSec };
+    }
+    return { ok: false, error: "failed" };
+  } catch {
+    return { ok: false, error: offline() ? "offline" : "failed" };
+  }
 }
 
 export async function fetchLeaderboard(from: string, to: string): Promise<LeaderRow[]> {

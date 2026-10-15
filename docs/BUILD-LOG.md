@@ -2064,3 +2064,40 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none in the pasted code. The database steps were not run because the Supabase MCP is not signed in. The brief says stop there and do not reach the database another way.
 - **Not done / deferred:** Apply migration 042. Regenerate types from project `xerxsaptwpvhkkpyvkfi`. Security advisors. Did not call the CRM. Did not insert, update or delete any row. Did not commit. No new table row. No `client_event_id`.
 - **Follow-ups:** Sign in the Supabase MCP and apply `042_crm_week` once, then regenerate types. The This week screen is crm-7b. Owner still to confirm the two open points (refresh is a pull with no `client_event_id`; a Sold Result note may hold the price).
+
+### CRM-7 Session 7b — This week screen, status colours, Refresh from CRM
+- **Date:** 2026-10-15
+- **Model:** Grok 4.7
+- **Built:** The Leads tab has a third view, This week, between Today and Call-backs. It lists this canvasser's own CRM leads for the London week, newest day first, with the CRM status as a word on a coloured chip. Each row opens to the same details as a call-back. Refresh from CRM posts to `/api/crm/refresh-mine`. The drawer has a This week item for accounts linked to the CRM.
+- **Owner decisions:**
+  - OWNER — 2026-10-15 (CRM-7): a canvasser-side "This week" screen on `/field/leads` shows all of that canvasser's own CRM leads for the London week, logged in the app or not. The status is the CRM word on a colour: UTC yellow, Re-App purple, Blowout red, Booked blue (Booked = CRM `confirmed`). Each row expands to the same details as a call-back. A "Refresh from CRM" button re-reads this canvasser's leads from the CRM right then.
+  - OWNER — 2026-10-15: Wayne has OK'd the call-back details (name, phones, address, Result, Product Interest, Best Time To Call, Description) for every lead on this screen, not only call-backs. Same rules as `crm_contacts` today: own canvasser only, not admin, not office, deleted 90 days after the lead date. Rep Result is still never stored.
+  - OWNER — open, not decided in this session: (1) the Refresh button is a client-triggered server pull (`POST /api/crm/refresh-mine`), not a field write, so it does not go through `lib/sync/queue.ts` and carries no `client_event_id`. (2) A Sold lead's Result text (which may contain the price) is now kept in `crm_contacts` like the other notes.
+- **Claude decisions:**
+  - CLAUDE — Leads gets a third switch option, "This week", between Today and Call-backs. The drawer gets a "This week" item (calendar icon) in the Today group, shown only to canvassers linked to the CRM. The header subtitle reads "This week · N leads" or "This week · no leads yet".
+  - CLAUDE — No new Figma page. The rows reuse the approved Call-backs rows. New: a status chip on every row. The chip is the CRM word on its colour, never colour alone: Unable to contact (yellow), Re-app (purple), Blowout (red), Booked (blue), Sold (green), anything else grey. Tokens `st-*` are in `app/globals.css` for light and dark.
+  - CLAUDE — Rows are grouped by London day, newest day first ("Today", "Yesterday", "Mon 12 Oct"), newest lead first inside a day. The title is the contact name when there is one, otherwise the door address. Under it: the status chip plus the appointment time, or "Sold for £x".
+  - CLAUDE — The expanded row shows the status chip, the booked line, Phone and Other phone as `tel:` links (44px), then the call-back details, then "Copied from the CRM. Deleted 90 days after the lead date." If there is nothing yet: "No notes in the CRM for this lead yet. Tap Refresh from CRM to check."
+  - CLAUDE — "Refresh from CRM" is a 44px outlined button beside "Updated 14:32" (latest of this canvasser's last refresh and the scheduled sync; "Not updated yet" if neither). While it runs it reads "Refreshing…" and is disabled. The result is announced in a polite live region. Offline it never calls the server.
+  - CLAUDE — The refresh is a pull, not a field write: it does not use `lib/sync/queue.ts` and carries no `client_event_id`. Phone numbers are allowed in `week-pane.tsx`. The field RPC allowlist now has five names.
+- **Acceptance:**
+  - EDIT 1 DONE. Two replacements in `app/globals.css` (434 lines). Each find occurred once.
+  - EDIT 2 DONE. New `components/field/crm/week-pane.tsx` (246 lines), pasted exactly.
+  - EDIT 3 DONE. Eight replacements in `components/field/leads-tab.tsx` (238 lines). Each find occurred once.
+  - EDIT 4 DONE. Three replacements in `components/field/shell/field-drawer.tsx` (223 lines). Each find occurred once.
+  - EDIT 5 DONE. Three replacements in `lib/field/crm-data.ts` (231 lines). Each find occurred once.
+  - EDIT 6 DONE. One replacement in `lib/field/crm.ts` (753 lines). The find occurred once.
+  - EDIT 7 DONE. Three replacements in `lib/field/nav.ts` (70 lines). Each find occurred once.
+  - EDIT 8 DONE. Two replacements in `scripts/verify-crm.ts` (641 lines). Each find occurred once.
+  - `npm run verify:crm`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui6`: **PASS** — exit 0. Last line: `OK`.
+  - `npm run verify:ui7`: **PASS** — exit 0. Last line: `All UI-7 geo checks passed.`
+  - `npm run verify:ui8`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0, run once after EDITs 1–8.
+  - eslint: **PASS** — `npx eslint` on the seven TypeScript files exit 0, run once after EDITs 1–8.
+  - ux-audit: the skill file is not in the tree. `week-pane.tsx`, `leads-tab.tsx` and `field-drawer.tsx` were read against `.ux-profile.md` and field-ergonomics. Code not changed. Findings: Refresh from CRM is outline-only (`border-prop`, no fill) and sits at the top of the scrolling list. The status chips are tinted fills; the word is always shown. The Leads switch is `Segmented`, which uses `gap-1` (4px); that file was not edited. Drawer rows still use `gap-1`, and the active row is a light `bg-prop-soft` tint. A fast double-tap can fire Refresh twice before the button disables; the server throttle answers the second.
+  - Phone: no browser. The ten steps are listed for the owner.
+- **Deviations from brief:** none. The given files and replacements were pasted exactly. Line endings are CRLF. crm-7a is in the tree (`app/api/crm/refresh-mine/route.ts` exists; `lib/supabase/types.ts` contains `my_crm_week`).
+- **Not done / deferred:** A browser. The ten phone-check steps. Did not query the database. Did not call the CRM. Did not commit. No new table row. No `client_event_id`. Migration 042 is still not applied.
+- **Follow-ups:** The owner runs the ten phone-check steps on the iPhone after crm-7a and crm-7b land, with a CRM name linked in Profile. Apply migration 042 before the screen can load live rows.

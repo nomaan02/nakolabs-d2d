@@ -559,11 +559,14 @@ const fieldImports = fieldFiles
 check("no /field file reads admin CRM data or CRM tables directly", fieldImports.length === 0);
 const fieldRpcs = fieldFiles.flatMap((f) => [...readFileSync(f, "utf8").matchAll(/rpc\("(\w*crm\w*)"/g)].map((m) => `${rel(f)}:${m[1]}`));
 check(
-  "CRM-5 C: /field calls only my_crm_leads, my_crm_callbacks and crm_leaderboard, from lib/field/crm-data.ts",
-  fieldRpcs.every((r) => /^lib\/field\/crm-data\.ts:(my_crm_leads|my_crm_callbacks|crm_leaderboard)$/.test(r)) && fieldRpcs.length === 3,
+  "CRM-5 C / CRM-7: /field calls only my_crm_leads, my_crm_callbacks, my_crm_week, my_crm_freshness and crm_leaderboard, from lib/field/crm-data.ts",
+  fieldRpcs.every((r) => /^lib\/field\/crm-data\.ts:(my_crm_leads|my_crm_callbacks|my_crm_week|my_crm_freshness|crm_leaderboard)$/.test(r)) && fieldRpcs.length === 5,
 );
 const tel = fieldFiles.filter((f) => /tel:/.test(readFileSync(f, "utf8"))).map(rel).sort();
-check("phone numbers only on the call-back list and its sheet", same(tel, ["components/field/crm/call-result-sheet.tsx", "components/field/crm/callbacks-pane.tsx"]));
+check("phone numbers only on the call-back list, its sheet and the This week details", same(tel, ["components/field/crm/call-result-sheet.tsx", "components/field/crm/callbacks-pane.tsx", "components/field/crm/week-pane.tsx"]));
+// CRM-7: the refresh is a pull from our own route, never a call to the CRM from the phone.
+const refreshCallers = fieldFiles.filter((f) => /refresh-mine/.test(readFileSync(f, "utf8"))).map(rel);
+check("CRM-7: only lib/field/crm-data.ts calls the refresh route", same(refreshCallers, ["lib/field/crm-data.ts"]));
 const layerFiles = fieldFiles.filter((f) => /field-crm-leads|CRM_MAP_RING/.test(readFileSync(f, "utf8"))).map(rel).sort();
 check("CRM-5 C2: the CRM colour layer lives only in field-map.tsx (rings) and lib/field/crm.ts (colours)", same(layerFiles, ["components/field/field-map.tsx", "lib/field/crm.ts"]));
 check("the CRM field screens never touch a customer first name", !fieldFiles.filter((f) => /crm/.test(rel(f))).some((f) => /first_?name/i.test(readFileSync(f, "utf8"))));
@@ -605,6 +608,19 @@ check(
     /create function public\.my_crm_week/.test(m042) && /security invoker/.test(m042) && /l\.canvasser_first_name = \(select public\.my_crm_name\(\)\)/.test(m042) && /\(select public\.my_crm_branch\(\)\) is null or l\.branch = \(select public\.my_crm_branch\(\)\)/.test(m042) &&
     /grant execute on function public\.my_crm_week\(timestamptz, timestamptz\) to authenticated/.test(m042) && /revoke all on function public\.my_crm_week\(timestamptz, timestamptz\) from public, anon/.test(m042) && !/first_?name\s+text/i.test(m042) && !/grant (select|insert|update|delete)[^;]*crm_contacts/i.test(m042),
 );
+
+console.log("\nCRM-7 This week (pure helpers)");
+{
+  const W_NOW = new Date("2026-10-15T13:30:00Z"); // Thu 15 Oct, 14:30 London (BST)
+  check("week status words: CRM colours", fieldCrm.weekStatusKey("utc") === "utc" && fieldCrm.weekStatusKey("re_app") === "re_app" && fieldCrm.weekStatusKey("blowout") === "blowout" && fieldCrm.weekStatusKey("confirmed") === "booked" && fieldCrm.weekStatusKey("sale") === "sold" && fieldCrm.weekStatusKey(null) === "neutral" && fieldCrm.weekStatusKey("pm") === "neutral");
+  check("week status chips are distinct classes for the four CRM colours", new Set(["utc", "re_app", "blowout", "booked"].map((k) => fieldCrm.WEEK_STATUS_CHIP[k as keyof typeof fieldCrm.WEEK_STATUS_CHIP])).size === 4);
+  const wl = (id: string, created: string, extra: Partial<fieldCrm.WeekLead> = {}): fieldCrm.WeekLead =>
+    ({ crm_id: id, status: "utc", crm_created_at: created, appointment_at: null, sale_amount: null, ...extra }) as fieldCrm.WeekLead;
+  const groups = fieldCrm.weekGroups([wl("a", "2026-10-13T09:00:00Z"), wl("b", "2026-10-15T08:00:00Z"), wl("c", "2026-10-15T11:00:00Z"), wl("d", "2026-10-14T10:00:00Z")], W_NOW);
+  check("week groups: newest day first, newest lead first, Today/Yesterday labels", groups.map((g) => g.label).join("|") === "Today|Yesterday|" + groups[2]?.label && groups[0]?.leads.map((l) => l.crm_id).join("") === "cb" && groups.length === 3);
+  check("week appointment and sale lines", fieldCrm.weekAppointmentLine({ appointment_at: null }) === "No appointment time" && fieldCrm.weekAppointmentLine({ appointment_at: "2026-10-16T17:00:00Z" }).startsWith("Appointment ") && fieldCrm.weekSaleLine({ status: "sale", sale_amount: 4200 }) === "Sold for £4,200" && fieldCrm.weekSaleLine({ status: "utc", sale_amount: 4200 }) === null && fieldCrm.weekSaleLine({ status: "sale", sale_amount: null }) === null);
+  check("freshness line: none, today, yesterday; latest of refresh and sync", fieldCrm.freshnessLine(null, W_NOW) === "Not updated yet" && fieldCrm.freshnessLine({ lastRefreshAt: null, lastSyncAt: "2026-10-15T13:02:00Z" }, W_NOW) === "Updated 14:02" && fieldCrm.freshnessLine({ lastRefreshAt: "2026-10-15T13:20:00Z", lastSyncAt: "2026-10-15T13:02:00Z" }, W_NOW) === "Updated 14:20" && fieldCrm.freshnessLine({ lastRefreshAt: null, lastSyncAt: "2026-10-14T20:00:00Z" }, W_NOW).startsWith("Updated yesterday "));
+}
 
 async function sendChecks(): Promise<void> {
   console.log("\nCRM-5 B sendOp (fake client, no network)");

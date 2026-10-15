@@ -169,6 +169,7 @@
 | FUI-3a | Leads, You and Leaderboard (round 2 design) | DONE | 2026-10-15 | Leads (count subtitle, empty-state card with Go to Logger), You (grouped cards, 44px switches, Sign out below), Leaderboard switch in the header. | — |
 | FUI-3b | Map: control stack, Key card, compact door sheet | DONE | 2026-10-15 | Map: control stack (3D, Centre, Key), Key card closed by default, no +/- zoom, 44px licence button, compact 2x2 door sheet with Other and Close in the header. | — |
 | CRM-7a | human: details for every lead, Refresh from CRM route, migration 042 | NOT DONE — Supabase MCP not signed in; migration 042 not applied | 2026-10-15 | Contacts kept for every lead under 90 days; refresh-mine route with throttle. Migration 042 file written (`crm_refresh_log`, `my_crm_week`, `my_crm_freshness`) but not applied. Types hand-added, not regenerated from the database. | — |
+| CRM-7b | This week screen, CRM status colours, Refresh from CRM button | DONE | 2026-10-15 | This week screen on /field/leads: CRM status words on colour (UTC yellow, Re-App purple, Blowout red, Booked blue), expandable details, Refresh from CRM button, drawer item. | — |
 
 ---
 

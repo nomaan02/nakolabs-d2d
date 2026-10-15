@@ -638,3 +638,116 @@ export function toneCounts(leads: readonly MyCrmLead[]): Record<StatusTone, numb
   for (const lead of leads) out[statusTone(lead.status)] += 1;
   return out;
 }
+
+// ------------------------------------------------------------ this week
+// CRM-7 (owner 2026-10-15, Wayne OK'd the details): the canvasser's own CRM
+// leads for the London week, with the CRM status as a coloured word and the
+// same details the call-backs show.
+
+/** One row of `my_crm_week`. */
+export type WeekLead = {
+  crm_id: string;
+  status: string | null;
+  callback_reason: string | null;
+  crm_created_at: string;
+  crm_modified_at: string;
+  appointment_at: string | null;
+  sale_amount: number | null;
+  title: string | null;
+  surname: string | null;
+  phone: string | null;
+  alt_phone: string | null;
+  uprn: number | null;
+  house_number: string | null;
+  building_name: string | null;
+  street_name: string | null;
+  postcode_sector: string | null;
+  postcode: string | null;
+  address_line: string | null;
+  result_note: string | null;
+  product_interest: string | null;
+  best_time: string | null;
+  description: string | null;
+};
+
+export type WeekStatusKey = "utc" | "re_app" | "blowout" | "booked" | "sold" | "neutral";
+
+/**
+ * The status as a tinted chip (tokens `st-*`, 4.5:1+ in light and dark):
+ * UTC yellow, Re-App purple, Blowout red, Booked (confirmed) blue as the CRM
+ * shows them; Sold green; everything else neutral. The word always shows, so
+ * colour is never the only signal.
+ */
+export const WEEK_STATUS_CHIP: Record<WeekStatusKey, string> = {
+  utc: "bg-st-utc-bg text-st-utc-fg",
+  re_app: "bg-st-reapp-bg text-st-reapp-fg",
+  blowout: "bg-st-blowout-bg text-st-blowout-fg",
+  booked: "bg-st-booked-bg text-st-booked-fg",
+  sold: "bg-st-sold-bg text-st-sold-fg",
+  neutral: "bg-st-neutral-bg text-st-neutral-fg",
+};
+
+export function weekStatusKey(status: string | null): WeekStatusKey {
+  if (status === "utc" || status === "blowout") return status;
+  if (status === "re_app") return "re_app";
+  if (status === "confirmed" || status === "pending") return "booked";
+  if (status === "sale") return "sold";
+  return "neutral";
+}
+
+/** This London week so far: Monday 00:00 to the end of today. */
+export function weekSpan(now: Date): Span {
+  return periodSpan("week", now);
+}
+
+export type WeekGroup = { day: string; label: string; leads: WeekLead[] };
+
+/** "Today", "Yesterday" or "Mon 12 Oct". */
+export function dayHeading(day: string, now: Date): string {
+  const today = londonDate(now);
+  if (day === today) return "Today";
+  if (day === addDays(today, -1)) return "Yesterday";
+  return isoDayLabel(day);
+}
+
+/** Newest day first, newest lead first inside a day (London days). */
+export function weekGroups(leads: readonly WeekLead[], now: Date): WeekGroup[] {
+  const byDay = new Map<string, WeekLead[]>();
+  for (const lead of leads) {
+    const day = londonDate(new Date(lead.crm_created_at));
+    const list = byDay.get(day);
+    if (list) list.push(lead);
+    else byDay.set(day, [lead]);
+  }
+  return [...byDay.keys()]
+    .sort((a, b) => b.localeCompare(a))
+    .map((day) => ({
+      day,
+      label: dayHeading(day, now),
+      leads: (byDay.get(day) ?? []).sort((a, b) => b.crm_created_at.localeCompare(a.crm_created_at)),
+    }));
+}
+
+/** "Appointment Thu 16 Oct, 18:00", or "No appointment time" when the CRM has none. */
+export function weekAppointmentLine(lead: Pick<WeekLead, "appointment_at">): string {
+  return lead.appointment_at ? `Appointment ${dayAndTime(lead.appointment_at)}` : "No appointment time";
+}
+
+/** The sale price when the CRM has one: "Sold for £4,200". */
+export function weekSaleLine(lead: Pick<WeekLead, "status" | "sale_amount">): string | null {
+  return lead.status === "sale" && lead.sale_amount !== null ? `Sold for ${pounds(lead.sale_amount)}` : null;
+}
+
+export type Freshness = { lastRefreshAt: string | null; lastSyncAt: string | null };
+
+/** "Updated 14:32", "Updated yesterday 21:00" or "Not updated yet". Latest of the refresh and the scheduled sync. */
+export function freshnessLine(fresh: Freshness | null, now: Date): string {
+  const times = [fresh?.lastRefreshAt, fresh?.lastSyncAt].filter((t): t is string => Boolean(t));
+  if (times.length === 0) return "Not updated yet";
+  const latest = times.reduce((a, b) => (Date.parse(a) >= Date.parse(b) ? a : b));
+  const day = londonDate(new Date(latest));
+  const today = londonDate(now);
+  if (day === today) return `Updated ${clock(latest)}`;
+  if (day === addDays(today, -1)) return `Updated yesterday ${clock(latest)}`;
+  return `Updated ${shortDay(latest)} ${clock(latest)}`;
+}

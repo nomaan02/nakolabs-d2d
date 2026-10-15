@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { CallbacksPane } from "@/components/field/crm/callbacks-pane";
 import { Segmented } from "@/components/field/crm/segmented";
+import { WeekPane } from "@/components/field/crm/week-pane";
 import { useFieldData } from "@/components/field/field-data-provider";
 import { FieldHeader, FieldPage } from "@/components/field/shell/field-header";
 import { useCrmMe } from "@/lib/field/crm-data";
@@ -14,7 +15,7 @@ import { isSameLondonDay } from "@/lib/field/london-date";
 import { LEADS_VIEW_KEY, onLeadsViewRequest, parseLeadsView, type LeadsView } from "@/lib/field/nav";
 
 /**
- * Leads tab. Two views (CRM-5 C, Figma F1):
+ * Leads tab. Three views (CRM-5 C, Figma F1; This week added by CRM-7):
  *
  * - Today: read-only, this canvasser, today, in the order they were taken.
  *   Never aggregated by street or by prop (a per-street count is a quality
@@ -22,6 +23,10 @@ import { LEADS_VIEW_KEY, onLeadsViewRequest, parseLeadsView, type LeadsView } fr
  * - Call-backs (AGENTS.md P4b exception, owner 2026-10-11): this
  *   canvasser's OWN CRM leads to ring back, with the result logged through
  *   the offline queue. See components/field/crm/callbacks-pane.tsx.
+ * - This week (CRM-7, owner 2026-10-15): this canvasser's OWN CRM leads for
+ *   the London week, logged in the app or not, with the CRM status as a
+ *   coloured word and a Refresh from CRM button.
+ *   See components/field/crm/week-pane.tsx.
  */
 
 type View = LeadsView;
@@ -63,6 +68,7 @@ export function LeadsScreen({
   const me = useCrmMe(canvasserId);
   const [view, setView] = useState<View>("today");
   const [toCall, setToCall] = useState<number | null>(null);
+  const [weekCount, setWeekCount] = useState<number | null>(null);
 
   useEffect(() => {
     try {
@@ -84,6 +90,7 @@ export function LeadsScreen({
   };
 
   const onCount = useCallback((n: number | null) => setToCall(n), []);
+  const onWeekCount = useCallback((n: number | null) => setWeekCount(n), []);
   const linked = me.kind === "ready" && me.data.name !== null;
   const todayCount = phase.kind === "ready" ? leads.length : null;
   // FUI-3 (owner 2026-10-15, Figma L1/L3): the header says what the view holds.
@@ -92,6 +99,12 @@ export function LeadsScreen({
       ? toCall === null
         ? undefined
         : `${toCall} to call back`
+      : view === "week"
+        ? weekCount === null
+          ? undefined
+          : weekCount === 0
+            ? "This week · no leads yet"
+            : `This week · ${weekCount === 1 ? "1 lead" : `${weekCount} leads`}`
       : todayCount === null
         ? undefined
         : todayCount === 0
@@ -113,6 +126,7 @@ export function LeadsScreen({
               testId="leads-view"
               options={[
                 { value: "today", label: <Count label="Today" n={todayCount} /> },
+                { value: "week", label: <Count label="This week" n={weekCount} /> },
                 { value: "callbacks", label: <Count label="Call-backs" n={toCall} accent /> },
               ]}
             />
@@ -121,7 +135,15 @@ export function LeadsScreen({
       }
     >
 
-      {view === "callbacks" ? (
+      {view === "week" ? (
+        me.kind === "ready" && canvasserId ? (
+          <WeekPane linked={linked} onCount={onWeekCount} />
+        ) : (
+          <p className="px-4 pt-6 text-field-body text-ink-muted">
+            {me.kind === "offline" ? "No signal. Your week loads when you’re back online." : me.kind === "error" ? "Your week didn’t load. Reopen the tab to try again." : "Loading your week…"}
+          </p>
+        )
+      ) : view === "callbacks" ? (
         me.kind === "ready" && canvasserId ? (
           <CallbacksPane canvasserId={canvasserId} linked={linked} onCount={onCount} />
         ) : (

@@ -10,6 +10,7 @@ import { useOverlayFocus } from "@/components/admin/ui/use-overlay-focus";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { useFieldData } from "@/components/field/field-data-provider";
 import {
+  CalendarIcon,
   CloseIcon,
   InsightsIcon,
   LeadsIcon,
@@ -32,6 +33,7 @@ const ICON: Record<FieldNavKey, ComponentType<{ className?: string }>> = {
   map: MapIcon,
   logger: LoggerIcon,
   leads: LeadsIcon,
+  week: CalendarIcon,
   callbacks: PhoneIcon,
   you: YouIcon,
   results: InsightsIcon,
@@ -85,6 +87,7 @@ function DrawerPanel({ onClose }: { onClose: () => void }) {
 
   const pick = (item: FieldNavItem) => {
     if (item.key === "leads") requestLeadsView("today");
+    if (item.key === "week") requestLeadsView("week");
     if (item.key === "callbacks") requestLeadsView("callbacks");
     onClose();
   };

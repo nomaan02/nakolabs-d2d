@@ -4,7 +4,7 @@
  * "My results" and "Leaderboard" only appear for an account linked to the
  * CRM (the P4b views); "Open admin" only for an admin who went canvassing.
  */
-export type FieldNavKey = "map" | "logger" | "leads" | "callbacks" | "you" | "results" | "leaderboard";
+export type FieldNavKey = "map" | "logger" | "leads" | "week" | "callbacks" | "you" | "results" | "leaderboard";
 
 export type FieldNavItem = {
   key: FieldNavKey;
@@ -19,6 +19,7 @@ export const FIELD_NAV: readonly FieldNavItem[] = [
   { key: "map", label: "Map", href: "/field", group: "today" },
   { key: "logger", label: "Logger", href: "/field/logger", group: "today" },
   { key: "leads", label: "Leads", href: "/field/leads", group: "today" },
+  { key: "week", label: "This week", href: "/field/leads", group: "today", crmOnly: true },
   { key: "callbacks", label: "Call-backs", href: "/field/leads", group: "today" },
   { key: "you", label: "You", href: "/field/profile", group: "you" },
   { key: "results", label: "My results", href: "/field/profile#my-results", group: "you", crmOnly: true },
@@ -35,18 +36,18 @@ export function activeFieldNav(pathname: string): FieldNavKey | null {
   return null;
 }
 
-export type LeadsView = "today" | "callbacks";
+export type LeadsView = "today" | "week" | "callbacks";
 
 /** The Leads tab's remembered view (CRM-5 C). */
 export const LEADS_VIEW_KEY = "d2d.leads.view";
 const LEADS_VIEW_EVENT = "d2d:leads-view";
 
 export function parseLeadsView(value: string | null): LeadsView {
-  return value === "callbacks" ? "callbacks" : "today";
+  return value === "callbacks" || value === "week" ? value : "today";
 }
 
 /**
- * The drawer's Leads and Call-backs items open the Leads tab on that view.
+ * The drawer's Leads, This week and Call-backs items open the Leads tab on that view.
  * Stored first, so a Leads tab that mounts next reads it; the event moves a
  * Leads tab that is already open.
  */
