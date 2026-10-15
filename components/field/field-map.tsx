@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import {
   Map as MapLibreMap,
-  NavigationControl,
   ScaleControl,
   type ExpressionSpecification,
   type GeoJSONSource,
@@ -860,7 +859,7 @@ export function FieldMap({
         });
       }
       if (mapVariant === "full") {
-        instance.addControl(new NavigationControl({ showCompass: false }), "bottom-left");
+        // FUI-3 (owner 2026-10-15): no +/- zoom buttons. Pinch and double-tap still zoom.
         instance.addControl(new ScaleControl({ unit: "metric" }), "bottom-left");
       }
 

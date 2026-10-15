@@ -55,17 +55,25 @@ export function LeaderboardScreen({ canvasserId }: { canvasserId: string | null 
   };
 
   return (
-    <FieldPage testId="leaderboard" header={<FieldHeader title="Leaderboard" />}>
+    // FUI-3 (owner 2026-10-15, Figma B1): the Pitched / Sales / Value switch
+    // sits in the fixed header; the period, the board and the footnote scroll.
+    <FieldPage
+      testId="leaderboard"
+      header={
+        <FieldHeader title="Leaderboard" subtitle={`Bristol branches · ${span.line}`}>
+          <div className="mx-auto max-w-2xl px-4 pb-3">
+            <Segmented label="Rank by" value={metric} onChange={chooseMetric} options={BOARD_METRICS} testId="leaderboard-metric" />
+          </div>
+        </FieldHeader>
+      }
+    >
       <div className="mx-auto max-w-2xl px-4 pb-8">
       <Link href="/field/profile" className="-ml-2 mt-1 inline-flex min-h-tap-min items-center gap-1 px-2 text-base text-prop">
         <ChevronLeftIcon className="size-5" />
         You
       </Link>
 
-      <div className="mt-1">
-        <Segmented label="Rank by" value={metric} onChange={chooseMetric} options={BOARD_METRICS} testId="leaderboard-metric" />
-      </div>
-      <div className="mt-3 flex items-center gap-3">
+      <div className="mt-1 flex items-center gap-3">
         <PeriodSelect
           value={period}
           onChange={(p) => {
@@ -74,7 +82,7 @@ export function LeaderboardScreen({ canvasserId }: { canvasserId: string | null 
           }}
           testId="leaderboard-period"
         />
-        <span className="text-field-body text-ink-muted">Bristol branches · {span.line}</span>
+        <span className="text-field-body text-ink-muted">{span.line}</span>
       </div>
 
       {view === null ? (
@@ -113,7 +121,7 @@ function Row({ row }: { row: RankedRow }) {
     <li className={`flex items-center gap-3 px-4 py-2.5 ${row.you ? "bg-prop-soft" : ""}`} data-testid={row.you ? "leaderboard-you" : "leaderboard-row"}>
       <span className={`w-6 shrink-0 text-right text-lg tabular-nums ${row.you ? "text-prop" : "text-ink-muted"}`}>{row.rank}</span>
       <span className="min-w-0 flex-1">
-        <span className={`block truncate text-base font-semibold ${row.you ? "text-prop" : "text-ink"}`}>{row.canvasser}</span>
+        <span className={`block truncate text-admin-headline ${row.you ? "text-prop" : "text-ink"}`}>{row.canvasser}</span>
         <span className="block truncate text-field-body text-ink-muted">
           {row.branch}
           {row.you ? " · you" : ""}

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { CallbacksPane } from "@/components/field/crm/callbacks-pane";
@@ -85,6 +86,17 @@ export function LeadsScreen({
   const onCount = useCallback((n: number | null) => setToCall(n), []);
   const linked = me.kind === "ready" && me.data.name !== null;
   const todayCount = phase.kind === "ready" ? leads.length : null;
+  // FUI-3 (owner 2026-10-15, Figma L1/L3): the header says what the view holds.
+  const subtitle =
+    view === "callbacks"
+      ? toCall === null
+        ? undefined
+        : `${toCall} to call back`
+      : todayCount === null
+        ? undefined
+        : todayCount === 0
+          ? "Today · no leads yet"
+          : `Today · ${todayCount === 1 ? "1 lead" : `${todayCount} leads`}`;
 
   // FUI-1b (owner 2026-10-14, O3): the title and the view switch sit in the
   // fixed header; only the list scrolls.
@@ -92,7 +104,7 @@ export function LeadsScreen({
     <FieldPage
       testId="leads-tab"
       header={
-        <FieldHeader title="Leads">
+        <FieldHeader title="Leads" subtitle={subtitle}>
           <div className="mx-auto max-w-2xl px-4 pb-3">
             <Segmented<View>
               label="Leads view"
@@ -152,30 +164,37 @@ function TodayPane({
 
   if (leads.length === 0) {
     return (
-      <p className="px-4 pt-6 text-field-body text-ink-muted">
-        No leads yet today. They appear here the moment you log one, before they sync.
-      </p>
+      <div className="mx-auto max-w-2xl px-4 pt-4">
+        <div className="flex flex-col gap-2 rounded-field-lg border border-line bg-surface p-5" data-testid="leads-empty">
+          <h2 className="text-admin-headline text-ink">No leads yet today</h2>
+          <p className="text-admin-body text-ink-muted">They appear here the moment you log one, before they sync.</p>
+          <Link
+            href="/field/logger"
+            className="mt-2 inline-flex min-h-tap-min w-fit items-center rounded-field-md border border-prop px-5 text-admin-button text-prop focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-prop"
+          >
+            Go to Logger
+          </Link>
+        </div>
+      </div>
     );
   }
 
   return (
     <div className="mx-auto max-w-2xl px-4 pb-8">
-      <h2 className="mb-2 mt-5 text-field-body-strong text-ink-muted">
-        {leads.length === 1 ? "1 lead" : `${leads.length} leads`} · this prop
-      </h2>
+      <h2 className="mb-2 mt-4 text-admin-section text-ink-muted">This prop · in the order you took them</h2>
       <ol className="divide-y divide-line overflow-hidden rounded-field-lg border border-line bg-surface">
         {leads.map((lead) => {
           const label = labelFor(lead.uprn);
           const immediate =
             lead.bookedFor !== null && isSameLondonDay(new Date(lead.bookedFor), new Date(lead.occurredAt));
           return (
-            <li key={lead.clientEventId} className="px-4 py-3">
-              <p className="text-base font-semibold text-ink">{mapLabel(label) ?? doorPlate(label)}</p>
-              <p className="mt-0.5 text-field-body text-ink-muted tabular-nums">
+            <li key={lead.clientEventId} className="flex flex-col gap-0.5 px-4 py-3">
+              <p className="text-admin-headline text-ink">{mapLabel(label) ?? doorPlate(label)}</p>
+              <p className="text-admin-subhead text-ink-muted tabular-nums">
                 Logged {TIME.format(new Date(lead.occurredAt))}
                 {lead.undoable ? " · still undoable" : ""}
               </p>
-              <p className="mt-1 flex flex-wrap items-center gap-2 text-field-body text-ink">
+              <p className="flex flex-wrap items-center gap-2 text-admin-subhead text-ink">
                 <span>
                   {lead.bookedFor ? `Appointment ${WHEN.format(new Date(lead.bookedFor))}` : "No appointment time booked"}
                 </span>

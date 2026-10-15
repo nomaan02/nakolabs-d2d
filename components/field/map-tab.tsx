@@ -8,12 +8,12 @@ import { OtherOutcomeSheet } from "@/components/field/door-sheets";
 import { FieldMap } from "@/components/field/field-map";
 import { useFieldData } from "@/components/field/field-data-provider";
 import { useGeo } from "@/components/field/geo-provider";
-import { LocateIcon } from "@/components/field/icons";
+import { CloseIcon, InfoIcon, LocateIcon } from "@/components/field/icons";
 import { LocationOffNotice } from "@/components/field/location-off-notice";
 import { SharingPill } from "@/components/field/sharing-pill";
 import { FieldHeader, FieldPage } from "@/components/field/shell/field-header";
 import { mapPositionOf } from "@/lib/field/geo";
-import { OutcomeButtons } from "@/components/field/outcome-buttons";
+import { OtherOutcomeButton, OutcomeButtons } from "@/components/field/outcome-buttons";
 import { TeammateLines } from "@/components/field/teammate-lines";
 import { pulse } from "@/lib/field/feedback";
 import { doorPlate, mapLabel } from "@/lib/field/labels";
@@ -39,6 +39,10 @@ import { routeColours } from "@/lib/map/route-layers";
  * card are removed. Tapping a door just selects it and moves the cursor
  * there — there is nothing left to claim.
  */
+/** One map control: solid, 44px, round, a hairline edge (Figma M1). */
+const CONTROL =
+  "flex size-11 items-center justify-center rounded-full border border-line bg-surface text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-prop";
+
 export function MapTab() {
   const {
     phase,
@@ -60,6 +64,7 @@ export function MapTab() {
   } = useFieldData();
   const router = useRouter();
   const [otherOpen, setOtherOpen] = useState(false);
+  const [keyOpen, setKeyOpen] = useState(false);
   const mapView = useMapView();
   const mode = useResolvedTheme();
   // UI-7 C1b (owner H3). The canvasser's own marker, memory only.
@@ -181,33 +186,51 @@ export function MapTab() {
           recenterTarget="position"
           recenterNonce={locateNonce}
         />
-        {position ? (
+        {/* FUI-3 (Figma M1): one control stack, top right. 3D, centre on me and
+            the Key, each a solid 44px round button. */}
+        <div className="absolute right-2 top-2 z-[2] flex flex-col gap-2">
           <button
             type="button"
-            onClick={() => {
-              geo.requestCompass();
-              setLocateNonce((n) => n + 1);
-            }}
-            aria-label="Centre the map on you"
-            className="absolute right-2 bottom-10 z-[2] flex size-11 items-center justify-center rounded-full border border-line bg-surface text-prop shadow-field-knob"
-            data-testid="map-locate"
+            aria-pressed={mapView === "3d"}
+            aria-label={mapView === "3d" ? "Switch to the flat map" : "Switch to the 3D map"}
+            onClick={() => toggleMapView()}
+            className={`${CONTROL} text-admin-pill`}
+            data-testid="map-view-toggle"
           >
-            <LocateIcon className="size-5" />
+            {mapView === "3d" ? "2D" : "3D"}
           </button>
-        ) : locationOff ? (
-          <LocationOffNotice className={crm.linked ? "left-2 top-30" : "left-2 top-16"} />
+          {position ? (
+            <button
+              type="button"
+              onClick={() => {
+                geo.requestCompass();
+                setLocateNonce((n) => n + 1);
+              }}
+              aria-label="Centre the map on you"
+              className={`${CONTROL} text-prop`}
+              data-testid="map-locate"
+            >
+              <LocateIcon className="size-5" />
+            </button>
+          ) : null}
+          <button
+            type="button"
+            aria-pressed={keyOpen}
+            aria-expanded={keyOpen}
+            aria-controls="map-key"
+            aria-label="Key"
+            onClick={() => setKeyOpen((open) => !open)}
+            className={CONTROL}
+            data-testid="map-key-toggle"
+          >
+            <InfoIcon className="size-5" />
+          </button>
+        </div>
+        {!position && locationOff ? (
+          <LocationOffNotice className={crm.linked ? "left-2 top-16" : "left-2 top-2"} />
         ) : null}
-        <button
-          type="button"
-          aria-pressed={mapView === "3d"}
-          onClick={() => toggleMapView()}
-          className="absolute left-2 top-2 z-[2] flex size-11 items-center justify-center rounded-full border border-line bg-surface text-field-button-label"
-          data-testid="map-view-toggle"
-        >
-          {mapView === "3d" ? "2D" : "3D"}
-        </button>
-        {crm.linked ? <CrmLayerPill days={crm.days} onChange={crm.setDays} className="left-2 top-16" /> : null}
-        <Legend mode={mode} />
+        {crm.linked ? <CrmLayerPill days={crm.days} onChange={crm.setDays} className="left-2 top-2" /> : null}
+        {keyOpen ? <Legend mode={mode} /> : null}
       </div>
 
       {crm.on && selectedUprn === null ? (
@@ -216,30 +239,35 @@ export function MapTab() {
 
       {selectedUprn !== null ? (
         <section
-          className="z-10 border-t-2 border-ink bg-paper"
+          className="z-10 rounded-t-2xl border-t border-line bg-surface"
           data-testid="map-door-panel"
         >
-          <div className="flex items-start justify-between gap-3 px-4 pt-3">
+          <div className="flex items-center justify-between gap-2 px-4 pb-3 pt-3">
             <div className="min-w-0">
-              <p className="truncate font-display text-lg tracking-tight">
+              <p className="truncate text-admin-headline text-ink">
                 {mapLabel(selectedLabel) ?? doorPlate(selectedLabel)}
               </p>
               {selectedLogged ? (
-                <p className="text-sm text-ink-soft">
+                <p className="text-admin-subhead text-ink-soft">
                   {outcomeSpec(selectedLogged.outcome).glyph} Logged this visit ·{" "}
                   {outcomeSpec(selectedLogged.outcome).logged}
                 </p>
               ) : (
-                <p className="text-sm text-ink-soft">Not logged on this visit.</p>
+                <p className="text-admin-subhead text-ink-soft">Not logged on this visit.</p>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => selectDoorOnMap(null)}
-              className="min-h-11 shrink-0 rounded-md border border-ink/25 px-4 text-sm font-medium"
-            >
-              Close
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <OtherOutcomeButton onOther={() => setOtherOpen(true)} />
+              <button
+                type="button"
+                onClick={() => selectDoorOnMap(null)}
+                aria-label="Close"
+                className="flex size-11 items-center justify-center rounded-full border border-line bg-surface text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-prop"
+                data-testid="map-door-close"
+              >
+                <CloseIcon className="size-5" />
+              </button>
+            </div>
           </div>
           <OutcomeButtons
             onPrimary={(outcome) => {
@@ -253,7 +281,6 @@ export function MapTab() {
               }
               void commit(outcome);
             }}
-            onOther={() => setOtherOpen(true)}
           />
         </section>
       ) : null}
@@ -333,11 +360,12 @@ function Legend({ mode }: { mode: MapMode }) {
 
   return (
     <ul
-      className="pointer-events-none absolute right-2 top-2 rounded-md border border-ink/20 bg-paper/95 px-2 py-1.5"
+      id="map-key"
+      className="pointer-events-none absolute right-2 top-40 z-[2] rounded-field-md border border-line bg-surface px-3 py-2"
       data-testid="map-legend"
     >
       {items.map((item) => (
-        <li key={item.label} className="flex items-center gap-2 py-0.5 text-[11px] leading-none">
+        <li key={item.label} className="flex items-center gap-2 py-1 text-admin-caption text-ink">
           <span
             className={`inline-block shrink-0 ${item.className}`}
             style={{ backgroundColor: item.backgroundColor, boxShadow: item.boxShadow }}
@@ -347,13 +375,13 @@ function Legend({ mode }: { mode: MapMode }) {
       ))}
       {hasEnds ? (
         <>
-          <li className="flex items-center gap-2 py-0.5 text-[11px] leading-none">
+          <li className="flex items-center gap-2 py-1 text-admin-caption text-ink">
             <span className="inline-flex shrink-0 items-center rounded-full bg-lead px-1 text-[9px] font-bold text-paper ring-1 ring-paper">
               START
             </span>
             First door
           </li>
-          <li className="flex items-center gap-2 py-0.5 text-[11px] leading-none">
+          <li className="flex items-center gap-2 py-1 text-admin-caption text-ink">
             <span className="inline-flex shrink-0 items-center rounded-full bg-oxide px-1 text-[9px] font-bold text-paper ring-1 ring-paper">
               END
             </span>
@@ -362,7 +390,7 @@ function Legend({ mode }: { mode: MapMode }) {
         </>
       ) : null}
       {routeRows.map((row) => (
-        <li key={row.label} className="flex items-center gap-2 py-0.5 text-[11px] leading-none">
+        <li key={row.label} className="flex items-center gap-2 py-1 text-admin-caption text-ink">
           <span className={`inline-block shrink-0 ${row.className}`} style={{ backgroundColor: row.colour }} />
           {row.label}
         </li>

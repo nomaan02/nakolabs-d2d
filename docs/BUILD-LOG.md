@@ -1967,3 +1967,67 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given files and replacements were pasted exactly. Line endings are CRLF.
 - **Not done / deferred:** A browser. The ten phone-check steps. Did not query the database. Did not commit. No new table row. No `client_event_id`.
 - **Follow-ups:** The owner runs the ten phone-check steps after the batch lands.
+
+### FUI Session 3a — Leads, You and Leaderboard (round 2 design)
+- **Date:** 2026-10-15
+- **Model:** Grok 4.7
+- **Built:** Leads shows the count in the header ("Today · N leads", "Today · no leads yet", or "N to call back"). An empty Today is a card with Go to Logger. You is titled cards: Logging and Appearance are 44px switches, Sign out sits below the cards, and Back to admin is gone. The Leaderboard's Pitched / Sales / Value switch sits in the fixed header.
+- **Owner decisions:**
+  - OWNER — 2026-10-14 (FUI): the canvasser screens get the admin look and a fixed shell. Figma page "Field — UI fixes (14 Oct)" (file `EHxBRxJZGVAU1MuSU59RTH`, page 207:295) was approved on 2026-10-14. "Logger — clean build" stays read-only.
+  - OWNER — 2026-10-14 (O2): a slide-out drawer, opened from a menu button top-left in every header (as in admin), lists the whole app. The four bottom tabs stay.
+  - OWNER — 2026-10-14 (O3, item 4): headers are compact and fixed. Swiping never moves the header or the tab bar; only the body of the page scrolls.
+  - OWNER — 2026-10-14 (O4): the outcome pills stay in the right-hand column, same order, same size, same slide-to-confirm. They stay a light island in dark mode (H1–H4).
+  - OWNER — 2026-10-14 (Q1): Add note moves into the door card; the full-width note bar goes.
+  - OWNER — 2026-10-14 (Q2): the 3D toggle lives on the Map tab only.
+  - OWNER — 2026-10-14 (Q3): "Confirmed" keeps its dash until the CRM supplies it.
+- **Claude decisions:**
+  - CLAUDE — Leads (Figma L1–L3): the header subtitle carries the count ("Today · 3 leads", "Today · no leads yet", or "N to call back" on Call-backs). The empty Today state is a card: "No leads yet today", "They appear here the moment you log one, before they sync.", and a "Go to Logger" link (44px, `/field/logger`). Section label "This prop · in the order you took them". Lead rows: plate in `text-admin-headline`, other lines `text-admin-subhead`.
+  - CLAUDE — You (Figma Y1–Y2): Logging, Appearance, Sync, Today and About become titled cards (same shape as the Logger's). Logging and Appearance use a 44px segmented switch (`SwitchRow`, every option visible). Sign out is a full-width outlined 48px button below the cards, with the unsent-knocks note. "Back to admin" goes (the drawer has Open admin). Test ids `logging-mode-<value>`, `profile-logging-team`, `profile-attribution` are kept.
+  - CLAUDE — Leaderboard (Figma B1): the Pitched / Sales / Value switch sits in the fixed header, subtitle "Bristol branches · <period>". The body keeps the "‹ You" link and the period select.
+- **Acceptance:**
+  - EDIT 1 DONE. Three replacements in `components/field/crm/leaderboard-screen.tsx` (136 lines). Each find occurred once.
+  - EDIT 2 DONE. Four replacements in `components/field/leads-tab.tsx` (216 lines). Each find occurred once.
+  - EDIT 3 DONE. Two replacements in `components/field/profile-tab.tsx` (164 lines). Each find occurred once.
+  - `npm run verify:crm`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui6`: **PASS** — exit 0. Last line: `OK`.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0, run once after EDITs 1–3.
+  - eslint: **PASS** — `npx eslint` on the three files exit 0, run once after EDITs 1–3.
+  - ux-audit: the skill file is not in the tree. The three field files were read against `.ux-profile.md` and field-ergonomics. Code not changed. Findings: `SwitchRow` uses `gap-1` (4px) between options; Go to Logger and Sign out are outline-only; the You comment still says Sign out sits in the top third, while the button is after Today and before About.
+  - Phone: no browser. No phone check this session. Covered by fui-3b after the batch lands.
+- **Deviations from brief:** none. The given replacements were pasted exactly. Line endings are CRLF. fui-2 is landed (`components/field/ui/door-card.tsx` exists; `components/field/note-bar.tsx` does not).
+- **Not done / deferred:** A browser. The phone check (fui-3b). Did not query the database. Did not commit. No new table row. No `client_event_id`.
+- **Follow-ups:** fui-3b is the phone check after the batch lands.
+
+### FUI Session 3b — Map control stack, Key card, compact door sheet
+- **Date:** 2026-10-15
+- **Model:** Grok 4.7
+- **Built:** The Map has one top-right stack: 3D / 2D, Centre on me when there is a fix, and Key. The Key card starts closed. The full map has no +/- zoom buttons; pinch and double-tap still zoom; the scale bar stays. The licence button is a 44px round chip. The door sheet is a compact 2×2 (Lead, Contact, Rented/Council, Not In) with Other and Close in the header. Contact uses the speech-bubble icon.
+- **Owner decisions:**
+  - OWNER — 2026-10-14 (FUI): the canvasser screens get the admin look and a fixed shell. Figma page "Field — UI fixes (14 Oct)" (file `EHxBRxJZGVAU1MuSU59RTH`, page 207:295) was approved on 2026-10-14. "Logger — clean build" stays read-only.
+  - OWNER — 2026-10-14 (O2): a slide-out drawer, opened from a menu button top-left in every header (as in admin), lists the whole app. The four bottom tabs stay.
+  - OWNER — 2026-10-14 (O3, item 4): headers are compact and fixed. Swiping never moves the header or the tab bar; only the body of the page scrolls.
+  - OWNER — 2026-10-14 (O4): the outcome pills stay in the right-hand column, same order, same size, same slide-to-confirm. They stay a light island in dark mode (H1–H4).
+  - OWNER — 2026-10-14 (Q1): Add note moves into the door card; the full-width note bar goes.
+  - OWNER — 2026-10-14 (Q2): the 3D toggle lives on the Map tab only.
+  - OWNER — 2026-10-14 (Q3): "Confirmed" keeps its dash until the CRM supplies it.
+- **Claude decisions:**
+  - CLAUDE — Map controls (Figma M1): one stack top-right, each a solid 44px round button with a 1px line: 3D / 2D, Centre on me (only when there is a fix), Key. The My CRM leads chip stays top-left, off by default. The location-off notice sits under it.
+  - CLAUDE — Key (Figma M3): the legend is behind the Key button, closed by default, a card under the stack (`data-testid="map-legend"`, `aria-expanded` on the button). It stays words plus shape, never colour alone.
+  - CLAUDE — MapLibre's +/- zoom buttons are removed from the full map (pinch and double-tap still zoom). The scale bar stays. The licence button is a 44px round button (light chip on the dark map).
+  - CLAUDE — Door sheet (Figma M2): `rounded-t-2xl border-t border-line bg-surface`. Header row: door name, status line, Other, and a round Close (X). Below it four solid 56px tiles in a 2x2 grid: Lead, Contact / Rented/Council, Not In. Contact uses the speech-bubble icon, no emoji; the other tiles keep their text glyphs. Not In has a hairline so it holds on the dark sheet. Test ids `outcome-<key>`, `outcome-other`, `outcome-buttons` kept; `data-theme-island="light"` kept.
+  - CLAUDE — `OutcomeButtons` loses its `onOther` prop; the new `OtherOutcomeButton` is exported beside it. The Map is its only user.
+- **Acceptance:**
+  - EDIT 1 DONE. Two replacements in `app/globals.css` (419 lines). Each find occurred once.
+  - EDIT 2 DONE. Two replacements in `components/field/field-map.tsx` (1179 lines). Each find occurred once. `NavigationControl` is gone from that file.
+  - EDIT 3 DONE. Nine replacements in `components/field/map-tab.tsx` (400 lines). Each find occurred once.
+  - EDIT 4 DONE. One replacement in `components/field/outcome-buttons.tsx` (78 lines). The find occurred once. `OutcomeButtons` is only imported from `map-tab.tsx`.
+  - `npm run verify:crm`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui7`: **PASS** — exit 0. Last line: `All UI-7 geo checks passed.`
+  - `npm run verify:anchors`: **FAIL** — exit 1. Last line: `FAIL  1`. Pure checks passed, including 2000 doors in 7.16 ms. Live REF Speedwell: anchored count 182, expected 179. Not re-run.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0, run once after EDITs 1–4.
+  - eslint: **PASS** — `npx eslint` on the three TypeScript files exit 0, run once after EDITs 1–4.
+  - ux-audit: the skill file is not in the tree. `field-map.tsx`, `map-tab.tsx` and `outcome-buttons.tsx` were read against `.ux-profile.md` and field-ergonomics. Code not changed. Findings: the control stack is `top-2` (top band; Figma M1 places it there) with `gap-2` between 44px buttons. With three buttons the stack ends at 156px and the Key card (`top-40`, 160px) starts 4px under it; the card is `pointer-events-none`. `OtherOutcomeButton` is outside `data-theme-island="light"`. The dark licence chip is hardcoded `#f5f3ee`. START and END stay uppercase, as pasted. Door tiles are `min-h-14` with `gap-2`. Contact uses `SpeechIcon`; Lead, Rented/Council and Not In keep ★, ⌂ and ○.
+  - Phone: no browser. The ten steps are listed for the owner.
+- **Deviations from brief:** none. The given replacements were pasted exactly. Line endings are CRLF. fui-3a is in the tree (`components/field/leads-tab.tsx` contains `data-testid="leads-empty"`).
+- **Not done / deferred:** A browser. The ten phone-check steps. Did not query the database except the read inside `verify:anchors`. Did not commit. No new table row. No `client_event_id`. The live anchor-count mismatch was not investigated (anchor code is outside this session).
+- **Follow-ups:** The owner runs the ten phone-check steps after the batch lands. The REF Speedwell anchor count (182 vs 179) is for the owner.
