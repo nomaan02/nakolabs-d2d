@@ -331,6 +331,13 @@ html:has(.field-root) body {
   max-width: min(100%, 22rem);
 }
 
+/* FUI-2a: the Logger's banner sits over the bottom of the mini map. The
+   licence ⓘ keeps the corner beside it, and when tapped open its text sits
+   above the banner, never under it. */
+.logger-map-band .maplibregl-ctrl-bottom-right {
+  z-index: 4;
+}
+
 /* RT-3: while a route is drawn on a touch screen, one finger draws and two
    fingers move the map (MapLibre cooperative gestures). Its "use two
    fingers" message would flash on every stroke, so it is hidden. */

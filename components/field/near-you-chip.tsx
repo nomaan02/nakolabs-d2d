@@ -34,14 +34,17 @@ export function useNearYouIndex(): number | null {
   return chip.shown;
 }
 
-/** "Near you · 42 Coronation Road  Jump ›" on the mini map, top-left. */
+/**
+ * "Near you · 42 Coronation Road  Jump ›" on the mini map, top-left. FUI-2a:
+ * kept clear of the two top-right buttons (Recentre, Open Map).
+ */
 export function NearYouChip({ label, onJump }: { label: string; onJump: () => void }) {
   return (
     <button
       type="button"
       onClick={onJump}
       aria-label={`Jump to ${label}, the door nearest you`}
-      className="absolute left-0.5 top-0.5 z-[2] flex h-11 max-w-[calc(100%-3.75rem)] items-center px-1.5"
+      className="absolute left-0.5 top-0.5 z-[2] flex h-11 max-w-[calc(100%-6.75rem)] items-center px-1.5"
       data-testid="near-you-chip"
     >
       <span className="flex h-8 min-w-0 items-center gap-1.5 rounded-full border border-line bg-surface pl-2.5 pr-3 shadow-field-knob">

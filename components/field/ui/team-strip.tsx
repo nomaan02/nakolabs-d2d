@@ -29,7 +29,7 @@ export function TeamStrip({ rows }: { rows: TeamStripRow[] }) {
 
   return (
     <div
-      className="flex h-9 w-full items-center gap-4 border-b border-line bg-surface px-5"
+      className="flex h-9 w-full items-center gap-4 border-t border-line bg-surface px-4"
       data-testid="team-strip"
     >
       {rows.map((row) => (

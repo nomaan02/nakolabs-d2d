@@ -16,6 +16,7 @@ import { MiniMap } from "@/components/field/mini-map";
 import { NearYouChip, useNearYouIndex } from "@/components/field/near-you-chip";
 import { useGeo } from "@/components/field/geo-provider";
 import { SharingPill } from "@/components/field/sharing-pill";
+import { FieldHeader, FieldPage } from "@/components/field/shell/field-header";
 import { OutcomeColumn } from "@/components/field/outcome-column";
 import { Sheet } from "@/components/field/sheet";
 import { useSharedDoors } from "@/components/field/shared-knock-notice";
@@ -148,7 +149,8 @@ type BannerView = {
 
 /**
  * The Logger's ONE banner slot (P3). Priority: Failed > Instruction >
- * Offline/Pending > Info. Only the highest-priority truth showing at any
+ * Offline/Pending > Info > the interim-sweep notice (FUI-2a, the lowest: a
+ * standing fact, not news). Only the highest-priority truth showing at any
  * moment is rendered — never stacked, never hidden behind a different one.
  */
 function computeBanner(input: {
@@ -160,8 +162,10 @@ function computeBanner(input: {
   onRetryAll: () => void;
   /** UI-7 C3b (owner U7-1): shown on a prop until the canvasser's first log. */
   sharingNotice: { onStop: () => void } | null;
+  /** FUI-2a: the door order is the interim sweep, not a route (was a paragraph under the stats). */
+  interimOrder: boolean;
 }): BannerView | null {
-  const { status, cards, shared, dismissedShared, onDismissShared, onRetryAll, sharingNotice } = input;
+  const { status, cards, shared, dismissedShared, onDismissShared, onRetryAll, sharingNotice, interimOrder } = input;
 
   if (status.failedRows.length > 0) {
     const n = status.failedRows.length;
@@ -197,6 +201,13 @@ function computeBanner(input: {
       glyph: "!",
       message: sharedKnockMessage(shared.count, shared.example),
       action: { label: "OK", onPress: onDismissShared },
+    };
+  }
+  if (interimOrder) {
+    return {
+      kind: "instruction",
+      glyph: "\u21c4",
+      message: "Door order follows the interim sweep, so numbers can look out of order",
     };
   }
   return null;
@@ -342,6 +353,7 @@ export function LoggerTab() {
   }, [status.failedRows]);
 
   const routeDoor = routeProgress.doors[cursor.index];
+  const interimOrder = routeProgress.ready && !sequenceIsRouteDerived(routeProgress.hasRoute);
 
   const banner = useMemo(
     () =>
@@ -356,8 +368,9 @@ export function LoggerTab() {
           showSharingNotice && assignmentId
             ? { onStop: () => void setSharing(assignmentId, false) }
             : null,
+        interimOrder,
       }),
-    [status, routeDoor, shared, dismissedShared, retryAllFailed, showSharingNotice, assignmentId],
+    [status, routeDoor, shared, dismissedShared, retryAllFailed, showSharingNotice, assignmentId, interimOrder],
   );
 
   // UI-7 C2 (owner H3). Suggests the door nearest the canvasser along the
@@ -380,9 +393,11 @@ export function LoggerTab() {
 
   if (!door || !canvasserId) {
     return (
-      <p className="px-4 pt-8 text-field-body text-ink-soft">
-        {door ? "Signing in\u2026" : "This prop has no doors."}
-      </p>
+      <FieldPage testId="logger-tab" header={<FieldHeader title={assignment.territory_name} undo={false} />}>
+        <p className="px-4 pt-8 text-field-body text-ink-soft">
+          {door ? "Signing in\u2026" : "This prop has no doors."}
+        </p>
+      </FieldPage>
     );
   }
 
@@ -508,50 +523,56 @@ export function LoggerTab() {
 
   return (
     <div className="flex h-full flex-col bg-field-bg" data-testid="logger-tab">
-      {/* UI-7 C4 (owner U7-6, 2026-10-06): the visit line sits right under the prop
-          name, the view pills share a row with the Sharing pill, and the map band
-          below (flex-1) takes the height that frees up. */}
-      <header className="shrink-0 px-4 pt-2 pb-1.5" data-testid="logger-header">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="min-w-0 truncate text-field-title-sm text-ink" data-testid="logger-territory">
-            {assignment.territory_name}
-          </h1>
-          <div className="-my-1.5 shrink-0">
-            <IdChip
-              username={signedInAs}
-              sync={idChipSync(status)}
-              onOpen={() => setSheet({ kind: "sync" })}
-            />
-          </div>
-        </div>
-        {/* UI-8 D2b (owner U8-4): the mode badge leads the visit line. */}
-        <div className="mt-0.5 flex min-w-0 items-center gap-2">
-          {exceptionsOnly ? (
-            <span
-              className="inline-flex h-5 shrink-0 items-center rounded-full bg-prop-soft px-2 text-field-eyebrow text-prop"
-              data-testid="logging-mode-badge"
-            >
-              Exceptions only
+      {/* FUI-2a (owner 2026-10-14, O3; Figma frame 01): the shared fixed header.
+          Bar: menu, prop name, visit line (UI-8 D2b: the mode badge leads it),
+          ID chip. Then the view pills with the Sharing pill (UI-7 C4), then the
+          team strip. The undo ring stays on the door panel, so `undo={false}`. */}
+      <FieldHeader
+        testId="logger-header"
+        undo={false}
+        title={<span data-testid="logger-territory">{assignment.territory_name}</span>}
+        subtitle={
+          <span className="flex min-w-0 items-center gap-2">
+            {exceptionsOnly ? (
+              <span
+                className="inline-flex h-5 shrink-0 items-center rounded-full bg-prop-soft px-2 text-admin-pill text-prop"
+                data-testid="logging-mode-badge"
+              >
+                Exceptions only
+              </span>
+            ) : null}
+            <span className="min-w-0 truncate" data-testid="logger-area-line">
+              {formatLoggerAreaLine(fieldHeaderParts(assignment, routeProgress))}
             </span>
-          ) : null}
-          <p className="min-w-0 truncate text-field-body text-ink-soft" data-testid="logger-area-line">
-            {formatLoggerAreaLine(fieldHeaderParts(assignment, routeProgress))}
-          </p>
-        </div>
-        <div className="mt-1.5 flex items-center justify-between gap-3">
+          </span>
+        }
+        right={
+          <IdChip
+            username={signedInAs}
+            sync={idChipSync(status)}
+            onOpen={() => setSheet({ kind: "sync" })}
+          />
+        }
+      >
+        <div className="flex items-center justify-between gap-3 px-4 pt-1 pb-2">
           <div className="min-w-0 flex-1">
             <ViewTabs views={LOGGER_VIEWS} active={view} onChange={setView} />
           </div>
           <SharingPill assignmentId={assignment.assignment_id} />
         </div>
-      </header>
-
-      <TeamStrip rows={teamRows} />
+        <TeamStrip rows={teamRows} />
+      </FieldHeader>
 
       {view === "logging" ? (
         <>
-      <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto" data-testid="logger-body">
-        <div className="relative min-h-[112px] flex-1" data-testid="logger-map-band">
+      <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain" data-testid="logger-body">
+        {/* FUI-2a (Figma Field/MiniMapCard): an inset card that takes the height
+            left over. The banner sits over its bottom edge, so no line is
+            reserved for it and nothing below moves when one appears. */}
+        <div
+          className="logger-map-band relative mx-4 mt-3 min-h-24 flex-1 overflow-hidden rounded-field-lg border border-line"
+          data-testid="logger-map-band"
+        >
           <div className="absolute inset-0">
             <MemoMiniMap
               mode={mode}
@@ -566,15 +587,18 @@ export function LoggerTab() {
               overlay={nearOverlay}
             />
           </div>
-        </div>
-        <div className="flex h-11 shrink-0 items-center px-4" data-testid="logger-status-line">
           {banner ? (
-            <div className="min-w-0 flex-1">
+            <div
+              className={`absolute right-10 bottom-2 left-2 z-[3] rounded-field-sm bg-surface shadow-admin-float ${
+                banner.kind === "instruction" ? "px-3" : ""
+              }`}
+              data-testid="logger-status-line"
+            >
               <StatusBanner kind={banner.kind} glyph={banner.glyph} message={banner.message} action={banner.action} />
             </div>
           ) : null}
         </div>
-        <div className="flex shrink-0 items-end gap-2 px-4 pt-1 pb-3" data-testid="logger-panel">
+        <div className="flex shrink-0 items-end gap-2 px-4 pt-3 pb-3" data-testid="logger-panel">
           <div className="relative min-w-0 flex-1" data-testid="logger-door-column">
             <UndoButton className="absolute -top-3.5 right-2 z-10" />
             {allDone ? (
@@ -627,11 +651,6 @@ export function LoggerTab() {
               <StatRow label="Confirmed" value={null} />
             </div>
 
-            {routeProgress.ready && !sequenceIsRouteDerived(routeProgress.hasRoute) ? (
-              <p className="mt-3 text-field-body text-ink-soft" data-testid="out-of-order-banner">
-                Door order follows the interim sweep, not the street. Numbers will look out of sequence.
-              </p>
-            ) : null}
           </div>
 
           {allDone ? (
@@ -778,23 +797,27 @@ function EndOfProp({ doorCount }: { doorCount: number }) {
   );
 }
 
+/** FUI-2a: the loading, empty and error states keep the fixed header, so the menu is always there. */
 function PhaseNotice({ phase }: { phase: FieldPhase }) {
+  let body: ReactNode = null;
   if (phase.kind === "loading") {
-    return <p className="px-4 pt-8 text-field-body text-ink-soft">Loading today&apos;s prop{"\u2026"}</p>;
-  }
-  if (phase.kind === "empty") {
-    return (
+    body = <p className="px-4 pt-8 text-field-body text-ink-soft">Loading today&apos;s prop{"\u2026"}</p>;
+  } else if (phase.kind === "empty") {
+    body = (
       <p className="px-4 pt-8 text-field-body text-ink-soft">
         Nothing is assigned to you today, so there is no sequence to work through.
       </p>
     );
-  }
-  if (phase.kind === "error") {
-    return (
+  } else if (phase.kind === "error") {
+    body = (
       <p className="px-4 pt-8 text-field-body text-ink-soft" role="alert">
         {phase.message}
       </p>
     );
   }
-  return null;
+  return (
+    <FieldPage testId="logger-tab" header={<FieldHeader title="Logger" undo={false} />}>
+      {body}
+    </FieldPage>
+  );
 }

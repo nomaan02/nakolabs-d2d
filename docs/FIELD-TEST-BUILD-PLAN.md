@@ -164,6 +164,7 @@
 | FUI-1a | Field shell: fixed page, header, drawer | DONE | 2026-10-14 | Field shell: page never scrolls (html/body lock), FieldHeader + FieldPage, drawer (menu top-left, full app map, 44px appearance, no request on open). | — |
 | FUI-1b | Leads, You, Leaderboard and Map use the fixed header | DONE | 2026-10-14 | Leads, You, Leaderboard and Map on FieldHeader/FieldPage; undo ring in the header (FloatingUndo removed). | — |
 | FUI-1c | Field palette sweep (old worksheet palette out) | DONE | 2026-10-14 | Palette sweep: bg-worksheet and rounded-md out of You, door sheets, lead sheet, sync status; inputs at 3:1+. | — |
+| FUI-2a | Logger: fixed header, mini map card, banner over the map | DONE | 2026-10-15 | Logger: FieldHeader with view pills, Sharing and team strip; mini map as an inset card (Open Map top-right, no 3D); banner over the map, no reserved line. | — |
 
 ---
 

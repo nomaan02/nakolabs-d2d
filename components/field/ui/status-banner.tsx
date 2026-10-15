@@ -16,6 +16,8 @@ import type { ReactNode } from "react";
  * component: the composer (Session C) decides which kind is showing.
  *
  * 2026-09-29 owner D2: slim row under the map, instruction is plain text.
+ * 2026-10-14 FUI-2a: the Logger now lays it over the bottom edge of the mini
+ * map card, on a solid surface, instead of a reserved line under the map.
  */
 export type StatusBannerKind = "instruction" | "offline" | "error" | "info";
 

@@ -1894,3 +1894,41 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given replacements were pasted exactly. Line endings are CRLF.
 - **Not done / deferred:** A browser. The nine phone-check steps. Did not query the database. Did not commit. No new table row. No `client_event_id`.
 - **Follow-ups:** The owner runs the nine phone-check steps after the batch lands. fui-2a puts the Logger on the same header.
+
+### FUI Session 2a — Logger header, mini map card, banner over the map
+- **Date:** 2026-10-15
+- **Model:** Grok 4.7
+- **Built:** The Logger uses the shared fixed header. The bar is the menu, the prop name, the visit line (the Exceptions only badge still leads it) and the ID chip. The Logging / Survey pills share a row with the Sharing pill, then the team strip. The undo ring stays on the door panel. The mini map is an inset card: Open Map top-right, Recentre to its left after a manual move, no 3D toggle. The one banner sits over the bottom of that card. The interim-sweep sentence is that banner's lowest line. Loading, empty, error and signing-in keep the header.
+- **Owner decisions:**
+  - OWNER — 2026-10-14 (FUI): the canvasser screens get the admin look and a fixed shell. Figma page "Field — UI fixes (14 Oct)" (file `EHxBRxJZGVAU1MuSU59RTH`, page 207:295) was approved on 2026-10-14. "Logger — clean build" stays read-only.
+  - OWNER — 2026-10-14 (O2): a slide-out drawer, opened from a menu button top-left in every header (as in admin), lists the whole app. The four bottom tabs stay.
+  - OWNER — 2026-10-14 (O3, item 4): headers are compact and fixed. Swiping never moves the header or the tab bar; only the body of the page scrolls.
+  - OWNER — 2026-10-14 (O4): the outcome pills stay in the right-hand column, same order, same size, same slide-to-confirm. They stay a light island in dark mode (H1–H4).
+  - OWNER — 2026-10-14 (Q1): Add note moves into the door card; the full-width note bar goes.
+  - OWNER — 2026-10-14 (Q2): the 3D toggle lives on the Map tab only.
+  - OWNER — 2026-10-14 (Q3): "Confirmed" keeps its dash until the CRM supplies it.
+- **Claude decisions:**
+  - CLAUDE — Logger header is `FieldHeader` (Figma frame 01). `undo={false}`: the ring stays on the door panel. Extra rows are the view pills with the Sharing pill, then the team strip.
+  - CLAUDE — `TeamStrip` sits inside the header. Its line moves from the bottom to the top (`border-t`). Horizontal padding is `px-4`.
+  - CLAUDE — The mini map is an inset card (16px margin, radius 16, 1px line) that takes the leftover height (minimum 96px). Open Map is top-right. Recentre appears to its left only after a manual move. The near-you chip is narrowed so it does not run under those two buttons. The 3D toggle is removed from this map. The map still follows the Map tab's 2D/3D choice.
+  - CLAUDE — The one banner slot (same priority, plus the interim-sweep notice as the lowest) sits over the bottom edge of the map card on a solid surface. No reserved 44px line, so nothing below moves when a banner appears. The licence control keeps the bottom-right corner and opens above the banner (`.logger-map-band .maplibregl-ctrl-bottom-right { z-index: 4 }`).
+  - CLAUDE — The "Door order follows the interim sweep" paragraph under the stats becomes that lowest banner line.
+  - CLAUDE — Loading, empty, error and "Signing in…" keep the header, so the menu is always there.
+- **Acceptance:**
+  - EDIT 1 DONE. One replacement in `app/globals.css` (394 lines). The find occurred once.
+  - EDIT 2 DONE. Eleven replacements in `components/field/logger-tab.tsx` (823 lines). Each find occurred once.
+  - EDIT 3 DONE. Five replacements in `components/field/mini-map.tsx` (124 lines). Each find occurred once.
+  - EDIT 4 DONE. One replacement in `components/field/near-you-chip.tsx` (58 lines). The find occurred once.
+  - EDIT 5 DONE. One replacement in `components/field/ui/status-banner.tsx` (69 lines). The find occurred once.
+  - EDIT 6 DONE. One replacement in `components/field/ui/team-strip.tsx` (53 lines). The find occurred once.
+  - `npm run verify:ui1`: **PASS** — exit 0. Last line: `OK`.
+  - `npm run verify:ui6`: **PASS** — exit 0. Last line: `OK`.
+  - `npm run verify:ui7`: **PASS** — exit 0. Last line: `All UI-7 geo checks passed.`
+  - `npm run verify:ui8`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0.
+  - eslint: **PASS** — `npx eslint` on the five TypeScript files exit 0.
+  - ux-audit: the skill file is not in the tree. The five field files were read against `.ux-profile.md` and field-ergonomics. Code not changed. Findings: Open Map and Recentre are `top-2`, 8px apart (`right-2` + 44px ends at 52px from the right; `right-15` starts at 60px). At `min-h-24` a banner action (`h-11` on an `h-8` row, `bottom-2`) can meet those buttons. The overlay is `bg-surface` with `shadow-admin-float` and no 1px line of its own. The card's `overflow-hidden` does not clip the action: its 6px downward overflow sits inside the 8px bottom inset.
+  - Phone: no browser. No phone check this session. Covered by fui-2b after the batch lands.
+- **Deviations from brief:** none. The given replacements were pasted exactly. Line endings are CRLF.
+- **Not done / deferred:** A browser. The phone check (fui-2b). Did not query the database. Did not commit. No new table row. No `client_event_id`.
+- **Follow-ups:** fui-2b is the phone check after the batch lands.

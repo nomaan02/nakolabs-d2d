@@ -2,7 +2,15 @@
 
 ## Current state
 
-- Last updated: 2026-10-14 (FUI Session 1c). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Last updated: 2026-10-15 (FUI Session 2a). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- FUI-2a: the Logger uses `FieldHeader` with `undo={false}`. The bar is the menu, the prop name, the visit line (the Exceptions only badge still leads it) and the ID chip. Extra rows: the Logging / Survey pills with the Sharing pill, then the team strip (`border-t`, `px-4`). The undo ring stays on the door panel.
+- The mini map is an inset card (`mx-4 mt-3`, minimum 96px, radius 16, 1px line). Open Map is top-right. Recentre sits to its left after a manual move. The 3D toggle is off this map. The near-you chip is narrowed so it stays clear of those two buttons. The map still follows the Map tab's 2D/3D choice.
+- The one banner sits over the bottom edge of that card, on a solid surface. Nothing below moves when one appears. The interim-sweep sentence is the lowest-priority line. `.logger-map-band .maplibregl-ctrl-bottom-right { z-index: 4 }` keeps the licence control in the corner, above the banner.
+- Loading, empty, error and "Signing in…" keep the header, so the menu is always there.
+- Files: `app/globals.css` (394 lines), `components/field/logger-tab.tsx` (823 lines), `components/field/mini-map.tsx` (124 lines), `components/field/near-you-chip.tsx` (58 lines), `components/field/ui/status-banner.tsx` (69 lines), `components/field/ui/team-strip.tsx` (53 lines).
+- `npx tsc --noEmit` exit 0. `npx eslint` on the five TypeScript files exit 0. `npm run verify:ui1` exit 0, last line `OK`. `npm run verify:ui6` exit 0, last line `OK`. `npm run verify:ui7` exit 0, last line `All UI-7 geo checks passed.` `npm run verify:ui8` exit 0, last line `ALL PASS`.
+- No browser. Phone check is fui-2b after the batch lands. No database access. No table row. No `client_event_id`. Password, profile and role were not changed. `lib/sync/queue.ts` was not edited.
+- The `ux-audit` skill file is not in the tree. The five field files were checked against `.ux-profile.md` and field-ergonomics. Code left as pasted. Findings: Open Map and Recentre sit in the top band, 8px apart. At the 96px map minimum a banner action can meet those buttons. The banner overlay is a solid surface with a shadow and no 1px line of its own.
 - FUI-1c: token swap only on You, the door sheets, the lead sheet and sync status. `bg-worksheet` and `rounded-md` are gone from those four files. Section rows are `border-line bg-surface`. Text inputs use `border-ink-muted`. The rejected-knocks box uses `bg-error-bg`. Layout, sizes and the 2px ink borders on the other secondary buttons were left as they were.
 - Files: `components/field/door-sheets.tsx` (190 lines), `components/field/lead-sheet.tsx` (159 lines), `components/field/profile-tab.tsx` (175 lines), `components/field/sync-status.tsx` (122 lines).
 - `npx tsc --noEmit` exit 0. `npx eslint` on the four files exit 0. `npm run verify:crm` exit 0, last line `ALL PASS`.
@@ -14,7 +22,7 @@
 - Map: prop name, visit line, Sharing pill on the right. The cached-copy line and the teammate lines are extra rows. Loading, empty and error use `FieldPage` with title "Map". The ready map is a flex column: `FieldHeader` then the map. The `pr-14` space for the floating undo is gone.
 - `app/(field)/layout.tsx` (75 lines): `<main>` is `bg-surface`. The content and the tab bar sit in `FieldShell`. `FloatingUndo` is not mounted.
 - FUI-1a remains: in /field the page itself never scrolls. `html:has(.field-root)` and its `body` are `height: 100%; overflow: hidden; overscroll-behavior: none`. Admin has no `.field-root`.
-- `components/field/shell/field-header.tsx` (85 lines): `FieldHeader` and `FieldPage`. Solid surface, 1px line, no blur. The Logger does not use them yet (fui-2a).
+- `components/field/shell/field-header.tsx` (85 lines): `FieldHeader` and `FieldPage`. Solid surface, 1px line, no blur. The Logger uses them (FUI-2a), with `undo={false}`.
 - New `components/field/shell/field-shell.tsx` (41 lines): drawer open state and `FieldMenuButton`. A route change closes the drawer.
 - New `components/field/shell/field-drawer.tsx` (220 lines): 85% overlay. Scrim, close, Escape, swipe left, focus trap (`useOverlayFocus`). Items from `lib/field/nav.ts` (69 lines). My results and Leaderboard only when `knownCrmMe` has a name. Opening the drawer does not call Supabase.
 - `lib/field/crm-data.ts`: `fetchCrmMe` writes `d2d.crm.me`. `knownCrmMe` reads it for this account only.
@@ -48,7 +56,7 @@
 - Migrations 029–038 remain applied, as recorded before this session. Migration 039's file is in the repo; this session did not check whether it is applied. The RT-2 brief states migration 040 is live; this session did not check. Migration 041's file is in the repo (615 lines); this session did not apply it.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - External settings: none. The RT-2 brief states migration 040 is already live. Wayne to OK before canvassers use call-back phones. The owner runs the CRM backfill once after landing so call-backs already in the list get their notes. The owner runs `npm run verify:stage5b-r2` against the live database. The owner applies migration 041 in the Supabase SQL editor.
-- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-6 C remain DONE. RT-1, RT-2 and RT-3 file work is in the tree. RT-1b adds the migration 041 file only. FUI-1a changes the field layout and adds the field shell. FUI-1b puts Leads, You, Leaderboard and Map on that header and removes `FloatingUndo`. FUI-1c takes `bg-worksheet` and `rounded-md` out of You, the door sheets, the lead sheet and sync status. `components/field/icons.tsx` was not edited this session (`EraseIcon` remains from RT-3).
+- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-6 C remain DONE. RT-1, RT-2 and RT-3 file work is in the tree. RT-1b adds the migration 041 file only. FUI-1a changes the field layout and adds the field shell. FUI-1b puts Leads, You, Leaderboard and Map on that header and removes `FloatingUndo`. FUI-1c takes `bg-worksheet` and `rounded-md` out of You, the door sheets, the lead sheet and sync status. FUI-2a puts the Logger on the same header, makes the mini map an inset card, and lays the banner over the map. `components/field/icons.tsx` was not edited this session (`EraseIcon` remains from RT-3).
 
 ## Log
 
@@ -3437,3 +3445,34 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. A phone. The nine phone-check steps. The `ux-audit` skill file is not in the tree.
 - **External settings:** none
 - **Open questions for Claude:** none from this session. The owner runs the nine phone-check steps after the batch lands. The Logger takes the same header in fui-2a.
+
+### 2026-10-15 — FUI Session 2a (uncommitted)
+
+- **Item:** other
+- **What changed:** The Logger uses the shared fixed header. The bar is the menu, the prop name, the visit line (the Exceptions only badge still leads it) and the ID chip. The view pills share a row with the Sharing pill, then the team strip. The undo ring stays on the door panel. The mini map is an inset card with Open Map top-right and no 3D toggle. The banner sits over the bottom of that card. The interim-sweep sentence is the lowest banner line. Loading, empty, error and signing-in keep the header.
+- **Files:**
+  - Changed: `app/globals.css`, `components/field/logger-tab.tsx`, `components/field/mini-map.tsx`, `components/field/near-you-chip.tsx`, `components/field/ui/status-banner.tsx`, `components/field/ui/team-strip.tsx`, `docs/FIELD-TEST-BUILD-PLAN.md` (FUI-2a row after FUI-1c), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `.handoff/reports/fui-2a.md`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none. `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - OWNER — 2026-10-14 (FUI): the canvasser screens get the admin look and a fixed shell. Figma page "Field — UI fixes (14 Oct)" (file `EHxBRxJZGVAU1MuSU59RTH`, page 207:295) was approved on 2026-10-14. "Logger — clean build" stays read-only.
+  - OWNER — 2026-10-14 (O2): a slide-out drawer, opened from a menu button top-left in every header (as in admin), lists the whole app. The four bottom tabs stay.
+  - OWNER — 2026-10-14 (O3, item 4): headers are compact and fixed. Swiping never moves the header or the tab bar; only the body of the page scrolls.
+  - OWNER — 2026-10-14 (O4): the outcome pills stay in the right-hand column, same order, same size, same slide-to-confirm. They stay a light island in dark mode (H1–H4).
+  - OWNER — 2026-10-14 (Q1): Add note moves into the door card; the full-width note bar goes.
+  - OWNER — 2026-10-14 (Q2): the 3D toggle lives on the Map tab only.
+  - OWNER — 2026-10-14 (Q3): "Confirmed" keeps its dash until the CRM supplies it.
+  - CLAUDE — Logger header is `FieldHeader` (Figma frame 01). `undo={false}`: the ring stays on the door panel. Extra rows are the view pills with the Sharing pill, then the team strip.
+  - CLAUDE — `TeamStrip` sits inside the header. Its line moves from the bottom to the top (`border-t`). Horizontal padding is `px-4`.
+  - CLAUDE — The mini map is an inset card (16px margin, radius 16, 1px line) that takes the leftover height (minimum 96px). Open Map is top-right. Recentre appears to its left only after a manual move. The near-you chip is narrowed so it does not run under those two buttons. The 3D toggle is removed from this map. The map still follows the Map tab's 2D/3D choice.
+  - CLAUDE — The one banner slot (same priority, plus the interim-sweep notice as the lowest) sits over the bottom edge of the map card on a solid surface. No reserved 44px line, so nothing below moves when a banner appears. The licence control keeps the bottom-right corner and opens above the banner (`.logger-map-band .maplibregl-ctrl-bottom-right { z-index: 4 }`).
+  - CLAUDE — The "Door order follows the interim sweep" paragraph under the stats becomes that lowest banner line.
+  - CLAUDE — Loading, empty, error and "Signing in…" keep the header, so the menu is always there.
+- **Deviations from plan or brief:** none. The given replacements were pasted exactly. Line endings are CRLF. The `ux-audit` skill file is not in the tree; the five field files were checked against `.ux-profile.md` and field-ergonomics and the pasted code was not changed.
+- **Invariants:** No device GPS was read. No coordinates left the device. No field write. `lib/sync/queue.ts` was not edited. Coverage stays derived. No scoring was added in `/field`. No knock was written. Outcome pills were not moved or resized.
+- **Verified:** fui-1 is in the tree (`components/field/shell/field-header.tsx` exists; `components/field/undo-toast.tsx` does not). Each find block occurred once. `npx tsc --noEmit` exit 0. `npx eslint` on the five TypeScript files exit 0. `npm run verify:ui1` exit 0, last line `OK`. `npm run verify:ui6` exit 0, last line `OK`. `npm run verify:ui7` exit 0, last line `All UI-7 geo checks passed.` `npm run verify:ui8` exit 0, last line `ALL PASS`.
+- **Not verified:** A browser. A phone. fui-2b covers the phone check after the batch lands. The `ux-audit` skill file is not in the tree.
+- **External settings:** none
+- **Open questions for Claude:** none from this session. fui-2b is the phone check after the batch lands.

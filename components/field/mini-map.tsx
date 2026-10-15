@@ -6,7 +6,6 @@ import { useGeo } from "@/components/field/geo-provider";
 import { LocateIcon, MapIcon } from "@/components/field/icons";
 import { LocationOffNotice } from "@/components/field/location-off-notice";
 import { mapPositionOf } from "@/lib/field/geo";
-import { toggleMapView, useMapView } from "@/lib/field/map-view";
 import type { DoorLabels } from "@/lib/field/labels";
 import type { LocalOutcomes } from "@/lib/field/local-outcomes";
 import type { DoorCollection } from "@/lib/geo/todays-assignment";
@@ -35,6 +34,9 @@ import type { RouteTiers } from "@/lib/map/route-progress";
  * Recentre goes to the canvasser heading-up when the fix is 30 m or better, else to the door north-up.
  * The tap also asks iOS for the compass. `overlay` is the top-left slot (UI-7 C2 near-you chip);
  * with no overlay, "Location off" shows there when location is denied or unavailable.
+ * 2026-10-14 FUI-2a (owner Q2, Figma Field/MiniMapCard 208:416): the 3D toggle lives on the Map
+ * tab only. The top-right corner holds Open Map, with Recentre to its left after a manual move.
+ * The bottom edge is the Logger's banner slot; the attribution ⓘ keeps the bottom-right corner.
  */
 export function MiniMap({
   doors,
@@ -61,7 +63,6 @@ export function MiniMap({
   /** UI-7 C2: top-left slot (the near-you chip). */
   overlay?: ReactNode;
 }) {
-  const mapView = useMapView();
   const geo = useGeo();
   const [moved, setMoved] = useState(false);
   const [recenterNonce, setRecenterNonce] = useState(0);
@@ -96,18 +97,9 @@ export function MiniMap({
       {overlay ?? (locationOff ? <LocationOffNotice className="left-2 top-2" /> : null)}
       <button
         type="button"
-        aria-pressed={mapView === "3d"}
-        onClick={() => toggleMapView()}
-        className="absolute right-2 top-2 z-[2] flex size-11 items-center justify-center rounded-full border border-line bg-surface text-field-button-label"
-        data-testid="map-view-toggle"
-      >
-        {mapView === "3d" ? "2D" : "3D"}
-      </button>
-      <button
-        type="button"
         onClick={onOpenMap}
         aria-label="Open the full map, centred on this door"
-        className="absolute left-2 bottom-2 z-[2] flex size-11 items-center justify-center rounded-full border border-line bg-surface text-ink shadow-field-knob"
+        className="absolute right-2 top-2 z-[2] flex size-11 items-center justify-center rounded-full border border-line bg-surface text-ink shadow-field-knob"
         data-testid="mini-map-open"
       >
         <MapIcon className="size-5" />
@@ -121,7 +113,7 @@ export function MiniMap({
             setRecenterNonce((n) => n + 1);
           }}
           aria-label={goodFix ? "Recentre on you" : "Recentre on this door"}
-          className="absolute right-2 bottom-2 z-[2] flex size-11 items-center justify-center rounded-full border border-line bg-surface text-prop shadow-field-knob"
+          className="absolute right-15 top-2 z-[2] flex size-11 items-center justify-center rounded-full border border-line bg-surface text-prop shadow-field-knob"
           data-testid="mini-map-recentre"
         >
           <LocateIcon className="size-5" />
