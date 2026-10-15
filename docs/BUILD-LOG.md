@@ -1789,3 +1789,42 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given file was pasted exactly. Line endings are CRLF.
 - **Not done / deferred:** Did not apply migration 041. Did not call `apply_migration`. Did not regenerate types. Did not query the live database. No browser. Did not commit. No new table row. No `client_event_id`.
 - **Follow-ups:** The owner applies migration 041 in the Supabase SQL editor. /field is unchanged.
+
+### FUI Session 1a — field shell
+- **Date:** 2026-10-14
+- **Model:** Grok 4.7
+- **Built:** The field page itself cannot scroll, so a swipe cannot move the header or the tab bar. `FieldHeader` and `FieldPage` are the shared header and the one scroller. A menu button will sit top-left; the drawer lists the app. The four bottom tabs stay. `FloatingUndo` is still mounted. The tabs do not use the new header yet.
+- **Owner decisions:**
+  - OWNER — 2026-10-14 (FUI): the canvasser screens get the admin look and a fixed shell. Figma page "Field — UI fixes (14 Oct)" (file `EHxBRxJZGVAU1MuSU59RTH`, page 207:295) was approved on 2026-10-14. "Logger — clean build" stays read-only.
+  - OWNER — 2026-10-14 (O2): a slide-out drawer, opened from a menu button top-left in every header (as in admin), lists the whole app. The four bottom tabs stay.
+  - OWNER — 2026-10-14 (O3, item 4): headers are compact and fixed. Swiping never moves the header or the tab bar; only the body of the page scrolls.
+  - OWNER — 2026-10-14 (O4): the outcome pills stay in the right-hand column, same order, same size, same slide-to-confirm. They stay a light island in dark mode (H1–H4).
+  - OWNER — 2026-10-14 (Q1): Add note moves into the door card; the full-width note bar goes.
+  - OWNER — 2026-10-14 (Q2): the 3D toggle lives on the Map tab only.
+  - OWNER — 2026-10-14 (Q3): "Confirmed" keeps its dash until the CRM supplies it.
+- **Claude decisions:**
+  - CLAUDE — `app/globals.css`: `html:has(.field-root)` and its `body` get `height: 100%; overflow: hidden; overscroll-behavior: none`. The page itself can never scroll or rubber-band in /field. Admin is untouched (no `.field-root`).
+  - CLAUDE — `FieldHeader` (menu, title, one-line subtitle, the page's own items, the undo ring; `children` are extra rows) and `FieldPage` (header, then the only scroller, `overscroll-y-contain`). Solid surface with a 1px line, no blur. Applied to the tabs in fui-1b and fui-2a.
+  - CLAUDE — `FieldShell` holds the drawer's open state and `FieldMenuButton`. Mounted inside `.field-root`. A route change closes the drawer.
+  - CLAUDE — `FieldDrawer` follows admin's NavDrawer (85% wide, scrim, close, Escape, swipe left, focus trap via `useOverlayFocus`, no edge-swipe to open). Items from `lib/field/nav.ts`. My results and Leaderboard show only when `knownCrmMe` has a name, read from localStorage, so opening the drawer never calls Supabase. Appearance is 44px (Auto / Light / Dark).
+  - CLAUDE — Leads and Call-backs call `requestLeadsView` (`d2d.leads.view`) and fire an event. An open Leads tab listens in fui-1b.
+  - CLAUDE — `app/(field)/layout.tsx`: `<main>` is `bg-surface` and wraps the content and tab bar in `FieldShell`. `FloatingUndo` stays until fui-1b.
+  - CLAUDE — `scripts/verify-crm.ts` allows `components/admin/ui/*`. Every other admin import still fails the check.
+- **Acceptance:**
+  - EDIT 1 DONE. Two replacements in `app/(field)/layout.tsx`. Each find occurred once.
+  - EDIT 2 DONE. One replacement in `app/globals.css`. The find occurred once.
+  - EDIT 3 DONE. New `components/field/shell/field-drawer.tsx` (220 lines). Pasted from the brief.
+  - EDIT 4 DONE. New `components/field/shell/field-header.tsx` (85 lines). Pasted from the brief.
+  - EDIT 5 DONE. New `components/field/shell/field-shell.tsx` (41 lines). Pasted from the brief.
+  - EDIT 6 DONE. One replacement in `lib/field/crm-data.ts`. The find occurred once.
+  - EDIT 7 DONE. New `lib/field/nav.ts` (69 lines). Pasted from the brief.
+  - EDIT 8 DONE. One replacement in `scripts/verify-crm.ts`. The find occurred once.
+  - `npm run verify:crm`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0.
+  - eslint: **PASS** — `npx eslint` on the seven TypeScript files exit 0.
+  - ux-audit: the skill file is not in the tree. The three shell files were read against `.ux-profile.md` and field-ergonomics. Code not changed. Findings: drawer rows and Appearance use `gap-1` (4px), under the 8px wet-thumb gap; the active row is a light `bg-prop-soft` tint.
+  - Phone: no browser. No phone check this session. Covered by fui-1c after the batch lands.
+- **Deviations from brief:** none. The given files and replacements were pasted exactly. Line endings are CRLF.
+- **Not done / deferred:** A browser. The phone check (fui-1c). Applying `FieldHeader` to the tabs (fui-1b, fui-2a). Did not query the database. Did not commit. No new table row. No `client_event_id`.
+- **Follow-ups:** fui-1b wires the header onto the tabs and listens for the Leads view event. fui-1c is the phone check.

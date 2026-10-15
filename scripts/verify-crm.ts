@@ -548,9 +548,12 @@ const publicKey = files.filter((f) => rel(f) !== self && /NEXT_PUBLIC_CRM/.test(
 check("no NEXT_PUBLIC_ CRM variable anywhere", publicKey.length === 0);
 // CRM-5 C (AGENTS.md P4b exception): /field reads CRM data ONLY through the
 // own-leads / totals RPCs from 037, and only from lib/field/crm-data.ts.
+// FUI-1a (2026-10-14): the field drawer reuses admin's plain UI primitives
+// (components/admin/ui/*). They hold no CRM data, so they are allowed; every
+// other admin component still fails this check.
 const fieldFiles = files.filter((f) => rel(f).startsWith("app/(field)") || rel(f).startsWith("components/field") || rel(f).startsWith("lib/field"));
 const fieldImports = fieldFiles
-  .filter((f) => /lib\/crm\/|lib\/admin\/crm|components\/admin|from\("crm_(leads|contacts|sync_runs|status_map)"\)|crm_insights|crm_heat_grid|crm_door_history|crm_canvasser_names|admin_set_crm_name/.test(readFileSync(f, "utf8")))
+  .filter((f) => /lib\/crm\/|lib\/admin\/crm|components\/admin\/(?!ui\/)|from\("crm_(leads|contacts|sync_runs|status_map)"\)|crm_insights|crm_heat_grid|crm_door_history|crm_canvasser_names|admin_set_crm_name/.test(readFileSync(f, "utf8")))
   .map(rel);
 check("no /field file reads admin CRM data or CRM tables directly", fieldImports.length === 0);
 const fieldRpcs = fieldFiles.flatMap((f) => [...readFileSync(f, "utf8").matchAll(/rpc\("(\w*crm\w*)"/g)].map((m) => `${rel(f)}:${m[1]}`));

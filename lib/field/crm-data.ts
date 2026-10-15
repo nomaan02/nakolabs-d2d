@@ -34,11 +34,42 @@ function offline(): boolean {
   return typeof navigator !== "undefined" && navigator.onLine === false;
 }
 
+const ME_KEY = "d2d.crm.me";
+
 /** The CRM name this account is linked to (null = not linked yet). */
 export async function fetchCrmMe(userId: string): Promise<CrmMe> {
   const { data, error } = await createClient().from("profiles").select("crm_name, crm_branch").eq("id", userId).maybeSingle();
   if (error) throw error;
-  return { name: data?.crm_name ?? null, branch: data?.crm_branch ?? null };
+  const me = { name: data?.crm_name ?? null, branch: data?.crm_branch ?? null };
+  try {
+    window.localStorage.setItem(ME_KEY, JSON.stringify({ userId, ...me }));
+  } catch {
+    // Private mode: the drawer just does not show the CRM items.
+  }
+  return me;
+}
+
+/**
+ * FUI-1a: the last CRM link this phone loaded for this account (by Leads or
+ * You), read without a request. The field drawer uses it to decide whether
+ * to show My results and Leaderboard, so opening it never calls Supabase.
+ */
+export function knownCrmMe(userId: string | null): CrmMe | null {
+  if (!userId) return null;
+  try {
+    const raw = window.localStorage.getItem(ME_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    const row = parsed as { userId?: unknown; name?: unknown; branch?: unknown };
+    if (row.userId !== userId) return null;
+    return {
+      name: typeof row.name === "string" ? row.name : null,
+      branch: typeof row.branch === "string" ? row.branch : null,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchCallbacks(days: number): Promise<CallbackLead[]> {

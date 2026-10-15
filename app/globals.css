@@ -309,6 +309,16 @@
   --font-data: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
 }
 
+/* FUI-1a (owner 2026-10-14, item 4): in /field the page itself never scrolls
+   or rubber-bands, so a swipe can never move the header or the tab bar. Each
+   tab's body (FieldPage) is the only scroller, with overscroll contained. */
+html:has(.field-root),
+html:has(.field-root) body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 /* MapLibre's own furniture, brought into the palette. Compact ⓘ on the field
    Map tab; the full OS / OGL / MHCLG / OSM lines live permanently on Profile.
    Do not hide this control. */

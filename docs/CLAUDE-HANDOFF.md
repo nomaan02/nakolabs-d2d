@@ -2,8 +2,18 @@
 
 ## Current state
 
-- Last updated: 2026-10-14 (RT Session 1b). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- RT-1b: migration 041 file only (`supabase/migrations/041_manual_route_fit.sql`, 615 lines). Bodies only, same signatures. `assignment_route_freeze` uses manual / manual_reversed only when the drawing fits this visit's doors (every drawn door allocated, every allocated door drawn or left out). Otherwise best / best_reversed. An explicit manual key that does not fit is refused (hint `manual_unfinished`). `territory_manual_route_save` refuses a route with no length (hint `no_length`). Not applied. No type change. No table row. No `client_event_id`.
+- Last updated: 2026-10-14 (FUI Session 1a). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- FUI-1a: in /field the page itself never scrolls. `html:has(.field-root)` and its `body` are `height: 100%; overflow: hidden; overscroll-behavior: none`. Admin has no `.field-root`.
+- `app/(field)/layout.tsx`: `<main>` is `bg-surface`. The content and the tab bar sit in `FieldShell`. `FloatingUndo` is still mounted (fui-1b removes it).
+- New `components/field/shell/field-header.tsx` (85 lines): `FieldHeader` and `FieldPage`. Solid surface, 1px line, no blur. The tabs do not use them yet (fui-1b and fui-2a).
+- New `components/field/shell/field-shell.tsx` (41 lines): drawer open state and `FieldMenuButton`. A route change closes the drawer.
+- New `components/field/shell/field-drawer.tsx` (220 lines): 85% overlay. Scrim, close, Escape, swipe left, focus trap (`useOverlayFocus`). Items from `lib/field/nav.ts` (69 lines). My results and Leaderboard only when `knownCrmMe` has a name. Opening the drawer does not call Supabase.
+- `lib/field/crm-data.ts`: `fetchCrmMe` writes `d2d.crm.me`. `knownCrmMe` reads it for this account only.
+- `scripts/verify-crm.ts`: `/field` may import `components/admin/ui/*`. Every other admin import still fails that check.
+- `npx tsc --noEmit` exit 0. `npx eslint` on the seven TypeScript files exit 0. `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`.
+- No browser. Phone check is fui-1c, after the batch lands. No database access. No table row. No `client_event_id`. Password, profile and role were not changed. `lib/sync/queue.ts` was not edited.
+- The `ux-audit` skill file is not in the tree. The three shell files were checked against `.ux-profile.md` and field-ergonomics. Code left as pasted. Findings: drawer rows and Appearance use `gap-1` (4px), under the 8px wet-thumb gap; the active row is a light `bg-prop-soft` tint.
+- RT-1b remains: migration 041 file only (`supabase/migrations/041_manual_route_fit.sql`, 615 lines). Bodies only, same signatures. `assignment_route_freeze` uses manual / manual_reversed only when the drawing fits this visit's doors (every drawn door allocated, every allocated door drawn or left out). Otherwise best / best_reversed. An explicit manual key that does not fit is refused (hint `manual_unfinished`). `territory_manual_route_save` refuses a route with no length (hint `no_length`). Not applied. No type change. No table row. No `client_event_id`.
 - Diff against the brief SQL block: 0 lines. Line endings CRLF. Newest file before it is `040_manual_routes.sql`. 041 was free.
 - `npx tsc --noEmit` exit 0. `npm run lint` exit 0 (0 errors; 1118 warnings, all in `public/maplibre/maplibre-gl-shared.mjs`, untouched). `npm run verify:rt` exit 0, last line `ALL PASS`.
 - RT-1b tracker row added after RT-3. Status DONE. Date 2026-10-14. Result: `Migration 041: freeze uses the drawn route only when it fits the visit's doors (else best / best_reversed; explicit manual refused, manual_unfinished); manual save refuses a route with no length. Applied to live by the owner.` Commit column `—`.
@@ -29,7 +39,7 @@
 - Migrations 029–038 remain applied, as recorded before this session. Migration 039's file is in the repo; this session did not check whether it is applied. The RT-2 brief states migration 040 is live; this session did not check. Migration 041's file is in the repo (615 lines); this session did not apply it.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - External settings: none. The RT-2 brief states migration 040 is already live. Wayne to OK before canvassers use call-back phones. The owner runs the CRM backfill once after landing so call-backs already in the list get their notes. The owner runs `npm run verify:stage5b-r2` against the live database. The owner applies migration 041 in the Supabase SQL editor.
-- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-6 C remain DONE. RT-1, RT-2 and RT-3 file work is in the tree. RT-1b adds the migration 041 file only. /field routes are unchanged. `components/field/icons.tsx` gained `EraseIcon` only.
+- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-6 C remain DONE. RT-1, RT-2 and RT-3 file work is in the tree. RT-1b adds the migration 041 file only. FUI-1a changes the field layout and adds the field shell. `components/field/icons.tsx` was not edited this session (`EraseIcon` remains from RT-3).
 
 ## Log
 
@@ -3328,3 +3338,34 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** Applying migration 041. The live function body (`pg_get_functiondef` of `assignment_route_freeze` contains `manual_unfinished`). Supabase MCP was not signed in (`supabase` and `supabase-d2d` both need auth). A browser. A phone.
 - **External settings:** none
 - **Open questions for Claude:** none from this session. The owner applies migration 041 in the Supabase SQL editor.
+
+### 2026-10-14 — FUI Session 1a (uncommitted)
+
+- **Item:** other
+- **What changed:** The field page itself cannot scroll, so a swipe cannot move the header or the tab bar. A shared header and a slide-out drawer are in the tree. The drawer lists the app and does not call Supabase when it opens. The four bottom tabs stay. The tabs do not use the new header yet.
+- **Files:**
+  - Changed: `app/(field)/layout.tsx`, `app/globals.css`, `lib/field/crm-data.ts`, `scripts/verify-crm.ts`, `docs/FIELD-TEST-BUILD-PLAN.md` (FUI-1a row after RT-1b), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `components/field/shell/field-drawer.tsx`, `components/field/shell/field-header.tsx`, `components/field/shell/field-shell.tsx`, `lib/field/nav.ts`, `.handoff/reports/fui-1a.md`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** `lib/field/crm-data.ts` — `fetchCrmMe` stores the last CRM link in localStorage (`d2d.crm.me`); `knownCrmMe` reads it so the drawer can show My results and Leaderboard without a request. New `lib/field/nav.ts` is the drawer map and the Leads view request. `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - OWNER — 2026-10-14 (FUI): the canvasser screens get the admin look and a fixed shell. Figma page "Field — UI fixes (14 Oct)" (file `EHxBRxJZGVAU1MuSU59RTH`, page 207:295) was approved on 2026-10-14. "Logger — clean build" stays read-only.
+  - OWNER — 2026-10-14 (O2): a slide-out drawer, opened from a menu button top-left in every header (as in admin), lists the whole app. The four bottom tabs stay.
+  - OWNER — 2026-10-14 (O3, item 4): headers are compact and fixed. Swiping never moves the header or the tab bar; only the body of the page scrolls.
+  - OWNER — 2026-10-14 (O4): the outcome pills stay in the right-hand column, same order, same size, same slide-to-confirm. They stay a light island in dark mode (H1–H4).
+  - OWNER — 2026-10-14 (Q1): Add note moves into the door card; the full-width note bar goes.
+  - OWNER — 2026-10-14 (Q2): the 3D toggle lives on the Map tab only.
+  - OWNER — 2026-10-14 (Q3): "Confirmed" keeps its dash until the CRM supplies it.
+  - CLAUDE — `html:has(.field-root)` and its `body` are locked (`height: 100%; overflow: hidden; overscroll-behavior: none`). Admin has no `.field-root`.
+  - CLAUDE — `FieldHeader` and `FieldPage`: solid surface, 1px line, no blur. The body is the only scroller (`overscroll-y-contain`). The tabs take them in fui-1b and fui-2a.
+  - CLAUDE — `FieldShell` holds the open state. A route change closes the drawer. The drawer is mounted inside `.field-root`.
+  - CLAUDE — The drawer copies admin's NavDrawer. My results and Leaderboard use `knownCrmMe` (localStorage only). Appearance is Auto / Light / Dark at 44px. Leads and Call-backs call `requestLeadsView`.
+  - CLAUDE — `<main>` is `bg-surface` and wraps the content and the tab bar in `FieldShell`. `FloatingUndo` stays until fui-1b.
+  - CLAUDE — `verify-crm` allows `components/admin/ui/*` and still fails every other admin import.
+- **Deviations from plan or brief:** none. The given files and replacements were pasted exactly. Line endings are CRLF. The `ux-audit` skill file is not in the tree; the shell files were checked against `.ux-profile.md` and field-ergonomics and the pasted code was not changed.
+- **Invariants:** No device GPS was read. No coordinates left the device. No field write. `lib/sync/queue.ts` was not edited. Coverage stays derived. No new scoring was added. The drawer only links to the existing P4b screens (My results, Leaderboard) when this phone already has a CRM name stored. No knock was written.
+- **Verified:** New files match the brief line counts (`field-drawer.tsx` 220, `field-header.tsx` 85, `field-shell.tsx` 41, `nav.ts` 69). Each find block occurred once. `npx tsc --noEmit` exit 0. `npx eslint` on the seven TypeScript files exit 0. `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`.
+- **Not verified:** A browser. A phone. fui-1c covers the phone check after the batch lands. The header is not on a tab yet.
+- **External settings:** none
+- **Open questions for Claude:** none from this session. fui-1b applies the header and listens for the Leads view event. fui-1c is the phone check.

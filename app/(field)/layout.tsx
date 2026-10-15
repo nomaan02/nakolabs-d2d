@@ -6,6 +6,7 @@ import { FieldThemeSync } from "@/components/field/field-theme-sync";
 import { GeoProvider } from "@/components/field/geo-provider";
 import { PositionSharer } from "@/components/field/position-sharer";
 import { SyncProvider } from "@/components/field/sync-provider";
+import { FieldShell } from "@/components/field/shell/field-shell";
 import { TabBar } from "@/components/field/tab-bar";
 import { FloatingUndo } from "@/components/field/undo-toast";
 import { RegisterServiceWorker } from "@/components/pwa/register-sw";
@@ -58,14 +59,17 @@ export default async function FieldLayout({ children }: { children: ReactNode })
       >
         <GeoProvider>
           <PositionSharer />
+          {/* FUI-1a: the safe-area strip is surface, the same as every page header. */}
           <main
-            className={`${sora.variable} field-root relative flex h-dvh flex-col overflow-hidden bg-field-bg pt-[env(safe-area-inset-top)] font-body text-ink`}
+            className={`${sora.variable} field-root relative flex h-dvh flex-col overflow-hidden bg-surface pt-[env(safe-area-inset-top)] font-body text-ink`}
           >
-            <div className="relative min-h-0 flex-1">
-              {children}
-              <FloatingUndo />
-            </div>
-            <TabBar />
+            <FieldShell>
+              <div className="relative min-h-0 flex-1">
+                {children}
+                <FloatingUndo />
+              </div>
+              <TabBar />
+            </FieldShell>
           </main>
         </GeoProvider>
       </FieldDataProvider>
