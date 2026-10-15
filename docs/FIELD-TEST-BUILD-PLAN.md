@@ -165,6 +165,7 @@
 | FUI-1b | Leads, You, Leaderboard and Map use the fixed header | DONE | 2026-10-14 | Leads, You, Leaderboard and Map on FieldHeader/FieldPage; undo ring in the header (FloatingUndo removed). | — |
 | FUI-1c | Field palette sweep (old worksheet palette out) | DONE | 2026-10-14 | Palette sweep: bg-worksheet and rounded-md out of You, door sheets, lead sheet, sync status; inputs at 3:1+. | — |
 | FUI-2a | Logger: fixed header, mini map card, banner over the map | DONE | 2026-10-15 | Logger: FieldHeader with view pills, Sharing and team strip; mini map as an inset card (Open Map top-right, no 3D); banner over the map, no reserved line. | — |
+| FUI-2b | Logger: door card, today's numbers, note bar out | DONE | 2026-10-15 | Logger: door card (status, undo, door scroll, Add note / Add number), 2×2 today's numbers clear of Other; NoteBar and StatRow removed. | — |
 
 ---
 

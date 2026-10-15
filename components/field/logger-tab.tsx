@@ -22,13 +22,12 @@ import { Sheet } from "@/components/field/sheet";
 import { useSharedDoors } from "@/components/field/shared-knock-notice";
 import { formatSyncLine, rowLabel, SyncStatus } from "@/components/field/sync-status";
 import { Button } from "@/components/field/ui/button";
+import { DoorCard } from "@/components/field/ui/door-card";
 import { DoorScroll, type DoorScrollItem } from "@/components/field/ui/door-scroll";
 import { IdChip, type IdChipSync } from "@/components/field/ui/id-chip";
-import { NoteBar } from "@/components/field/ui/note-bar";
-import { StatRow } from "@/components/field/ui/stat-row";
-import { UndoButton } from "@/components/field/ui/undo-button";
 import { StatusBanner, type StatusBannerKind } from "@/components/field/ui/status-banner";
 import { TeamStrip } from "@/components/field/ui/team-strip";
+import { TodayStats } from "@/components/field/ui/today-stats";
 import { ViewTabs, type ViewTab } from "@/components/field/ui/view-tabs";
 import { SurveyOverview } from "@/components/field/survey-overview";
 import { nextOpenIndex } from "@/lib/field/cursor";
@@ -519,7 +518,14 @@ export function LoggerTab() {
     );
   };
 
-  const notePlaceholder = `Add a note for door ${scrollPlate(plate, door.position).text}`;
+  // FUI-2b (owner Q1): the note opens from the door card. A draft shows its start.
+  // At the end of the prop the scroll is gone, so the label names the door.
+  const doorText = scrollPlate(plate, door.position).text;
+  const noteLabel = noteDraft
+    ? `Note: ${truncateNote(noteDraft, 24)}`
+    : allDone
+      ? `Add note for door ${doorText}`
+      : "Add note";
 
   return (
     <div className="flex h-full flex-col bg-field-bg" data-testid="logger-tab">
@@ -598,59 +604,47 @@ export function LoggerTab() {
             </div>
           ) : null}
         </div>
-        <div className="flex shrink-0 items-end gap-2 px-4 pt-3 pb-3" data-testid="logger-panel">
-          <div className="relative min-w-0 flex-1" data-testid="logger-door-column">
-            <UndoButton className="absolute -top-3.5 right-2 z-10" />
-            {allDone ? (
-              <EndOfProp doorCount={assignment.door_count} />
-            ) : (
-              <>
-                <p className="text-field-eyebrow uppercase text-ink-muted">Current door</p>
-                <div className="flex w-full flex-col items-center">
-                  <div className="w-full" inert={otherOpen || undefined}>
-                    <MemoDoorScroll
-                      doors={doorItems}
-                      index={cursor.index}
-                      street={street}
-                      onSettle={handleSettle}
-                    />
-                  </div>
-                  <div className="flex h-8 items-center justify-center gap-2" data-testid="door-info-row">
-                    {logged ? (
-                      <span
-                        className="inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-prop px-2.5 text-field-button-label text-ink"
-                        data-testid="already-logged"
-                      >
-                        {"✓"} {outcomeSpec(logged.outcome).logged} {"·"}{" "}
-                        {LOGGED_TIME.format(new Date(logged.occurredAt))}
-                      </span>
-                    ) : null}
-                    {scrollPlate(plate, door.position).placeholder ? (
-                      <button
-                        type="button"
-                        onClick={openHouseNumberSheet}
-                        className="-my-1.5 flex h-11 shrink-0 items-center whitespace-nowrap px-2 text-field-button-label text-prop underline underline-offset-2"
-                        data-testid="add-house-number"
-                        aria-label="Add house number"
-                      >
-                        {logged ? "+ Add no." : "+ Add house number"}
-                      </button>
-                    ) : null}
-                  </div>
+        {/* FUI-2b (Figma frame 01): the door card, then today's numbers, beside the
+            outcome column. The numbers keep clear of Other, which sits left of
+            Not In, so nothing overlaps (audit item 6). */}
+        <div className="flex shrink-0 items-start gap-2 px-4 pt-3 pb-3" data-testid="logger-panel">
+          <div className="relative flex min-w-0 flex-1 flex-col gap-3" data-testid="logger-door-column">
+            {/* End of prop: the card stays, so the last knock keeps its undo
+                ring and can still take a note (both lived outside the old
+                end-of-prop block). */}
+            <DoorCard
+              logged={
+                logged
+                  ? `${allDone ? `${doorText} \u00b7 ` : ""}${outcomeSpec(logged.outcome).logged} \u00b7 ${LOGGED_TIME.format(new Date(logged.occurredAt))}`
+                  : null
+              }
+              noteLabel={noteLabel}
+              onNote={() => setSheet({ kind: "notes" })}
+              onHouseNumber={
+                !allDone && scrollPlate(plate, door.position).placeholder ? openHouseNumberSheet : undefined
+              }
+            >
+              {allDone ? (
+                <EndOfProp doorCount={assignment.door_count} />
+              ) : (
+                <div className="w-full" inert={otherOpen || undefined}>
+                  <MemoDoorScroll
+                    doors={doorItems}
+                    index={cursor.index}
+                    street={street}
+                    onSettle={handleSettle}
+                  />
                 </div>
-              </>
-            )}
+              )}
+            </DoorCard>
 
-            <hr className="mt-1.5 mb-1.5 border-line" />
-
-            <p className="text-field-eyebrow uppercase text-ink-muted">Today&apos;s stats</p>
-            <div className="mt-1 flex w-fit flex-col gap-1" data-testid="today-stats">
-              <StatRow label="Doors" value={countDoorsLogged(outcomes, canvasserId)} />
-              <StatRow label="Contacts" value={countBookableContacts(outcomes, canvasserId)} />
-              <StatRow label="Leads" value={countLeads(outcomes, canvasserId)} />
-              <StatRow label="Confirmed" value={null} />
-            </div>
-
+            <TodayStats
+              className="pr-16 pl-1"
+              doors={countDoorsLogged(outcomes, canvasserId)}
+              contacts={countBookableContacts(outcomes, canvasserId)}
+              leads={countLeads(outcomes, canvasserId)}
+              confirmed={null}
+            />
           </div>
 
           {allDone ? (
@@ -681,11 +675,6 @@ export function LoggerTab() {
         </div>
       </div>
 
-      <NoteBar
-        label={noteDraft ? truncateNote(noteDraft) : notePlaceholder}
-        open={sheet.kind === "notes"}
-        onPress={() => setSheet({ kind: "notes" })}
-      />
         </>
       ) : (
         <SurveyOverview rows={survey} onPick={pickFromSurvey} />
@@ -787,7 +776,7 @@ export function LoggerTab() {
 /** Figma's "End of prop" state, textually specified but not screenshotted this session (budget). */
 function EndOfProp({ doorCount }: { doorCount: number }) {
   return (
-    <div className="flex flex-col items-start gap-1 py-6" data-testid="end-of-prop">
+    <div className="flex flex-col items-start gap-1 px-3 pt-2 pb-5" data-testid="end-of-prop">
       <p aria-hidden className="text-2xl text-outcome-lead-ink">
         {"\u2713"}
       </p>

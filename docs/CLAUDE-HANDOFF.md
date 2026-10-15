@@ -2,7 +2,14 @@
 
 ## Current state
 
-- Last updated: 2026-10-15 (FUI Session 2a). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Last updated: 2026-10-15 (FUI Session 2b). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- FUI-2b: the current door is one card. The status row is "Current door", or the outcome and time with the undo ring on the right. The door scroll is unchanged (‹ › and the street line). Add note is in the card. Add number shows only when the plate is a placeholder, against the already-selected UPRN. At the end of the prop the card stays, with "This prop is done" inside it, so the last knock keeps its undo ring and can still take a note. The label then names the door.
+- Today's numbers are a 2×2: Doors, Contacts, Leads, Confirmed. Confirmed is a dash. Counts only, this canvasser, today. They sit under the card, with 64px clear on the right (`pr-16`), left of Other.
+- `components/field/ui/note-bar.tsx` and `components/field/ui/stat-row.tsx` are deleted. Nothing else imports them. The notes sheet is unchanged.
+- Files: `components/field/logger-tab.tsx` (812 lines), `components/field/ui/door-card.tsx` (74 lines), `components/field/ui/today-stats.tsx` (45 lines).
+- `npx tsc --noEmit` exit 0. `npx eslint` on the three TypeScript files exit 0. `npm run verify:ui1` exit 0, last line `OK`. `npm run verify:ui8` exit 0, last line `ALL PASS`. `npm run verify:crm` exit 0, last line `ALL PASS`.
+- No browser. The ten phone-check steps are listed for the owner. No database access. No table row. No `client_event_id`. Password, profile and role were not changed. `lib/sync/queue.ts` was not edited.
+- The `ux-audit` skill file is not in the tree. The three field files were checked against `.ux-profile.md` and field-ergonomics. Code left as pasted. Findings: Add note and Add number sit 4px apart (`gap-1`); both are text and an icon with no solid fill; the logged line uses a "✓" character and truncates.
 - FUI-2a: the Logger uses `FieldHeader` with `undo={false}`. The bar is the menu, the prop name, the visit line (the Exceptions only badge still leads it) and the ID chip. Extra rows: the Logging / Survey pills with the Sharing pill, then the team strip (`border-t`, `px-4`). The undo ring stays on the door panel.
 - The mini map is an inset card (`mx-4 mt-3`, minimum 96px, radius 16, 1px line). Open Map is top-right. Recentre sits to its left after a manual move. The 3D toggle is off this map. The near-you chip is narrowed so it stays clear of those two buttons. The map still follows the Map tab's 2D/3D choice.
 - The one banner sits over the bottom edge of that card, on a solid surface. Nothing below moves when one appears. The interim-sweep sentence is the lowest-priority line. `.logger-map-band .maplibregl-ctrl-bottom-right { z-index: 4 }` keeps the licence control in the corner, above the banner.
@@ -56,7 +63,7 @@
 - Migrations 029–038 remain applied, as recorded before this session. Migration 039's file is in the repo; this session did not check whether it is applied. The RT-2 brief states migration 040 is live; this session did not check. Migration 041's file is in the repo (615 lines); this session did not apply it.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - External settings: none. The RT-2 brief states migration 040 is already live. Wayne to OK before canvassers use call-back phones. The owner runs the CRM backfill once after landing so call-backs already in the list get their notes. The owner runs `npm run verify:stage5b-r2` against the live database. The owner applies migration 041 in the Supabase SQL editor.
-- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-6 C remain DONE. RT-1, RT-2 and RT-3 file work is in the tree. RT-1b adds the migration 041 file only. FUI-1a changes the field layout and adds the field shell. FUI-1b puts Leads, You, Leaderboard and Map on that header and removes `FloatingUndo`. FUI-1c takes `bg-worksheet` and `rounded-md` out of You, the door sheets, the lead sheet and sync status. FUI-2a puts the Logger on the same header, makes the mini map an inset card, and lays the banner over the map. `components/field/icons.tsx` was not edited this session (`EraseIcon` remains from RT-3).
+- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-6 C remain DONE. RT-1, RT-2 and RT-3 file work is in the tree. RT-1b adds the migration 041 file only. FUI-1a changes the field layout and adds the field shell. FUI-1b puts Leads, You, Leaderboard and Map on that header and removes `FloatingUndo`. FUI-1c takes `bg-worksheet` and `rounded-md` out of You, the door sheets, the lead sheet and sync status. FUI-2a puts the Logger on the same header, makes the mini map an inset card, and lays the banner over the map. FUI-2b puts the current door in a card (status, undo, door scroll, Add note / Add number) and replaces the stat list with a 2×2 of today's numbers. `note-bar.tsx` and `stat-row.tsx` are deleted. `components/field/icons.tsx` was not edited (`EraseIcon` remains from RT-3).
 
 ## Log
 
@@ -3476,3 +3483,33 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. A phone. fui-2b covers the phone check after the batch lands. The `ux-audit` skill file is not in the tree.
 - **External settings:** none
 - **Open questions for Claude:** none from this session. fui-2b is the phone check after the batch lands.
+
+### 2026-10-15 — FUI Session 2b (uncommitted)
+
+- **Item:** other
+- **What changed:** The Logger's current door is one card: status row, the existing door scroll, then Add note and (only on a placeholder plate) Add number. Today's numbers are a 2×2 under the card, 64px clear of Other. The full-width note bar and the old stat rows are gone. The notes sheet is unchanged. At the end of the prop the card stays, so the last knock keeps its undo ring and can still take a note.
+- **Files:**
+  - Changed: `components/field/logger-tab.tsx`, `docs/FIELD-TEST-BUILD-PLAN.md` (FUI-2b row after FUI-2a), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `components/field/ui/door-card.tsx`, `components/field/ui/today-stats.tsx`, `.handoff/reports/fui-2b.md`
+  - Deleted: `components/field/ui/note-bar.tsx`, `components/field/ui/stat-row.tsx`
+- **Database:** none
+- **Shared modules touched:** none. `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - OWNER — 2026-10-14 (FUI): the canvasser screens get the admin look and a fixed shell. Figma page "Field — UI fixes (14 Oct)" (file `EHxBRxJZGVAU1MuSU59RTH`, page 207:295) was approved on 2026-10-14. "Logger — clean build" stays read-only.
+  - OWNER — 2026-10-14 (O2): a slide-out drawer, opened from a menu button top-left in every header (as in admin), lists the whole app. The four bottom tabs stay.
+  - OWNER — 2026-10-14 (O3, item 4): headers are compact and fixed. Swiping never moves the header or the tab bar; only the body of the page scrolls.
+  - OWNER — 2026-10-14 (O4): the outcome pills stay in the right-hand column, same order, same size, same slide-to-confirm. They stay a light island in dark mode (H1–H4).
+  - OWNER — 2026-10-14 (Q1): Add note moves into the door card; the full-width note bar goes.
+  - OWNER — 2026-10-14 (Q2): the 3D toggle lives on the Map tab only.
+  - OWNER — 2026-10-14 (Q3): "Confirmed" keeps its dash until the CRM supplies it.
+  - CLAUDE — `door-card.tsx` (Figma Field/DoorCard): status row ("Current door", or the outcome and time with the undo ring on the right), the existing door scroll unchanged (‹ › and the street line; no claim), then Add note and, only when the plate is a placeholder, Add number. The number is typed against the already-selected UPRN.
+  - CLAUDE — At the end of the prop the card stays with "This prop is done" inside it, so the last knock keeps its undo ring and can still take a note. The label then names the door.
+  - CLAUDE — The full-width NoteBar goes. The notes sheet is unchanged (a draft, or a correction row on a logged door). `note-bar.tsx` and `stat-row.tsx` are deleted. Nothing else imported them.
+  - CLAUDE — `today-stats.tsx` (Figma Field/TodayStats): Doors, Contacts, Leads, Confirmed in the admin figure and caption style, 2×2, sentence case, no zero padding, tabular figures. Confirmed shows a dash. Counts only, own, today.
+  - CLAUDE — The door card and the numbers sit left of the outcome column (`items-start`). The numbers keep 64px clear on the right, so Other never overlaps them. Labels do not truncate.
+- **Deviations from plan or brief:** none. The given files and replacements were pasted exactly. Line endings are CRLF. The `ux-audit` skill file is not in the tree; the three field files were checked against `.ux-profile.md` and field-ergonomics and the pasted code was not changed.
+- **Invariants:** No device GPS was read. No coordinates left the device. No field write. `lib/sync/queue.ts` was not edited. Coverage stays derived. No scoring was added in `/field`. Confirmed stays a dash. Counts are this canvasser, today. The house number is still typed against the already-selected UPRN. No knock was written.
+- **Verified:** fui-2a is in the tree (`logger-tab.tsx` renders `FieldHeader` with `testId="logger-header"`). Each find block occurred once. A search of `*.ts` and `*.tsx` found no import of `note-bar` or `stat-row` (comments in `icons.tsx`, `door-card.tsx` and `today-stats.tsx` only). `npx tsc --noEmit` exit 0. `npx eslint` on the three TypeScript files exit 0. `npm run verify:ui1` exit 0, last line `OK`. `npm run verify:ui8` exit 0, last line `ALL PASS`. `npm run verify:crm` exit 0, last line `ALL PASS`.
+- **Not verified:** A browser. A phone. The ten phone-check steps. The `ux-audit` skill file is not in the tree.
+- **External settings:** none
+- **Open questions for Claude:** none from this session. The owner runs the ten phone-check steps after the batch lands.

@@ -1932,3 +1932,38 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given replacements were pasted exactly. Line endings are CRLF.
 - **Not done / deferred:** A browser. The phone check (fui-2b). Did not query the database. Did not commit. No new table row. No `client_event_id`.
 - **Follow-ups:** fui-2b is the phone check after the batch lands.
+
+### FUI Session 2b — Logger door card, today's numbers, note bar out
+- **Date:** 2026-10-15
+- **Model:** Grok 4.7
+- **Built:** The current door is one card: status row, the existing door scroll, Add note, and Add number only on a placeholder plate. Today's numbers are a 2×2 under the card, 64px clear of Other. The full-width note bar and the old stat rows are gone. The notes sheet is unchanged. At the end of the prop the card stays, so the last knock keeps its undo ring and can still take a note.
+- **Owner decisions:**
+  - OWNER — 2026-10-14 (FUI): the canvasser screens get the admin look and a fixed shell. Figma page "Field — UI fixes (14 Oct)" (file `EHxBRxJZGVAU1MuSU59RTH`, page 207:295) was approved on 2026-10-14. "Logger — clean build" stays read-only.
+  - OWNER — 2026-10-14 (O2): a slide-out drawer, opened from a menu button top-left in every header (as in admin), lists the whole app. The four bottom tabs stay.
+  - OWNER — 2026-10-14 (O3, item 4): headers are compact and fixed. Swiping never moves the header or the tab bar; only the body of the page scrolls.
+  - OWNER — 2026-10-14 (O4): the outcome pills stay in the right-hand column, same order, same size, same slide-to-confirm. They stay a light island in dark mode (H1–H4).
+  - OWNER — 2026-10-14 (Q1): Add note moves into the door card; the full-width note bar goes.
+  - OWNER — 2026-10-14 (Q2): the 3D toggle lives on the Map tab only.
+  - OWNER — 2026-10-14 (Q3): "Confirmed" keeps its dash until the CRM supplies it.
+- **Claude decisions:**
+  - CLAUDE — `door-card.tsx` (Figma Field/DoorCard): status row ("Current door", or the outcome and time with the undo ring on the right), the existing door scroll unchanged (‹ › and the street line; no claim), then Add note and, only when the plate is a placeholder, Add number. The number is typed against the already-selected UPRN.
+  - CLAUDE — At the end of the prop the card stays with "This prop is done" inside it, so the last knock keeps its undo ring and can still take a note. The label then names the door.
+  - CLAUDE — The full-width NoteBar goes. The notes sheet is unchanged (a draft, or a correction row on a logged door). `note-bar.tsx` and `stat-row.tsx` are deleted. Nothing else imported them.
+  - CLAUDE — `today-stats.tsx` (Figma Field/TodayStats): Doors, Contacts, Leads, Confirmed in the admin figure and caption style, 2×2, sentence case, no zero padding, tabular figures. Confirmed shows a dash. Counts only, own, today.
+  - CLAUDE — The door card and the numbers sit left of the outcome column (`items-start`). The numbers keep 64px clear on the right, so Other never overlaps them. Labels do not truncate.
+- **Acceptance:**
+  - EDIT 1 DONE. Five replacements in `components/field/logger-tab.tsx` (812 lines). Each find occurred once.
+  - EDIT 2 DONE. New `components/field/ui/door-card.tsx` (74 lines), pasted exactly.
+  - EDIT 3 DONE. Deleted `components/field/ui/note-bar.tsx`. A search of `*.ts` and `*.tsx` found no remaining import.
+  - EDIT 4 DONE. Deleted `components/field/ui/stat-row.tsx`. A search of `*.ts` and `*.tsx` found no remaining import.
+  - EDIT 5 DONE. New `components/field/ui/today-stats.tsx` (45 lines), pasted exactly.
+  - `npm run verify:ui1`: **PASS** — exit 0. Last line: `OK`.
+  - `npm run verify:ui8`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:crm`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0.
+  - eslint: **PASS** — `npx eslint` on the three TypeScript files exit 0.
+  - ux-audit: the skill file is not in the tree. The three field files were read against `.ux-profile.md` and field-ergonomics. Code not changed. Findings: Add note and Add number use `gap-1` (4px); both are `text-prop` plus an icon with no solid fill; the logged line is a "✓" character with `truncate`.
+  - Phone: no browser. The ten steps are listed for the owner.
+- **Deviations from brief:** none. The given files and replacements were pasted exactly. Line endings are CRLF.
+- **Not done / deferred:** A browser. The ten phone-check steps. Did not query the database. Did not commit. No new table row. No `client_event_id`.
+- **Follow-ups:** The owner runs the ten phone-check steps after the batch lands.
