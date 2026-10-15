@@ -9,6 +9,7 @@ import { ChevronRightIcon } from "@/components/field/icons";
 import { PropStatus } from "@/components/field/prop-status";
 import { SyncStatus } from "@/components/field/sync-status";
 import { SharedKnockNotice } from "@/components/field/shared-knock-notice";
+import { FieldHeader, FieldPage } from "@/components/field/shell/field-header";
 import { useCrmMe } from "@/lib/field/crm-data";
 import { isTeamProp, LOGGING_MODES, useLoggingMode } from "@/lib/field/logging-mode";
 import { ATTRIBUTION_LINES } from "@/lib/field/map-style";
@@ -37,17 +38,21 @@ export function ProfileTab() {
   const crm = useCrmMe(canvasserId);
   const linked = crm.kind === "ready" && crm.data.name !== null;
 
+  // FUI-1b (owner 2026-10-14, O3): the title sits in the fixed header; only
+  // the sections scroll. CRM-5 C (Figma F3): my CRM results first when the
+  // account is linked to the CRM (the drawer's "My results" lands here).
   return (
-    <div className="h-full overflow-y-auto bg-worksheet" data-testid="profile-tab">
-      {/* CRM-5 C (Figma F3): large title, then my CRM results when the account is linked to the CRM. */}
-      <header className="mx-auto max-w-2xl bg-field-bg px-4 pt-4">
-        <h1 className="text-field-hero text-ink">You</h1>
-        <p className="mt-0.5 text-field-body text-ink-muted">
-          {signedInAs || "Signed in"} · {linked && crm.kind === "ready" && crm.data.branch ? crm.data.branch : role}
-        </p>
-      </header>
+    <FieldPage
+      testId="profile-tab"
+      header={
+        <FieldHeader
+          title="You"
+          subtitle={`${signedInAs || "Signed in"} · ${linked && crm.kind === "ready" && crm.data.branch ? crm.data.branch : role}`}
+        />
+      }
+    >
       {linked && crm.kind === "ready" ? (
-        <div className="bg-field-bg pb-2">
+        <div id="my-results" className="scroll-mt-2 bg-field-bg pt-2 pb-2">
           <MyResults me={crm.data} />
         </div>
       ) : null}
@@ -165,6 +170,6 @@ export function ProfileTab() {
           Anything still waiting to send is kept on this phone and goes out when you sign back in.
         </p>
       </div>
-    </div>
+    </FieldPage>
   );
 }

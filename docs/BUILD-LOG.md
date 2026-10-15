@@ -1828,3 +1828,38 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given files and replacements were pasted exactly. Line endings are CRLF.
 - **Not done / deferred:** A browser. The phone check (fui-1c). Applying `FieldHeader` to the tabs (fui-1b, fui-2a). Did not query the database. Did not commit. No new table row. No `client_event_id`.
 - **Follow-ups:** fui-1b wires the header onto the tabs and listens for the Leads view event. fui-1c is the phone check.
+
+### FUI Session 1b — Leads, You, Leaderboard and Map on the fixed header
+- **Date:** 2026-10-14
+- **Model:** Grok 4.7
+- **Built:** Leads, You, Leaderboard and Map use the compact fixed header. Only the list, the sections or the map body scroll. The undo ring that floated over every tab but the Logger now sits in that header. `FloatingUndo` is removed. The Logger keeps its own ring on the door panel.
+- **Owner decisions:**
+  - OWNER — 2026-10-14 (FUI): the canvasser screens get the admin look and a fixed shell. Figma page "Field — UI fixes (14 Oct)" (file `EHxBRxJZGVAU1MuSU59RTH`, page 207:295) was approved on 2026-10-14. "Logger — clean build" stays read-only.
+  - OWNER — 2026-10-14 (O2): a slide-out drawer, opened from a menu button top-left in every header (as in admin), lists the whole app. The four bottom tabs stay.
+  - OWNER — 2026-10-14 (O3, item 4): headers are compact and fixed. Swiping never moves the header or the tab bar; only the body of the page scrolls.
+  - OWNER — 2026-10-14 (O4): the outcome pills stay in the right-hand column, same order, same size, same slide-to-confirm. They stay a light island in dark mode (H1–H4).
+  - OWNER — 2026-10-14 (Q1): Add note moves into the door card; the full-width note bar goes.
+  - OWNER — 2026-10-14 (Q2): the 3D toggle lives on the Map tab only.
+  - OWNER — 2026-10-14 (Q3): "Confirmed" keeps its dash until the CRM supplies it.
+- **Claude decisions:**
+  - CLAUDE — Leads, You and Leaderboard are `FieldPage` with `FieldHeader` (titles "Leads", "You", "Leaderboard"). The Today / Call-backs switch sits in the Leads header. You uses the name line as the subtitle. The 32px titles go.
+  - CLAUDE — Leads listens for the drawer's view request (`onLeadsViewRequest`) and reads the remembered view through `lib/field/nav.ts` (same `d2d.leads.view` key).
+  - CLAUDE — You: My results has `id="my-results"` so the drawer's My results lands on it.
+  - CLAUDE — Map: its header is `FieldHeader` (prop name, visit line, Sharing pill on the right). The cached-copy line and the teammate lines are extra rows. Loading, empty and error keep the header, so the menu is always there. The ready map stays a column: header, then the map. The `pr-14` space for the floating undo is gone.
+  - CLAUDE — The undo ring sits in each `FieldHeader`, to the right of the page's own items. `components/field/undo-toast.tsx` is deleted. The Logger keeps its own ring on the door panel.
+- **Acceptance:**
+  - EDIT 1 DONE. Two replacements in `app/(field)/layout.tsx` (75 lines). Each find occurred once.
+  - EDIT 2 DONE. Three replacements in `components/field/crm/leaderboard-screen.tsx` (128 lines). Each find occurred once.
+  - EDIT 3 DONE. Five replacements in `components/field/leads-tab.tsx` (197 lines). Each find occurred once.
+  - EDIT 4 DONE. Five replacements in `components/field/map-tab.tsx` (372 lines). Each find occurred once.
+  - EDIT 5 DONE. Three replacements in `components/field/profile-tab.tsx` (175 lines). Each find occurred once.
+  - EDIT 6 DONE. Deleted `components/field/undo-toast.tsx`. A search found no remaining import. The Logger still imports `UndoButton`.
+  - `npm run verify:crm`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui6`: **PASS** — exit 0. Last line: `OK`.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0.
+  - eslint: **PASS** — `npx eslint` on the five TypeScript files exit 0.
+  - ux-audit: the skill file is not in the tree. The four changed field components were read against `.ux-profile.md` and field-ergonomics. Code not changed. Findings: You's Appearance and Logging rows use `gap-1` (4px) between adjacent targets; Leads and Leaderboard use `Segmented`, which also uses `gap-1` between options (that file was not edited).
+  - Phone: no browser. No phone check this session. Covered by fui-1c after the batch lands.
+- **Deviations from brief:** none. The given replacements were pasted exactly. Line endings are CRLF.
+- **Not done / deferred:** A browser. The phone check (fui-1c). The Logger header (fui-2a). Did not query the database. Did not commit. No new table row. No `client_event_id`.
+- **Follow-ups:** fui-1c is the phone check. fui-2a puts the Logger on the same header. The You tab's Appearance and Logging gaps, and `Segmented`'s gap, stay as they were.

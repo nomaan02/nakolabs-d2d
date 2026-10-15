@@ -8,7 +8,6 @@ import { PositionSharer } from "@/components/field/position-sharer";
 import { SyncProvider } from "@/components/field/sync-provider";
 import { FieldShell } from "@/components/field/shell/field-shell";
 import { TabBar } from "@/components/field/tab-bar";
-import { FloatingUndo } from "@/components/field/undo-toast";
 import { RegisterServiceWorker } from "@/components/pwa/register-sw";
 import { getOwnProfile } from "@/lib/auth/profile";
 import { THEME_BOOT_SCRIPT } from "@/lib/field/theme";
@@ -64,10 +63,8 @@ export default async function FieldLayout({ children }: { children: ReactNode })
             className={`${sora.variable} field-root relative flex h-dvh flex-col overflow-hidden bg-surface pt-[env(safe-area-inset-top)] font-body text-ink`}
           >
             <FieldShell>
-              <div className="relative min-h-0 flex-1">
-                {children}
-                <FloatingUndo />
-              </div>
+              {/* FUI-1b: the undo ring lives in each page's FieldHeader now. */}
+              <div className="relative min-h-0 flex-1">{children}</div>
               <TabBar />
             </FieldShell>
           </main>

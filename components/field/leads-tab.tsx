@@ -5,10 +5,12 @@ import { useCallback, useEffect, useState } from "react";
 import { CallbacksPane } from "@/components/field/crm/callbacks-pane";
 import { Segmented } from "@/components/field/crm/segmented";
 import { useFieldData } from "@/components/field/field-data-provider";
+import { FieldHeader, FieldPage } from "@/components/field/shell/field-header";
 import { useCrmMe } from "@/lib/field/crm-data";
 import { doorPlate, mapLabel } from "@/lib/field/labels";
 import { leadsFromOutcomes } from "@/lib/field/local-outcomes";
 import { isSameLondonDay } from "@/lib/field/london-date";
+import { LEADS_VIEW_KEY, onLeadsViewRequest, parseLeadsView, type LeadsView } from "@/lib/field/nav";
 
 /**
  * Leads tab. Two views (CRM-5 C, Figma F1):
@@ -21,8 +23,7 @@ import { isSameLondonDay } from "@/lib/field/london-date";
  *   the offline queue. See components/field/crm/callbacks-pane.tsx.
  */
 
-type View = "today" | "callbacks";
-const VIEW_KEY = "d2d.leads.view";
+type View = LeadsView;
 
 const TIME = new Intl.DateTimeFormat("en-GB", {
   hour: "2-digit",
@@ -64,16 +65,18 @@ export function LeadsScreen({
 
   useEffect(() => {
     try {
-      if (window.localStorage.getItem(VIEW_KEY) === "callbacks") setView("callbacks");
+      setView(parseLeadsView(window.localStorage.getItem(LEADS_VIEW_KEY)));
     } catch {
       // Private mode: start on Today.
     }
+    // FUI-1b: the drawer's Leads and Call-backs items switch an open tab.
+    return onLeadsViewRequest(setView);
   }, []);
 
   const choose = (next: View) => {
     setView(next);
     try {
-      window.localStorage.setItem(VIEW_KEY, next);
+      window.localStorage.setItem(LEADS_VIEW_KEY, next);
     } catch {
       // Private mode: the choice lasts for this visit only.
     }
@@ -83,23 +86,28 @@ export function LeadsScreen({
   const linked = me.kind === "ready" && me.data.name !== null;
   const todayCount = phase.kind === "ready" ? leads.length : null;
 
+  // FUI-1b (owner 2026-10-14, O3): the title and the view switch sit in the
+  // fixed header; only the list scrolls.
   return (
-    <div className="h-full overflow-y-auto bg-field-bg" data-testid="leads-tab">
-      <header className="mx-auto max-w-2xl px-4 pt-4">
-        <h1 className="text-field-hero text-ink">Leads</h1>
-        <div className="mt-3">
-          <Segmented<View>
-            label="Leads view"
-            value={view}
-            onChange={choose}
-            testId="leads-view"
-            options={[
-              { value: "today", label: <Count label="Today" n={todayCount} /> },
-              { value: "callbacks", label: <Count label="Call-backs" n={toCall} accent /> },
-            ]}
-          />
-        </div>
-      </header>
+    <FieldPage
+      testId="leads-tab"
+      header={
+        <FieldHeader title="Leads">
+          <div className="mx-auto max-w-2xl px-4 pb-3">
+            <Segmented<View>
+              label="Leads view"
+              value={view}
+              onChange={choose}
+              testId="leads-view"
+              options={[
+                { value: "today", label: <Count label="Today" n={todayCount} /> },
+                { value: "callbacks", label: <Count label="Call-backs" n={toCall} accent /> },
+              ]}
+            />
+          </div>
+        </FieldHeader>
+      }
+    >
 
       {view === "callbacks" ? (
         me.kind === "ready" && canvasserId ? (
@@ -112,7 +120,7 @@ export function LeadsScreen({
       ) : (
         <TodayPane phase={phase} leads={leads} labelFor={labelFor} />
       )}
-    </div>
+    </FieldPage>
   );
 }
 

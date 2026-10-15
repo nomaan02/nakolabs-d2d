@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { PeriodSelect, readPeriod, savePeriod } from "@/components/field/crm/period-select";
 import { Segmented } from "@/components/field/crm/segmented";
 import { useFieldData } from "@/components/field/field-data-provider";
+import { FieldHeader, FieldPage } from "@/components/field/shell/field-header";
 import { ChevronLeftIcon } from "@/components/field/icons";
 import { BOARD_METRICS, boardView, parseBoardMetric, PERIOD_WORDS, periodSpan, rankBoard, type BoardMetric, type RankedRow, type ResultPeriod } from "@/lib/field/crm";
 import { fetchLeaderboard, useCrmMe, useLoad } from "@/lib/field/crm-data";
@@ -54,15 +55,14 @@ export function LeaderboardScreen({ canvasserId }: { canvasserId: string | null 
   };
 
   return (
-    <div className="h-full overflow-y-auto bg-field-bg" data-testid="leaderboard">
+    <FieldPage testId="leaderboard" header={<FieldHeader title="Leaderboard" />}>
       <div className="mx-auto max-w-2xl px-4 pb-8">
-      <Link href="/field/profile" className="-ml-2 mt-2 inline-flex min-h-tap-min items-center gap-1 px-2 text-base text-prop">
+      <Link href="/field/profile" className="-ml-2 mt-1 inline-flex min-h-tap-min items-center gap-1 px-2 text-base text-prop">
         <ChevronLeftIcon className="size-5" />
         You
       </Link>
-      <h1 className="mt-1 text-field-hero text-ink">Leaderboard</h1>
 
-      <div className="mt-3">
+      <div className="mt-1">
         <Segmented label="Rank by" value={metric} onChange={chooseMetric} options={BOARD_METRICS} testId="leaderboard-metric" />
       </div>
       <div className="mt-3 flex items-center gap-3">
@@ -104,7 +104,7 @@ export function LeaderboardScreen({ canvasserId }: { canvasserId: string | null 
         </>
       )}
       </div>
-    </div>
+    </FieldPage>
   );
 }
 

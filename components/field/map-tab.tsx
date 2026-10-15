@@ -11,6 +11,7 @@ import { useGeo } from "@/components/field/geo-provider";
 import { LocateIcon } from "@/components/field/icons";
 import { LocationOffNotice } from "@/components/field/location-off-notice";
 import { SharingPill } from "@/components/field/sharing-pill";
+import { FieldHeader, FieldPage } from "@/components/field/shell/field-header";
 import { mapPositionOf } from "@/lib/field/geo";
 import { OutcomeButtons } from "@/components/field/outcome-buttons";
 import { TeammateLines } from "@/components/field/teammate-lines";
@@ -19,7 +20,7 @@ import { doorPlate, mapLabel } from "@/lib/field/labels";
 import { logOutcome } from "@/lib/field/log-outcome";
 import { outcomeSpec, type OtherOutcome, type PrimaryOutcome } from "@/lib/field/outcomes";
 import { toggleMapView, useMapView } from "@/lib/field/map-view";
-import { offerUndo, useUndoTarget } from "@/lib/field/undo";
+import { offerUndo } from "@/lib/field/undo";
 import { formatFieldHeader } from "@/lib/field/route-display";
 import { useResolvedTheme } from "@/lib/field/theme";
 import { mapColours, type MapMode } from "@/lib/map/map-palette";
@@ -59,7 +60,6 @@ export function MapTab() {
   } = useFieldData();
   const router = useRouter();
   const [otherOpen, setOtherOpen] = useState(false);
-  const undoTarget = useUndoTarget();
   const mapView = useMapView();
   const mode = useResolvedTheme();
   // UI-7 C1b (owner H3). The canvasser's own marker, memory only.
@@ -73,27 +73,37 @@ export function MapTab() {
   // CRM-5 C2 (owner 2026-10-12): own CRM leads layer, off by default.
   const crm = useCrmMapLayer(canvasserId);
 
+  // FUI-1b: the loading, empty and error states keep the fixed header, so
+  // the menu is always there.
   if (phase.kind === "loading") {
-    return <p className="px-4 pt-8 text-sm text-ink-soft">Loading today&apos;s prop…</p>;
+    return (
+      <FieldPage header={<FieldHeader title="Map" />}>
+        <p className="px-4 pt-8 text-sm text-ink-soft">Loading today&apos;s prop…</p>
+      </FieldPage>
+    );
   }
 
   if (phase.kind === "empty") {
     return (
-      <div className="px-4 pt-8" data-testid="field-empty">
-        <p className="font-display text-xl tracking-tight">No prop allocated for today.</p>
-        <p className="mt-2 max-w-sm text-sm leading-relaxed text-ink-soft">
-          Nothing is assigned to you for today. If you should be out, speak to the person who
-          allocates the props.
-        </p>
-      </div>
+      <FieldPage header={<FieldHeader title="Map" />}>
+        <div className="px-4 pt-8" data-testid="field-empty">
+          <p className="font-display text-xl tracking-tight">No prop allocated for today.</p>
+          <p className="mt-2 max-w-sm text-sm leading-relaxed text-ink-soft">
+            Nothing is assigned to you for today. If you should be out, speak to the person who
+            allocates the props.
+          </p>
+        </div>
+      </FieldPage>
     );
   }
 
   if (phase.kind === "error") {
     return (
-      <p className="px-4 pt-8 text-sm text-ink-soft" role="alert">
-        {phase.message}
-      </p>
+      <FieldPage header={<FieldHeader title="Map" />}>
+        <p className="px-4 pt-8 text-sm text-ink-soft" role="alert">
+          {phase.message}
+        </p>
+      </FieldPage>
     );
   }
 
@@ -126,25 +136,22 @@ export function MapTab() {
 
   return (
     <div className="relative flex h-full flex-col" data-testid="map-tab">
-      <header className={`z-10 border-b border-ink/15 bg-paper px-3 pb-3 pt-3 ${undoTarget ? "pr-14" : ""}`}>
-        <div className="flex items-start justify-between gap-2">
-          <h1 className="min-w-0 truncate px-1 font-display text-lg leading-snug tracking-tight">
-            {assignment.territory_name}
-          </h1>
-          <SharingPill assignmentId={assignment.assignment_id} />
-        </div>
-        <p className="px-1 font-data text-xs leading-relaxed text-ink-soft">
-          {formatFieldHeader(assignment, routeProgress)}
-        </p>
+      {/* FUI-1b (owner 2026-10-14, O3): the same fixed header as every tab. The
+          undo ring now lives in it, so the old right padding for it is gone. */}
+      <FieldHeader
+        title={assignment.territory_name}
+        subtitle={formatFieldHeader(assignment, routeProgress)}
+        right={<SharingPill assignmentId={assignment.assignment_id} />}
+      >
         {phase.fromCache ? (
-          <p className="mt-1 px-1 text-xs text-ink-soft" role="status">
+          <p className="px-4 pb-2 text-admin-caption text-ink-soft" role="status">
             Showing the copy saved on this phone.
           </p>
         ) : null}
-        <div className="mt-2">
+        <div className="-mt-1 px-4 pb-2 empty:hidden">
           <TeammateLines rows={team.teammates} labelFor={labelFor} />
         </div>
-      </header>
+      </FieldHeader>
 
       <div className="relative min-h-0 flex-1">
         <FieldMap
