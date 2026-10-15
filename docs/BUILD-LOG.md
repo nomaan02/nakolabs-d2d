@@ -2101,3 +2101,5 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given files and replacements were pasted exactly. Line endings are CRLF. crm-7a is in the tree (`app/api/crm/refresh-mine/route.ts` exists; `lib/supabase/types.ts` contains `my_crm_week`).
 - **Not done / deferred:** A browser. The ten phone-check steps. Did not query the database. Did not call the CRM. Did not commit. No new table row. No `client_event_id`. Migration 042 is still not applied.
 - **Follow-ups:** The owner runs the ten phone-check steps on the iPhone after crm-7a and crm-7b land, with a CRM name linked in Profile. Apply migration 042 before the screen can load live rows.
+
+- CRM-7a correction (2026-10-15, Claude): the database steps logged as NOT DONE were completed afterwards through the Supabase MCP. Migration 042_crm_week applied once. Table, grants, RLS and the anon refusal were checked. The regenerated types differed only in the PostgREST version comment. The crm-7b report line saying 042 is not applied is out of date.
