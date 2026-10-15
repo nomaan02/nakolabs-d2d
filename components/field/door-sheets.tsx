@@ -33,7 +33,7 @@ export function OtherOutcomeSheet({
             key={spec.key}
             type="button"
             onClick={() => lock(() => onPick(spec.key))}
-            className="flex min-h-[60px] w-full items-center gap-3 rounded-md border-2 border-ink bg-paper px-4 text-left text-base font-semibold text-ink"
+            className="flex min-h-[60px] w-full items-center gap-3 rounded-field-sm border-2 border-ink bg-surface px-4 text-left text-base font-semibold text-ink"
             data-testid={`other-${spec.key}`}
           >
             <span aria-hidden className="text-xl leading-none">
@@ -86,7 +86,7 @@ export function NotesSheet({
         <button
           type="button"
           onClick={() => onSave(text.trim())}
-          className="min-h-[56px] w-full rounded-md bg-ink text-base font-semibold text-paper"
+          className="min-h-[56px] w-full rounded-field-sm bg-ink text-base font-semibold text-paper"
           data-testid="notes-save"
         >
           {saveLabel}
@@ -99,7 +99,7 @@ export function NotesSheet({
             key={chip}
             type="button"
             onClick={() => appendChip(chip)}
-            className="min-h-11 rounded-md border-2 border-ink bg-paper px-4 text-sm font-semibold"
+            className="min-h-11 rounded-field-sm border-2 border-ink bg-surface px-4 text-sm font-semibold"
             data-testid={`note-chip-${chip.toLowerCase().replace(/\s+/g, "-")}`}
           >
             {chip}
@@ -113,7 +113,7 @@ export function NotesSheet({
         onChange={(event) => setText(event.target.value)}
         placeholder="e.g. side gate, dog, back extension"
         rows={4}
-        className="mt-3 w-full rounded-md border-2 border-ink/30 bg-worksheet px-3 py-2 text-base"
+        className="mt-3 w-full rounded-field-sm border-2 border-ink-muted bg-surface px-3 py-2 text-base"
         data-testid="notes-input"
       />
 
@@ -157,7 +157,7 @@ export function HouseNumberSheet({
           type="button"
           disabled={!valid}
           onClick={() => onSave(trimmed)}
-          className="min-h-[56px] w-full rounded-md bg-ink text-base font-semibold text-paper disabled:opacity-40"
+          className="min-h-[56px] w-full rounded-field-sm bg-ink text-base font-semibold text-paper disabled:opacity-40"
           data-testid="house-number-save"
         >
           Save number
@@ -179,7 +179,7 @@ export function HouseNumberSheet({
         maxLength={HOUSE_NUMBER_MAX}
         placeholder="38"
         aria-label="House number"
-        className="mt-3 min-h-[56px] w-full rounded-md border-2 border-ink bg-worksheet px-3 text-center font-data text-3xl"
+        className="mt-3 min-h-[56px] w-full rounded-field-sm border-2 border-ink bg-surface px-3 text-center font-data text-3xl"
         data-testid="house-number-input"
       />
       <p className="mt-2 text-xs text-ink-soft">

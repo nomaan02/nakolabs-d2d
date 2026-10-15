@@ -2,7 +2,12 @@
 
 ## Current state
 
-- Last updated: 2026-10-14 (FUI Session 1b). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Last updated: 2026-10-14 (FUI Session 1c). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- FUI-1c: token swap only on You, the door sheets, the lead sheet and sync status. `bg-worksheet` and `rounded-md` are gone from those four files. Section rows are `border-line bg-surface`. Text inputs use `border-ink-muted`. The rejected-knocks box uses `bg-error-bg`. Layout, sizes and the 2px ink borders on the other secondary buttons were left as they were.
+- Files: `components/field/door-sheets.tsx` (190 lines), `components/field/lead-sheet.tsx` (159 lines), `components/field/profile-tab.tsx` (175 lines), `components/field/sync-status.tsx` (122 lines).
+- `npx tsc --noEmit` exit 0. `npx eslint` on the four files exit 0. `npm run verify:crm` exit 0, last line `ALL PASS`.
+- No browser. The nine phone-check steps are listed for the owner. No database access. No table row. No `client_event_id`. Password, profile and role were not changed. `lib/sync/queue.ts` was not edited.
+- The `ux-audit` skill file is not in the tree. The four files were checked against `.ux-profile.md` and field-ergonomics. Code left as pasted. Findings: You's Appearance and Logging rows still use `gap-1` (4px). The rejected-knocks border is the same token as its fill (`border-error-bg` on `bg-error-bg`). Discard is a 1px `border-ink-muted` outline, as pasted.
 - FUI-1b: Leads, You, Leaderboard and the Map use `FieldHeader`. Leads, You and Leaderboard use `FieldPage`, so only the list or the sections scroll. The 32px titles are gone. `components/field/undo-toast.tsx` is deleted. The undo ring is `UndoButton` inside `FieldHeader` (default `undo`). The Logger still renders its own ring on the door panel.
 - Leads: the Today / Call-backs switch is in the header. The tab reads `d2d.leads.view` through `parseLeadsView` and listens with `onLeadsViewRequest`.
 - You: title "You", the name line as the subtitle. My results has `id="my-results"`.
@@ -15,7 +20,7 @@
 - `lib/field/crm-data.ts`: `fetchCrmMe` writes `d2d.crm.me`. `knownCrmMe` reads it for this account only.
 - `scripts/verify-crm.ts`: `/field` may import `components/admin/ui/*`. Every other admin import still fails that check.
 - `npx tsc --noEmit` exit 0. `npx eslint` on the five TypeScript files exit 0. `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui6` exit 0, last line `OK`.
-- No browser. Phone check is fui-1c, after the batch lands. No database access. No table row. No `client_event_id`. Password, profile and role were not changed. `lib/sync/queue.ts` was not edited.
+- No browser in that session. No database access. No table row. No `client_event_id`. Password, profile and role were not changed. `lib/sync/queue.ts` was not edited.
 - The `ux-audit` skill file is not in the tree. The four changed field components were checked against `.ux-profile.md` and field-ergonomics. Code left as pasted. Findings: You's Appearance and Logging rows use `gap-1` (4px) between adjacent targets; Leads and Leaderboard use `Segmented`, which also uses `gap-1` between options (that file was not edited). FUI-1a's drawer finding remains: drawer rows use `gap-1`, and the active row is a light `bg-prop-soft` tint.
 - RT-1b remains: migration 041 file only (`supabase/migrations/041_manual_route_fit.sql`, 615 lines). Bodies only, same signatures. `assignment_route_freeze` uses manual / manual_reversed only when the drawing fits this visit's doors (every drawn door allocated, every allocated door drawn or left out). Otherwise best / best_reversed. An explicit manual key that does not fit is refused (hint `manual_unfinished`). `territory_manual_route_save` refuses a route with no length (hint `no_length`). Not applied. No type change. No table row. No `client_event_id`.
 - Diff against the brief SQL block: 0 lines. Line endings CRLF. Newest file before it is `040_manual_routes.sql`. 041 was free.
@@ -43,7 +48,7 @@
 - Migrations 029–038 remain applied, as recorded before this session. Migration 039's file is in the repo; this session did not check whether it is applied. The RT-2 brief states migration 040 is live; this session did not check. Migration 041's file is in the repo (615 lines); this session did not apply it.
 - Still open from UI-5 A1: allocating a prop fails with `snapshot_mismatch` until routes are regenerated. Knock `730525dc-7e2f-42c8-a3d5-6291949edcc7` is still the owner's.
 - External settings: none. The RT-2 brief states migration 040 is already live. Wayne to OK before canvassers use call-back phones. The owner runs the CRM backfill once after landing so call-backs already in the list get their notes. The owner runs `npm run verify:stage5b-r2` against the live database. The owner applies migration 041 in the Supabase SQL editor.
-- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-6 C remain DONE. RT-1, RT-2 and RT-3 file work is in the tree. RT-1b adds the migration 041 file only. FUI-1a changes the field layout and adds the field shell. FUI-1b puts Leads, You, Leaderboard and Map on that header and removes `FloatingUndo`. `components/field/icons.tsx` was not edited this session (`EraseIcon` remains from RT-3).
+- UI-10 F1–F6 remain DONE. CRM-1 A through CRM-6 C remain DONE. RT-1, RT-2 and RT-3 file work is in the tree. RT-1b adds the migration 041 file only. FUI-1a changes the field layout and adds the field shell. FUI-1b puts Leads, You, Leaderboard and Map on that header and removes `FloatingUndo`. FUI-1c takes `bg-worksheet` and `rounded-md` out of You, the door sheets, the lead sheet and sync status. `components/field/icons.tsx` was not edited this session (`EraseIcon` remains from RT-3).
 
 ## Log
 
@@ -3403,3 +3408,32 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. A phone. fui-1c covers the phone check after the batch lands. The Logger header is a later session.
 - **External settings:** none
 - **Open questions for Claude:** none from this session. fui-1c is the phone check. The Logger takes the same header in fui-2a.
+
+### 2026-10-14 — FUI Session 1c (uncommitted)
+
+- **Item:** other
+- **What changed:** Token swap only on You, the door sheets, the lead sheet and sync status. The old worksheet fill and the 6px radius are gone from those four files. Section rows use the surface and line tokens. Text inputs use the muted ink border. The rejected-knocks box uses the error fill. Layout and sizes were left as they were.
+- **Files:**
+  - Changed: `components/field/door-sheets.tsx`, `components/field/lead-sheet.tsx`, `components/field/profile-tab.tsx`, `components/field/sync-status.tsx`, `docs/FIELD-TEST-BUILD-PLAN.md` (FUI-1c row after FUI-1b), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `.handoff/reports/fui-1c.md`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none. `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - OWNER — 2026-10-14 (FUI): the canvasser screens get the admin look and a fixed shell. Figma page "Field — UI fixes (14 Oct)" (file `EHxBRxJZGVAU1MuSU59RTH`, page 207:295) was approved on 2026-10-14. "Logger — clean build" stays read-only.
+  - OWNER — 2026-10-14 (O2): a slide-out drawer, opened from a menu button top-left in every header (as in admin), lists the whole app. The four bottom tabs stay.
+  - OWNER — 2026-10-14 (O3, item 4): headers are compact and fixed. Swiping never moves the header or the tab bar; only the body of the page scrolls.
+  - OWNER — 2026-10-14 (O4): the outcome pills stay in the right-hand column, same order, same size, same slide-to-confirm. They stay a light island in dark mode (H1–H4).
+  - OWNER — 2026-10-14 (Q1): Add note moves into the door card; the full-width note bar goes.
+  - OWNER — 2026-10-14 (Q2): the 3D toggle lives on the Map tab only.
+  - OWNER — 2026-10-14 (Q3): "Confirmed" keeps its dash until the CRM supplies it.
+  - CLAUDE — Token swap only, no layout change, in `profile-tab`, `door-sheets`, `lead-sheet` and `sync-status`: `bg-worksheet` goes; `rounded-md` becomes `rounded-field-sm`; section rows `border-ink/15 bg-paper` become `border-line bg-surface`.
+  - CLAUDE — Text inputs: `border-ink/30` becomes `border-ink-muted`.
+  - CLAUDE — Sync status's rejected-knocks box uses the error tokens (`bg-error-bg`).
+  - CLAUDE — Strong 2px ink borders on secondary buttons stay.
+- **Deviations from plan or brief:** none. The given replacements were pasted exactly. Line endings are CRLF. The `ux-audit` skill file is not in the tree; the four files were checked against `.ux-profile.md` and field-ergonomics and the pasted code was not changed.
+- **Invariants:** No device GPS was read. No coordinates left the device. No field write. `lib/sync/queue.ts` was not edited. Coverage stays derived. No scoring was added in `/field`. No knock was written.
+- **Verified:** fui-1b is in the tree (`profile-tab.tsx` uses `FieldPage`). Each find block occurred once. A search of the four files found no `bg-worksheet`, `rounded-md`, `bg-paper`, `border-ink/15`, `border-ink/20` or `border-ink/30`. `npx tsc --noEmit` exit 0. `npx eslint` on the four files exit 0. `npm run verify:crm` exit 0, last line `ALL PASS`.
+- **Not verified:** A browser. A phone. The nine phone-check steps. The `ux-audit` skill file is not in the tree.
+- **External settings:** none
+- **Open questions for Claude:** none from this session. The owner runs the nine phone-check steps after the batch lands. The Logger takes the same header in fui-2a.

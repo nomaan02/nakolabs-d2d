@@ -61,7 +61,7 @@ export function ProfileTab() {
       {role === "admin" ? (
         <Link
           href="/admin/today"
-          className="flex min-h-tap-min items-center justify-between border-b border-ink/15 bg-paper px-4 text-sm font-semibold text-prop focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-prop"
+          className="flex min-h-tap-min items-center justify-between border-b border-line bg-surface px-4 text-sm font-semibold text-prop focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-prop"
           data-testid="profile-back-to-admin"
         >
           Back to admin
@@ -69,7 +69,7 @@ export function ProfileTab() {
         </Link>
       ) : null}
 
-      <section className="border-b border-ink/15 bg-paper px-4 py-3">
+      <section className="border-b border-line bg-surface px-4 py-3">
         <h2 className="text-sm font-semibold">Appearance</h2>
         <div
           role="radiogroup"
@@ -100,7 +100,7 @@ export function ProfileTab() {
       </section>
 
       {/* UI-8 D2b (owner U8-4, 2026-10-06). Per canvasser, per phone. */}
-      <section className="border-b border-ink/15 bg-paper px-4 py-3" data-testid="profile-logging">
+      <section className="border-b border-line bg-surface px-4 py-3" data-testid="profile-logging">
         <h2 className="text-sm font-semibold">Logging</h2>
         <div
           role="radiogroup"
@@ -139,13 +139,13 @@ export function ProfileTab() {
         ) : null}
       </section>
 
-      <section className="border-b border-ink/15 bg-paper px-4 py-3">
+      <section className="border-b border-line bg-surface px-4 py-3">
         <h2 className="text-sm font-semibold">Sync</h2>
         <SyncStatus />
         <SharedKnockNotice assignmentId={phase.kind === "ready" ? phase.assignment.assignment_id : null} />
       </section>
 
-      <section className="border-b border-ink/15 bg-paper px-4 py-3">
+      <section className="border-b border-line bg-surface px-4 py-3">
         <h2 className="text-sm font-semibold">Today</h2>
         <p className="mt-1 text-sm text-ink-soft">
           {phase.kind === "ready"
@@ -155,7 +155,7 @@ export function ProfileTab() {
         <PropStatus />
       </section>
 
-      <section className="border-b border-ink/15 bg-paper px-4 py-4" data-testid="profile-attribution">
+      <section className="border-b border-line bg-surface px-4 py-4" data-testid="profile-attribution">
         <h2 className="text-sm font-semibold">Map and data attribution</h2>
         <ul className="mt-2 space-y-2 text-xs leading-relaxed text-ink-soft">
           {ATTRIBUTION_LINES.map((line) => (
@@ -165,7 +165,7 @@ export function ProfileTab() {
       </section>
 
       <div className="px-4 py-4">
-        <SignOutButton className="min-h-11 w-full rounded-md border-2 border-ink bg-paper px-4 text-base font-medium text-ink" />
+        <SignOutButton className="min-h-11 w-full rounded-field-sm border-2 border-ink bg-surface px-4 text-base font-medium text-ink" />
         <p className="mt-2 text-xs leading-relaxed text-ink-soft">
           Anything still waiting to send is kept on this phone and goes out when you sign back in.
         </p>

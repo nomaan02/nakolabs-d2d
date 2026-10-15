@@ -68,7 +68,7 @@ export function LeadSheet({
         <button
           type="button"
           onClick={() => onSubmit(draft)}
-          className="min-h-[64px] w-full rounded-md bg-lead text-lg font-semibold text-paper"
+          className="min-h-[64px] w-full rounded-field-sm bg-lead text-lg font-semibold text-paper"
           data-testid="lead-submit"
         >
           ★ Log the lead
@@ -83,7 +83,7 @@ export function LeadSheet({
             setPicking(false);
             setBookedFor(londonInstant(0, 18));
           }}
-          className="min-h-[56px] rounded-md border-2 border-ink bg-paper text-sm font-semibold"
+          className="min-h-[56px] rounded-field-sm border-2 border-ink bg-surface text-sm font-semibold"
           data-testid="lead-today-pm"
         >
           Today PM
@@ -94,7 +94,7 @@ export function LeadSheet({
             setPicking(false);
             setBookedFor(londonInstant(1, 10));
           }}
-          className="min-h-[56px] rounded-md border-2 border-ink bg-paper text-sm font-semibold"
+          className="min-h-[56px] rounded-field-sm border-2 border-ink bg-surface text-sm font-semibold"
           data-testid="lead-tomorrow-am"
         >
           Tomorrow AM
@@ -102,7 +102,7 @@ export function LeadSheet({
         <button
           type="button"
           onClick={() => setPicking(true)}
-          className="min-h-[56px] rounded-md border-2 border-ink bg-paper text-sm font-semibold"
+          className="min-h-[56px] rounded-field-sm border-2 border-ink bg-surface text-sm font-semibold"
           data-testid="lead-pick"
         >
           Pick…
@@ -117,7 +117,7 @@ export function LeadSheet({
             const value = event.target.value;
             setBookedFor(value ? new Date(value).toISOString() : null);
           }}
-          className="mt-2 min-h-[56px] w-full rounded-md border-2 border-ink/30 bg-worksheet px-3 text-base"
+          className="mt-2 min-h-[56px] w-full rounded-field-sm border-2 border-ink-muted bg-surface px-3 text-base"
           data-testid="lead-datetime"
         />
       ) : null}
@@ -128,8 +128,8 @@ export function LeadSheet({
 
       {/* Read-only confirmation. The database decides, not this line. */}
       <p
-        className={`mt-2 rounded-md border-2 px-3 py-2 text-sm ${
-          immediate ? "border-lead text-ink" : "border-ink/20 text-ink-soft"
+        className={`mt-2 rounded-field-sm border-2 px-3 py-2 text-sm ${
+          immediate ? "border-lead text-ink" : "border-line text-ink-soft"
         }`}
         data-testid="lead-immediate"
       >
@@ -148,7 +148,7 @@ export function LeadSheet({
         onChange={(event) => onChange({ ...draft, notes: event.target.value })}
         rows={3}
         placeholder="e.g. rear extension, wants a morning slot"
-        className="mt-1 w-full rounded-md border-2 border-ink/30 bg-worksheet px-3 py-2 text-base"
+        className="mt-1 w-full rounded-field-sm border-2 border-ink-muted bg-surface px-3 py-2 text-base"
         data-testid="lead-notes"
       />
       <p className="mt-2 text-sm font-semibold text-oxide">

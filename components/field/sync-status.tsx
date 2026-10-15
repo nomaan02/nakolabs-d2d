@@ -77,7 +77,7 @@ export function SyncStatus() {
 
       {status.failedRows.length > 0 ? (
         <div
-          className="mt-2 rounded-md border border-ink/30 bg-worksheet px-3 py-2"
+          className="mt-2 rounded-field-sm border border-error-bg bg-error-bg px-3 py-2"
           role="alert"
           data-testid="sync-failed"
         >
@@ -100,14 +100,14 @@ export function SyncStatus() {
                   <button
                     type="button"
                     onClick={() => void retryFailed(row.client_event_id)}
-                    className="min-h-11 rounded-md bg-ink px-3 text-sm font-medium text-paper"
+                    className="min-h-11 rounded-field-sm bg-ink px-3 text-sm font-medium text-paper"
                   >
                     Retry
                   </button>
                   <button
                     type="button"
                     onClick={() => void discardFailed(row.client_event_id)}
-                    className="min-h-11 rounded-md border border-ink/30 bg-paper px-3 text-sm font-medium text-ink"
+                    className="min-h-11 rounded-field-sm border border-ink-muted bg-surface px-3 text-sm font-medium text-ink"
                   >
                     Discard
                   </button>

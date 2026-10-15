@@ -163,6 +163,7 @@
 | RT-1b | human: migration 041 — a visit uses the drawing only when it fits | DONE | 2026-10-14 | Migration 041: freeze uses the drawn route only when it fits the visit's doors (else best / best_reversed; explicit manual refused, manual_unfinished); manual save refuses a route with no length. Applied to live by the owner. | — |
 | FUI-1a | Field shell: fixed page, header, drawer | DONE | 2026-10-14 | Field shell: page never scrolls (html/body lock), FieldHeader + FieldPage, drawer (menu top-left, full app map, 44px appearance, no request on open). | — |
 | FUI-1b | Leads, You, Leaderboard and Map use the fixed header | DONE | 2026-10-14 | Leads, You, Leaderboard and Map on FieldHeader/FieldPage; undo ring in the header (FloatingUndo removed). | — |
+| FUI-1c | Field palette sweep (old worksheet palette out) | DONE | 2026-10-14 | Palette sweep: bg-worksheet and rounded-md out of You, door sheets, lead sheet, sync status; inputs at 3:1+. | — |
 
 ---
 

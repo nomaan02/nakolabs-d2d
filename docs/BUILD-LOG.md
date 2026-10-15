@@ -1863,3 +1863,34 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given replacements were pasted exactly. Line endings are CRLF.
 - **Not done / deferred:** A browser. The phone check (fui-1c). The Logger header (fui-2a). Did not query the database. Did not commit. No new table row. No `client_event_id`.
 - **Follow-ups:** fui-1c is the phone check. fui-2a puts the Logger on the same header. The You tab's Appearance and Logging gaps, and `Segmented`'s gap, stay as they were.
+
+### FUI Session 1c — field palette sweep
+- **Date:** 2026-10-14
+- **Model:** Grok 4.7
+- **Built:** Token swap only on You, the door sheets, the lead sheet and sync status. The old worksheet fill and the 6px radius are gone from those four files. Section rows use the surface and line tokens. Text inputs use the muted ink border. The rejected-knocks box uses the error fill. Layout, sizes and the 2px ink borders on the other secondary buttons were left as they were.
+- **Owner decisions:**
+  - OWNER — 2026-10-14 (FUI): the canvasser screens get the admin look and a fixed shell. Figma page "Field — UI fixes (14 Oct)" (file `EHxBRxJZGVAU1MuSU59RTH`, page 207:295) was approved on 2026-10-14. "Logger — clean build" stays read-only.
+  - OWNER — 2026-10-14 (O2): a slide-out drawer, opened from a menu button top-left in every header (as in admin), lists the whole app. The four bottom tabs stay.
+  - OWNER — 2026-10-14 (O3, item 4): headers are compact and fixed. Swiping never moves the header or the tab bar; only the body of the page scrolls.
+  - OWNER — 2026-10-14 (O4): the outcome pills stay in the right-hand column, same order, same size, same slide-to-confirm. They stay a light island in dark mode (H1–H4).
+  - OWNER — 2026-10-14 (Q1): Add note moves into the door card; the full-width note bar goes.
+  - OWNER — 2026-10-14 (Q2): the 3D toggle lives on the Map tab only.
+  - OWNER — 2026-10-14 (Q3): "Confirmed" keeps its dash until the CRM supplies it.
+- **Claude decisions:**
+  - CLAUDE — Token swap only, no layout change, in `profile-tab`, `door-sheets`, `lead-sheet` and `sync-status`: `bg-worksheet` goes; `rounded-md` becomes `rounded-field-sm`; section rows `border-ink/15 bg-paper` become `border-line bg-surface`.
+  - CLAUDE — Text inputs: `border-ink/30` becomes `border-ink-muted`.
+  - CLAUDE — Sync status's rejected-knocks box uses the error tokens (`bg-error-bg`).
+  - CLAUDE — Strong 2px ink borders on secondary buttons stay.
+- **Acceptance:**
+  - EDIT 1 DONE. Six replacements in `components/field/door-sheets.tsx` (190 lines). Each find occurred once.
+  - EDIT 2 DONE. Seven replacements in `components/field/lead-sheet.tsx` (159 lines). Each find occurred once.
+  - EDIT 3 DONE. Six replacements in `components/field/profile-tab.tsx` (175 lines). Each find occurred once. `FieldPage` was already in the file (fui-1b).
+  - EDIT 4 DONE. Two replacements in `components/field/sync-status.tsx` (122 lines). Each find occurred once.
+  - `npm run verify:crm`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0.
+  - eslint: **PASS** — `npx eslint` on the four files exit 0.
+  - ux-audit: the skill file is not in the tree. The four files were read against `.ux-profile.md` and field-ergonomics. Code not changed. Findings: You's Appearance and Logging rows still use `gap-1` (4px); the rejected-knocks border is `border-error-bg` on `bg-error-bg`; Discard is a 1px `border-ink-muted` outline, as pasted.
+  - Phone: no browser. The nine steps are listed for the owner.
+- **Deviations from brief:** none. The given replacements were pasted exactly. Line endings are CRLF.
+- **Not done / deferred:** A browser. The nine phone-check steps. Did not query the database. Did not commit. No new table row. No `client_event_id`.
+- **Follow-ups:** The owner runs the nine phone-check steps after the batch lands. fui-2a puts the Logger on the same header.
