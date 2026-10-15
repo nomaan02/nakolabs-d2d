@@ -78,6 +78,22 @@ Terra Draw, Dexie, Vercel.
   Call (`cf_1016`) and Description. Same rows, same rules: own canvasser
   only, 90-day purge. For any other lead `lib/crm/parse.ts` drops them. Rep
   Result is never stored. They appear only in the expanded call-back row.
+- This week + Refresh from CRM (owner 2026-10-15, CRM-7, migration 042,
+  Wayne OK'd): the Leads tab's "This week" view shows the canvasser's OWN CRM
+  leads for the London week with the same details as the call-backs. So
+  `crm_contacts` (title, surname, phone / alt phone, CRM address line, Result,
+  Product Interest, Best Time To Call, Description) now holds a row for EVERY
+  lead booked in the last 90 days, not only call-backs. Same rules: own
+  canvasser only, never first name or email, Rep Result never stored, deleted
+  90 days after the lead date. A Sold lead's Result box can hold the price as
+  typed; it is kept like any Result note. The canvasser's "Refresh from CRM"
+  button posts to `/api/crm/refresh-mine`: a server-side pull (read-only CRM
+  client, this canvasser's leads for this week only, no `crm_sync_runs` row),
+  throttled to one per canvasser per 30 seconds and one at a time overall
+  (`crm_refresh_log`, service role only). It is a pull, not a field write: it
+  sends no canvasser data and carries no `client_event_id`. Status words use
+  the CRM colours: UTC yellow, Re-App purple, Blowout red, Booked (confirmed)
+  blue.
 - Call-back reason (owner 2026-10-11): `crm_leads.callback_reason` is a label
   worked out in `lib/crm/parse.ts` from status plus Result / Rep Result
   keywords. TITC, RITC, cancelled, not interested, changed mind, wrong number

@@ -2031,3 +2031,36 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given replacements were pasted exactly. Line endings are CRLF. fui-3a is in the tree (`components/field/leads-tab.tsx` contains `data-testid="leads-empty"`).
 - **Not done / deferred:** A browser. The ten phone-check steps. Did not query the database except the read inside `verify:anchors`. Did not commit. No new table row. No `client_event_id`. The live anchor-count mismatch was not investigated (anchor code is outside this session).
 - **Follow-ups:** The owner runs the ten phone-check steps after the batch lands. The REF Speedwell anchor count (182 vs 179) is for the owner.
+
+### CRM-7 Session 7a — details for every lead, Refresh from CRM, migration 042
+- **Date:** 2026-10-15
+- **Model:** Grok 4.7
+- **Built:** Contact details (title, surname, phones, CRM address line, Result, Product Interest, Best Time To Call, Description) are kept for every lead booked in the last 90 days, not only call-backs. Rep Result is never stored. `POST /api/crm/refresh-mine` re-reads this canvasser's leads for the London week through the read-only CRM client, writes no `crm_sync_runs` row, and answers counts only. Throttle: one refresh per canvasser per 30 seconds, one unfinished refresh at a time. Migration 042 file adds `crm_refresh_log`, `my_crm_week` and `my_crm_freshness`. The file was not applied: Supabase MCP is not signed in.
+- **Owner decisions:**
+  - OWNER — 2026-10-15 (CRM-7): a canvasser-side "This week" screen on `/field/leads` shows all of that canvasser's own CRM leads for the London week, logged in the app or not. The status is the CRM word on a colour: UTC yellow, Re-App purple, Blowout red, Booked blue (Booked = CRM `confirmed`). Each row expands to the same details as a call-back. A "Refresh from CRM" button re-reads this canvasser's leads from the CRM right then. The screen itself is crm-7b.
+  - OWNER — 2026-10-15: Wayne has OK'd the call-back details (name, phones, address, Result, Product Interest, Best Time To Call, Description) for every lead on this screen, not only call-backs. Same rules as `crm_contacts` today: own canvasser only, not admin, not office, deleted 90 days after the lead date. Rep Result is still never stored.
+  - OWNER — open, not decided in this session: (1) the Refresh button is a client-triggered server pull (`POST /api/crm/refresh-mine`), not a field write, so it does not go through `lib/sync/queue.ts` and carries no `client_event_id`. (2) A Sold lead's Result text (which may contain the price) is now kept in `crm_contacts` like the other notes.
+- **Claude decisions:**
+  - CLAUDE — The CRM parser keeps the contact details for every lead, not only call-backs. Contact rows are kept only for leads under 90 days old. Rep Result is never stored. The price is still read from Result / Rep Result for Sold leads only and stored as a number.
+  - CLAUDE — `POST /api/crm/refresh-mine`: signed-in canvasser only, must be linked to a CRM name. Re-reads only this canvasser's leads created since Monday 00:00 London (SELECT only, through `lib/crm/client.ts`), runs the normal parse and upsert, writes no `crm_sync_runs` row, and answers counts only. Nothing is logged.
+  - CLAUDE — Throttle: one refresh per canvasser per 30 seconds, one unfinished refresh at a time across everyone (unique partial index), and a refresh unfinished for over 2 minutes counts as dead. Answers 429 with `retryAfterSec`.
+  - CLAUDE — Migration 042: `crm_refresh_log` (RLS on, no policies, no grants), `my_crm_week(p_from, p_to)` (security invoker, own leads only, joined to contacts), `my_crm_freshness()` (security definer, two timestamps only).
+  - CLAUDE — AGENTS.md gets one new rule bullet for CRM-7. It supersedes "call-back leads only" for contacts.
+- **Acceptance:**
+  - EDIT 1 DONE. One replacement in `AGENTS.md` (143 lines). The find occurred once.
+  - EDIT 2 DONE. New `app/api/crm/refresh-mine/route.ts` (103 lines), pasted exactly.
+  - EDIT 3 DONE. Five replacements in `lib/crm/parse.ts` (452 lines). Each find occurred once.
+  - EDIT 4 DONE. New `lib/crm/refresh.ts` (53 lines), pasted exactly.
+  - EDIT 5 DONE. Seven replacements in `lib/crm/sync.ts` (535 lines). Each find occurred once.
+  - EDIT 6 DONE. Three replacements in `lib/supabase/types.ts` (2937 lines). Each find occurred once. Hand-added `crm_refresh_log`, `my_crm_freshness` and `my_crm_week`.
+  - EDIT 7 DONE. Five replacements in `scripts/verify-crm.ts` (625 lines). Each find occurred once.
+  - EDIT 8 DONE. New `supabase/migrations/042_crm_week.sql` (96 lines), pasted exactly.
+  - `npm run verify:crm`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - tsc: **PASS** — `npx tsc --noEmit` exit 0, run once after EDITs 1–8.
+  - eslint: **PASS** — `npx eslint` on the TypeScript files exit 0 (0 errors). `AGENTS.md` and the SQL file are ignored by the eslint config.
+  - Database step 1 NOT DONE. Supabase MCP not signed in. `supabase` and `supabase-d2d` both report needsAuth. Did not call `list_migrations` or `execute_sql`. Did not apply the migration.
+  - Database steps 2–8 NOT DONE. They need the signed-in MCP. Types were not regenerated. Advisors were not read.
+  - Phone: no phone check for this session. The screen arrives in crm-7b.
+- **Deviations from brief:** none in the pasted code. The database steps were not run because the Supabase MCP is not signed in. The brief says stop there and do not reach the database another way.
+- **Not done / deferred:** Apply migration 042. Regenerate types from project `xerxsaptwpvhkkpyvkfi`. Security advisors. Did not call the CRM. Did not insert, update or delete any row. Did not commit. No new table row. No `client_event_id`.
+- **Follow-ups:** Sign in the Supabase MCP and apply `042_crm_week` once, then regenerate types. The This week screen is crm-7b. Owner still to confirm the two open points (refresh is a pull with no `client_event_id`; a Sold Result note may hold the price).

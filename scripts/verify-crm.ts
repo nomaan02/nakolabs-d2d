@@ -36,6 +36,7 @@ import {
   type AppCrmStatus,
 } from "../lib/crm/parse";
 import { cronAuthorised, lastSuccess, nextCursor, runInProgress, syncFreshness, whenWords, type SyncRun } from "../lib/crm/schedule";
+import { refreshGate, REFRESH_GAP_MS, REFRESH_STALE_MS } from "../lib/crm/refresh";
 import { keepsContact, purgeAfter, recordUnchanged } from "../lib/crm/sync";
 import { CRM_CALLBACK_GROUP, validateOp, type CrmCallbackOp } from "../lib/sync/ops";
 import { sendOp } from "../lib/sync/queue";
@@ -178,7 +179,7 @@ check("never read a price from text on a lead that is not Sold", same(leadSaleAm
 const resultText = "Bristol Charlotte £5015";
 const sold = parseCrmLead({ id: "10x9", leadstatus: "Sold", createdtime: "2026-10-08 10:00:00", modifiedtime: "2026-10-08 11:00:00", cf_861: "0.00000000", cf_867: resultText, cf_881: "Rep note" }, new Map([["Sold", "sale"]]), "UTC");
 check("Sold lead takes its price from Result", sold.sale_amount === 5015 && sold.sale_amount_source === "result");
-check("Result and Rep Result text never leave the parser for a lead that is not a call-back", !Object.values(sold).some((v) => typeof v === "string" && (v.includes("Charlotte") || v.includes("Rep note"))) && !JSON.stringify(sold).includes("Charlotte"));
+check("CRM-7: Rep Result never leaves the parser; Result is kept only as the contact note (every lead)", !JSON.stringify(sold).includes("Rep note") && sold.contact.result_note === resultText && !Object.entries(sold).some(([key, v]) => key !== "contact" && typeof v === "string" && v.includes("Charlotte")));
 
 console.log("\nCRM-5 call-back list");
 check("UTC, no outcome and Re-App are call-backs", callbackReason("utc", false, "", "") === "utc" && callbackReason(null, false, null, null) === "no_outcome" && callbackReason("re_app", false, "", "") === "reapp");
@@ -196,8 +197,8 @@ const cbLead = parseCrmLead({ id: "10x77", leadstatus: "UTC", createdtime: "2026
 check("contact parsed: title, surname, phone (no first name anywhere)", cbLead.callback_reason === "utc" && cbLead.contact.title === "Mrs" && cbLead.contact.surname === "Ashworth" && cbLead.contact.phone === "07700900001" && cbLead.contact.alt_phone === null && !JSON.stringify(cbLead).includes("firstname"));
 const soldFull = parseCrmLead({ id: "10x80", leadstatus: "Sold", createdtime: "2026-10-08 10:00:00", modifiedtime: "2026-10-08 11:00:00", cf_861: "4000", lane: "14 Upton Road", code: "BS7 9QD", cf_867: "Bristol Earl", cf_871: "7 windows", cf_1016: "after 5", description: "semi" }, new Map([["Sold", "sale"]]), "UTC");
 check(
-  "CRM-6 B: a lead that is not a call-back carries no address line or notes",
-  soldFull.callback_reason === null && [soldFull.contact.address_line, soldFull.contact.result_note, soldFull.contact.product_interest, soldFull.contact.best_time, soldFull.contact.description].every((v) => v === null) && !/Earl|7 windows|after 5|semi/.test(JSON.stringify(soldFull)),
+  "CRM-7: a lead that is not a call-back carries its address line and notes too",
+  soldFull.callback_reason === null && soldFull.contact.address_line === "14 Upton Road" && soldFull.contact.result_note === "Bristol Earl" && soldFull.contact.product_interest === "7 windows" && soldFull.contact.best_time === "after 5" && soldFull.contact.description === "semi" && !JSON.stringify(soldFull).includes("firstname"),
 );
 check("CRM-6 B: blank notes come through as null", Object.values({ a: cbLead.contact.address_line, r: cbLead.contact.result_note, p: cbLead.contact.product_interest, b: cbLead.contact.best_time, d: cbLead.contact.description }).every((v) => v === null));
 const detailLead = parseCrmLead({ id: "10x79", leadstatus: "Blowout", createdtime: "2026-10-01 10:00:00", modifiedtime: "2026-10-01 11:00:00", lane: "14 Upton Road\nHorfield", code: "bs79qd", cf_867: "3:30 4:50  said\r\ncall tomorrow", cf_871: "7 windows", cf_1016: "after 5", description: "Semi, &amp; front bay", firstname: "Jane" } as never, new Map([["Blowout", "blowout"]]), "UTC");
@@ -207,7 +208,7 @@ check("CRM-6 B: address line on one line", tidyAddressLine("Flat 2,\n23 Upton Ro
 const altOnly = parseCrmLead({ id: "10x78", leadstatus: "UTC", createdtime: "2026-10-01 10:00:00", modifiedtime: "2026-10-01 11:00:00", phone: "", cf_1014: "0117 900 0000" }, new Map([["UTC", "utc"]]), "UTC");
 check("alt phone is used when the main phone is blank", altOnly.contact.phone === "01179000000" && altOnly.contact.alt_phone === null);
 const NOW5 = new Date("2026-10-11T12:00:00Z");
-check("contacts kept only for call-backs under 90 days old", keepsContact({ callback_reason: "utc", crm_created_at: "2026-09-01T10:00:00Z" }, NOW5) && !keepsContact({ callback_reason: "utc", crm_created_at: "2026-07-01T10:00:00Z" }, NOW5) && !keepsContact({ callback_reason: null, crm_created_at: "2026-10-10T10:00:00Z" }, NOW5));
+check("CRM-7: contacts kept for every lead under 90 days old, any status", keepsContact({ crm_created_at: "2026-09-01T10:00:00Z" }, NOW5) && !keepsContact({ crm_created_at: "2026-07-01T10:00:00Z" }, NOW5) && keepsContact({ crm_created_at: "2026-10-10T10:00:00Z" }, NOW5));
 check("purge date = lead date + 90 days", purgeAfter("2026-10-01T10:00:00Z") === "2026-12-30");
 
 console.log("\nCRM-5 B call results through the offline queue");
@@ -566,6 +567,44 @@ check("phone numbers only on the call-back list and its sheet", same(tel, ["comp
 const layerFiles = fieldFiles.filter((f) => /field-crm-leads|CRM_MAP_RING/.test(readFileSync(f, "utf8"))).map(rel).sort();
 check("CRM-5 C2: the CRM colour layer lives only in field-map.tsx (rings) and lib/field/crm.ts (colours)", same(layerFiles, ["components/field/field-map.tsx", "lib/field/crm.ts"]));
 check("the CRM field screens never touch a customer first name", !fieldFiles.filter((f) => /crm/.test(rel(f))).some((f) => /first_?name/i.test(readFileSync(f, "utf8"))));
+
+console.log("\nCRM-7 refresh from CRM");
+const R_NOW = new Date("2026-10-15T12:00:00Z");
+const rAgo = (ms: number) => new Date(R_NOW.getTime() - ms).toISOString();
+check("refresh: nothing logged -> allowed", refreshGate([], "a", R_NOW).ok);
+check(
+  "refresh: same canvasser inside 30 seconds -> too_soon, with the wait",
+  (() => {
+    const g = refreshGate([{ canvasser_id: "a", requested_at: rAgo(10_000), finished_at: rAgo(5_000) }], "a", R_NOW);
+    return !g.ok && g.reason === "too_soon" && g.retryAfterSec === 20;
+  })(),
+);
+check("refresh: same canvasser after 30 seconds -> allowed", refreshGate([{ canvasser_id: "a", requested_at: rAgo(REFRESH_GAP_MS + 1_000), finished_at: rAgo(REFRESH_GAP_MS) }], "a", R_NOW).ok);
+check(
+  "refresh: someone else's refresh still running -> busy",
+  (() => {
+    const g = refreshGate([{ canvasser_id: "b", requested_at: rAgo(20_000), finished_at: null }], "a", R_NOW);
+    return !g.ok && g.reason === "busy" && g.retryAfterSec >= 5 && g.retryAfterSec <= 15;
+  })(),
+);
+check("refresh: someone else's finished refresh does not block this canvasser", refreshGate([{ canvasser_id: "b", requested_at: rAgo(5_000), finished_at: rAgo(2_000) }], "a", R_NOW).ok);
+check("refresh: a refresh unfinished for over 2 minutes is dead, not busy", refreshGate([{ canvasser_id: "b", requested_at: rAgo(REFRESH_STALE_MS + 1_000), finished_at: null }], "a", R_NOW).ok);
+const refreshSrc = readFileSync("app/api/crm/refresh-mine/route.ts", "utf8");
+check(
+  "refresh route: POST only, signed-in only, checks the gate before the CRM is opened",
+  /export async function POST/.test(refreshSrc) && !/export async function (GET|PUT|PATCH|DELETE)/.test(refreshSrc) && /auth\.getUser\(\)/.test(refreshSrc) && refreshSrc.indexOf("refreshGate(") > 0 && refreshSrc.indexOf("refreshGate(") < refreshSrc.indexOf("openCrmReader("),
+);
+check(
+  "refresh route: this canvasser's leads only, no sync-run row, counts only, nothing logged",
+  /canvasser: \{ name, branch: branch \?\? null \}/.test(refreshSrc) && /track: false/.test(refreshSrc) && /createdSince:/.test(refreshSrc) && /log: \(\) => \{\}/.test(refreshSrc) && !/console\./.test(refreshSrc),
+);
+const m042 = readFileSync("supabase/migrations/042_crm_week.sql", "utf8");
+check(
+  "042: refresh log is default-deny with one unfinished refresh at a time; reads are invoker/own-leads; no first name; no new grant on contacts",
+  /alter table public\.crm_refresh_log enable row level security/.test(m042) && /revoke all on public\.crm_refresh_log from anon, authenticated/.test(m042) && !/create policy/.test(m042) && /create unique index crm_refresh_one_running on public\.crm_refresh_log \(\(true\)\) where finished_at is null/.test(m042) &&
+    /create function public\.my_crm_week/.test(m042) && /security invoker/.test(m042) && /l\.canvasser_first_name = \(select public\.my_crm_name\(\)\)/.test(m042) && /\(select public\.my_crm_branch\(\)\) is null or l\.branch = \(select public\.my_crm_branch\(\)\)/.test(m042) &&
+    /grant execute on function public\.my_crm_week\(timestamptz, timestamptz\) to authenticated/.test(m042) && /revoke all on function public\.my_crm_week\(timestamptz, timestamptz\) from public, anon/.test(m042) && !/first_?name\s+text/i.test(m042) && !/grant (select|insert|update|delete)[^;]*crm_contacts/i.test(m042),
+);
 
 async function sendChecks(): Promise<void> {
   console.log("\nCRM-5 B sendOp (fake client, no network)");

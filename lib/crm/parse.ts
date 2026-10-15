@@ -18,12 +18,17 @@
  * 90 days, readable only by that canvasser. First names are never read.
  *
  * Owner 2026-10-13 (CRM-6 B): a call-back is too vague to ring with a name
- * alone. For call-back leads only, crm_contacts also keeps the CRM address
+ * alone. For call-back leads, crm_contacts also keeps the CRM address
  * line, the Result note, Product Interest (what was booked), Best Time To Call
  * and Description, as typed in the CRM (`details`), under the same rules: own
- * canvasser only, deleted 90 days after the lead date. For any other lead
- * these fields are read here and dropped. First names, emails and Rep Result
- * are still never stored.
+ * canvasser only, deleted 90 days after the lead date. First names, emails
+ * and Rep Result are still never stored.
+ *
+ * Owner 2026-10-15 (CRM-7, Wayne OK'd): the canvasser's "This week" screen
+ * shows the same details for every one of their own leads, not only the
+ * call-backs. So every lead now keeps them, under the same rules (own
+ * canvasser only, deleted 90 days after the lead date). A Sold lead's Result
+ * box can hold the price as typed; it is kept like any other Result note.
  */
 
 export const CRM_LEAD_FIELDS = [
@@ -54,13 +59,13 @@ export const CRM_LEAD_FIELDS = [
 export const CRM_CONTACT_FIELDS = ["cf_877", "lastname", "phone", "cf_1014"] as const;
 
 /**
- * Call-back detail fields (CRM-6 B, owner 2026-10-13): Street, Result,
- * Product Interest, Best Time To Call, Description. Stored for call-back
- * leads only (crm_contacts); dropped for every other lead.
+ * Detail fields (CRM-6 B, owner 2026-10-13; every lead since CRM-7, owner
+ * 2026-10-15): Street, Result, Product Interest, Best Time To Call,
+ * Description. Stored in crm_contacts for 90 days, own canvasser only.
  */
 export const CRM_DETAIL_FIELDS = ["lane", "cf_867", "cf_871", "cf_1016", "description"] as const;
 
-/** Free-text boxes read for a price (owner 2026-10-11). Only the number is kept; Result is also kept for call-back leads (CRM-6 B). */
+/** Free-text boxes read for a price (owner 2026-10-11). Only the number is kept from Rep Result; Result is also kept as a note (CRM-6 B, CRM-7). */
 export const CRM_PRICE_TEXT_FIELDS = ["cf_867", "cf_881"] as const;
 
 export type CrmLeadField = (typeof CRM_LEAD_FIELDS)[number];
@@ -85,7 +90,7 @@ export type MatchInput = {
 export const CALLBACK_REASONS = ["utc", "no_outcome", "reapp", "single_sit", "not_convenient", "no_time", "rta", "rearrange", "no_answer"] as const;
 export type CallbackReason = (typeof CALLBACK_REASONS)[number];
 
-/** Held in memory for one sync; stored only for call-back leads (crm_contacts). */
+/** Held in memory for one sync; stored for leads booked in the last 90 days (crm_contacts). */
 export type CrmContact = {
   title: string | null;
   surname: string | null;
@@ -413,8 +418,8 @@ export function parseCrmLead(
   const phone = tidyPhone(row.phone);
   const altPhone = tidyPhone(row.cf_1014);
   const reason = callbackReason(status.status, status.unknown, row.cf_867, row.cf_881);
-  // CRM-6 B: the notes are carried only for call-back leads; any other lead drops them here.
-  const note = (raw: string | null | undefined) => (reason === null ? null : tidyNote(raw));
+  // CRM-7 (owner 2026-10-15, Wayne OK'd): every lead carries its notes, not only call-backs.
+  const note = (raw: string | null | undefined) => tidyNote(raw);
   return {
     crm_id: row.id,
     lead_no: (row.lead_no ?? "").trim() || null,
@@ -433,7 +438,7 @@ export function parseCrmLead(
       surname: tidyName(row.lastname),
       phone: phone ?? altPhone,
       alt_phone: phone ? altPhone : null,
-      address_line: reason === null ? null : tidyAddressLine(row.lane),
+      address_line: tidyAddressLine(row.lane),
       result_note: note(row.cf_867),
       product_interest: note(row.cf_871),
       best_time: note(row.cf_1016),

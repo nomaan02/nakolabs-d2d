@@ -48,6 +48,14 @@ export type CrmSyncOptions = {
   zone: CrmDatetimeZone;
   /** ISO instant; daily runs pass the last successful max_modified_seen. Null = everything. */
   modifiedSince: string | null;
+  /**
+   * CRM-7 (owner 2026-10-15): the canvasser's own "Refresh from CRM". Reads leads created since this
+   * ISO instant instead of using the modified-since cursor, and keeps only the named canvasser's.
+   */
+  createdSince?: string;
+  canvasser?: { name: string; branch: string | null };
+  /** False for a refresh: no crm_sync_runs row, so the scheduled sync's cursor never moves. Default true. */
+  track?: boolean;
   log: (line: string) => void;
 };
 
@@ -101,13 +109,13 @@ type CrmLeadRecord = {
 const COMPARE_COLUMNS =
   "crm_id, lead_no, status_raw, status, crm_created_at, crm_modified_at, appointment_at, branch, sale_amount, postcode, postcode_sector, uprn, location, match_tier, canvasser_first_name, callback_reason";
 
-/** CRM-5 (owner 2026-10-11): contacts are kept for call-back leads booked in the last 90 days, then purged. */
+/** CRM-5 (owner 2026-10-11), widened by CRM-7 (owner 2026-10-15): contacts are kept for every lead booked in the last 90 days, then purged. */
 export const CONTACT_DAYS = 90;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** True when a lead's contact belongs in crm_contacts: it has a call-back reason and was booked under 90 days ago. */
-export function keepsContact(lead: Pick<ParsedCrmLead, "callback_reason" | "crm_created_at">, now: Date): boolean {
-  return lead.callback_reason !== null && now.getTime() - Date.parse(lead.crm_created_at) < CONTACT_DAYS * DAY_MS;
+/** True when a lead's contact belongs in crm_contacts: it was booked under 90 days ago (any status, CRM-7). */
+export function keepsContact(lead: Pick<ParsedCrmLead, "crm_created_at">, now: Date): boolean {
+  return now.getTime() - Date.parse(lead.crm_created_at) < CONTACT_DAYS * DAY_MS;
 }
 
 /** Lead date + 90 days, as a date (UTC). */
@@ -182,7 +190,11 @@ async function loadStatusMap(db: SupabaseClient): Promise<Map<string, AppCrmStat
 
 async function fetchCrmRows(crm: CrmReader, options: CrmSyncOptions): Promise<CrmLeadRow[]> {
   const since = options.modifiedSince ? new Date(Date.parse(options.modifiedSince) - CURSOR_OVERLAP_MS).toISOString() : null;
-  const where = since ? ` WHERE modifiedtime >= '${isoToCrmStamp(since, options.zone)}'` : "";
+  const where = options.createdSince
+    ? ` WHERE createdtime >= '${isoToCrmStamp(options.createdSince, options.zone)}'`
+    : since
+      ? ` WHERE modifiedtime >= '${isoToCrmStamp(since, options.zone)}'`
+      : "";
   const [counted] = await crm.query<{ count: string }>(`SELECT count(*) FROM Leads${where};`);
   const expected = Number(counted?.count ?? "0");
   const seen = new Map<string, CrmLeadRow>();
@@ -377,7 +389,8 @@ export async function runCrmSync(db: SupabaseClient, crm: CrmReader, options: Cr
   const { log } = options;
   let runId: string | null = null;
 
-  if (!options.dryRun) {
+  const track = options.track !== false;
+  if (!options.dryRun && track) {
     const { data, error } = await db
       .from("crm_sync_runs")
       .insert({ kind: options.kind, modified_since: options.modifiedSince })
@@ -393,7 +406,7 @@ export async function runCrmSync(db: SupabaseClient, crm: CrmReader, options: Cr
     const rows = await fetchCrmRows(crm, options);
     log(`  ${rows.length} leads read`);
 
-    const parsed: ParsedCrmLead[] = [];
+    let parsed: ParsedCrmLead[] = [];
     let skipped = 0;
     for (const row of rows) {
       try {
@@ -402,6 +415,10 @@ export async function runCrmSync(db: SupabaseClient, crm: CrmReader, options: Cr
         if (!(err instanceof CrmParseError)) throw err;
         skipped += 1;
       }
+    }
+    const only = options.canvasser;
+    if (only) {
+      parsed = parsed.filter((l) => l.canvasser_first_name === only.name && (only.branch === null || l.branch === only.branch));
     }
     if (skipped > 0) log(`  ${skipped} leads skipped: unreadable created/modified time`);
     log("Placing leads on the map...");
@@ -466,7 +483,7 @@ export async function runCrmSync(db: SupabaseClient, crm: CrmReader, options: Cr
 
     const summary: CrmSyncSummary = {
       runId,
-      rowsSeen: rows.length,
+      rowsSeen: only ? parsed.length : rows.length,
       rowsInserted: inserted,
       rowsUpdated: updated,
       rowsUnchanged: records.length - inserted - updated,

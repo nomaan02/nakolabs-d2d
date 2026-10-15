@@ -2,8 +2,14 @@
 
 ## Current state
 
-- Last updated: 2026-10-15 (FUI Session 3b). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
-- FUI-3b: the Map has one control stack, top-right: 3D / 2D, Centre on me (only when there is a fix), and Key. The Key card (`map-legend`, `id="map-key"`) starts closed. The full map has no +/- zoom buttons. The scale bar stays. The licence button is a 44px round chip (light `#f5f3ee` chip in dark mode). The door sheet is `rounded-t-2xl border-t border-line bg-surface`: door name, status, Other, and a round Close, then four 56px tiles in a 2×2. Contact uses the speech-bubble icon. `data-theme-island="light"` stays on the tile grid. Test ids `outcome-<key>`, `outcome-other`, `outcome-buttons` stay.
+- Last updated: 2026-10-15 (CRM-7 Session 7a). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- CRM-7a: every lead booked in the last 90 days keeps title, surname, phones, the CRM address line and the notes (Result, Product Interest, Best Time To Call, Description) in `crm_contacts`. Rep Result is still never stored. A Sold lead's Result text is kept as the note. The price number is still the only price stored. `keepsContact` is age only.
+- New `POST /api/crm/refresh-mine` (`app/api/crm/refresh-mine/route.ts`, 103 lines). Signed-in canvasser with a CRM name. Re-reads this canvasser's leads created since Monday 00:00 London through the read-only CRM client. No `crm_sync_runs` row. Counts only. Nothing logged. Throttle in `lib/crm/refresh.ts` (53 lines): 30 seconds per canvasser, one unfinished refresh at a time, a refresh unfinished for over 2 minutes counts as dead.
+- Migration file `supabase/migrations/042_crm_week.sql` (96 lines) is in the repo. It was not applied. Supabase MCP is not signed in (`supabase` and `supabase-d2d` both need auth). `crm_refresh_log`, `my_crm_week` and `my_crm_freshness` are not on the live database. Types for those three were hand-added in `lib/supabase/types.ts` (2937 lines) and were not regenerated.
+- `npx tsc --noEmit` exit 0. `npx eslint` on the TypeScript files exit 0. `npm run verify:crm` exit 0, last line `ALL PASS`.
+- No browser. No phone check (the screen is crm-7b). No database row. No `client_event_id`. Password, profile and role were not changed. `lib/sync/queue.ts` was not edited. The CRM was not called.
+- Open for the owner, not decided here: (1) Refresh from CRM is a server pull, not a field write, so it does not go through `lib/sync/queue.ts` and carries no `client_event_id`. (2) A Sold lead's Result text, which may contain the price, is now kept in `crm_contacts`.
+- FUI-3b remains: the Map has one control stack, top-right: 3D / 2D, Centre on me (only when there is a fix), and Key. The Key card (`map-legend`, `id="map-key"`) starts closed. The full map has no +/- zoom buttons. The scale bar stays. The licence button is a 44px round chip (light `#f5f3ee` chip in dark mode). The door sheet is `rounded-t-2xl border-t border-line bg-surface`: door name, status, Other, and a round Close, then four 56px tiles in a 2×2. Contact uses the speech-bubble icon. `data-theme-island="light"` stays on the tile grid. Test ids `outcome-<key>`, `outcome-other`, `outcome-buttons` stay.
 - Files: `app/globals.css` (419 lines), `components/field/field-map.tsx` (1179 lines), `components/field/map-tab.tsx` (400 lines), `components/field/outcome-buttons.tsx` (78 lines).
 - `npx tsc --noEmit` exit 0. `npx eslint` on the three TypeScript files exit 0. `npm run verify:crm` exit 0, last line `ALL PASS`. `npm run verify:ui7` exit 0, last line `All UI-7 geo checks passed.` `npm run verify:anchors` exit 1, last line `FAIL  1`. Pure anchor checks passed, including 2000 doors in 7.16 ms. The live REF Speedwell read expected 179 anchored doors and got 182. This session did not change anchor code or the database.
 - No browser. The ten phone-check steps are listed for the owner. No database access. No table row. No `client_event_id`. Password, profile and role were not changed. `lib/sync/queue.ts` was not edited.
@@ -69,7 +75,7 @@
 - Username sign-in from CRM-5 U remains. `accounts:create` is still dry-run unless `--write`. This session did not run it. No account was created.
 - Call results still insert into `crm_callbacks` via `lib/sync/queue.ts` only. `/field` CRM reads are only `my_crm_callbacks`, `my_crm_leads` and `crm_leaderboard`, from `lib/field/crm-data.ts`. The P4b screens are the only ranking in `/field`. No device GPS was read.
 - CRM sync schedule from CRM-4 remains: every 30 minutes, about 05:00 to 21:00 London. Migration 036 remains applied.
-- Sale price from CRM-3 remains: Sale Amount, else Result, else Rep Result, number only, in `lib/crm/parse.ts`. For a lead that is not a call-back, the Result text is still dropped. Call-back leads keep Result in `crm_contacts`.
+- Sale price from CRM-3 remains: Sale Amount, else Result, else Rep Result, number only, in `lib/crm/parse.ts`. CRM-7a keeps the Result text as the contact note for every lead under 90 days, including Sold. Rep Result text is still never stored.
 - Dark-ready paths are unchanged: `/admin/props`, `/admin/today`, `/admin/calendar`, `/admin/coverage`, `/admin/team`, `/admin/leads`, `/admin/insights`, `/admin/settings`.
 - Redirects are unchanged: `/admin` → `/admin/today`, `/admin/allocate` → Today or Add visit when `?prop=` is set, `/admin/dashboard` → `/admin/insights`.
 - Migrations 029–038 remain applied, as recorded before this session. Migration 039's file is in the repo; this session did not check whether it is applied. The RT-2 brief states migration 040 is live; this session did not check. Migration 041's file is in the repo (615 lines); this session did not apply it.
@@ -3583,3 +3589,28 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. A phone. The ten phone-check steps. The `ux-audit` skill file is not in the tree. Why the live anchor count is 182.
 - **External settings:** none
 - **Open questions for Claude:** none from this session. The owner runs the ten phone-check steps after the batch lands. The REF Speedwell anchor count (182 vs 179) is for the owner.
+
+### 2026-10-15 — CRM-7 Session 7a (uncommitted)
+
+- **Item:** other
+- **What changed:** Contact details are kept for every lead booked in the last 90 days, not only call-backs. `POST /api/crm/refresh-mine` re-reads this canvasser's leads for the London week (read-only CRM, no `crm_sync_runs` row, counts only), throttled to one per canvasser per 30 seconds and one unfinished refresh at a time. Migration 042 is a file only: it was not applied.
+- **Files:**
+  - Changed: `AGENTS.md`, `lib/crm/parse.ts`, `lib/crm/sync.ts`, `lib/supabase/types.ts`, `scripts/verify-crm.ts`, `docs/FIELD-TEST-BUILD-PLAN.md` (CRM-7a row after FUI-3b), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `app/api/crm/refresh-mine/route.ts`, `lib/crm/refresh.ts`, `supabase/migrations/042_crm_week.sql`, `.handoff/reports/crm-7a.md`
+  - Deleted: none
+- **Database:** none applied. Migration file `042_crm_week.sql` (96 lines) adds `crm_refresh_log` (RLS on, no policies, no grants), `my_crm_week` (security invoker) and `my_crm_freshness` (security definer). Not applied. Supabase MCP not signed in.
+- **Shared modules touched:** `lib/crm/parse.ts` and `lib/crm/sync.ts` (contact rows for every lead under 90 days; refresh can pass `createdSince`, `canvasser` and `track: false`). `lib/supabase/types.ts` (hand-added `crm_refresh_log`, `my_crm_freshness`, `my_crm_week`). `lib/sync/queue.ts` was not edited. `lib/map/route-layers.ts` and `lib/geo/walk/*` were not edited.
+- **Decided by:**
+  - OWNER — 2026-10-15 (CRM-7): a canvasser-side "This week" screen on `/field/leads` shows all of that canvasser's own CRM leads for the London week. Status colours: UTC yellow, Re-App purple, Blowout red, Booked blue (Booked = CRM `confirmed`). Each row expands to the same details as a call-back. Refresh from CRM re-reads this canvasser's leads right then. The screen is crm-7b.
+  - OWNER — 2026-10-15: Wayne has OK'd those details for every lead on this screen, not only call-backs. Own canvasser only, not admin, not office, deleted 90 days after the lead date. Rep Result is still never stored.
+  - OWNER — open, not decided here: (1) Refresh is a server pull, not a field write, so no `client_event_id` and not through `lib/sync/queue.ts`. (2) A Sold lead's Result text (which may contain the price) is now kept in `crm_contacts`.
+  - CLAUDE — The parser keeps the contact details for every lead. Rows only for leads under 90 days old. Rep Result never stored. The price is still a number, Sold only, from Result / Rep Result.
+  - CLAUDE — `POST /api/crm/refresh-mine`: signed-in canvasser with a CRM name. This canvasser's leads created since Monday 00:00 London. SELECT only. No `crm_sync_runs` row. Counts only. Nothing logged.
+  - CLAUDE — Throttle: 30 seconds per canvasser, one unfinished refresh at a time, over 2 minutes counts as dead. 429 with `retryAfterSec`.
+  - CLAUDE — Migration 042 as above. AGENTS.md has one new CRM-7 bullet. It supersedes "call-back leads only" for contacts.
+- **Deviations from plan or brief:** none in the pasted code. Database steps were not run. The brief says stop when the Supabase MCP is not signed in, and not to reach the database another way.
+- **Invariants:** No device GPS was read. No coordinates left the device. No field write. `lib/sync/queue.ts` was not edited. Coverage stays derived. No knock was written. The CRM was not called. No row was inserted, updated or deleted. The refresh route is a server pull, as the brief specifies, and carries no `client_event_id`.
+- **Verified:** fui-3 is landed (`components/field/leads-tab.tsx` contains `data-testid="leads-empty"`). `supabase/migrations/042_crm_week.sql` did not exist before this session. Each find block occurred once. `npx tsc --noEmit` exit 0. `npx eslint` on the TypeScript files exit 0. `npm run verify:crm` exit 0, last line `ALL PASS`.
+- **Not verified:** The live database. Migration 042 is not applied. Types were not regenerated. Security advisors were not read. A browser. A phone. The This week screen (crm-7b).
+- **External settings:** none. Supabase MCP (`supabase` and `supabase-d2d`) needs a sign-in before 042 can be applied.
+- **Open questions for Claude:** (1) Confirm the Refresh button stays a server pull with no `client_event_id`. (2) Confirm a Sold lead's Result text may be stored in `crm_contacts`. Sign in the Supabase MCP and apply `042_crm_week` once, then regenerate types.

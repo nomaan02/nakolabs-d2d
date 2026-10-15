@@ -432,6 +432,41 @@ export type Database = {
           },
         ]
       }
+      crm_refresh_log: {
+        Row: {
+          canvasser_id: string
+          finished_at: string | null
+          id: string
+          ok: boolean | null
+          requested_at: string
+          rows_seen: number | null
+        }
+        Insert: {
+          canvasser_id: string
+          finished_at?: string | null
+          id?: string
+          ok?: boolean | null
+          requested_at?: string
+          rows_seen?: number | null
+        }
+        Update: {
+          canvasser_id?: string
+          finished_at?: string | null
+          id?: string
+          ok?: boolean | null
+          requested_at?: string
+          rows_seen?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_refresh_log_canvasser_id_fkey"
+            columns: ["canvasser_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_status_map: {
         Row: {
           crm_value: string
@@ -2006,6 +2041,13 @@ export type Database = {
           uprn: number
         }[]
       }
+      my_crm_freshness: {
+        Args: never
+        Returns: {
+          last_refresh_at: string
+          last_sync_at: string
+        }[]
+      }
       my_crm_leads: {
         Args: { p_from: string; p_to: string }
         Returns: {
@@ -2025,6 +2067,33 @@ export type Database = {
         }[]
       }
       my_crm_name: { Args: never; Returns: string }
+      my_crm_week: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          address_line: string
+          alt_phone: string
+          appointment_at: string
+          best_time: string
+          building_name: string
+          callback_reason: string
+          crm_created_at: string
+          crm_id: string
+          crm_modified_at: string
+          description: string
+          house_number: string
+          phone: string
+          postcode: string
+          postcode_sector: string
+          product_interest: string
+          result_note: string
+          sale_amount: number
+          status: string
+          street_name: string
+          surname: string
+          title: string
+          uprn: number
+        }[]
+      }
       nccz_zones_geojson: { Args: never; Returns: Json }
       populate_geometry_columns:
         | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
