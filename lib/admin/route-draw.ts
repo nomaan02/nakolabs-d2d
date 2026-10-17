@@ -6,8 +6,9 @@
  *
  * Pure: no React, no map, no network. Checked by `npm run verify:rt`.
  *
- * One door linked or taken off is one history step (owner O2: undo and redo
- * step one link at a time), so a stroke through ten doors is ten steps.
+ * One stroke is one history step (owner 2026-10-17, replacing O2's one door
+ * per step): a stroke along a row of twenty doors is undone with one tap.
+ * `strokeEdit` grows the open step while the finger is down.
  */
 
 export type RouteDrawHistory = {
@@ -21,9 +22,6 @@ export const ROUTE_HISTORY_LIMIT = 2000;
 
 /** Fewest doors a drawn route can have: one door has no length and could never be put on a visit. */
 export const MIN_ROUTE_DOORS = 2;
-
-/** Drawing below this zoom would catch doors on both sides of the street at once. */
-export const MIN_DRAW_ZOOM = 17;
 
 export function startRouteDraw(chain: readonly number[] = []): RouteDrawHistory {
   return { past: [], present: [...chain], future: [] };
@@ -58,6 +56,31 @@ export function eraseDoors(history: RouteDrawHistory, uprns: readonly number[]):
   let next = history;
   for (const uprn of uprns) next = eraseDoor(next, uprn);
   return next;
+}
+
+/**
+ * One stroke, as one history step. The first change of a stroke (`stepOpen`
+ * false) opens a step; later changes of the same stroke replace its result.
+ * Linking appends doors not yet on the route, in order; erasing takes doors
+ * off (their neighbours then follow each other). No change, no step.
+ */
+export function strokeEdit(history: RouteDrawHistory, kind: "link" | "erase", uprns: readonly number[], stepOpen: boolean): RouteDrawHistory {
+  let next: number[];
+  if (kind === "link") {
+    const on = new Set(history.present);
+    next = [...history.present];
+    for (const uprn of uprns) {
+      if (on.has(uprn)) continue;
+      on.add(uprn);
+      next.push(uprn);
+    }
+  } else {
+    const off = new Set(uprns);
+    next = history.present.filter((u) => !off.has(u));
+  }
+  if (next.length === history.present.length && next.every((u, i) => u === history.present[i])) return history;
+  if (stepOpen) return { past: history.past, present: next, future: [] };
+  return commit(history, next);
 }
 
 export function canUndoRoute(history: RouteDrawHistory): boolean {
@@ -115,8 +138,8 @@ export function routeCountLine(linked: number, total: number): string {
 
 /** Toolbar sub-line. */
 export function routeToolbarHint(state: { linked: number; erasing: boolean; zoomedOut: boolean }): string {
-  if (state.zoomedOut) return "Zoom in to draw";
-  if (state.erasing) return "Tap a door to remove";
+  if (state.erasing) return "Tap or drag over doors to remove";
+  if (state.zoomedOut) return "A stroke follows the nearest pavement";
   if (state.linked === 0) return "Start at any door";
   return "Lift to pause";
 }
@@ -136,53 +159,4 @@ export function routeSaveLines(linked: number, total: number): { summary: string
 /** R6 card: "61 doors · 11 left out". */
 export function drawnRouteLine(linked: number, leftOut: number): string {
   return leftOut > 0 ? `${doorsWord(linked)} · ${leftOut.toLocaleString("en-GB")} left out` : doorsWord(linked);
-}
-
-// ---------------------------------------------------------------------------
-// Hit test: the doors a stroke passes over, in the order it meets them
-// ---------------------------------------------------------------------------
-
-export type ScreenDoor = { uprn: number; x: number; y: number };
-
-/** Finger-sized on touch, pointer-sized with a mouse (px). */
-export const ROUTE_HIT_TOUCH = 16;
-export const ROUTE_HIT_MOUSE = 10;
-
-/** Stroke sampling step (px): a fast stroke between two pointer samples is checked every few pixels. */
-const SAMPLE_PX = 3;
-
-/**
- * The doors a stroke from `a` to `b` passes over, in order. Along the stroke,
- * every few pixels, the nearest door within `radius` px is under the finger;
- * each new one is added once. So a fast stroke that skips pointer samples
- * still links every door it crossed, in order, and a finger running along a
- * row picks that row, not the houses across the street. A press (`a` = `b`)
- * returns at most the nearest door.
- */
-export function doorsAlongStroke(doors: readonly ScreenDoor[], a: { x: number; y: number }, b: { x: number; y: number }, radius: number): number[] {
-  const minX = Math.min(a.x, b.x) - radius;
-  const maxX = Math.max(a.x, b.x) + radius;
-  const minY = Math.min(a.y, b.y) - radius;
-  const maxY = Math.max(a.y, b.y) + radius;
-  const near = doors.filter((d) => d.x >= minX && d.x <= maxX && d.y >= minY && d.y <= maxY);
-  if (near.length === 0) return [];
-  const length = Math.hypot(b.x - a.x, b.y - a.y);
-  const samples = Math.max(1, Math.ceil(length / SAMPLE_PX));
-  const out: number[] = [];
-  for (let k = 0; k <= samples; k += 1) {
-    const t = k / samples;
-    const px = a.x + (b.x - a.x) * t;
-    const py = a.y + (b.y - a.y) * t;
-    let best: ScreenDoor | null = null;
-    let bestD = radius;
-    for (const d of near) {
-      const dist = Math.hypot(d.x - px, d.y - py);
-      if (dist < bestD || (dist === bestD && best !== null && d.uprn < best.uprn)) {
-        best = d;
-        bestD = dist;
-      }
-    }
-    if (best && out[out.length - 1] !== best.uprn) out.push(best.uprn);
-  }
-  return out;
 }

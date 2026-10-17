@@ -73,7 +73,7 @@ import {
   type PropRow,
   type VisitStats,
 } from "@/lib/admin/props";
-import { MIN_DRAW_ZOOM, drawnRouteLine } from "@/lib/admin/route-draw";
+import { drawnRouteLine } from "@/lib/admin/route-draw";
 import { detentHeights, type Detent } from "@/lib/admin/sheet-detents";
 import { useResolvedTheme } from "@/lib/field/theme";
 import { countKnockable, type KnockableCount } from "@/lib/geo/count-knockable";
@@ -707,15 +707,11 @@ export function PropsScreen({
   };
 
   const fitDraw = useCallback(
-    (box: [[number, number], [number, number]], focus: [number, number]) => {
+    (box: [[number, number], [number, number]]) => {
       if (!map) return;
+      // RT-5: the whole prop. Drawing works at any zoom.
       const pad = desktop ? { top: 96, right: 96, bottom: 72, left: 96 } : { top: 140, right: 32, bottom: 120, left: 32 };
-      const camera = map.cameraForBounds(box, { padding: pad, maxZoom: 18 });
-      if (camera && typeof camera.zoom === "number" && camera.zoom >= MIN_DRAW_ZOOM) {
-        map.fitBounds(box, { padding: pad, maxZoom: 18, duration: 400 });
-      } else {
-        map.easeTo({ center: focus, zoom: MIN_DRAW_ZOOM + 0.5, duration: 400 });
-      }
+      map.fitBounds(box, { padding: pad, maxZoom: 18, duration: 400 });
     },
     [map, desktop],
   );

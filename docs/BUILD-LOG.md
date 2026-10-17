@@ -2103,3 +2103,36 @@ One entry per stage, appended by the agent at the end of each session.
 - **Follow-ups:** The owner runs the ten phone-check steps on the iPhone after crm-7a and crm-7b land, with a CRM name linked in Profile. Apply migration 042 before the screen can load live rows.
 
 - CRM-7a correction (2026-10-15, Claude): the database steps logged as NOT DONE were completed afterwards through the Supabase MCP. Migration 042_crm_week applied once. Table, grants, RLS and the anon refusal were checked. The regenerated types differed only in the PostgREST version comment. The crm-7b report line saying 042 is not applied is out of date.
+
+### RT Session 5 — drawing gesture follows the pavement
+- **Date:** 2026-10-17
+- **Model:** Claude Opus 5.5 wrote the patch. Grok 4.7 applied it, reviewed it, and wrote this entry. Not committed.
+- **Built:** The manual route editor on Props draws at any zoom. A finger or mouse stroke is read in planar metres and follows one pavement: it sweeps every door it passes, keeps its side until the finger is clearly over the centre line, and fills a missed door when the two doors either side are at most 25 m apart along that pavement. The map pans when the stroke sits in the edge zone. One stroke is one Undo step. Door paint stays feature-state on the existing GeoJSON source.
+- **Owner decisions:**
+  - OWNER — 2026-10-17: a stroke links doors at any zoom, including zoomed right out. Hits are forgiving for a tap and a swipe.
+  - OWNER — 2026-10-17: a stroke means this side of this road. Follow the pavement. A door missed in the middle of a row is still linked. Never sweep up the doors opposite.
+  - OWNER — 2026-10-17: a fast stroke skips no door. Painting stays `setFeatureState` on the existing GeoJSON source (`promoteId: "uprn"`). MapLibre 6.9.
+  - OWNER — 2026-10-17: one stroke is one Undo step. This replaces the earlier one-door-per-step rule (O2).
+  - OWNER — 2026-10-17: gap-fill threshold to be set from Bristol data. Decided 25 m (see Claude decisions).
+  - OWNER — 2026-10-17: auto-pan at the screen edge is in.
+  - OWNER — 2026-10-17: the whole gesture should feel smoother and more robust.
+  - OWNER — must not change: the route model (`manual` / `manual_reversed`, chain and left-out), `lib/geo/walk/manual.ts`, `territory_manual_route_save`, the database, migrations, and types. Drawn UPRN order stays the door order.
+- **Claude decisions:**
+  - CLAUDE — New pure module `lib/admin/route-stroke.ts`. Work is in the prop's planar metres, so zoom does not change the result. Each door is already a (segment, side) from `buildDemand`. The finger is snapped the same way.
+  - CLAUDE — Pavement reach is `clamp(32 px touch / 22 px mouse × m/px, 40 m, 80 m)`. Side is the cross product, the same rule as doors. Once on a side, the stroke keeps it until the finger is past the centre line by `max(8 px, 1.5 m)`. That hysteresis applies only within one segment.
+  - CLAUDE — A sweep links every door the finger passes along the road, only while the stroke runs within 40° of the road over a 14 px window. The first sweep on a pavement reaches 3 m back. A direct hit is the nearest door within `clamp(28 px touch / 18 px mouse × m/px, 4 m, 25 m)`, and only from that door's own side. A hit on the pavement being followed sweeps up to that door first.
+  - CLAUDE — Gap fill is 25 m. On 18 live Bristol props (5,482 neighbouring-door gaps on one pavement, SELECT only, 2026-10-17) the median gap is 5.5 m and the 90th percentile is 12.7 m. A span with one missed door is at most 25 m in 93% of rows. Above 25 m is a deliberate skip.
+  - CLAUDE — Samples every 3 px, including coalesced pointer events. Roads and doors sit in a 30 m grid. React hears about new doors at most once a frame. The live walk line is rebuilt at most every 120 ms while the finger is down.
+  - CLAUDE — Edge auto-pan: 56 px inside the visible map, insets phone header 52 / toolbar 88 and desktop toolbar 72 / hint 52, up to 840 px/s, time-based, dt clamped to 100 ms. It starts only after the stroke has travelled 24 px and dwelt 150 ms in the zone. The box is `map.getContainer()`; the canvas container has no height of its own.
+  - CLAUDE — `strokeEdit` grows one history step for the whole stroke. No change adds no step. The zoom lock (`MIN_DRAW_ZOOM`) and the old pixel hit test are removed. The editor opens on the whole prop.
+- **Acceptance:**
+  - Patch apply: **PASS**. `git apply --check --ignore-whitespace` exit 0, then apply exit 0. Eight files (7 modified, 1 new). `git diff --ignore-cr-at-eol --stat` is 350 insertions and 196 deletions in the 7 modified files.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - `npx eslint components/admin/props lib/admin lib/map scripts/verify-rt-manual.ts`: **PASS** — exit 0.
+  - `npm run verify:rt`: **PASS** — exit 0. Last line: `ALL PASS`. Section 10 is 22 stroke checks. Synthetic network is 80 doors. A 400 m stroke took 1.43 ms.
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - Independent review: **PASS** — no code change. See the handoff entry for what was read.
+  - Phone: **NOT VERIFIED**. No browser in this session. Claude's harness was not re-run.
+- **Deviations from brief:** none. The patch was applied as given. No redesign.
+- **Not done / deferred:** Phone check (owner, ten steps). Commit, merge and push (owner). Not tested at 2,000 doors on a device. RT-4, RT-docs, and the field Map / Logger check on a drawn route.
+- **Follow-ups:** RT-4 reshape reconcile, R7 banner, and the save-sheet focus trap. RT-docs in `AGENTS.md` and the Brief. Field Map and Logger order on a visit that uses a drawn route.

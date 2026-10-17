@@ -2,7 +2,14 @@
 
 ## Current state
 
-- Last updated: 2026-10-15 (CRM-7 Session 7b). Uncommitted. **The owner commits after review — this session did not commit.** The runner may checkpoint.
+- Last updated: 2026-10-17 (RT-5). Branch `run/rt-5`, uncommitted. **The owner commits after this review — this session did not commit and did not push.**
+- RT-5: the manual route editor draws at any zoom. A stroke follows one pavement (sweep, side hysteresis, 25 m gap fill). One stroke is one Undo step. The map pans at the screen edge. Door dots stay `setFeatureState` on `promoteId: "uprn"`.
+- New `lib/admin/route-stroke.ts` (321 lines). Changed: `use-route-draw-gestures.ts` (288), `use-route-draw.ts` (391), `route-draw.ts` (162), `route-draw-layers.ts` (154), `route-draw-panel.tsx` (204), `props-screen.tsx` (1117), `scripts/verify-rt-manual.ts` (423). `lib/geo/walk/manual.ts` was not edited. No migration.
+- `npx tsc --noEmit` exit 0. `npx eslint` on the route-drawing files exit 0. `npm run verify:rt` exit 0, last line `ALL PASS` (section 10, 22 stroke checks; 80-door synthetic network; a 400 m stroke 1.43 ms). `npm run verify:ui10` exit 0, last line `ALL PASS`.
+- Independent review of the patch: no defect changed. Sweep-then-hit order, 3 m entry slack, hysteresis only inside one segment, and stranded doors (direct hit only) match the tests. The gesture loop stops on lift, cancel, blur and unmount. Undo is blocked while the finger is down.
+- Not verified here: a phone or a browser. Claude's harness (90/90) was not re-run. Not tested at 2,000 doors on a device.
+- Open after RT-5: RT-4 (reshape reconcile, R7 banner, save-sheet focus trap), RT-docs (`AGENTS.md` and Brief Stage 5b), RT phone 6–7 (field Map and Logger order on a drawn route).
+- Last updated before this: 2026-10-15 (CRM-7 Session 7b). That session's notes follow.
 - CRM-7b: Leads has a third view, This week, between Today and Call-backs. The drawer has a This week item (calendar icon) in the Today group, shown only when the account is linked to the CRM. The header reads "This week · N leads" or "This week · no leads yet".
 - Rows are this canvasser's own CRM leads for the London week, newest day first. The status is the CRM word on a chip: Unable to contact (yellow), Re-app (purple), Blowout (red), Booked (blue), Sold (green), anything else grey. Tokens `st-*` are in `app/globals.css` for light and dark. A row opens to the same details as a call-back.
 - Refresh from CRM is a 44px outlined button. It posts to `/api/crm/refresh-mine`. It does not use `lib/sync/queue.ts` and carries no `client_event_id`. Offline it does not call the server.
@@ -3650,3 +3657,28 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. A phone. The ten phone-check steps. The `ux-audit` skill file is not in the tree. Live rows, because migration 042 is still not applied.
 - **External settings:** none
 - **Open questions for Claude:** (1) Confirm the Refresh button stays a server pull with no `client_event_id`. (2) Confirm a Sold lead's Result text may be stored in `crm_contacts`. The owner runs the ten phone-check steps after landing, with a CRM name linked in Profile. Apply `042_crm_week` before the screen can load live rows.
+
+### 2026-10-17 — RT-5 manual route drawing follows the pavement (uncommitted)
+
+- **Item:** other
+- **What changed:** The admin's manual route editor draws at any zoom. A stroke follows one pavement, fills a missed door within 25 m, and pans at the screen edge. One stroke is one Undo step. The route model, walk geometry and save path are unchanged.
+- **Files:**
+  - Changed: `components/admin/props/props-screen.tsx` (1117), `components/admin/props/route-draw-panel.tsx` (204), `components/admin/props/use-route-draw-gestures.ts` (288), `components/admin/props/use-route-draw.ts` (391), `lib/admin/route-draw.ts` (162), `lib/map/route-draw-layers.ts` (154), `scripts/verify-rt-manual.ts` (423), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`, `docs/FIELD-TEST-BUILD-PLAN.md` (RT-5 row after RT-1b)
+  - New: `lib/admin/route-stroke.ts` (321)
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** `lib/map/route-draw-layers.ts` (feature-state `track` on the pavement being followed). `lib/map/route-layers.ts` was not edited. `lib/geo/walk/*` was not edited. `lib/sync/queue.ts` was not edited. `lib/supabase/*` was not edited.
+- **Decided by:**
+  - OWNER — 2026-10-17: a stroke links doors at any zoom. Hits are forgiving. A stroke means this side of this road: a missed door in a row is still linked, and the doors opposite are not. A fast stroke skips no door. Paint stays `setFeatureState` with `promoteId: "uprn"`.
+  - OWNER — 2026-10-17: one stroke is one Undo step (replaces O2). Gap fill from Bristol data, decided 25 m. Edge auto-pan is in.
+  - OWNER — do not change the `manual` / `manual_reversed` model, `lib/geo/walk/manual.ts`, `territory_manual_route_save`, the database, migrations or types.
+  - CLAUDE — Pavement snap, side hysteresis (`max(8 px, 1.5 m)`, one segment only), sweep within 40° over 14 px, 3 m entry slack, direct hit only from the door's own side, 25 m gap fill. Samples every 3 px. React update at most once a frame. Walk line at most every 120 ms while the finger is down.
+  - CLAUDE — 25 m from 18 live props, 5,482 gaps, SELECT only: median 5.5 m, p90 12.7 m, one missed door ≤ 25 m in 93% of rows.
+  - CLAUDE — Auto-pan uses `map.getContainer()`. The canvas container has no height, and measuring it panned at full speed.
+  - GROK — Independent review, no code change. Same-sample order is sweep, then a direct hit that fills forward to that door. Entry slack is cleared once a hit lands on the pavement; tap reach (at least 4 m) is wider than the 3 m slack. Hysteresis does not cross a segment join; the corner test covers that. A stranded door (segment −1) is only a direct hit. The animation frame stops on lift, cancel, blur and unmount. `onStrokeEnd` runs once. Auto-pan runs only while a stroke exists. `presentRef` is updated in step with the functional history update, and Undo is ignored until the finger lifts. Preview timers are cleared on cleanup. `strokeRef` is cleared when the prop changes and when the stroke ends.
+- **Deviations from plan or brief:** none. Patch applied with `--ignore-whitespace` (working copy is CRLF, patch is LF).
+- **Invariants:** No `navigator.geolocation`. No coordinates sent. No field write. `lib/sync/queue.ts` was not edited. No `/field` route edited. No migration. No row written. British English in the new hint copy. Coverage stays derived. Drawn order stays the door order.
+- **Verified:** `git apply --check --ignore-whitespace` exit 0. Diff stat ignoring CRLF: 350 insertions, 196 deletions, 7 files, plus new `lib/admin/route-stroke.ts`. `npx tsc --noEmit` exit 0. `npx eslint` on the route-drawing files exit 0. `npm run verify:rt` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`. Zoom interpolate stays the top-level expression. `promoteId` is still `uprn`. No new paint hex. Terra Draw was not added.
+- **Not verified:** A browser. A phone. Claude's 90/90 harness was not re-run. Not timed at 2,000 doors on a device. The synthetic check is 80 doors; a 400 m stroke was 1.43 ms in Node.
+- **External settings:** none
+- **Open questions for Claude:** none from this review. Still open: RT-4 (reshape reconcile, R7 banner, `generate-route.ts` mode-aware fallback, save-sheet focus trap), RT-docs (`AGENTS.md` and Brief Stage 5b), and the field Map plus Logger order on a visit that uses a drawn route. The owner runs the ten phone-check steps after landing.

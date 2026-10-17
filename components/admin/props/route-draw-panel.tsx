@@ -101,17 +101,17 @@ export function RouteDrawPanel(props: RouteDrawPanelProps) {
 
       {showHint ? (
         <div className="pointer-events-none absolute inset-x-3 top-16 z-10 rounded-field-lg border border-line bg-surface px-4 py-3 text-ink shadow-admin-float lg:hidden">
-          <p className="text-admin-body-strong">Press a door, then drag through the doors in the order to knock them.</p>
-          <p className="mt-0.5 text-admin-subhead text-ink-muted">Two fingers move the map.</p>
+          <p className="text-admin-body-strong">Drag along a pavement in the order to knock it. Missed doors in a row are picked up.</p>
+          <p className="mt-0.5 text-admin-subhead text-ink-muted">Two fingers move the map. Near the edge it moves for you.</p>
         </div>
       ) : null}
       <p className="pointer-events-none absolute bottom-3 left-1/2 z-10 hidden -translate-x-1/2 items-center gap-2 rounded-full border border-line bg-surface px-3.5 py-1.5 text-admin-caption text-ink-soft shadow-admin-float lg:flex">
         <InfoIcon className="size-4 shrink-0" />
-        {props.zoomedOut
-          ? "Zoom in to draw"
-          : props.erasing
-            ? "Click a door to take it off · E to stop erasing · Esc to cancel"
-            : "Press a door and drag through the doors in walking order · Space + drag moves the map · Esc to cancel"}
+        {props.erasing
+          ? "Click or drag over doors to take them off · E to stop erasing · Esc to cancel"
+          : props.zoomedOut
+            ? "Drag along a pavement: the stroke follows the nearest one · Space + drag moves the map · Esc to cancel"
+            : "Drag along the pavement in walking order · Space + drag moves the map · Esc to cancel"}
       </p>
 
       {props.status === "failed" ? (

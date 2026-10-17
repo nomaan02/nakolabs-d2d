@@ -8,7 +8,6 @@
 import {
   canRedoRoute,
   canUndoRoute,
-  doorsAlongStroke,
   drawnRouteLine,
   eraseDoor,
   leftOutDoors,
@@ -19,8 +18,10 @@ import {
   routeSaveLines,
   routeToolbarHint,
   startRouteDraw,
+  strokeEdit,
   undoRoute,
 } from "../lib/admin/route-draw";
+import { GAP_FILL_M, buildStrokeModel, pavementDoors, startStroke } from "../lib/admin/route-stroke";
 import { routeDoorStates } from "../lib/map/route-draw-layers";
 import { buildRouteGraph, type LonLat, type RouteDoor, type RouteInputs } from "../lib/geo/route-graph";
 import { buildDemand } from "../lib/geo/walk/demand";
@@ -329,17 +330,15 @@ console.log("\n9. Drawing: history, erase, left out, reconcile (lib/admin/route-
   check("reconcile: removed doors drop out; new doors are neither", JSON.stringify(r) === JSON.stringify({ chain: [2, 3], leftOut: [5], newDoors: [6, 7], removed: 2 }));
 }
 {
-  const doors = [
-    { uprn: 1, x: 10, y: 10 },
-    { uprn: 2, x: 30, y: 10 },
-    { uprn: 3, x: 50, y: 10 },
-    { uprn: 4, x: 30, y: 40 },
-  ];
-  check("a stroke links the doors it passes, in order", JSON.stringify(doorsAlongStroke(doors, { x: 0, y: 11 }, { x: 60, y: 11 }, 12)) === "[1,2,3]");
-  check("the same stroke backwards gives the reverse order", JSON.stringify(doorsAlongStroke(doors, { x: 60, y: 11 }, { x: 0, y: 11 }, 12)) === "[3,2,1]");
-  check("a press links only the nearest door", JSON.stringify(doorsAlongStroke(doors, { x: 29, y: 12 }, { x: 29, y: 12 }, 12)) === "[2]");
-  check("a stroke along one row does not pick the row across the street", !doorsAlongStroke(doors, { x: 0, y: 10 }, { x: 60, y: 10 }, 16).includes(4));
-  check("nothing within reach: nothing linked", doorsAlongStroke(doors, { x: 0, y: 100 }, { x: 60, y: 100 }, 12).length === 0);
+  let h = startRouteDraw([1]);
+  h = strokeEdit(h, "link", [2, 3], false);
+  h = strokeEdit(h, "link", [3, 4, 5], true);
+  check("one stroke is one Undo step", JSON.stringify(h.present) === "[1,2,3,4,5]" && h.past.length === 1);
+  check("undo takes the whole stroke off", JSON.stringify(undoRoute(h).present) === "[1]");
+  const e1 = strokeEdit(h, "erase", [2, 9], false);
+  const e2 = strokeEdit(e1, "erase", [4], true);
+  check("an erase stroke is one step too", JSON.stringify(e2.present) === "[1,3,5]" && e2.past.length === 2 && JSON.stringify(undoRoute(e2).present) === "[1,2,3,4,5]");
+  check("a stroke that changes nothing adds no step", strokeEdit(h, "link", [1, 2], false) === h && strokeEdit(h, "erase", [99], false) === h);
 }
 {
   const states = routeDoorStates({ chain: [1, 2], left: [3, 1], fresh: [4, 3], showEnd: true });
@@ -349,13 +348,75 @@ console.log("\n9. Drawing: history, erase, left out, reconcile (lib/admin/route-
   );
   check("words: count, hints, save sheet, card", routeCountLine(30, 72) === "30 of 72 doors" &&
     routeToolbarHint({ linked: 0, erasing: false, zoomedOut: false }) === "Start at any door" &&
-    routeToolbarHint({ linked: 3, erasing: true, zoomedOut: false }) === "Tap a door to remove" &&
-    routeToolbarHint({ linked: 3, erasing: false, zoomedOut: true }) === "Zoom in to draw" &&
+    routeToolbarHint({ linked: 3, erasing: true, zoomedOut: false }) === "Tap or drag over doors to remove" &&
+    routeToolbarHint({ linked: 3, erasing: false, zoomedOut: true }) === "A stroke follows the nearest pavement" &&
     routeSaveLines(61, 72).summary === "61 of 72 doors are on the route." &&
     routeSaveLines(61, 72).leftOut === "11 doors are left out. They won't be knocked on this prop's visits." &&
     routeSaveLines(71, 72).leftOut === "1 door is left out. It won't be knocked on this prop's visits." &&
     routeSaveLines(72, 72).leftOut === null &&
     drawnRouteLine(61, 11) === "61 doors · 11 left out" && drawnRouteLine(72, 0) === "72 doors");
+}
+
+console.log("\n10. Strokes: a stroke means this side of this road (lib/admin/route-stroke.ts)");
+{
+  const model = buildStrokeModel(graph, demand);
+  const at = (x: number, y: number) => graph.project(ll(x, y));
+  /** Draws through the points (synthetic metres) at `mpp` metres per pixel; returns every door reached, in order. */
+  const draw = (pts: [number, number][], mpp: number, pointer: "touch" | "mouse" = "touch", stepM = 2): number[] => {
+    const { hits, tracker } = startStroke(model, at(pts[0][0], pts[0][1]), { metresPerPx: mpp, pointer });
+    const out = [...hits];
+    for (let i = 1; i < pts.length; i += 1) {
+      const [x0, y0] = pts[i - 1];
+      const [x1, y1] = pts[i];
+      const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / stepM));
+      for (let k = 1; k <= n; k += 1) out.push(...tracker.moveTo(at(x0 + ((x1 - x0) * k) / n, y0 + ((y1 - y0) * k) / n)));
+    }
+    return out;
+  };
+  const same = (a: number[], b: number[]) => JSON.stringify(a) === JSON.stringify(b);
+  const none = (got: number[], row: number[]) => !got.some((u) => row.includes(u));
+
+  const IN = 0.15; // about zoom 20
+  const MID = 1.2; // about zoom 17
+  const OUT = 4; // about zoom 15
+  const FAR = 10; // about zoom 13.5
+
+  const a = draw([[2, 6], [198, 6]], IN);
+  check("zoomed in: a stroke along the north pavement links the whole row, in order", same(a, mainNorth), JSON.stringify(a.slice(0, 4)));
+  check("…and none of the doors opposite", none(a, mainSouth));
+  check("the same stroke backwards gives the reverse order", same(draw([[198, 6], [2, 6]], IN), [...mainNorth].reverse()));
+  check("a fast stroke (two pointer samples) skips no door", same(draw([[2, 6], [198, 6]], IN, "touch", 500), mainNorth));
+  for (const [name, mpp, y] of [["zoomed out", OUT, 3], ["far out", FAR, 1.5], ["mid zoom, near the centre line", MID, 0.8]] as const) {
+    const north = draw([[2, y], [198, y]], mpp);
+    const south = draw([[2, -y], [198, -y]], mpp);
+    check(`${name}: the north stroke links the north row only`, same(north, mainNorth) && none(north, mainSouth), `${north.length}`);
+    check(`${name}: the south stroke links the south row only`, same(south, mainSouth) && none(south, mainNorth), `${south.length}`);
+  }
+  const wobble = draw([[2, 5], [60, 5], [80, -1], [120, 4], [198, 5]], IN);
+  check("a stroke that wobbles just over the centre line keeps its side", same(wobble, mainNorth) && none(wobble, mainSouth));
+  const crossed = draw([[2, 6], [90, 6], [90, -6], [2, -6]], IN);
+  check("a stroke that crosses clearly changes side, and walks back down the other row", none(crossed.slice(0, 9), mainSouth) && crossed.some((u) => mainSouth.includes(u)));
+  const across = draw([[150, 30], [150, -30]], IN);
+  check("crossing a road links at most one door", across.length <= 1, JSON.stringify(across));
+  const side = draw([[94, -15], [94, -112]], IN);
+  check("down Side Street on the west pavement: the west row only", same(side, sideWest) && none(side, sideEast), JSON.stringify(side));
+  check("a press links the door under it", same(draw([[25, 12]], IN), [mainNorth[2]]));
+  check("a press near the centre line never takes the door opposite", none(draw([[100, -1]], OUT), mainNorth));
+  check("a press with nothing near links nothing", draw([[50, 80]], IN).length === 0);
+
+  // Gap fill: leave the road (out of reach) and come straight back down onto a door.
+  const near = draw([[5, 12], [5, 80], [25, 80], [25, 12]], IN);
+  check(`two doors ${GAP_FILL_M} m or less apart on one pavement bring the door between`, same(near, mainNorth.slice(0, 3)), JSON.stringify(near));
+  const far = draw([[5, 12], [5, 80], [45, 80], [45, 12]], IN);
+  check(`further apart than ${GAP_FILL_M} m: a deliberate skip, nothing filled`, same(far, [mainNorth[0], mainNorth[4]]), JSON.stringify(far));
+  const corner = draw([[60, 6], [94, 6], [94, -40]], IN);
+  check("turning the corner carries on down the side street, on the pavement the finger is on", corner.includes(sideWest[0]) && none(corner, sideEast) && none(corner, mainSouth), JSON.stringify(corner));
+  check("the pavement highlight lists that row's doors", same(pavementDoors(model, { segment: model.doors.get(mainNorth[0])!.segment, side: model.doors.get(mainNorth[0])!.side }), mainNorth.filter((u) => model.doors.get(u)!.segment === model.doors.get(mainNorth[0])!.segment)));
+
+  const t0 = performance.now();
+  for (let i = 0; i < 50; i += 1) draw([[2, 6], [198, 6], [198, -6], [2, -6]], IN);
+  const per = (performance.now() - t0) / 50;
+  check(`a 400 m stroke sampled every 2 m takes under 8 ms (${per.toFixed(2)} ms)`, per < 8);
 }
 
 console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILED`);

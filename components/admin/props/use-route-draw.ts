@@ -4,21 +4,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 
 import type { RouteDrawPanelProps } from "@/components/admin/props/route-draw-panel";
-import { useRouteDrawGestures } from "@/components/admin/props/use-route-draw-gestures";
+import { useRouteDrawGestures, type DrawInsets } from "@/components/admin/props/use-route-draw-gestures";
 import {
-  MIN_DRAW_ZOOM,
   MIN_ROUTE_DOORS,
   canRedoRoute,
   canUndoRoute,
-  eraseDoors,
   leftOutDoors,
-  linkDoors,
   reconcileDrawing,
   redoRoute,
   startRouteDraw,
+  strokeEdit,
   undoRoute,
   type RouteDrawHistory,
 } from "@/lib/admin/route-draw";
+import { ZOOMED_OUT_HINT_ZOOM, buildStrokeModel } from "@/lib/admin/route-stroke";
 import type { RouteGraph } from "@/lib/geo/route-graph";
 import type { Demand } from "@/lib/geo/walk/demand";
 import { prepare } from "@/lib/geo/walk/generate";
@@ -35,6 +34,7 @@ import {
   routeDoorStates,
   setRouteDrawDoors,
   setRouteDrawVisible,
+  setRouteTrack,
   type RouteDoorState,
   type RouteDrawDoor,
 } from "@/lib/map/route-draw-layers";
@@ -56,8 +56,19 @@ type Loaded = {
 
 /** How long the "Door taken off the route" message stays. */
 const SNACK_MS = 4000;
+/** While a finger is down the live route is rebuilt at most this often (ms); door dots update every frame. */
+const PREVIEW_MS = 120;
+
+/** Where the editor's own bars sit over the map, for edge auto-pan (px). */
+function drawInsets(): DrawInsets {
+  const desktop = typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches;
+  return desktop ? { top: 72, right: 0, bottom: 52, left: 0 } : { top: 52, right: 0, bottom: 88, left: 0 };
+}
 
 /**
+ * RT-5 (owner 2026-10-17): drawing works at any zoom; a stroke follows a
+ * pavement (`lib/admin/route-stroke.ts`) and is one Undo step.
+ *
  * RT-3 (owner 2026-10-13; R2–R5, R8, D1). The manual route editor on the
  * Props map: loads the prop's doors and roads (`route_walk_inputs`) and any
  * saved drawing, keeps the drawing's history, paints the doors and the live
@@ -68,8 +79,8 @@ export function useRouteDraw(
   map: MapLibreMap | null,
   mode: MapMode,
   target: RouteDrawTarget | null,
-  /** Frames the doors; `focus` is where to centre when the box needs a zoom too far out to draw at. */
-  fit: (box: [[number, number], [number, number]], focus: [number, number]) => void,
+  /** Frames the doors. */
+  fit: (box: [[number, number], [number, number]]) => void,
   onSaved: (saved: RouteDrawSaved) => void,
   /** A dialog is over the editor: no drawing. */
   paused = false,
@@ -90,15 +101,19 @@ export function useRouteDraw(
   fitRef.current = fit;
   /** Bumped whenever the editor opens, closes or reloads: a save that returns after that is ignored. */
   const sessionRef = useRef(0);
-  /** The erase stroke under way: history steps and doors, so the snackbar's Undo puts back the whole stroke. */
-  const eraseRun = useRef({ steps: 0, doors: 0 });
+  /** The stroke under way: link or erase (fixed when it starts), whether its Undo step is open yet, doors erased. */
+  const strokeRef = useRef<{ kind: "link" | "erase"; open: boolean; erased: number } | null>(null);
+  /** Doors under the "following this pavement" highlight. */
+  const trackRef = useRef<readonly number[]>([]);
+  const [drawing, setDrawing] = useState(false);
   const propId = target?.propId ?? null;
 
   // ---- load ----------------------------------------------------------------
 
   useEffect(() => {
     sessionRef.current += 1;
-    eraseRun.current = { steps: 0, doors: 0 };
+    strokeRef.current = null;
+    setDrawing(false);
     setSaving(false);
     if (!propId) {
       setStatus("loading");
@@ -157,16 +172,11 @@ export function useRouteDraw(
         maxLon = Math.max(maxLon, d.lon);
         maxLat = Math.max(maxLat, d.lat);
       }
-      // Fit the doors, but never further out than drawing allows: with a saved
-      // drawing, carry on from its last door; otherwise from the middle.
-      const last = reconciled && reconciled.chain.length > 0 ? doors.find((d) => d.uprn === reconciled.chain[reconciled.chain.length - 1]) : undefined;
-      fitRef.current(
-        [
-          [minLon, minLat],
-          [maxLon, maxLat],
-        ],
-        last ? [last.lon, last.lat] : [(minLon + maxLon) / 2, (minLat + maxLat) / 2],
-      );
+      // The whole prop: drawing works at any zoom.
+      fitRef.current([
+        [minLon, minLat],
+        [maxLon, maxLat],
+      ]);
     });
     return () => {
       live = false;
@@ -180,6 +190,7 @@ export function useRouteDraw(
     ensureRouteDrawLayers(map, mode);
     clearRouteDoorStates(map);
     applied.current = new Map();
+    trackRef.current = [];
     setRouteDrawDoors(map, loaded?.doors ?? null);
     setRouteDrawVisible(map, true);
     return () => {
@@ -188,9 +199,11 @@ export function useRouteDraw(
       setRouteDrawVisible(map, false);
       paintRouteLayers(map, emptyRouteModel(), "", undefined, null, mode);
       applied.current = new Map();
+      trackRef.current = [];
     };
   }, [map, mode, propId, loaded]);
 
+  const strokeModel = useMemo(() => (loaded ? buildStrokeModel(loaded.graph, loaded.demand) : null), [loaded]);
   const chain = history.present;
   const allUprns = useMemo(() => (loaded ? loaded.doors.map((d) => d.uprn) : []), [loaded]);
   const leftOut = useMemo(() => leftOutDoors(chain, allUprns), [chain, allUprns]);
@@ -208,24 +221,34 @@ export function useRouteDraw(
     // `mode`: the layers effect clears every state on a theme change; this puts them back.
   }, [map, mode, loaded, chain, leftOut, confirming]);
 
-  // The live route, built at most once a frame.
+  // The live route: at most once a frame, and while a finger is down at most
+  // every PREVIEW_MS, so a long stroke stays smooth on a phone.
   const [preview, setPreview] = useState<WalkVariant | null>(null);
+  const builtAt = useRef(0);
   useEffect(() => {
     if (!map || !loaded) return;
-    const frame = requestAnimationFrame(() => {
+    let frame = 0;
+    const wait = drawing ? Math.max(0, PREVIEW_MS - (performance.now() - builtAt.current)) : 0;
+    const timer = window.setTimeout(() => {
+      frame = requestAnimationFrame(() => {
+        builtAt.current = performance.now();
       const built = chain.length >= MIN_ROUTE_DOORS ? buildManualVariant(loaded.graph, loaded.demand, chain, "manual", loaded.centroid) : null;
       const variant = built && built.ok ? built.variant : null;
       setPreview(variant);
       const model = variant ? toRoutePaintModel(walkResultToPaintInput({ variants: [variant] })) : emptyRouteModel();
       paintRouteLayers(map, model, "manual", ROUTE_DRAW_LAYER, null, mode);
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [map, mode, loaded, chain]);
+      });
+    }, wait);
+    return () => {
+      window.clearTimeout(timer);
+      cancelAnimationFrame(frame);
+    };
+  }, [map, mode, loaded, chain, drawing]);
 
-  // "Zoom in to draw".
+  // Zoomed out: the hint says a stroke follows the nearest pavement.
   useEffect(() => {
     if (!map || !propId) return;
-    const check = () => setZoomedOut(map.getZoom() < MIN_DRAW_ZOOM - 0.01);
+    const check = () => setZoomedOut(map.getZoom() < ZOOMED_OUT_HINT_ZOOM);
     check();
     map.on("zoomend", check);
     return () => {
@@ -249,47 +272,49 @@ export function useRouteDraw(
   const presentRef = useRef(history.present);
   presentRef.current = history.present;
 
-  useRouteDrawGestures(map, propId !== null && status === "ready" && !confirming && !saving && !paused, loaded?.doors ?? [], erasing, {
+  const erasingRef = useRef(erasing);
+  erasingRef.current = erasing;
+
+  useRouteDrawGestures(map, propId !== null && status === "ready" && !confirming && !saving && !paused, strokeModel, drawInsets, {
     onStrokeStart: () => {
-      // A new stroke ends the last erase run, and its snackbar with it.
-      eraseRun.current = { steps: 0, doors: 0 };
+      // One stroke = one Undo step (owner 2026-10-17). A new stroke ends the last erase message.
+      strokeRef.current = { kind: erasingRef.current ? "erase" : "link", open: false, erased: 0 };
       setSnack(null);
+      setDrawing(true);
     },
-    onLink: (uprns) => change((h) => linkDoors(h, uprns)),
-    onErase: (uprns) => {
+    onDoors: (uprns) => {
+      const stroke = strokeRef.current;
+      if (!stroke) return;
       const on = new Set(presentRef.current);
-      const off = uprns.filter((u) => on.has(u));
-      if (off.length === 0) return;
-      // One step per door (eraseDoors), so the run counts both.
-      presentRef.current = presentRef.current.filter((u) => !off.includes(u));
-      eraseRun.current = { steps: eraseRun.current.steps + off.length, doors: eraseRun.current.doors + off.length };
-      change((h) => eraseDoors(h, off));
-      const n = eraseRun.current.doors;
-      setSnack(n === 1 ? "Door taken off the route" : `${n} doors taken off the route`);
+      const doors = stroke.kind === "link" ? uprns.filter((u) => !on.has(u)) : uprns.filter((u) => on.has(u));
+      if (doors.length === 0) return;
+      const open = stroke.open;
+      stroke.open = true;
+      presentRef.current = stroke.kind === "link" ? [...presentRef.current, ...doors] : presentRef.current.filter((u) => !doors.includes(u));
+      change((h) => strokeEdit(h, stroke.kind, doors, open));
+      if (stroke.kind === "erase") {
+        stroke.erased += doors.length;
+        setSnack(stroke.erased === 1 ? "Door taken off the route" : `${stroke.erased} doors taken off the route`);
+      }
     },
-    onTooFar: () => setZoomedOut(true),
+    onStrokeEnd: () => {
+      strokeRef.current = null;
+      setDrawing(false);
+    },
+    onPavement: (uprns) => {
+      if (map) trackRef.current = setRouteTrack(map, trackRef.current, uprns ?? []);
+    },
   });
 
   const undo = useCallback(() => {
+    // Mid-stroke, Undo waits for the finger to lift.
+    if (strokeRef.current) return;
     setSnack(null);
-    eraseRun.current = { steps: 0, doors: 0 };
     change(undoRoute);
   }, [change]);
-
-  /** The snackbar's Undo: the whole erase stroke comes back. */
-  const undoErase = useCallback(() => {
-    const steps = eraseRun.current.steps;
-    eraseRun.current = { steps: 0, doors: 0 };
-    setSnack(null);
-    change((h) => {
-      let next = h;
-      for (let i = 0; i < steps; i += 1) next = undoRoute(next);
-      return next;
-    });
-  }, [change]);
   const redo = useCallback(() => {
+    if (strokeRef.current) return;
     setSnack(null);
-    eraseRun.current = { steps: 0, doors: 0 };
     change(redoRoute);
   }, [change]);
   const toggleErase = useCallback(() => setErasing((on) => !on), []);
@@ -342,7 +367,7 @@ export function useRouteDraw(
     error,
     snack,
     onUndo: undo,
-    onUndoErase: undoErase,
+    onUndoErase: undo,
     onRedo: redo,
     onToggleErase: toggleErase,
     onSave: save,

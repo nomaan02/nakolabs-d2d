@@ -3,48 +3,64 @@
 import { useEffect, useRef } from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 
-import { MIN_DRAW_ZOOM, ROUTE_HIT_MOUSE, ROUTE_HIT_TOUCH, doorsAlongStroke, type ScreenDoor } from "@/lib/admin/route-draw";
-import type { RouteDrawDoor } from "@/lib/map/route-draw-layers";
+import { pavementDoors, startStroke, type StrokeModel, type StrokeTracker } from "@/lib/admin/route-stroke";
+import type { XY } from "@/lib/geo/route-graph";
 
 export type RouteDrawGestureHandlers = {
-  /** Doors the stroke passed over, in order (already-linked ones included; the caller skips them). */
-  onLink: (uprns: number[]) => void;
-  /** Doors the erase stroke or tap touched. */
-  onErase: (uprns: number[]) => void;
-  /** A stroke started below the drawing zoom. */
-  onTooFar: () => void;
-  /** A new stroke (or tap) began. */
+  /** A stroke (or a press) began. */
   onStrokeStart: () => void;
+  /** Doors the stroke reached, in order. Called at most once a frame. */
+  onDoors: (uprns: number[]) => void;
+  /** The finger lifted (or a second finger landed). */
+  onStrokeEnd: () => void;
+  /** The doors of the pavement the stroke is following, for the highlight; null when none. */
+  onPavement: (uprns: number[] | null) => void;
 };
 
+/** Screen margins (px) covered by the editor's own bars; edge auto-pan starts inside them. */
+export type DrawInsets = { top: number; right: number; bottom: number; left: number };
+
+/** Auto-pan starts this far (px) inside the visible map edge. */
+const EDGE_ZONE_PX = 56;
+/** Fastest auto-pan at the very edge, px per second (time-based, so a slow phone pans as far). */
+const EDGE_SPEED_PX_S = 840;
+/** Auto-pan waits until the stroke has travelled this far (px), so a stroke started near the edge doesn't move the map at once… */
+const EDGE_ARM_PX = 24;
+/** …and until the finger has stayed in the edge zone this long (ms). */
+const EDGE_DWELL_MS = 150;
+
 /**
- * RT-3 (owner O2; Figma R2–R4, D1). Drawing a route with a finger or a mouse:
+ * RT-3 / RT-5 (owner 2026-10-13, 2026-10-17; Figma R2–R4, D1). Drawing a
+ * route with a finger or a mouse:
  *
- *   - One finger, or a mouse drag, draws: every door the stroke passes over
- *     is linked in order. A tap links the nearest door. Lift and carry on.
- *   - Two fingers move, zoom and turn the map (touch devices: MapLibre's
- *     cooperative gestures, with its "use two fingers" message hidden).
- *     A second finger landing ends the stroke.
- *   - With a mouse, the map moves with Space held, and with the wheel.
- *     (Space never presses a focused toolbar button while drawing.)
- *   - Erase on: the stroke or tap takes doors off instead.
+ *   - One finger, or a mouse drag, draws at any zoom. Each point of the
+ *     stroke is put on a pavement and the stroke links the doors along it
+ *     (`lib/admin/route-stroke.ts`). A press links the nearest door.
+ *   - Near the edge of the map the map moves under the finger, so a long
+ *     road is one stroke.
+ *   - Two fingers move, zoom and turn the map (touch: MapLibre cooperative
+ *     gestures, its message hidden). A second finger landing ends the stroke.
+ *   - With a mouse, the map moves with Space held (Space never presses a
+ *     focused toolbar button), and with the wheel.
  *
- * Screen positions of the doors are taken once per stroke: the map does not
- * move while one finger draws. Pointer samples are joined and checked every
- * few pixels (`doorsAlongStroke`), so a fast stroke skips no door.
+ * Pointer positions go straight to planar metres (`map.unproject`, then the
+ * route graph's projection), so nothing is cached per stroke and auto-pan
+ * needs no re-projection. Work per pointer event is a few grid lookups;
+ * React hears about it at most once a frame.
  */
 export function useRouteDrawGestures(
   map: MapLibreMap | null,
   enabled: boolean,
-  doors: readonly RouteDrawDoor[],
-  erasing: boolean,
+  model: StrokeModel | null,
+  /** Read when a stroke is near the edge (layouts differ by breakpoint). */
+  insets: () => DrawInsets,
   handlers: RouteDrawGestureHandlers,
 ): void {
-  const doorsRef = useRef(doors);
-  const erasingRef = useRef(erasing);
+  const modelRef = useRef(model);
+  const insetsRef = useRef(insets);
   const handlersRef = useRef(handlers);
-  doorsRef.current = doors;
-  erasingRef.current = erasing;
+  modelRef.current = model;
+  insetsRef.current = insets;
   handlersRef.current = handlers;
 
   useEffect(() => {
@@ -60,23 +76,92 @@ export function useRouteDrawGestures(
     const mouseOnly = !anyTouch;
     const hybrid = anyTouch && !touchFirst;
     const pointers = new Map<number, { x: number; y: number }>();
-    let stroke: { id: number; last: { x: number; y: number }; screen: ScreenDoor[]; radius: number } | null = null;
+    let stroke: {
+      id: number;
+      tracker: StrokeTracker;
+      screen: { x: number; y: number };
+      start: { x: number; y: number };
+      armed: boolean;
+      inZoneSince: number;
+      lastTick: number;
+      /** The editor's bars, read once per stroke. */
+      insets: DrawInsets;
+      pavementKey: number;
+    } | null = null;
+    let pending: number[] = [];
+    let frame = 0;
     let spaceHeld = false;
 
-    const local = (event: PointerEvent) => {
-      const rect = container.getBoundingClientRect();
+    const local = (event: { clientX: number; clientY: number }) => {
+      const rect = map.getContainer().getBoundingClientRect();
       return { x: event.clientX - rect.left, y: event.clientY - rect.top };
     };
 
-    const apply = (uprns: number[]) => {
-      if (uprns.length === 0) return;
-      if (erasingRef.current) handlersRef.current.onErase(uprns);
-      else handlersRef.current.onLink(uprns);
+    const toXY = (m: StrokeModel, p: { x: number; y: number }): XY => {
+      const ll = map.unproject([p.x, p.y]);
+      return m.graph.project([ll.lng, ll.lat]);
+    };
+
+    const flush = () => {
+      if (pending.length > 0) {
+        const out = pending;
+        pending = [];
+        handlersRef.current.onDoors(out);
+      }
+      const m = modelRef.current;
+      if (stroke && m) {
+        const pv = stroke.tracker.pavement();
+        const key = pv ? pv.segment * 2 + pv.side : -1;
+        if (key !== stroke.pavementKey) {
+          stroke.pavementKey = key;
+          handlersRef.current.onPavement(pv ? pavementDoors(m, pv) : null);
+        }
+      }
+    };
+
+    /** Auto-pan near the edge, then a flush: one map move and one React update per frame. */
+    const tick = () => {
+      frame = 0;
+      if (stroke) {
+        // The map's own box: the canvas container has no height of its own.
+        const rect = map.getContainer().getBoundingClientRect();
+        const box = stroke.insets;
+        const now = performance.now();
+        const dt = Math.min(100, stroke.lastTick === 0 ? 16 : now - stroke.lastTick) / 1000;
+        stroke.lastTick = now;
+        const depth = (inside: number) => Math.max(0, Math.min(1, (EDGE_ZONE_PX - inside) / EDGE_ZONE_PX));
+        const speed = (d: number) => EDGE_SPEED_PX_S * dt * d * d;
+        const { x, y } = stroke.screen;
+        if (!stroke.armed && Math.hypot(x - stroke.start.x, y - stroke.start.y) >= EDGE_ARM_PX) stroke.armed = true;
+        const dx = speed(depth(rect.width - box.right - x)) - speed(depth(x - box.left));
+        const dy = speed(depth(rect.height - box.bottom - y)) - speed(depth(y - box.top));
+        const inZone = stroke.armed && (dx !== 0 || dy !== 0);
+        if (!inZone) stroke.inZoneSince = 0;
+        else if (stroke.inZoneSince === 0) stroke.inZoneSince = now;
+        const m = modelRef.current;
+        if (inZone && now - stroke.inZoneSince >= EDGE_DWELL_MS && m && Math.hypot(dx, dy) >= 0.5) {
+          map.panBy([dx, dy], { duration: 0 });
+          // The map moved under a still finger: the finger is now further along.
+          pending.push(...stroke.tracker.moveTo(toXY(m, stroke.screen)));
+        }
+      }
+      flush();
+      if (stroke) frame = requestAnimationFrame(tick);
+    };
+
+    const schedule = () => {
+      if (frame === 0) frame = requestAnimationFrame(tick);
     };
 
     const endStroke = () => {
-      if (stroke && container.hasPointerCapture?.(stroke.id)) container.releasePointerCapture(stroke.id);
+      if (!stroke) return;
+      if (container.hasPointerCapture?.(stroke.id)) container.releasePointerCapture(stroke.id);
       stroke = null;
+      if (frame !== 0) cancelAnimationFrame(frame);
+      frame = 0;
+      flush();
+      handlersRef.current.onPavement(null);
+      handlersRef.current.onStrokeEnd();
     };
 
     const onDown = (event: PointerEvent) => {
@@ -93,35 +178,32 @@ export function useRouteDrawGestures(
         return;
       }
       if (event.pointerType === "mouse" && spaceHeld) return;
-      if (map.getZoom() < MIN_DRAW_ZOOM - 0.01) {
-        handlersRef.current.onTooFar();
-        return;
-      }
-      const radius = event.pointerType === "mouse" ? ROUTE_HIT_MOUSE : ROUTE_HIT_TOUCH;
-      const screen: ScreenDoor[] = doorsRef.current.map((door) => {
-        const p = map.project([door.lon, door.lat]);
-        return { uprn: door.uprn, x: p.x, y: p.y };
-      });
-      stroke = { id: event.pointerId, last: at, screen, radius };
+      const m = modelRef.current;
+      if (!m) return;
+      const start = toXY(m, at);
+      const below = toXY(m, { x: at.x, y: at.y + 100 });
+      const metresPerPx = Math.hypot(below.x - start.x, below.y - start.y) / 100;
+      const { hits, tracker } = startStroke(m, start, { metresPerPx, pointer: event.pointerType === "mouse" ? "mouse" : "touch" });
+      stroke = { id: event.pointerId, tracker, screen: at, start: at, armed: false, inZoneSince: 0, lastTick: 0, insets: insetsRef.current(), pavementKey: -2 };
       container.setPointerCapture?.(event.pointerId);
       event.preventDefault();
       handlersRef.current.onStrokeStart();
-      apply(doorsAlongStroke(screen, at, at, radius));
+      pending.push(...hits);
+      schedule();
     };
 
     const onMove = (event: PointerEvent) => {
       if (pointers.has(event.pointerId)) pointers.set(event.pointerId, local(event));
       if (!stroke || event.pointerId !== stroke.id || pointers.size > 1) return;
-      const at = local(event);
+      const m = modelRef.current;
+      if (!m) return;
       // Coalesced samples, when the browser gives them, follow a fast finger more closely.
-      const samples = typeof event.getCoalescedEvents === "function" ? event.getCoalescedEvents().map(local) : [at];
-      const hits: number[] = [];
-      for (const point of samples.length > 0 ? samples : [at]) {
-        hits.push(...doorsAlongStroke(stroke.screen, stroke.last, point, stroke.radius));
-        stroke.last = point;
-      }
+      const coalesced = typeof event.getCoalescedEvents === "function" ? event.getCoalescedEvents() : [];
+      const samples = coalesced.length > 0 ? coalesced.map(local) : [local(event)];
+      for (const point of samples) pending.push(...stroke.tracker.moveTo(toXY(m, point)));
+      stroke.screen = samples[samples.length - 1];
       event.preventDefault();
-      apply(hits);
+      schedule();
     };
 
     const onUp = (event: PointerEvent) => {
