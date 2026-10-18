@@ -35,7 +35,7 @@ Terra Draw, Dexie, Vercel.
 - `knock_events.outcome` has nine values. The ninth is `no_opportunity`.
 - Latest-outcome-wins: corrections are new rows, resolved by `v_latest_knock`.
   Canvassers have no UPDATE or DELETE on `knock_events` or `leads`.
-- No `navigator.geolocation` anywhere before Stage 16.
+- `navigator.geolocation` only in `components/field/geo-provider.tsx` (UI-7, owner H3/H5; Brief invariant 7 / Stage 16 amendments). Nowhere else.
 - Every view over an RLS table is created with `(security_invoker = true)`.
 - CRM data (owner 2026-10-10, written OK from work): the company CRM is
   READ-ONLY. Only `lib/crm/client.ts` calls it, and only with `getchallenge`,

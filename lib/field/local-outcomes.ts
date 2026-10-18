@@ -85,6 +85,14 @@ export function foldOutcomes(rows: OutboxRow[]): LocalOutcomes {
 }
 
 /** Live map of uprn → latest local outcome for one assignment. */
+/** GL-2: assignments whose outbox has been read at least once on this page. */
+const loadedFor = new Set<string>();
+
+/** True once this assignment's local outcomes have been read from Dexie (not just the empty start). */
+export function localOutcomesLoaded(assignmentId: string | null): boolean {
+  return assignmentId !== null && loadedFor.has(assignmentId);
+}
+
 export function useLocalOutcomes(assignmentId: string | null): LocalOutcomes {
   const [outcomes, setOutcomes] = useState<LocalOutcomes>(() => new Map());
 
@@ -100,7 +108,10 @@ export function useLocalOutcomes(assignmentId: string | null): LocalOutcomes {
       db.outbox.where("[assignment_id+seq]").between([assignmentId, 0], [assignmentId, Infinity]).toArray(),
     );
     const sub = observable.subscribe({
-      next: (rows) => setOutcomes(foldOutcomes(rows)),
+      next: (rows) => {
+        loadedFor.add(assignmentId);
+        setOutcomes(foldOutcomes(rows));
+      },
       error: () => setOutcomes(new Map()),
     });
     return () => sub.unsubscribe();

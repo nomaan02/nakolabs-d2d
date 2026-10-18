@@ -34,6 +34,7 @@
     "verify:ui6": "tsx scripts/verify-ui-6-survey.ts",
     "verify:ui7": "tsx scripts/verify-ui-7-geo.ts",
     "verify:ui8": "tsx scripts/verify-ui-8-inference.ts",
+    "verify:gl": "tsx scripts/verify-gl-geo-lock.ts",
     "verify:ui10": "tsx scripts/verify-ui-10-admin.ts",
     "verify:crm": "tsx scripts/verify-crm.ts",
     "crm:backfill": "tsx scripts/crm-backfill.ts",

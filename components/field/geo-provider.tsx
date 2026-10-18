@@ -12,6 +12,7 @@ import {
 } from "react";
 
 import { useFieldData } from "@/components/field/field-data-provider";
+import { furthestOwnLogIndex, type Reopen } from "@/lib/field/geo-lock";
 import {
   buildRouteIndex,
   compassHeading,
@@ -57,9 +58,15 @@ export type GeoState = {
   routePlace: RoutePlace | null;
   /** UI-7 C2. Each sequence door's distance along the route, index-aligned with `sequence`. */
   doorAlongsM: number[];
+  /**
+   * GPS-LOCK GL-2 (owner G2). The latest return to the app: a cold start when
+   * the page loads, then one per hidden → visible. Null until the first.
+   */
+  reopen: Reopen | null;
 };
 
-export type RoutePlace = { alongM: number | null; at: number };
+/** `accuracyM` is that fix's accuracy (GL-2: jumps need 20 m or better). */
+export type RoutePlace = { alongM: number | null; at: number; accuracyM: number };
 
 type OrientationCtor = typeof DeviceOrientationEvent & {
   requestPermission?: () => Promise<"granted" | "denied">;
@@ -69,6 +76,16 @@ const HEADING_MIN_CHANGE_DEG = 3;
 const HEADING_MIN_INTERVAL_MS = 200;
 
 const GeoContext = createContext<GeoState | null>(null);
+
+/**
+ * GL-2: when the canvasser last touched the screen or pressed a key, page
+ * wide (any tab). A reopen they have already acted on never jumps (G3).
+ */
+let lastInputAt = 0;
+
+export function lastUserInputAt(): number {
+  return lastInputAt;
+}
 
 export function useGeo(): GeoState {
   const value = useContext(GeoContext);
@@ -97,16 +114,55 @@ export function GeoProvider({ children }: { children: ReactNode }) {
   const [compass, setCompass] = useState<CompassState>("unknown");
   const [compassDeg, setCompassDeg] = useState<number | null>(null);
   const lastHeading = useRef<{ deg: number; at: number } | null>(null);
-  const { routeLine, routeSteps, sequence, cursor } = useFieldData();
+  const { routeLine, routeSteps, sequence, cursor, outcomes, canvasserId } = useFieldData();
   const [routePlace, setRoutePlace] = useState<RoutePlace | null>(null);
   const previousAlong = useRef<number | null>(null);
   const cursorIndex = useRef(cursor.index);
   cursorIndex.current = cursor.index;
+  // GL-2: the first snap after a page load is seeded from the furthest door
+  // this canvasser logged, not the cursor (a reload puts the cursor on door 1).
+  const furthest = useMemo(
+    () => furthestOwnLogIndex(sequence, outcomes, canvasserId),
+    [sequence, outcomes, canvasserId],
+  );
+  const furthestLog = useRef(furthest);
+  furthestLog.current = furthest;
+  const seededWithLog = useRef(false);
+  const [reopen, setReopen] = useState<Reopen | null>(null);
+  const reopenCount = useRef(0);
+  const hiddenAt = useRef<number | null>(null);
+  const placeAtHide = useRef<number | null>(null);
+
+  useEffect(() => {
+    const mark = () => {
+      lastInputAt = Date.now();
+    };
+    window.addEventListener("pointerdown", mark, true);
+    window.addEventListener("keydown", mark, true);
+    return () => {
+      window.removeEventListener("pointerdown", mark, true);
+      window.removeEventListener("keydown", mark, true);
+    };
+  }, []);
 
   const routeIndex = useMemo(() => {
     const last = routeSteps[routeSteps.length - 1];
     return buildRouteIndex(routeLine?.coordinates, last ? last.cumulative_m : null);
   }, [routeLine, routeSteps]);
+
+  // GL-2: the one re-seed below is allowed again for a new route or canvasser.
+  useEffect(() => {
+    seededWithLog.current = false;
+  }, [routeIndex, canvasserId]);
+
+  // GL-2: if the first snap happened before the outbox was read, snap again
+  // from the furthest log once it is known, so the right pass is kept.
+  useEffect(() => {
+    if (furthest >= 0 && !seededWithLog.current) {
+      seededWithLog.current = true;
+      previousAlong.current = null;
+    }
+  }, [furthest]);
 
   const doorAlongsM = useMemo(
     () =>
@@ -159,10 +215,40 @@ export function GeoProvider({ children }: { children: ReactNode }) {
         { enableHighAccuracy: true, maximumAge: 5_000, timeout: 20_000 },
       );
     };
+    // GL-2: note when the app is hidden and where along the route the
+    // canvasser was, so the Logger can decide whether to jump on return.
+    // A page that loads hidden counts as a cold start when first shown.
+    let coldPending = false;
     const onVisibility = () => {
-      if (document.visibilityState === "visible") start();
-      else stop();
+      if (document.visibilityState === "visible") {
+        if (hiddenAt.current !== null) {
+          const now = Date.now();
+          reopenCount.current += 1;
+          setReopen({
+            id: reopenCount.current,
+            at: now,
+            hiddenMs: coldPending ? null : now - hiddenAt.current,
+            placeBeforeM: coldPending ? null : placeAtHide.current,
+          });
+          hiddenAt.current = null;
+          coldPending = false;
+        }
+        start();
+      } else {
+        if (hiddenAt.current === null) {
+          hiddenAt.current = Date.now();
+          placeAtHide.current = previousAlong.current;
+        }
+        stop();
+      }
     };
+    if (document.visibilityState === "visible") {
+      reopenCount.current += 1;
+      setReopen({ id: reopenCount.current, at: Date.now(), hiddenMs: null, placeBeforeM: null });
+    } else {
+      hiddenAt.current = Date.now();
+      coldPending = true;
+    }
     start();
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
@@ -218,10 +304,14 @@ export function GeoProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (isWeakFix(fix)) return;
-    const seed = previousAlong.current ?? doorAlongsM[cursorIndex.current] ?? null;
+    const seed =
+      previousAlong.current ?? doorAlongsM[furthestLog.current] ?? doorAlongsM[cursorIndex.current] ?? null;
     const alongM = routeScalar(snapToRoute(routeIndex, [fix.lng, fix.lat], seed));
-    if (alongM !== null) previousAlong.current = alongM;
-    setRoutePlace({ alongM, at: fix.at });
+    if (alongM !== null) {
+      previousAlong.current = alongM;
+      if (furthestLog.current >= 0) seededWithLog.current = true;
+    }
+    setRoutePlace({ alongM, at: fix.at, accuracyM: fix.accuracyM });
   }, [routeIndex, doorAlongsM, fix]);
 
   const requestCompass = useCallback(() => {
@@ -237,8 +327,8 @@ export function GeoProvider({ children }: { children: ReactNode }) {
   const weak = fix ? isWeakFix(fix) : false;
 
   const value = useMemo<GeoState>(
-    () => ({ status, fix, heading, weak, compass, requestCompass, routePlace, doorAlongsM }),
-    [status, fix, heading, weak, compass, requestCompass, routePlace, doorAlongsM],
+    () => ({ status, fix, heading, weak, compass, requestCompass, routePlace, doorAlongsM, reopen }),
+    [status, fix, heading, weak, compass, requestCompass, routePlace, doorAlongsM, reopen],
   );
 
   return <GeoContext.Provider value={value}>{children}</GeoContext.Provider>;

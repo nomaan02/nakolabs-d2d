@@ -2136,3 +2136,115 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The patch was applied as given. No redesign.
 - **Not done / deferred:** Phone check (owner, ten steps). Commit, merge and push (owner). Not tested at 2,000 doors on a device. RT-4, RT-docs, and the field Map / Logger check on a drawn route.
 - **Follow-ups:** RT-4 reshape reconcile, R7 banner, and the save-sheet focus trap. RT-docs in `AGENTS.md` and the Brief. Field Map and Logger order on a visit that uses a drawn route.
+
+### GPS-LOCK Session GL-1 — jump-on-reopen rules (pure)
+- **Date:** 2026-10-18
+- **Model:** Claude wrote the pasted code. Grok 4.7 applied it and wrote this entry. Not committed.
+- **Built:** Pure rules for the one automatic Logger jump when the canvasser comes back to the app. `lib/field/geo-lock.ts` decides wait, stay, jump or chip from distances along the route. `npm run verify:gl` checks it. No React, no browser API, no network, no storage.
+- **Owner decisions:**
+  - OWNER — 2026-10-18 (G2): jump on reopen. When the canvasser comes back to the app, the Logger may move ONCE to the door nearest them on the route. The near-you chip covers the rest of the time. Full automatic lock (cursor always following GPS) was rejected.
+  - OWNER — 2026-10-18 (G5): team props jump to the nearest OPEN door (a door a teammate knocked is skipped).
+  - OWNER — 2026-10-18 (G6): feedback is "Moved to <address> · Undo" plus the door card sliding to the new door.
+  - OWNER — 2026-10-18 (G7): on by default, with an off switch per canvasser per phone in You → Location.
+- **Claude decisions:**
+  - CLAUDE — G1: the side of the road comes from the place along the route (continuity snap), never from the raw fix. `route_geom` is the centre line for both passes (measured 0.0 m), so the snap already decides the pass.
+  - CLAUDE — G3: the cursor never moves while the screen is in use. Any touch or key press after the reopen, on any tab, cancels the jump.
+  - CLAUDE — G4: forward only (never at or behind the furthest door this canvasser really logged; filled Not In rows do not count), within walking reach (1.5 m/s × time hidden + accuracy), at most 24 doors from max(cursor, furthest log), 12 on a cold start.
+  - CLAUDE — G8: "Finding you…" and "Moved to … · Undo" use the near-you chip's slot on the mini map, never a new overlay over the outcome buttons. Jump Undo only moves the cursor back; it is separate from the 60 s log undo ring.
+  - CLAUDE — G9: starting values, to tune on the phone: hidden ≥ 20 s, 8 s to find you, fixes ≤ 20 m, 2 fixes agreeing within 12 m (median of up to 3), "Moved" shows 5 s.
+  - CLAUDE — A cold start (the page has just loaded) counts as a reopen. Its 8 s window opens when the Logger is ready, and it waits until the outbox has been read so the furthest log is known.
+  - CLAUDE — A jump of more than 3 doors lands 2 doors short and slides the last 2. Reduced motion: one instant move.
+  - CLAUDE — One persistent `role="status"` region reads out "Finding you…" and "Moved to …".
+  - CLAUDE — The near-you chip pill grows from 32 px to 40 px inside its 44 px target and is hidden when its door is already knocked.
+  - CLAUDE — The You switch reuses the existing `SwitchRow` look. Nothing is stored except the localStorage on/off key `d2d.jumpOnReopen:<canvasserId>`. No coordinate is kept or sent beyond what UI-7 already does.
+- **Acceptance:**
+  - EDIT 1 DONE. New `lib/field/geo-lock.ts` (183 lines), pasted exactly. The file did not exist before.
+  - EDIT 2 DONE. New `scripts/verify-gl-geo-lock.ts` (138 lines), pasted exactly. The file did not exist before.
+  - EDIT 3 DONE. One replacement in `package.json`. The find occurred once. `verify:gl` sits between `verify:ui8` and `verify:ui10`.
+  - `npx tsc --noEmit`: **PASS** — exit 0.
+  - `npx eslint lib/field/geo-lock.ts scripts/verify-gl-geo-lock.ts`: **PASS** — exit 0.
+  - `npm run verify:gl`: **PASS** — exit 0. Last line: `All GL geo-lock checks passed.` 37 checks.
+  - `npm run verify:ui7`: **PASS** — exit 0. Last line: `All UI-7 geo checks passed.`
+  - `npm run verify:ui8`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `git grep -n "navigator.geolocation" -- "*.ts" "*.tsx"`: hits only in `components/field/geo-provider.tsx` (comment line 29, `clearWatch` line 132, `watchPosition` line 138).
+  - Phone: none for this session. The phase phone check is gl-3.
+- **Deviations from brief:** none. The given files were pasted exactly. Line endings are CRLF.
+- **Not done / deferred:** A browser. A phone. The Logger and the You switch are later sessions. Did not commit. No new table row. No `client_event_id`.
+- **Follow-ups:** Wire the rules into the Logger (later GL sessions). Phone check is gl-3.
+
+### GPS-LOCK Session GL-2 — jump on reopen in the Logger
+- **Date:** 2026-10-18
+- **Model:** Claude wrote the pasted code. Grok 4.7 applied it and wrote this entry. Not committed.
+- **Built:** The Logger jumps once when the canvasser comes back. GeoProvider records each reopen and seeds the first route snap from the furthest door this canvasser really logged. `useJumpOnReopen` waits for good fixes, then moves the cursor once. The mini-map slot shows "Finding you…", then "Moved to … · Undo", otherwise the near-you chip (40 px pill, hidden when that door is already knocked). Any touch or key after the reopen cancels the jump. No write path.
+- **Owner decisions:**
+  - OWNER — 2026-10-18 (G2): jump on reopen. When the canvasser comes back to the app, the Logger may move ONCE to the door nearest them on the route. The near-you chip covers the rest of the time. Full automatic lock (cursor always following GPS) was rejected.
+  - OWNER — 2026-10-18 (G5): team props jump to the nearest OPEN door (a door a teammate knocked is skipped).
+  - OWNER — 2026-10-18 (G6): feedback is "Moved to <address> · Undo" plus the door card sliding to the new door.
+  - OWNER — 2026-10-18 (G7): on by default, with an off switch per canvasser per phone in You → Location.
+- **Claude decisions:**
+  - CLAUDE — G1: the side of the road comes from the place along the route (continuity snap), never from the raw fix. `route_geom` is the centre line for both passes (measured 0.0 m), so the snap already decides the pass.
+  - CLAUDE — G3: the cursor never moves while the screen is in use. Any touch or key press after the reopen, on any tab, cancels the jump.
+  - CLAUDE — G4: forward only (never at or behind the furthest door this canvasser really logged; filled Not In rows do not count), within walking reach (1.5 m/s × time hidden + accuracy), at most 24 doors from max(cursor, furthest log), 12 on a cold start.
+  - CLAUDE — G8: "Finding you…" and "Moved to … · Undo" use the near-you chip's slot on the mini map, never a new overlay over the outcome buttons. Jump Undo only moves the cursor back; it is separate from the 60 s log undo ring.
+  - CLAUDE — G9: starting values, to tune on the phone: hidden ≥ 20 s, 8 s to find you, fixes ≤ 20 m, 2 fixes agreeing within 12 m (median of up to 3), "Moved" shows 5 s.
+  - CLAUDE — A cold start (the page has just loaded, e.g. iOS dropped it while locked) counts as a reopen. Its 8 s window opens when the Logger is ready, and it waits until the outbox has been read so the furthest log is known.
+  - CLAUDE — A jump of more than 3 doors lands 2 doors short and slides the last 2 (DoorScroll renders ±8 doors and scrolls smoothly only up to 3). Reduced motion: one instant move.
+  - CLAUDE — One persistent `role="status"` region reads out "Finding you…" and "Moved to …".
+  - CLAUDE — The near-you chip pill grows from 32 px to 40 px inside its 44 px target and is hidden when its door is already knocked.
+  - CLAUDE — The You switch reuses the existing `SwitchRow` look, not a filled mock. Nothing is stored except the localStorage on/off key `d2d.jumpOnReopen:<canvasserId>`. No coordinate is kept or sent beyond what UI-7 already does.
+- **Acceptance:**
+  - EDIT 1 DONE. Two replacements in `lib/field/local-outcomes.ts` (128 lines). Each find occurred once.
+  - EDIT 2 DONE. New `lib/field/jump-setting.ts` (70 lines), pasted exactly. The file did not exist before.
+  - EDIT 3 DONE. Eight replacements in `components/field/geo-provider.tsx` (335 lines). Each find occurred once.
+  - EDIT 4 DONE. New `components/field/jump-on-reopen.ts` (232 lines), pasted exactly. The file did not exist before.
+  - EDIT 5 DONE. Three replacements in `components/field/near-you-chip.tsx` (115 lines). Each find occurred once.
+  - EDIT 6 DONE. Four replacements in `components/field/logger-tab.tsx` (874 lines). Each find occurred once.
+  - `npx tsc --noEmit`: **PASS** — exit 0, run once after EDITs 1–6.
+  - `npx eslint` on the six files: **PASS** — exit 0, run once after EDITs 1–6.
+  - `npm run verify:gl`: **PASS** — exit 0. Last line: `All GL geo-lock checks passed.`
+  - `npm run verify:ui1`: **PASS** — exit 0. Last line: `OK`.
+  - `npm run verify:ui6`: **PASS** — exit 0. Last line: `OK`.
+  - `npm run verify:ui7`: **PASS** — exit 0. Last line: `All UI-7 geo checks passed.`
+  - `npm run verify:ui8`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `git grep -n "navigator.geolocation" -- "*.ts" "*.tsx"`: a comment (line 30), `clearWatch` (line 188) and `watchPosition` (line 194), all in `components/field/geo-provider.tsx`.
+  - ux-audit: the skill was read. It is not under this repo's `.cursor/skills`. The four `components/field/` files were scored from the code against `.ux-profile.md`, field-ergonomics and geo-position. Code not changed. Findings: Undo and the chips sit in the top-left of the mini map, which is the spec's slot (G8). The Moved pill is `bg-prop-soft` with the words "Moved to" and "Undo". "Finding you…" uses `text-ink-soft`. The automatic jump and Undo do not call `navigator.vibrate`. No screenshot, so contrast, 375 px overflow and the slide were not seen.
+  - Phone: none for this session. The phase phone check is gl-3.
+- **Deviations from brief:** none. The given files and replacements were pasted exactly. Line endings are CRLF. `lib/field/geo-lock.ts` was already in the tree (gl-1).
+- **Not done / deferred:** A browser. A phone. The You tab switch that calls `setSetting` is not in this session's allow list. Did not commit. No new table row. No `client_event_id`.
+- **Follow-ups:** The You → Location switch (later GL session). Phone check is gl-3.
+
+### GPS-LOCK Session GL-3 — You → Location switch, geolocation line, Brief amendment
+- **Date:** 2026-10-18
+- **Model:** Claude wrote the pasted code. Grok 4.7 applied it and wrote this entry. Not committed.
+- **Built:** You → Location: Jump to me or Off, on by default, saved on this phone. When location is denied or unavailable the card says so. `AGENTS.md` now limits `navigator.geolocation` to `components/field/geo-provider.tsx`. The Brief Stage 16 note records the one automatic jump.
+- **Owner decisions:**
+  - OWNER — 2026-10-18 (G2): jump on reopen. When the canvasser comes back to the app, the Logger may move ONCE to the door nearest them on the route. The near-you chip covers the rest of the time. Full automatic lock (cursor always following GPS) was rejected.
+  - OWNER — 2026-10-18 (G5): team props jump to the nearest OPEN door (a door a teammate knocked is skipped).
+  - OWNER — 2026-10-18 (G6): feedback is "Moved to <address> · Undo" plus the door card sliding to the new door.
+  - OWNER — 2026-10-18 (G7): on by default, with an off switch per canvasser per phone in You → Location.
+- **Claude decisions:**
+  - CLAUDE — G1: the side of the road comes from the place along the route (continuity snap), never from the raw fix. `route_geom` is the centre line for both passes (measured 0.0 m), so the snap already decides the pass.
+  - CLAUDE — G3: the cursor never moves while the screen is in use. Any touch or key press after the reopen, on any tab, cancels the jump.
+  - CLAUDE — G4: forward only (never at or behind the furthest door this canvasser really logged; filled Not In rows do not count), within walking reach (1.5 m/s × time hidden + accuracy), at most 24 doors from max(cursor, furthest log), 12 on a cold start.
+  - CLAUDE — G8: "Finding you…" and "Moved to … · Undo" use the near-you chip's slot on the mini map, never a new overlay over the outcome buttons. Jump Undo only moves the cursor back; it is separate from the 60 s log undo ring.
+  - CLAUDE — G9: starting values, to tune on the phone: hidden ≥ 20 s, 8 s to find you, fixes ≤ 20 m, 2 fixes agreeing within 12 m (median of up to 3), "Moved" shows 5 s.
+  - CLAUDE — A cold start (the page has just loaded, e.g. iOS dropped it while locked) counts as a reopen. Its 8 s window opens when the Logger is ready, and it waits until the outbox has been read so the furthest log is known.
+  - CLAUDE — A jump of more than 3 doors lands 2 doors short and slides the last 2 (DoorScroll renders ±8 doors and scrolls smoothly only up to 3). Reduced motion: one instant move.
+  - CLAUDE — One persistent `role="status"` region reads out "Finding you…" and "Moved to …".
+  - CLAUDE — The near-you chip pill grows from 32 px to 40 px inside its 44 px target and is hidden when its door is already knocked.
+  - CLAUDE — Figma: "Logger — clean build" page, section "GPS-LOCK (2026-10-18)". The You switch reuses the existing `SwitchRow` look, not the Figma mock's fill.
+  - CLAUDE — No migration, no database, no new request, nothing stored except the localStorage on/off key `d2d.jumpOnReopen:<canvasserId>`. No coordinate is kept or sent beyond what UI-7 already does.
+- **Acceptance:**
+  - EDIT 1 DONE. Three replacements in `components/field/profile-tab.tsx` (191 lines). Each find occurred once.
+  - EDIT 2 DONE. One replacement in `AGENTS.md` (143 lines). The find occurred once.
+  - EDIT 3 DONE. One replacement in `docs/D2D-Build-Brief.md` (2704 lines). The find occurred once.
+  - `npx tsc --noEmit`: **PASS** — exit 0, run once after EDITs 1–3.
+  - `npx eslint components/field/profile-tab.tsx`: **PASS** — exit 0, run once after EDITs 1–3.
+  - `npm run verify:gl`: **PASS** — exit 0. Last line: `All GL geo-lock checks passed.`
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `git grep -n "navigator.geolocation" -- "*.ts" "*.tsx"`: a comment (line 30), `clearWatch` (line 188) and `watchPosition` (line 194), all in `components/field/geo-provider.tsx`.
+  - ux-audit: the skill file is not in the tree and not in the plugin cache searched. `components/field/profile-tab.tsx` was read against `.ux-profile.md` and field-ergonomics. Code not changed. Findings: the Location switch is the existing `SwitchRow` (`gap-1`, 4 px). The help under it is more than one line. "Location is off…" is `text-ink-soft` and does not say how to turn location on. The switch does not vibrate.
+  - Phone: **NOT VERIFIED**. No browser. The ten steps are listed for the owner.
+- **Deviations from brief:** none. The given replacements were pasted exactly. Line endings are CRLF. `lib/field/jump-setting.ts` was already in the tree (gl-2). `.cursor/rules/00-core.mdc` still has the old geolocation sentence. It is not in this session's allow list, so it was not edited.
+- **Not done / deferred:** A browser. A phone. The ten phone-check steps. Did not commit. No new table row. No `client_event_id`.
+- **Follow-ups:** The owner runs the ten phone-check steps on the iPhone after gl-1, gl-2 and gl-3 land. The cursor rule `00-core.mdc` still says geolocation is banned before Stage 16.

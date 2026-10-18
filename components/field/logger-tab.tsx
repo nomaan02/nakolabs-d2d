@@ -13,7 +13,14 @@ import { HouseNumberSheet, NotesSheet, OtherOutcomeSheet } from "@/components/fi
 import { InferSheet } from "@/components/field/infer-sheet";
 import { LeadSheet } from "@/components/field/lead-sheet";
 import { MiniMap } from "@/components/field/mini-map";
-import { NearYouChip, useNearYouIndex } from "@/components/field/near-you-chip";
+import { useJumpOnReopen } from "@/components/field/jump-on-reopen";
+import {
+  FindingYouChip,
+  JumpAnnouncer,
+  MovedChip,
+  NearYouChip,
+  useNearYouIndex,
+} from "@/components/field/near-you-chip";
 import { useGeo } from "@/components/field/geo-provider";
 import { SharingPill } from "@/components/field/sharing-pill";
 import { FieldHeader, FieldPage } from "@/components/field/shell/field-header";
@@ -36,7 +43,10 @@ import { formatTeammateLine } from "@/lib/field/door-signals";
 import { scrollPlate } from "@/lib/field/door-window";
 import { pulse, useInputLock } from "@/lib/field/feedback";
 import { doorPlate } from "@/lib/field/labels";
+import { furthestOwnLogIndex } from "@/lib/field/geo-lock";
 import { planInference, type InferencePlan, type InferredDoor } from "@/lib/field/inference";
+import { useJumpSetting } from "@/lib/field/jump-setting";
+import { localOutcomesLoaded } from "@/lib/field/local-outcomes";
 import { logHouseNumber, logInferredNotIn, logOutcome } from "@/lib/field/log-outcome";
 import { isTeamProp, useLoggingMode } from "@/lib/field/logging-mode";
 import { outcomeSpec, type OtherOutcome, type PrimaryOutcome } from "@/lib/field/outcomes";
@@ -372,18 +382,69 @@ export function LoggerTab() {
     [status, routeDoor, shared, dismissedShared, retryAllFailed, showSharingNotice, assignmentId, interimOrder],
   );
 
+  // GPS-LOCK GL-2 (owner G2, G5, G6, G7). On a reopen the Logger may jump
+  // once to the door nearest the canvasser; any touch first cancels it.
+  const jumpSetting = useJumpSetting(canvasserId);
+  const anchorIndex = useMemo(
+    () => furthestOwnLogIndex(sequence, outcomes, canvasserId),
+    [sequence, outcomes, canvasserId],
+  );
+  const isOpenIndex = useCallback(
+    (index: number) => {
+      const entry = sequence[index];
+      return entry !== undefined && !team.knockedUprns.has(entry.uprn);
+    },
+    [sequence, team.knockedUprns],
+  );
+  const reopenJump = useJumpOnReopen({
+    // The outbox must have been read, or the furthest log is not known yet.
+    ready:
+      phase.kind === "ready" &&
+      cursor.door !== undefined &&
+      canvasserId !== null &&
+      localOutcomesLoaded(assignmentId) &&
+      !allDone,
+    allowed:
+      jumpSetting.setting === "on" && view === "logging" && sheet.kind === "none" && !otherOpen,
+    cursorIndex: cursor.index,
+    anchorIndex,
+    isOpen: isOpenIndex,
+    goTo: cursor.goTo,
+  });
+
+  const addressAt = useCallback(
+    (index: number) => {
+      const entry = sequence[index];
+      if (!entry) return null;
+      const entryLabel = labelFor(entry.uprn);
+      const entryStreet = surveyStreet(routeProgress.doors[index]?.routeStreet, entryLabel);
+      return surveyAddress(entryLabel, entryStreet, index).address;
+    },
+    [sequence, labelFor, routeProgress.doors],
+  );
+
   // UI-7 C2 (owner H3). Suggests the door nearest the canvasser along the
   // route; hidden when that is already the current door. Tap = jump.
+  // GL-2: the same slot shows "Finding you…" and "Moved to … · Undo" first.
   const nearIndex = useNearYouIndex();
   const nearOverlay = useMemo(() => {
-    if (nearIndex === null || nearIndex === cursor.index) return undefined;
-    const nearDoor = sequence[nearIndex];
-    if (!nearDoor) return undefined;
-    const nearLabel = labelFor(nearDoor.uprn);
-    const nearStreet = surveyStreet(routeProgress.doors[nearIndex]?.routeStreet, nearLabel);
-    const { address } = surveyAddress(nearLabel, nearStreet, nearIndex);
+    if (reopenJump.state.kind === "finding") return <FindingYouChip />;
+    if (reopenJump.state.kind === "moved") {
+      const address = addressAt(reopenJump.state.to);
+      if (address) return <MovedChip label={address} onUndo={reopenJump.undo} />;
+    }
+    // A door already knocked is not suggested (the jump skips it too, G5).
+    if (nearIndex === null || nearIndex === cursor.index || !isOpenIndex(nearIndex)) return undefined;
+    const address = addressAt(nearIndex);
+    if (!address) return undefined;
     return <NearYouChip label={address} onJump={() => cursor.goTo(nearIndex)} />;
-  }, [nearIndex, cursor, sequence, labelFor, routeProgress.doors]);
+  }, [reopenJump.state, reopenJump.undo, nearIndex, cursor, addressAt, isOpenIndex]);
+  const jumpAnnouncement =
+    reopenJump.state.kind === "finding"
+      ? "Finding you\u2026"
+      : reopenJump.state.kind === "moved"
+        ? `Moved to ${addressAt(reopenJump.state.to) ?? "the door nearest you"}. Undo is in the top left of the map.`
+        : "";
 
   if (phase.kind !== "ready") return <PhaseNotice phase={phase} />;
 
@@ -579,6 +640,7 @@ export function LoggerTab() {
           className="logger-map-band relative mx-4 mt-3 min-h-24 flex-1 overflow-hidden rounded-field-lg border border-line"
           data-testid="logger-map-band"
         >
+          <JumpAnnouncer text={jumpAnnouncement} />
           <div className="absolute inset-0">
             <MemoMiniMap
               mode={mode}

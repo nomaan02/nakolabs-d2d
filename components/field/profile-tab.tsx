@@ -8,8 +8,10 @@ import { useFieldData } from "@/components/field/field-data-provider";
 import { PropStatus } from "@/components/field/prop-status";
 import { SyncStatus } from "@/components/field/sync-status";
 import { SharedKnockNotice } from "@/components/field/shared-knock-notice";
+import { useGeo } from "@/components/field/geo-provider";
 import { FieldHeader, FieldPage } from "@/components/field/shell/field-header";
 import { useCrmMe } from "@/lib/field/crm-data";
+import { JUMP_SETTINGS, useJumpSetting } from "@/lib/field/jump-setting";
 import { isTeamProp, LOGGING_MODES, useLoggingMode } from "@/lib/field/logging-mode";
 import { ATTRIBUTION_LINES } from "@/lib/field/map-style";
 import { setThemePref, useThemePref, type ThemePref } from "@/lib/field/theme";
@@ -33,6 +35,9 @@ export function ProfileTab() {
   const { signedInAs, role, phase, canvasserId, team } = useFieldData();
   const themePref = useThemePref();
   const logging = useLoggingMode(canvasserId);
+  const jump = useJumpSetting(canvasserId);
+  const geo = useGeo();
+  const locationOff = geo.status === "denied" || geo.status === "unavailable";
   const teamProp = isTeamProp(team);
   const crm = useCrmMe(canvasserId);
   const linked = crm.kind === "ready" && crm.data.name !== null;
@@ -73,6 +78,28 @@ export function ProfileTab() {
         {teamProp && logging.mode === "exceptions" ? (
           <p className="mt-1 text-admin-caption text-ink-soft" data-testid="profile-logging-team">
             Today&apos;s prop is a team prop, so every door is tapped there.
+          </p>
+        ) : null}
+      </Group>
+
+      {/* GPS-LOCK GL-3 (owner G7, 2026-10-18; Figma "GPS-LOCK (2026-10-18)"). */}
+      <Group title="Location" testId="profile-location">
+        <SwitchRow
+          label="When you come back to the app"
+          options={JUMP_SETTINGS}
+          selected={jump.setting}
+          onPick={jump.setSetting}
+          testIdFor={(value) => `jump-setting-${value}`}
+        />
+        <p className="mt-2 text-admin-caption text-ink-muted">
+          {jump.setting === "on"
+            ? "When you come back to the app, the Logger moves to the door nearest you on the route and tells you, with Undo. It never moves while you\u2019re using the screen."
+            : "The Logger stays on its door. The Near you chip still suggests the door nearest you."}{" "}
+          Saved on this phone.
+        </p>
+        {locationOff ? (
+          <p className="mt-1 text-admin-caption text-ink-soft" data-testid="profile-location-off">
+            Location is off on this phone, so the Logger can&apos;t find you.
           </p>
         ) : null}
       </Group>

@@ -171,6 +171,9 @@
 | FUI-3b | Map: control stack, Key card, compact door sheet | DONE | 2026-10-15 | Map: control stack (3D, Centre, Key), Key card closed by default, no +/- zoom, 44px licence button, compact 2x2 door sheet with Other and Close in the header. | — |
 | CRM-7a | human: details for every lead, Refresh from CRM route, migration 042 | NOT DONE — Supabase MCP not signed in; migration 042 not applied | 2026-10-15 | Contacts kept for every lead under 90 days; refresh-mine route with throttle. Migration 042 file written (`crm_refresh_log`, `my_crm_week`, `my_crm_freshness`) but not applied. Types hand-added, not regenerated from the database. | — |
 | CRM-7b | This week screen, CRM status colours, Refresh from CRM button | DONE | 2026-10-15 | This week screen on /field/leads: CRM status words on colour (UTC yellow, Re-App purple, Blowout red, Booked blue), expandable details, Refresh from CRM button, drawer item. | — |
+| GL-1 | Jump-on-reopen rules (pure) and verify:gl | DONE | 2026-10-18 | Pure rules for the one automatic Logger jump on reopen (lib/field/geo-lock.ts) and `npm run verify:gl`. | — |
+| GL-2 | Logger jump on reopen (GeoProvider, hook, chip slot) | DONE | 2026-10-18 | Logger jumps once on reopen to the door nearest you (Finding you… / Moved to … · Undo in the chip slot); any touch first cancels it; bigger near-you chip. | — |
+| GL-3 | You → Location switch, geolocation line, Brief amendment | DONE | 2026-10-18 | You → Location: Jump to me / Off (saved on this phone); AGENTS.md geolocation line fixed; Brief Stage 16 amendment for the one automatic jump. | — |
 
 ---
 

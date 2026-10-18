@@ -2248,6 +2248,18 @@ This is the least intrusive means of getting the outcome, which is the standard 
 > the live position comes from `components/field/geo-provider.tsx`, the scalar from
 > `lib/field/use-route-position.ts`, and the Logger cursor still never moves on its
 > own (the "near you" chip suggests, the canvasser taps).
+>
+> **Amendment 2026-10-18 (GPS-LOCK, owner G2–G7).** One exception to "the cursor
+> never moves on its own": right after the canvasser comes back to the app
+> (hidden 20 s or more, or the page has just loaded), the Logger may jump ONCE to
+> the door nearest them on the route, shows "Moved to … · Undo" for 5 s, and
+> otherwise leaves the cursor alone. Any touch first cancels it. It needs two
+> agreeing fixes of 20 m or better, never goes behind the canvasser's furthest
+> tapped log, stays within walking reach and 24 doors, skips knocked doors, and
+> can be switched off in You → Location. The side of the road comes from the
+> route, never the raw fix. Pure rules: `lib/field/geo-lock.ts`
+> (`npm run verify:gl`). No new request, nothing stored, no coordinate leaves the
+> device beyond what row 1 already allows.
 
 ---
 
