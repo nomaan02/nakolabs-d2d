@@ -174,6 +174,8 @@
 | GL-1 | Jump-on-reopen rules (pure) and verify:gl | DONE | 2026-10-18 | Pure rules for the one automatic Logger jump on reopen (lib/field/geo-lock.ts) and `npm run verify:gl`. | — |
 | GL-2 | Logger jump on reopen (GeoProvider, hook, chip slot) | DONE | 2026-10-18 | Logger jumps once on reopen to the door nearest you (Finding you… / Moved to … · Undo in the chip slot); any touch first cancels it; bigger near-you chip. | — |
 | GL-3 | You → Location switch, geolocation line, Brief amendment | DONE | 2026-10-18 | You → Location: Jump to me / Off (saved on this phone); AGENTS.md geolocation line fixed; Brief Stage 16 amendment for the one automatic jump. | — |
+| GL-C1 | Side-of-road correction — the logic (no screens) | DONE | 2026-10-18 | Side-of-road correction logic: both passes near a fix, near doors (forward only), cross-road/backwards correction test, reopen does not guess the side, fill floor. | — |
+| GL-C2 | Side-of-road correction — the screens and wiring | DONE | 2026-10-18 | Side-of-road correction screens: two-door near-you chip, mini-map door tap with Moved/Undo, chip hidden when already there, every manual move sets the fill floor when crossing or going back. | — |
 
 ---
 

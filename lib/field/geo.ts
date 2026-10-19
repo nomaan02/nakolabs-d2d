@@ -199,6 +199,31 @@ function scan(
   return out;
 }
 
+/** GL-C: a snap clamped to a segment's end ranks as this much further away. */
+const CLAMPED_PENALTY_M = 3;
+
+function rankM(snap: RouteSnap & { square: boolean }): number {
+  return snap.offsetM + (snap.square ? 0 : CLAMPED_PENALTY_M);
+}
+
+/** Every segment's snap, and whether it lands square on the segment (not clamped to an end). */
+function scanSnaps(index: RouteIndex, point: readonly number[]): (RouteSnap & { square: boolean })[] {
+  const [px, py] = toXY(index.origin, index.cosLat, point);
+  const out: (RouteSnap & { square: boolean })[] = [];
+  for (let i = 1; i < index.points.length; i++) {
+    const [ax, ay] = index.points[i - 1];
+    const [bx, by] = index.points[i];
+    const dx = bx - ax;
+    const dy = by - ay;
+    const len = Math.hypot(dx, dy);
+    const raw = len === 0 ? 0 : ((px - ax) * dx + (py - ay) * dy) / (len * len);
+    const t = Math.max(0, Math.min(1, raw));
+    const offsetM = Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+    out.push({ alongM: (index.cum[i - 1] + t * len) * index.scale, offsetM, square: raw > 0 && raw < 1 });
+  }
+  return out;
+}
+
 /** The partner scalar in metres (1 dp), or null more than OFF_ROUTE_M from the route. */
 export function routeScalar(snap: RouteSnap | null): number | null {
   if (!snap || !Number.isFinite(snap.offsetM) || snap.offsetM > OFF_ROUTE_M) return null;
@@ -264,12 +289,93 @@ export function nearestDoorIndex(alongs: ReadonlyArray<number>, alongM: number):
   return bestIndex;
 }
 
+/** GL-C (owner C2, C4): a second pass must lie this much further along than the two offsets explain. */
+export const PASS_GAP_M = 20;
+/** GL-C: a pass offers a door only when one is this close to it along the route. */
+export const NEAR_DOOR_M = 40;
+/** GL-C (owner C2): the chip offers at most this many doors (one per pavement). */
+export const MAX_NEAR_DOORS = 2;
+
+/**
+ * GL-C (owner C2, C4). Every place the route passes the point, closest
+ * first, in server metres. `route_geom` walks most streets twice (once per
+ * pavement) on the same centre line, so GPS alone cannot say which pass the
+ * canvasser is on: both are returned.
+ *
+ * A snap counts when it is within CONTINUITY_SLACK_M of the closest one and
+ * no more than OFF_ROUTE_M away. A snap clamped to a segment's end ranks
+ * CLAMPED_PENALTY_M further away, so the other pavement of this street beats
+ * the mouth of a side street at a junction. Two snaps are the same pass when the
+ * route between them is no longer than their two offsets plus PASS_GAP_M (a
+ * straight stretch near the point); a longer way round (to the end of the
+ * street and back) is another pass. Empty when off route.
+ * Known limit: within about 15 m of a dead end the two passes are one (the
+ * mini-map tap still picks the other side).
+ */
+export function routePasses(index: RouteIndex, point: readonly number[]): number[] {
+  const all = scanSnaps(index, point);
+  let closest = Infinity;
+  for (const snap of all) closest = Math.min(closest, snap.offsetM);
+  if (!(closest <= OFF_ROUTE_M)) return [];
+  const reach = Math.min(OFF_ROUTE_M, closest + CONTINUITY_SLACK_M);
+  const near = all
+    .filter((snap) => snap.offsetM <= reach)
+    .sort((a, b) => rankM(a) - rankM(b));
+  const picked: RouteSnap[] = [];
+  for (const snap of near) {
+    const samePass = picked.some(
+      (kept) => Math.abs(kept.alongM - snap.alongM) <= kept.offsetM + snap.offsetM + PASS_GAP_M,
+    );
+    if (!samePass) picked.push(snap);
+  }
+  return picked.map((snap) => snap.alongM);
+}
+
+/**
+ * GL-C (owner C2, C3, C4). The doors to offer in the near-you chip: the
+ * nearest door on each pass (`routePasses`), in walk order, at most
+ * MAX_NEAR_DOORS. When that door is at or behind the furthest door this
+ * canvasser really logged (forward only), or already knocked, the next open
+ * door forward on the same pass is taken instead. No door more than
+ * NEAR_DOOR_M along the route from its pass.
+ */
+export function nearDoorIndexes(input: {
+  passesM: ReadonlyArray<number>;
+  doorAlongsM: ReadonlyArray<number>;
+  /** `furthestOwnLogIndex`; -1 when nothing is logged yet. */
+  anchorIndex: number;
+  isOpen: (index: number) => boolean;
+}): number[] {
+  const out: number[] = [];
+  for (const passM of input.passesM) {
+    if (out.length >= MAX_NEAR_DOORS) break;
+    let index = nearestDoorIndex(input.doorAlongsM, passM);
+    if (index < 0) continue;
+    // The nearest door already done (or behind the furthest log): the next
+    // open door forward on the same pass, so after a log at this door the
+    // chip offers the next one here, not only the door across the road.
+    while (
+      index < input.doorAlongsM.length &&
+      (index <= input.anchorIndex || !input.isOpen(index)) &&
+      input.doorAlongsM[index]! - passM <= NEAR_DOOR_M
+    ) {
+      index++;
+    }
+    const along = input.doorAlongsM[index];
+    if (along === undefined || Math.abs(along - passM) > NEAR_DOOR_M) continue;
+    if (index <= input.anchorIndex || !input.isOpen(index) || out.includes(index)) continue;
+    out.push(index);
+  }
+  return out.sort((a, b) => a - b);
+}
+
 /** Near-you chip hysteresis: `shown` changes only after CHIP_AGREE agreeing fixes. */
-export type ChipState = { shown: number | null; candidate: number | null; streak: number };
+export type ChipState<T = number> = { shown: T | null; candidate: T | null; streak: number };
 
-export const CHIP_START: ChipState = { shown: null, candidate: null, streak: 0 };
+export const CHIP_START: ChipState<never> = { shown: null, candidate: null, streak: 0 };
 
-export function stepChip(state: ChipState, next: number | null): ChipState {
+/** `T` is compared with `===`, so pass a number or a string key (GL-C: "12,40"). */
+export function stepChip<T>(state: ChipState<T>, next: T | null): ChipState<T> {
   if (next === state.shown) return { shown: state.shown, candidate: null, streak: 0 };
   const streak = next === state.candidate ? state.streak + 1 : 1;
   if (streak >= CHIP_AGREE) return { shown: next, candidate: null, streak: 0 };

@@ -2248,3 +2248,77 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given replacements were pasted exactly. Line endings are CRLF. `lib/field/jump-setting.ts` was already in the tree (gl-2). `.cursor/rules/00-core.mdc` still has the old geolocation sentence. It is not in this session's allow list, so it was not edited.
 - **Not done / deferred:** A browser. A phone. The ten phone-check steps. Did not commit. No new table row. No `client_event_id`.
 - **Follow-ups:** The owner runs the ten phone-check steps on the iPhone after gl-1, gl-2 and gl-3 land. The cursor rule `00-core.mdc` still says geolocation is banned before Stage 16.
+
+### GL-C Session 1 — side-of-road correction logic (no screens)
+- **Date:** 2026-10-18
+- **Model:** Claude wrote the pasted code. Grok 4.7 applied it and wrote this entry. Not committed.
+- **Built:** The rules for a side-of-road correction. `routePasses` and `nearDoorIndexes` say which doors are near a fix, one per pavement, forward only. `correctionSkipsFill` says when a manual move skips the Exceptions-only fill. A reopen with a door on both pavements and no real log on that street does not guess. `planInference` can take a fill floor. `useFillFloor` keeps that floor as a UPRN in localStorage. Nothing in the Logger calls this yet.
+- **Owner decisions:**
+  - OWNER — 2026-10-18 (phone test at 49 Upper Cheltenham Place): the Logger was right (49) but the near-you chip offered 48 across the road. GPS cannot tell the side of the road.
+  - OWNER — 2026-10-18 (C1): a manual correction to the other side of the road, or backwards, skips the Exceptions-only fill for the stretch jumped over. The next log fills only from the corrected door.
+  - OWNER — 2026-10-18 (C2): the chip offers the door on each side (`Near you | 48 | 49`) where the route passes the spot twice, and tapping a door on the mini map moves the Logger there ("Moved to … · Undo").
+  - OWNER — 2026-10-18 (C3): no chip when the Logger's door is already one of the doors near you.
+  - OWNER — 2026-10-18 (C6): a same-side forward correction keeps the normal fill, like the GPS jump.
+- **Claude decisions:**
+  - CLAUDE — `routePasses` (`lib/field/geo.ts`): every place the route passes a GPS fix, within 15 m of the closest snap (100 m max). Two snaps are the same pass when the route between them is no longer than their two offsets + 20 m. A longer way round is another pass. A snap clamped to a segment end ranks 3 m further away, so a side street's mouth does not beat the other pavement. Within about 15 m of a dead end the two passes are one.
+  - CLAUDE — `nearDoorIndexes`: the nearest door on each pass, at most 2, in walk order, within 40 m along the route. Forward only from the furthest real log. When that door is done or behind, the next open door forward on the same pass.
+  - CLAUDE — `stepChip` is generic, so the chip's hysteresis (2 agreeing fixes) runs on a key like "9,28".
+  - CLAUDE — `correctionSkipsFill` (`lib/field/geo-lock.ts`): a manual move skips the fill when it goes backwards, or crosses the road. Same road segment and a different work step counts as a crossing (`side` on a step is the walker's hand, so the step is the pavement). Otherwise, route distance greater than 2 × straight distance + 25 m. With no route, backwards only.
+  - CLAUDE — `planJump`: when the latest fix has a door on both pavements and this canvasser has no real log on that street, no jump (chip reason `both_sides`; `stay` when the Logger is already on one of them). Optional `sameStreetAsLog`.
+  - CLAUDE — `planInference`: optional `floorIndex`. When logging at or past it, nothing before it is filled. A floor past the log is ignored.
+  - CLAUDE — `useFillFloor` (`lib/field/fill-floor.ts`): the floor as a UPRN in localStorage per prop and canvasser (`d2d.fillFloor:<assignment>:<canvasser>`), so a reload keeps it. No GPS coordinate is stored.
+- **Acceptance:**
+  - EDIT 1 DONE. Two replacements in `lib/field/geo.ts` (462 lines). Each find occurred once.
+  - EDIT 2 DONE. Five replacements in `lib/field/geo-lock.ts` (251 lines). Each find occurred once.
+  - EDIT 3 DONE. Three replacements in `lib/field/inference.ts` (159 lines). Each find occurred once.
+  - EDIT 4 DONE. New `lib/field/fill-floor.ts` (79 lines), pasted as given.
+  - EDIT 5 DONE. Two replacements in `scripts/verify-gl-geo-lock.ts` (228 lines). Each find occurred once.
+  - EDIT 6 DONE. One replacement in `scripts/verify-ui-8-inference.ts` (226 lines). The find occurred once.
+  - EDIT 7 DONE. One replacement in `scripts/verify-ui-7-geo.ts` (219 lines). The find occurred once.
+  - `npx tsc --noEmit`: **PASS** — exit 0, run once after EDITs 1–7.
+  - `npx eslint` on the seven files: **PASS** — exit 0, run once after EDITs 1–7.
+  - `npm run verify:gl`: **PASS** — exit 0. Last line: `All GL geo-lock checks passed.`
+  - `npm run verify:ui8`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui7`: **PASS** — exit 0. Last line: `All UI-7 geo checks passed.`
+  - Phone: **NOT VERIFIED**. No browser. This session has no screen.
+- **Deviations from brief:** none. The given code was pasted exactly. The edited TypeScript files are LF, matching the files already in git.
+- **Not done / deferred:** A browser. A phone. The chip, the mini-map tap and the Logger wiring are GL-C2. Did not commit. No new table row. No `client_event_id`.
+- **Follow-ups:** GL-C2 wires this into the Logger. Nothing calls the new functions yet except the checks.
+
+### GL-C Session 2 — side-of-road correction screens and wiring
+- **Date:** 2026-10-18
+- **Model:** Claude wrote the pasted code. Grok 4.7 applied it and wrote this entry. Not committed.
+- **Built:** The Logger offers the door on each pavement where the route passes twice, and a tap on a mini-map door moves the cursor there. "Moved to … · Undo" lasts 5 seconds. Undo puts the door and the previous fill floor back. A move backwards or across the road sets the fill floor. Same side forward does not. The Exceptions-only log passes that floor into `planInference`. A floor ahead of the log is cleared. One at or behind it is kept.
+- **Owner decisions:**
+  - OWNER — 2026-10-18 (phone test at 49 Upper Cheltenham Place): the Logger was right (49) but the near-you chip offered 48 across the road. GPS cannot tell the side of the road.
+  - OWNER — 2026-10-18 (C1): a manual correction to the other side of the road, or backwards, skips the Exceptions-only fill for the stretch jumped over. The next log fills only from the corrected door.
+  - OWNER — 2026-10-18 (C2): both: the chip offers the door on each side (`Near you | 48 | 49`) where the route passes the spot twice, and tapping a door on the mini map moves the Logger there ("Moved to … · Undo").
+  - OWNER — 2026-10-18 (C3): no chip when the Logger's door is already one of the doors near you.
+  - OWNER — 2026-10-18 (C6): a same-side forward correction keeps the normal fill, like the GPS jump.
+- **Claude decisions:**
+  - CLAUDE — Figma section "GPS-LOCK C · side correction" (231:1922): two-door chip 231:1924 (light and dark), Logger 231:1945 (both sides offered), 231:2087 (door tapped on the mini map), 231:2222 (already there, no chip).
+  - CLAUDE — `NearYouSidesChip`: "Near you | 48 | 49" in the existing top-left slot, 40 px pill, each door a 44 px target ("Jump to …, near you"). One door: the existing "Near you · … Jump ›" chip.
+  - CLAUDE — `useNearYouDoors` replaces `useNearYouIndex`. `geo-provider` adds `passesM` to each snapped fix (memory only).
+  - CLAUDE — `useCorrectTo` (new): one path for every manual move — the near-you chip, a mini-map door tap, a Survey pick and a Map tab door tap. Backwards or across the road sets the fill floor. Same side forward does not (C6).
+  - CLAUDE — Chip and mini-map moves show "Moved to … · Undo" for 5 s (same chip as the reopen jump). Undo puts back the door and the previous floor.
+  - CLAUDE — Mini map: a tap picks the nearest door dot within 22 px. A tap with no dot that close opens the full map (like Open Map). Double-tap zoom is off on the mini map, so a double tap never moves the door twice. Panning and pinching are unchanged.
+  - CLAUDE — Reopen: when both pavements are near and no real log is on that street, no jump. The chip offers both doors.
+  - CLAUDE — Logger `commit`: passes the floor to `planInference`. A floor ahead of the log (went back behind it) is cleared. One at or behind it is kept, so undoing that log still protects the stretch cut across.
+- **Acceptance:**
+  - EDIT 1 DONE. Three replacements in `components/field/geo-provider.tsx` (341 lines). Each find occurred once.
+  - EDIT 2 DONE. Two replacements in `components/field/near-you-chip.tsx` (165 lines). Each find occurred once. `useNearYouDoors` and `NearYouSidesChip`.
+  - EDIT 3 DONE. New `components/field/use-correct-to.ts` (70 lines), pasted as given.
+  - EDIT 4 DONE. Two replacements in `components/field/jump-on-reopen.ts` (235 lines). Each find occurred once. `sameStreetAsLog` is passed into `planJump`.
+  - EDIT 5 DONE. Four replacements in `components/field/field-map.tsx` (1225 lines). Each find occurred once. CRLF kept.
+  - EDIT 6 DONE. Four replacements in `components/field/mini-map.tsx` (137 lines). Each find occurred once. `TAP_SLOP_PX` is 22.
+  - EDIT 7 DONE. Three replacements in `components/field/map-tab.tsx` (404 lines). Each find occurred once. CRLF kept.
+  - EDIT 8 DONE. Nine replacements in `components/field/logger-tab.tsx` (969 lines). Each find occurred once.
+  - `npx tsc --noEmit`: **PASS** — exit 0, run once after EDITs 1–8.
+  - `npx eslint` on the eight files: **PASS** — exit 0, run once after EDITs 1–8.
+  - `npm run verify:gl`: **PASS** — exit 0. Last line: `All GL geo-lock checks passed.`
+  - `npm run verify:ui8`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui7`: **PASS** — exit 0. Last line: `All UI-7 geo checks passed.`
+  - Phone: **NOT VERIFIED**. No browser. The six steps are listed for the owner.
+- **Deviations from brief:** none. The given code was pasted exactly. `field-map.tsx` and `map-tab.tsx` stayed CRLF. The other edited TypeScript files are LF, matching the files already in git. `mini-map.tsx` was already LF in git and CRLF in the working tree before this session, and it stayed that way.
+- **Not done / deferred:** A browser. A phone. The six phone-check steps. Did not commit. No new table row. No `client_event_id`.
+- **Follow-ups:** The owner runs the six phone-check steps after this lands.

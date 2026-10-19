@@ -19,7 +19,8 @@ import {
   JumpAnnouncer,
   MovedChip,
   NearYouChip,
-  useNearYouIndex,
+  NearYouSidesChip,
+  useNearYouDoors,
 } from "@/components/field/near-you-chip";
 import { useGeo } from "@/components/field/geo-provider";
 import { SharingPill } from "@/components/field/sharing-pill";
@@ -43,7 +44,8 @@ import { formatTeammateLine } from "@/lib/field/door-signals";
 import { scrollPlate } from "@/lib/field/door-window";
 import { pulse, useInputLock } from "@/lib/field/feedback";
 import { doorPlate } from "@/lib/field/labels";
-import { furthestOwnLogIndex } from "@/lib/field/geo-lock";
+import { MOVED_SHOW_MS, furthestOwnLogIndex } from "@/lib/field/geo-lock";
+import { useCorrectTo } from "@/components/field/use-correct-to";
 import { planInference, type InferencePlan, type InferredDoor } from "@/lib/field/inference";
 import { useJumpSetting } from "@/lib/field/jump-setting";
 import { localOutcomesLoaded } from "@/lib/field/local-outcomes";
@@ -333,12 +335,17 @@ export function LoggerTab() {
     [view, sequence, labels, outcomes, routeProgress.doors, team.knockedBy, cursor.index],
   );
 
+  // GL-C (owner C1, C6). Manual moves of the Logger's door (chip, mini-map
+  // tap, Survey pick): to the other side of the road, or backwards, the next
+  // Exceptions-only fill starts at the door moved to (the fill floor).
+  const { correctTo, ...fillFloor } = useCorrectTo();
+
   const pickFromSurvey = useCallback(
     (index: number) => {
-      cursor.goTo(index);
+      if (!correctTo(index)) cursor.goTo(index);
       setView("logging");
     },
-    [cursor, setView],
+    [correctTo, cursor, setView],
   );
 
   // The same "blocked" test `commit` uses to decide whether to move the
@@ -396,6 +403,25 @@ export function LoggerTab() {
     },
     [sequence, team.knockedUprns],
   );
+  // GL-C (Figma 231:2086): a reopen jumps only when a log on this street has
+  // settled which pavement the canvasser is on; otherwise the chip offers both.
+  const streetAt = useCallback(
+    (index: number) => {
+      const entry = sequence[index];
+      if (!entry) return null;
+      const street = routeProgress.doors[index]?.routeStreet ?? labelFor(entry.uprn)?.street_name ?? null;
+      return street?.trim().toLowerCase() || null;
+    },
+    [sequence, routeProgress.doors, labelFor],
+  );
+  const sameStreetAsLog = useCallback(
+    (index: number) => {
+      if (anchorIndex < 0) return false;
+      const logged = streetAt(anchorIndex);
+      return logged !== null && logged === streetAt(index);
+    },
+    [anchorIndex, streetAt],
+  );
   const reopenJump = useJumpOnReopen({
     // The outbox must have been read, or the furthest log is not known yet.
     ready:
@@ -409,6 +435,7 @@ export function LoggerTab() {
     cursorIndex: cursor.index,
     anchorIndex,
     isOpen: isOpenIndex,
+    sameStreetAsLog,
     goTo: cursor.goTo,
   });
 
@@ -423,24 +450,79 @@ export function LoggerTab() {
     [sequence, labelFor, routeProgress.doors],
   );
 
-  // UI-7 C2 (owner H3). Suggests the door nearest the canvasser along the
-  // route; hidden when that is already the current door. Tap = jump.
+  // GL-C (owner C2): after a manual move (chip or mini-map tap), "Moved to …
+  // · Undo" for MOVED_SHOW_MS. Undo puts the Logger and the fill floor back.
+  const [manualMove, setManualMove] = useState<{
+    id: number;
+    to: number;
+    fromIndex: number;
+    previousFloor: number | null;
+  } | null>(null);
+  const moveTo = useCallback(
+    (toIndex: number) => {
+      const undo = correctTo(toIndex);
+      if (undo) setManualMove({ id: Date.now(), to: toIndex, ...undo });
+    },
+    [correctTo],
+  );
+  useEffect(() => {
+    if (!manualMove) return;
+    const id = window.setTimeout(() => setManualMove(null), MOVED_SHOW_MS);
+    return () => window.clearTimeout(id);
+  }, [manualMove]);
+  // Anything else that moves the cursor retires it.
+  useEffect(() => {
+    if (manualMove && cursor.index !== manualMove.to) setManualMove(null);
+  }, [cursor.index, manualMove]);
+  const undoManualMove = useCallback(() => {
+    if (!manualMove) return;
+    setManualMove(null);
+    fillFloor.setFloorUprn(manualMove.previousFloor);
+    cursor.goTo(manualMove.fromIndex);
+  }, [manualMove, fillFloor, cursor]);
+  const pickDoorOnMiniMap = useCallback(
+    (uprn: number) => {
+      const index = sequence.findIndex((entry) => entry.uprn === uprn);
+      if (index >= 0) moveTo(index);
+    },
+    [sequence, moveTo],
+  );
+
+  // UI-7 C2 (owner H3), amended GL-C (owner C2, C3, C4). Suggests the doors
+  // near the canvasser: one, or one per pavement where the route passes twice.
+  // Hidden when the Logger is already on one of them. Tap = move there.
   // GL-2: the same slot shows "Finding you…" and "Moved to … · Undo" first.
-  const nearIndex = useNearYouIndex();
+  const nearDoors = useNearYouDoors(anchorIndex, isOpenIndex);
   const nearOverlay = useMemo(() => {
+    if (manualMove) {
+      const address = addressAt(manualMove.to);
+      if (address) return <MovedChip label={address} onUndo={undoManualMove} />;
+    }
     if (reopenJump.state.kind === "finding") return <FindingYouChip />;
     if (reopenJump.state.kind === "moved") {
       const address = addressAt(reopenJump.state.to);
       if (address) return <MovedChip label={address} onUndo={reopenJump.undo} />;
     }
-    // A door already knocked is not suggested (the jump skips it too, G5).
-    if (nearIndex === null || nearIndex === cursor.index || !isOpenIndex(nearIndex)) return undefined;
-    const address = addressAt(nearIndex);
-    if (!address) return undefined;
-    return <NearYouChip label={address} onJump={() => cursor.goTo(nearIndex)} />;
-  }, [reopenJump.state, reopenJump.undo, nearIndex, cursor, addressAt, isOpenIndex]);
-  const jumpAnnouncement =
-    reopenJump.state.kind === "finding"
+    if (nearDoors.length === 0 || nearDoors.includes(cursor.index)) return undefined;
+    if (nearDoors.length === 1) {
+      const only = nearDoors[0]!;
+      const address = addressAt(only);
+      if (!address) return undefined;
+      return <NearYouChip label={address} onJump={() => moveTo(only)} />;
+    }
+    const doors = nearDoors.flatMap((index) => {
+      const entry = sequence[index];
+      const address = addressAt(index);
+      if (!entry || !address) return [];
+      return [{ index, address, plate: scrollPlate(doorPlate(labelFor(entry.uprn)), entry.position).text }];
+    });
+    if (doors.length === 1) return <NearYouChip label={doors[0]!.address} onJump={() => moveTo(doors[0]!.index)} />;
+    if (doors.length === 0) return undefined;
+    return <NearYouSidesChip doors={doors} onPick={moveTo} />;
+  }, [manualMove, undoManualMove, reopenJump.state, reopenJump.undo, nearDoors, cursor.index, addressAt, moveTo, sequence, labelFor]);
+  const jumpAnnouncement = manualMove
+    ? `Moved to ${addressAt(manualMove.to) ?? "that door"}. Undo is in the top left of the map.`
+    : reopenJump.state.kind === "finding"
       ? "Finding you\u2026"
       : reopenJump.state.kind === "moved"
         ? `Moved to ${addressAt(reopenJump.state.to) ?? "the door nearest you"}. Undo is in the top left of the map.`
@@ -489,6 +571,11 @@ export function LoggerTab() {
     // UI-8 D2c (owner H4, U8-1..U8-3). Planned from what this phone knew
     // BEFORE this log; `outcomes` here is that render's map.
     const occurredAt = new Date().toISOString();
+    const triggerIndex = sequence.findIndex((entry) => entry.uprn === door.uprn);
+    // GL-C (owner C1): after a cross-road or backwards correction, fill only from that door.
+    const floorUprnAtLog = fillFloor.floorUprn;
+    const floorIndex =
+      floorUprnAtLog === null ? null : sequence.findIndex((entry) => entry.uprn === floorUprnAtLog);
     const plan: InferencePlan = exceptionsOnly
       ? planInference({
           sequence,
@@ -498,8 +585,9 @@ export function LoggerTab() {
             (entry, i) => routeProgress.doors[i]?.routeStreet ?? labelFor(entry.uprn)?.street_name ?? null,
           ),
           canvasserId,
-          triggerIndex: sequence.findIndex((entry) => entry.uprn === door.uprn),
+          triggerIndex,
           triggerAt: occurredAt,
+          floorIndex: floorIndex !== null && floorIndex >= 0 ? floorIndex : null,
         })
       : { kind: "none" };
 
@@ -524,6 +612,12 @@ export function LoggerTab() {
 
     pulse(40);
     if (result.queued) team.markKnocked(door, result.clientEventId);
+    // A floor ahead of this log is stale (the canvasser went back behind it): drop it.
+    // One at or behind it is kept, so undoing this log still protects the stretch cut across.
+    // Only if no newer correction was made while this log was being written.
+    if (result.queued && floorUprnAtLog !== null && floorIndex !== null && triggerIndex < floorIndex) {
+      fillFloor.clearFloorIf(floorUprnAtLog);
+    }
     // Only the pill actually pressed slides — bumping every key here would
     // animate all four at once (see OutcomeColumn's own doc comment).
     if (isPrimaryOutcome(outcome)) {
@@ -653,6 +747,7 @@ export function LoggerTab() {
               currentUprn={door.uprn}
               onOpenMap={handleOpenMap}
               overlay={nearOverlay}
+              onPickDoor={pickDoorOnMiniMap}
             />
           </div>
           {banner ? (

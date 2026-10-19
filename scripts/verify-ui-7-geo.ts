@@ -150,6 +150,15 @@ check("alternating fixes never move the chip", s.shown === 3);
 s = stepChip(s, null);
 s = stepChip(s, null);
 check("two off-route fixes hide the chip", s.shown === null);
+{
+  // GL-C: the chip steps on a string key ("9,28") for two doors.
+  let pair: ChipState<string> = CHIP_START;
+  pair = stepChip(pair, "9,28");
+  pair = stepChip(pair, "9,28");
+  check("a two-door key needs two agreeing fixes too", pair.shown === "9,28");
+  pair = stepChip(pair, "9");
+  check("one fix does not change a two-door key", pair.shown === "9,28");
+}
 
 // 8. Send throttle (U7-2)
 const NOW = 1_800_000_000_000;

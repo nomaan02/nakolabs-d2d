@@ -208,5 +208,19 @@ check("out-of-range trigger fills nothing", plan([{ n: 5, minutes: 0 }], 99, 5).
   check("clock skew keeps times valid", ok, p.kind === "none" ? "none" : p.doors.map((d) => d.occurredAt).join(","));
 }
 
+// 17. GL-C (owner C1): a fill floor after a cross-road or backwards correction.
+{
+  const p = plan([{ n: 5, minutes: 0 }], 18, 5, { floorIndex: door(15) });
+  check("floor: fills only from the corrected door", p.kind === "fill" && same(numbers(p), [15, 16, 17]), `${p.kind} ${numbers(p).join(",")}`);
+  const onFloor = plan([{ n: 5, minutes: 0 }], 15, 5, { floorIndex: door(15) });
+  check("floor: logging the corrected door fills nothing", onFloor.kind === "none", onFloor.kind);
+  const behind = plan([{ n: 10, minutes: 0 }], 18, 5, { floorIndex: door(3) });
+  check("floor: a floor behind the last log changes nothing", behind.kind === "fill" && same(numbers(behind), range(11, 17)), numbers(behind).join(","));
+  const none = plan([{ n: 5, minutes: 0 }], 18, 5, { floorIndex: null });
+  check("floor: no floor fills as usual", none.kind === "fill" && same(numbers(none), range(6, 17)), numbers(none).join(","));
+  const ahead = plan([{ n: 5, minutes: 0 }], 9, 5, { floorIndex: door(20) });
+  check("floor: a floor ahead of the log (went back behind it) is ignored", ahead.kind === "fill" && same(numbers(ahead), [6, 7, 8]), `${ahead.kind} ${numbers(ahead).join(",")}`);
+}
+
 console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILED`);
 process.exit(failures === 0 ? 0 : 1);

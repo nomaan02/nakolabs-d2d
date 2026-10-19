@@ -22,9 +22,12 @@
  *   (owner G5).
  * The side of the road is never taken from the raw fix: the snap onto the
  * route (lib/field/geo.ts, continuity) has already chosen the pass (G1).
+ * GL-C (owner C2, Figma 231:2086): when the latest fix offers a door on both
+ * pavements and this canvasser has no real log on that street, nothing has
+ * settled the pass, so there is no jump: the chip offers both doors.
  */
 
-import { nearestDoorIndex } from "./geo";
+import { metresBetween, nearDoorIndexes, nearestDoorIndex } from "./geo";
 
 /** Hidden at least this long before a reopen may jump. */
 export const REOPEN_HIDDEN_MS = 20_000;
@@ -49,8 +52,11 @@ export const MOVED_SHOW_MS = 5_000;
 /** A fix this much older than the reopen is from before it and is ignored. */
 export const FRESH_FIX_SLACK_MS = 2_000;
 
-/** A snapped fix: its place along the route (null = more than 100 m off it). */
-export type PlaceSample = { alongM: number | null; accuracyM: number; at: number };
+/**
+ * A snapped fix: its place along the route (null = more than 100 m off it).
+ * `passesM` (GL-C) is every pass of the route near the fix; absent = unknown.
+ */
+export type PlaceSample = { alongM: number | null; accuracyM: number; at: number; passesM?: ReadonlyArray<number> };
 
 /**
  * One return to the app. `hiddenMs` is null on a cold start (the page has
@@ -59,7 +65,7 @@ export type PlaceSample = { alongM: number | null; accuracyM: number; at: number
  */
 export type Reopen = { id: number; at: number; hiddenMs: number | null; placeBeforeM: number | null };
 
-export type ChipReason = "off_route" | "no_doors" | "behind" | "too_far" | "too_fast" | "no_open_door";
+export type ChipReason = "off_route" | "no_doors" | "behind" | "too_far" | "too_fast" | "no_open_door" | "both_sides";
 
 export type JumpPlan =
   | { kind: "wait" }
@@ -138,8 +144,13 @@ export function planJump(input: {
   placeBeforeM: number | null;
   /** False for a door already knocked (by anyone). */
   isOpen: (index: number) => boolean;
+  /**
+   * GL-C: true when the door is on the same street as this canvasser's
+   * furthest real log. Absent = never (no street is known to be settled).
+   */
+  sameStreetAsLog?: (index: number) => boolean;
 }): JumpPlan {
-  const { samples, doorAlongsM, cursorIndex, anchorIndex, hiddenMs, placeBeforeM, isOpen } = input;
+  const { samples, doorAlongsM, cursorIndex, anchorIndex, hiddenMs, placeBeforeM, isOpen, sameStreetAsLog } = input;
   if (doorAlongsM.length === 0) return { kind: "chip", reason: "no_doors" };
 
   // One sample per fix, even if a caller passes the same fix twice.
@@ -157,6 +168,15 @@ export function planJump(input: {
   if (spread(recent) > AGREE_SPREAD_M) recent = onRoute.slice(-JUMP_AGREE);
   if (spread(recent) > AGREE_SPREAD_M) return { kind: "wait" };
   const alongM = median(recent.map((sample) => sample.alongM));
+
+  // GL-C: both pavements near and nothing settles which one: never guess.
+  const passesM = recent[recent.length - 1]!.passesM;
+  if (passesM && passesM.length > 1) {
+    const sides = nearDoorIndexes({ passesM, doorAlongsM, anchorIndex, isOpen });
+    if (sides.length > 1 && !sides.some((index) => sameStreetAsLog?.(index) === true)) {
+      return sides.includes(cursorIndex) ? { kind: "stay" } : { kind: "chip", reason: "both_sides" };
+    }
+  }
 
   const nearest = nearestDoorIndex(doorAlongsM, alongM);
   if (nearest <= anchorIndex) return { kind: "chip", reason: "behind" };
@@ -180,4 +200,52 @@ export function planJump(input: {
   }
 
   return target === cursorIndex ? { kind: "stay" } : { kind: "jump", index: target };
+}
+
+/** GL-C (owner C1): a move is a short cut when the route between the doors is this many times… */
+export const SHORTCUT_RATIO = 2;
+/** …plus this many metres longer than the straight line (across the road, not along it). */
+export const SHORTCUT_SLACK_M = 25;
+
+/**
+ * GL-C: which pavement a door is on, when known: doors with the same
+ * `street` (a road segment) and a different `side` (the work step that
+ * passes them) face each other across the road. One pavement split over two
+ * steps reads as a crossing, which only skips a fill (the safe way).
+ */
+export type PavementKey = { street: string; side: string };
+
+/**
+ * GL-C (owner C1, C6; 2026-10-18). True when a manual move of the Logger (the
+ * near-you chip, a door tapped on a map, a Survey pick) from `fromIndex` to
+ * `toIndex` must skip the Exceptions-only fill: the move goes backwards, or
+ * it crosses to the other side of the road. A same-side forward move keeps
+ * the fill, like the GPS jump.
+ *
+ * The pavement comes from `pavementOf` when both doors have one on the same
+ * road segment. Otherwise a route between the two doors much longer than the
+ * straight line between them counts as a crossing. With no route
+ * (`doorAlongsM` empty) and no side, only a backwards move counts.
+ */
+export function correctionSkipsFill(input: {
+  fromIndex: number;
+  toIndex: number;
+  doorAlongsM: ReadonlyArray<number>;
+  /** Each sequence door's coordinate, index-aligned. */
+  doorLngLats: ReadonlyArray<readonly number[]>;
+  pavementOf?: (index: number) => PavementKey | null;
+}): boolean {
+  const { fromIndex, toIndex, doorAlongsM, doorLngLats, pavementOf } = input;
+  if (toIndex < fromIndex) return true;
+  if (toIndex === fromIndex) return false;
+  const from = pavementOf?.(fromIndex) ?? null;
+  const to = pavementOf?.(toIndex) ?? null;
+  if (from && to && from.street === to.street) return from.side !== to.side;
+  const fromM = doorAlongsM[fromIndex];
+  const toM = doorAlongsM[toIndex];
+  const a = doorLngLats[fromIndex];
+  const b = doorLngLats[toIndex];
+  if (fromM === undefined || toM === undefined || !a || !b) return false;
+  const straight = metresBetween(a, b);
+  return Math.abs(toM - fromM) > SHORTCUT_RATIO * straight + SHORTCUT_SLACK_M;
 }

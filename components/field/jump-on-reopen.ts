@@ -51,6 +51,8 @@ export function useJumpOnReopen(input: {
   cursorIndex: number;
   anchorIndex: number;
   isOpen: (index: number) => boolean;
+  /** GL-C: the door is on the street of this canvasser's furthest real log. */
+  sameStreetAsLog: (index: number) => boolean;
   goTo: (index: number) => void;
 }): { state: JumpState; undo: () => void } {
   const { reopen, routePlace, doorAlongsM, status } = useGeo();
@@ -120,7 +122,7 @@ export function useJumpOnReopen(input: {
       if (!current || !isFreshSample(place, current.at) || place.at === lastConsideredAt.current) return;
       lastConsideredAt.current = place.at;
       samples.current = [...samples.current, place];
-      const { cursorIndex, anchorIndex, isOpen } = latest.current;
+      const { cursorIndex, anchorIndex, isOpen, sameStreetAsLog } = latest.current;
       const plan = planJump({
         samples: samples.current,
         doorAlongsM: latestAlongs.current,
@@ -129,6 +131,7 @@ export function useJumpOnReopen(input: {
         hiddenMs: current.hiddenMs,
         placeBeforeM: current.placeBeforeM,
         isOpen,
+        sameStreetAsLog,
       });
       if (plan.kind === "jump") jump(plan.index);
       else if (plan.kind !== "wait") stop();

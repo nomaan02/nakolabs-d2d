@@ -21,6 +21,11 @@
  *   change of street between the two logs: ask with the sheet (U8-2, H7).
  * - Each filled door gets a time spread evenly between your most recent real
  *   log and the new one, so the slot figures stay realistic.
+ * - GL-C (owner C1, C6; 2026-10-18). After a manual correction to the other
+ *   side of the road, or backwards, the caller passes `floorIndex` (the door
+ *   moved to): nothing before it is filled, so the stretch the canvasser cut
+ *   across is left open. A same-side forward correction passes no floor and
+ *   fills as usual. The caller clears the floor after the next log.
  */
 
 /** H7: this many doors or more always asks. */
@@ -74,6 +79,11 @@ export function planInference(input: {
   triggerIndex: number;
   /** ISO time of the new log. */
   triggerAt: string;
+  /**
+   * GL-C (owner C1): fill nothing before this index when logging at or past
+   * it. Null or absent = no floor. A floor past the trigger is ignored.
+   */
+  floorIndex?: number | null;
 }): InferencePlan {
   const { sequence, outcomes, streets, canvasserId, triggerIndex } = input;
   const trigger = sequence[triggerIndex];
@@ -95,6 +105,11 @@ export function planInference(input: {
   let anchorIndex = latest.index;
   for (const log of real) {
     if (log.index > anchorIndex && log.index < triggerIndex) anchorIndex = log.index;
+  }
+  const floor = input.floorIndex;
+  // A floor ahead of this log (the canvasser went back behind it) is ignored.
+  if (typeof floor === "number" && Number.isInteger(floor) && floor <= triggerIndex) {
+    anchorIndex = Math.max(anchorIndex, floor - 1);
   }
 
   const startTime = latest.time;

@@ -741,6 +741,8 @@ export function FieldMap({
   crmLeads = null,
   selectedCrmId = null,
   onSelectCrm,
+  tapSlopPx = 0,
+  onTapEmpty,
 }: {
   doors: DoorCollection;
   labels: DoorLabels;
@@ -783,6 +785,14 @@ export function FieldMap({
   crmLeads?: GeoJSON.FeatureCollection | null;
   selectedCrmId?: string | null;
   onSelectCrm?: (crmId: string) => void;
+  /**
+   * GL-C (owner C2, C5). Above 0, a tap selects the door dot nearest the tap
+   * within this many pixels, not only one under the finger (the Logger's mini
+   * map, where dots are small). Read once, like `variant`.
+   */
+  tapSlopPx?: number;
+  /** GL-C (owner C5): with `tapSlopPx`, a tap with no door dot that close. */
+  onTapEmpty?: () => void;
 }) {
   const container = useRef<HTMLDivElement | null>(null);
   const map = useRef<MapLibreMap | null>(null);
@@ -807,6 +817,9 @@ export function FieldMap({
   // other prop that effect reads is — via a ref, not a render-time closure.
   const variantRef = useRef(variant);
   const modeRef = useRef(mode);
+  const tapSlopRef = useRef(tapSlopPx);
+  const onTapEmptyRef = useRef(onTapEmpty);
+  onTapEmptyRef.current = onTapEmpty;
   onSelect.current = onSelectUprn;
   onUserMoveRef.current = onUserMove;
   doorsRef.current = doors;
@@ -1021,13 +1034,46 @@ export function FieldMap({
           const id = event.features?.[0]?.properties?.crm_id;
           if (typeof id === "string" && id !== "") onCrm.current?.(id);
         });
-        instance.on("click", DOORS_LAYER, (event) => {
-          if (instance.getLayer(CRM_LAYER) && instance.getLayoutProperty(CRM_LAYER, "visibility") === "visible" && instance.queryRenderedFeatures(event.point, { layers: [CRM_LAYER] }).length > 0) return;
-          const feature = event.features?.[0];
-          const uprn = feature?.properties?.uprn;
-          if (typeof uprn === "number") onSelect.current(uprn);
-          else if (typeof uprn === "string" && uprn !== "") onSelect.current(Number(uprn));
-        });
+        const slop = tapSlopRef.current;
+        if (slop > 0) {
+          // GL-C: a double-tap would pick a door with its first tap, so it does not zoom here.
+          instance.doubleClickZoom.disable();
+          // GL-C: the nearest dot within `slop` px of the tap, measured on screen.
+          instance.on("click", (event) => {
+            const { x, y } = event.point;
+            const hits = instance.queryRenderedFeatures(
+              [
+                [x - slop, y - slop],
+                [x + slop, y + slop],
+              ],
+              { layers: [DOORS_LAYER] },
+            );
+            let best: number | null = null;
+            let bestPx = Infinity;
+            for (const hit of hits) {
+              if (hit.geometry.type !== "Point") continue;
+              const [lng, lat] = hit.geometry.coordinates;
+              const at = instance.project([lng!, lat!]);
+              const px = Math.hypot(at.x - x, at.y - y);
+              const raw = hit.properties?.uprn;
+              const uprn = typeof raw === "number" ? raw : typeof raw === "string" && raw !== "" ? Number(raw) : NaN;
+              if (px <= slop && px < bestPx && Number.isSafeInteger(uprn)) {
+                best = uprn;
+                bestPx = px;
+              }
+            }
+            if (best !== null) onSelect.current(best);
+            else onTapEmptyRef.current?.();
+          });
+        } else {
+          instance.on("click", DOORS_LAYER, (event) => {
+            if (instance.getLayer(CRM_LAYER) && instance.getLayoutProperty(CRM_LAYER, "visibility") === "visible" && instance.queryRenderedFeatures(event.point, { layers: [CRM_LAYER] }).length > 0) return;
+            const feature = event.features?.[0];
+            const uprn = feature?.properties?.uprn;
+            if (typeof uprn === "number") onSelect.current(uprn);
+            else if (typeof uprn === "string" && uprn !== "") onSelect.current(Number(uprn));
+          });
+        }
         instance.on("mouseenter", DOORS_LAYER, () => {
           instance.getCanvas().style.cursor = "pointer";
         });

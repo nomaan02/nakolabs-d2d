@@ -1,20 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useGeo } from "@/components/field/geo-provider";
-import { CHIP_START, nearestDoorIndex, stepChip, type ChipState } from "@/lib/field/geo";
+import { CHIP_START, nearDoorIndexes, stepChip, type ChipState } from "@/lib/field/geo";
+
+const NONE: number[] = [];
 
 /**
- * UI-7 C2 (owner H3, 2026-10-04). The sequence index of the door nearest the
- * canvasser along the route, after hysteresis (2 agreeing fixes). Null when
- * there is no good fix, the canvasser is more than 100 m off the route, or
- * the prop is unrouted. It only ever suggests: the cursor never moves on its
- * own.
+ * UI-7 C2 (owner H3, 2026-10-04), amended GL-C (owner C2, C4; 2026-10-18).
+ * The sequence indexes of the doors near the canvasser, in walk order: the
+ * nearest door on each pass of the route within GPS accuracy, so a street
+ * walked twice offers one door per pavement (GPS cannot tell the side).
+ * Forward only from the furthest real log; knocked doors are left out. Steps
+ * through hysteresis (2 agreeing fixes). Empty with no good fix, more than
+ * 100 m off the route, or an unrouted prop. It only ever suggests: the
+ * cursor never moves on its own.
  */
-export function useNearYouIndex(): number | null {
+export function useNearYouDoors(anchorIndex: number, isOpen: (index: number) => boolean): number[] {
   const { routePlace, doorAlongsM } = useGeo();
-  const [chip, setChip] = useState<ChipState>(CHIP_START);
+  const [chip, setChip] = useState<ChipState<string>>(CHIP_START);
+  const latest = useRef({ anchorIndex, isOpen, doorAlongsM });
+  latest.current = { anchorIndex, isOpen, doorAlongsM };
   const placeAt = routePlace?.at ?? null;
 
   useEffect(() => {
@@ -22,16 +29,23 @@ export function useNearYouIndex(): number | null {
       setChip(CHIP_START);
       return;
     }
-    const next =
-      routePlace.alongM === null || doorAlongsM.length === 0
-        ? null
-        : nearestDoorIndex(doorAlongsM, routePlace.alongM);
-    setChip((current) => stepChip(current, next === -1 ? null : next));
+    const { anchorIndex: anchor, isOpen: open, doorAlongsM: alongs } = latest.current;
+    const doors =
+      routePlace.alongM === null || alongs.length === 0
+        ? []
+        : nearDoorIndexes({ passesM: routePlace.passesM, doorAlongsM: alongs, anchorIndex: anchor, isOpen: open });
+    setChip((current) => stepChip(current, doors.length === 0 ? null : doors.join(",")));
     // One step per fix: `placeAt` changes once per snapped fix.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [placeAt]);
 
-  return chip.shown;
+  const shown = chip.shown;
+  // Drop a door that has since been knocked or passed (a log between fixes).
+  return useMemo(() => {
+    if (shown === null) return NONE;
+    const doors = shown.split(",").map(Number).filter((index) => index > anchorIndex && isOpen(index));
+    return doors.length === 0 ? NONE : doors;
+  }, [shown, anchorIndex, isOpen]);
 }
 
 /** GL-2: the top-left slot on the mini map, and its 40 px pill. */
@@ -59,6 +73,42 @@ export function NearYouChip({ label, onJump }: { label: string; onJump: () => vo
         </span>
       </span>
     </button>
+  );
+}
+
+/**
+ * GL-C (owner C2; Figma "GPS-LOCK C · side correction" 231:1924). Where the
+ * route passes the canvasser twice (usually both pavements), "Near you | 48 | 49":
+ * one button per door, in walk order. Each door is a 44 px target inside the
+ * 40 px pill. Tapping a door moves the Logger there.
+ */
+export function NearYouSidesChip({
+  doors,
+  onPick,
+}: {
+  doors: ReadonlyArray<{ index: number; plate: string; address: string }>;
+  onPick: (index: number) => void;
+}) {
+  return (
+    <div className={SLOT} role="group" aria-label="Doors near you" data-testid="near-you-sides">
+      <span className={`${PILL} border-line bg-surface pr-1`}>
+        <span className="shrink-0 text-field-body-strong text-ink">Near you</span>
+        {doors.map((door) => (
+          <span key={door.index} className="flex shrink-0 items-center gap-1">
+            <span aria-hidden className="h-5 w-px shrink-0 bg-line" />
+            <button
+              type="button"
+              onClick={() => onPick(door.index)}
+              aria-label={`Jump to ${door.address}, near you`}
+              className="-my-0.5 flex h-11 min-w-11 max-w-24 items-center justify-center rounded-full px-2.5 text-field-body-strong text-prop focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-prop"
+              data-testid="near-you-door"
+            >
+              <span className="truncate">{door.plate}</span>
+            </button>
+          </span>
+        ))}
+      </span>
+    </div>
   );
 }
 

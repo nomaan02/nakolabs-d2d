@@ -13,6 +13,10 @@ import type { MapMode } from "@/lib/map/map-palette";
 import type { RoutePaintModel } from "@/lib/map/route-layers";
 import type { RouteTiers } from "@/lib/map/route-progress";
 
+/** GL-C (owner C5): a tap within this many px of a door dot picks it. */
+export const TAP_SLOP_PX = 22;
+const noop = () => {};
+
 /**
  * MiniMap — Figma node 8:14 (UI item 1, Session C, owner decision 7).
  *
@@ -49,6 +53,7 @@ export function MiniMap({
   onOpenMap,
   mode,
   overlay,
+  onPickDoor,
 }: {
   doors: DoorCollection;
   labels: DoorLabels;
@@ -62,6 +67,12 @@ export function MiniMap({
   mode: MapMode;
   /** UI-7 C2: top-left slot (the near-you chip). */
   overlay?: ReactNode;
+  /**
+   * GL-C (owner C2, C5): a tap on a door dot (nearest within TAP_SLOP_PX)
+   * moves the Logger there; a tap anywhere else opens the full map, like the
+   * Open Map button. Panning and pinching are unchanged.
+   */
+  onPickDoor?: (uprn: number) => void;
 }) {
   const geo = useGeo();
   const [moved, setMoved] = useState(false);
@@ -86,7 +97,9 @@ export function MiniMap({
         footprints={footprints}
         selectedUprn={currentUprn}
         cameraNonce={0}
-        onSelectUprn={() => {}}
+        onSelectUprn={onPickDoor ?? noop}
+        tapSlopPx={onPickDoor ? TAP_SLOP_PX : 0}
+        onTapEmpty={onPickDoor ? onOpenMap : undefined}
         active
         variant="compact"
         onUserMove={setMoved}

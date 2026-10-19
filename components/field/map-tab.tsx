@@ -8,6 +8,7 @@ import { OtherOutcomeSheet } from "@/components/field/door-sheets";
 import { FieldMap } from "@/components/field/field-map";
 import { useFieldData } from "@/components/field/field-data-provider";
 import { useGeo } from "@/components/field/geo-provider";
+import { useCorrectTo } from "@/components/field/use-correct-to";
 import { CloseIcon, InfoIcon, LocateIcon } from "@/components/field/icons";
 import { LocationOffNotice } from "@/components/field/location-off-notice";
 import { SharingPill } from "@/components/field/sharing-pill";
@@ -77,6 +78,7 @@ export function MapTab() {
   const locationOff = geo.status === "denied" || geo.status === "unavailable";
   // CRM-5 C2 (owner 2026-10-12): own CRM leads layer, off by default.
   const crm = useCrmMapLayer(canvasserId);
+  const { correctTo } = useCorrectTo();
 
   // FUI-1b: the loading, empty and error states keep the fixed header, so
   // the menu is always there.
@@ -173,7 +175,9 @@ export function MapTab() {
           onSelectUprn={(uprn) => {
             crm.select(null);
             selectDoorOnMap(uprn);
-            cursor.goToUprn(uprn);
+            // GL-C (owner C1): a tap across the road or backwards skips the next fill.
+            const index = sequence.findIndex((entry) => entry.uprn === uprn);
+            if (index < 0 || !correctTo(index)) cursor.goToUprn(uprn);
           }}
           crmLeads={crm.points}
           selectedCrmId={crm.selected}

@@ -20,6 +20,7 @@ import {
   doorAlongs,
   isWeakFix,
   routeScalar,
+  routePasses,
   snapToRoute,
   type GeoFix,
 } from "@/lib/field/geo";
@@ -65,8 +66,12 @@ export type GeoState = {
   reopen: Reopen | null;
 };
 
-/** `accuracyM` is that fix's accuracy (GL-2: jumps need 20 m or better). */
-export type RoutePlace = { alongM: number | null; at: number; accuracyM: number };
+/**
+ * `accuracyM` is that fix's accuracy (GL-2: jumps need 20 m or better).
+ * GL-C (owner C2, C4): `passesM` is every place the route passes the fix
+ * (both pavements of a street walked twice), nearest ranked first; empty off route.
+ */
+export type RoutePlace = { alongM: number | null; at: number; accuracyM: number; passesM: number[] };
 
 type OrientationCtor = typeof DeviceOrientationEvent & {
   requestPermission?: () => Promise<"granted" | "denied">;
@@ -311,7 +316,8 @@ export function GeoProvider({ children }: { children: ReactNode }) {
       previousAlong.current = alongM;
       if (furthestLog.current >= 0) seededWithLog.current = true;
     }
-    setRoutePlace({ alongM, at: fix.at, accuracyM: fix.accuracyM });
+    const passesM = alongM === null ? [] : routePasses(routeIndex, [fix.lng, fix.lat]);
+    setRoutePlace({ alongM, at: fix.at, accuracyM: fix.accuracyM, passesM });
   }, [routeIndex, doorAlongsM, fix]);
 
   const requestCompass = useCallback(() => {
