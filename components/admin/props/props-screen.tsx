@@ -663,8 +663,9 @@ export function PropsScreen({
    * visits re-frozen on the drawn route and on A / B (a visit whose doors
    * differ from the drawing keeps A / B: 041).
    */
-  async function refreezeUpcoming(propId: string): Promise<{ manual: number; auto: number }> {
-    const counts = { manual: 0, auto: 0 };
+  async function refreezeUpcoming(propId: string): Promise<{ manual: number; auto: number; picked: number }> {
+    // RT-START (043): a visit with a picked route keeps it; the freeze says so (summary.chosen).
+    const counts = { manual: 0, auto: 0, picked: 0 };
     const row = rows.find((item) => item.id === propId);
     if (!row) return counts;
     const supabase = createClient();
@@ -672,7 +673,8 @@ export function PropsScreen({
       if (visit.workDate < today || visit.startedAt !== null || visit.closedAt !== null) continue;
       const frozen = await freezeAssignmentRoute(supabase, visit.id);
       if (!frozen.ok) continue;
-      if (frozen.summary.variantKey.startsWith("manual")) counts.manual += 1;
+      if (frozen.summary.chosen) counts.picked += 1;
+      else if (frozen.summary.variantKey.startsWith("manual")) counts.manual += 1;
       else counts.auto += 1;
     }
     return counts;
@@ -733,10 +735,11 @@ export function PropsScreen({
       const box = routeBounds(extra, "manual");
       const clear = desktop ? { top: 72, right: 72, bottom: 48, left: 400 } : { top: 72, right: 32, bottom: Math.min(460, Math.round(available * 0.6)), left: 32 };
       if (map && box) map.fitBounds(box, { padding: clear, maxZoom: 17, duration: 400 });
-      void refreezeUpcoming(propId).then(({ manual, auto }) => {
+      void refreezeUpcoming(propId).then(({ manual, auto, picked }) => {
         const parts = [base];
         if (manual > 0) parts.push(`${visitsWord(manual)} now ${manual === 1 ? "uses" : "use"} it.`);
         if (auto > 0) parts.push(`${visitsWord(auto)} ${auto === 1 ? "keeps" : "keep"} Route A and B: ${auto === 1 ? "its" : "their"} doors differ from your route.`);
+        if (picked > 0) parts.push(`${visitsWord(picked)} ${picked === 1 ? "keeps the route picked for it" : "keep the routes picked for them"}.`);
         if (parts.length === 1) return;
         setRouteStep((current) => (current && current.propId === propId ? { ...current, savedLine: parts.join(" ") } : current));
       });

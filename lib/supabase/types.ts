@@ -147,6 +147,9 @@ export type Database = {
           created_by: string | null
           entry_vertex_index: number
           id: string
+          route_choice: string | null
+          route_chosen_at: string | null
+          route_chosen_by: string | null
           route_geom: unknown
           route_length_m: number | null
           route_source_id: string | null
@@ -169,6 +172,9 @@ export type Database = {
           created_by?: string | null
           entry_vertex_index: number
           id?: string
+          route_choice?: string | null
+          route_chosen_at?: string | null
+          route_chosen_by?: string | null
           route_geom?: unknown
           route_length_m?: number | null
           route_source_id?: string | null
@@ -191,6 +197,9 @@ export type Database = {
           created_by?: string | null
           entry_vertex_index?: number
           id?: string
+          route_choice?: string | null
+          route_chosen_at?: string | null
+          route_chosen_by?: string | null
           route_geom?: unknown
           route_length_m?: number | null
           route_source_id?: string | null
@@ -209,6 +218,13 @@ export type Database = {
           {
             foreignKeyName: "assignments_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignments_route_chosen_by_fkey"
+            columns: ["route_chosen_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1788,6 +1804,10 @@ export type Database = {
       assignment_remove: { Args: { p_assignment_id: string }; Returns: Json }
       assignment_route_freeze: {
         Args: { p_assignment_id: string; p_variant_key?: string }
+        Returns: Json
+      }
+      assignment_route_options: {
+        Args: { p_assignment_id: string }
         Returns: Json
       }
       count_door_eligibility: {

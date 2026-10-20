@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -40,6 +41,7 @@ import {
   type TodaysAssignment,
   type TodaysAssignmentResult,
 } from "@/lib/geo/todays-assignment";
+import { orderCheckOf } from "@/lib/geo/walk/route-options";
 import { createClient } from "@/lib/supabase/client";
 
 /**
@@ -115,6 +117,16 @@ type FieldData = {
   showDoorOnMap: (uprn: number) => void;
   /** Next door, claims and teammate lines. One channel for every tab. */
   team: TeamApi;
+  /**
+   * RT-START P1 (owner 2026-10-19). Reads today's visit again after its route
+   * changed (here or on a teammate's phone): new door order, new route, and
+   * the Logger back on the first door. False when it could not be read.
+   */
+  reloadAssignment: () => Promise<boolean>;
+  /** Bumped by every reload: the door order may be new, so the door scroll starts again. */
+  routeEpoch: number;
+  /** RT-START: the loaded door order as one number (orderCheckOf), to compare with the server's. */
+  loadedOrder: number | null;
 };
 
 const FieldDataContext = createContext<FieldData | null>(null);
@@ -144,6 +156,11 @@ export function useFieldData(): FieldData {
 
 const LOAD_TIMEOUT_MS = 8_000;
 
+/** RT-START: the order check over EVERY snapshot door (before knockableOnly drops any). */
+function doorOrderCheck(assignment: TodaysAssignment): number {
+  return orderCheckOf(assignment.doors.features.map((feature) => feature.properties));
+}
+
 export function FieldDataProvider({
   signedInAs,
   role,
@@ -164,6 +181,8 @@ export function FieldDataProvider({
   const [noteDrafts, setNoteDrafts] = useState<Map<number, string>>(() => new Map());
   const [mapSelectedUprn, setMapSelectedUprn] = useState<number | null>(null);
   const [mapCameraNonce, setMapCameraNonce] = useState(0);
+  const [routeEpoch, setRouteEpoch] = useState(0);
+  const [loadedOrder, setLoadedOrder] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -183,6 +202,7 @@ export function FieldDataProvider({
       if (cancelled) return;
       if (cached) {
         if (!uid) setCanvasserId(cached.canvasser_id);
+        setLoadedOrder(doorOrderCheck(cached.payload));
         setPhase({ kind: "ready", assignment: knockableOnly(cached.payload), fromCache: true });
       }
 
@@ -206,6 +226,7 @@ export function FieldDataProvider({
       if (result.ok && result.assignment) {
         if (uid) await cacheAssignment(result.assignment, uid).catch(() => undefined);
         if (cancelled) return;
+        setLoadedOrder(doorOrderCheck(result.assignment));
         setPhase({ kind: "ready", assignment: knockableOnly(result.assignment), fromCache: false });
         return;
       }
@@ -219,6 +240,7 @@ export function FieldDataProvider({
 
       if (!result.ok) {
         if (cached) {
+          setLoadedOrder(doorOrderCheck(cached.payload));
           setPhase({ kind: "ready", assignment: knockableOnly(cached.payload), fromCache: true });
           return;
         }
@@ -299,10 +321,38 @@ export function FieldDataProvider({
       cancelled = true;
       window.removeEventListener("online", load);
     };
-  }, [assignmentId]);
+  }, [assignmentId, routeEpoch]);
 
   const outcomes = useLocalOutcomes(assignmentId);
   const cursor = useCursor(sequence);
+  const goToDoor = cursor.goTo;
+  const hasOwnLogs = useRef(false);
+  hasOwnLogs.current = outcomes.size > 0;
+  const currentUprn = useRef<number | null>(null);
+  currentUprn.current = cursor.door?.uprn ?? null;
+  /** Where the Logger goes once a reloaded door order lands: a door, the first door (null), or nothing pending. */
+  const afterReload = useRef<number | null | undefined>(undefined);
+  useEffect(() => {
+    const target = afterReload.current;
+    if (target === undefined) return;
+    afterReload.current = undefined;
+    const index = target === null ? 0 : sequence.findIndex((door) => door.uprn === target);
+    goToDoor(index >= 0 ? index : 0);
+  }, [sequence, goToDoor]);
+
+  const reloadAssignment = useCallback(async () => {
+    const supabase = createClient();
+    const result = await fetchTodaysAssignment(supabase).catch(() => null);
+    if (!result || !result.ok || !result.assignment) return false;
+    const fresh = result.assignment;
+    if (canvasserId) await cacheAssignment(fresh, canvasserId).catch(() => undefined);
+    setLoadedOrder(doorOrderCheck(fresh));
+    setPhase({ kind: "ready", assignment: knockableOnly(fresh), fromCache: false });
+    setRouteEpoch((n) => n + 1);
+    // A phone with logs of its own stays on the same door; otherwise start at the new first door.
+    afterReload.current = hasOwnLogs.current ? currentUprn.current : null;
+    return true;
+  }, [canvasserId]);
   const localKnocked = useMemo(() => new Set(outcomes.keys()), [outcomes]);
   const team = useTeam({
     assignmentId,
@@ -406,6 +456,9 @@ export function FieldDataProvider({
       selectDoorOnMap,
       showDoorOnMap,
       team,
+      reloadAssignment,
+      routeEpoch,
+      loadedOrder,
     }),
     [
       phase,
@@ -434,6 +487,9 @@ export function FieldDataProvider({
       selectDoorOnMap,
       showDoorOnMap,
       team,
+      reloadAssignment,
+      routeEpoch,
+      loadedOrder,
     ],
   );
 

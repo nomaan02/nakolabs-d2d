@@ -12,13 +12,21 @@ Terra Draw, Dexie, Vercel.
   `/field`. Quality signals may not. Current-assignment outcome colour is
   permitted; previous-visit outcome colour is not.
 - All field writes go through `lib/sync/queue.ts`. Never a second sync path.
+  One exception (RT-START, owner 2026-10-19): changing the visit's route on
+  /field is an online call to `assignment_route_freeze` with a key, never
+  queued; offline the button is disabled. It sends a route key, never a
+  position, and is refused once the visit has a knock.
 - Every table has RLS enabled with default-deny policies.
 - PostGIS columns are `geometry(Point,4326)` / `geometry(Polygon,4326)`.
   Cast `::geography` for distances only.
 - Every client-originated write carries a `client_event_id` (uuid v4, generated
   on device). Re-sync must be idempotent.
 - Routes are deterministic, never solved for optimal. Same prop + visit_number
-  must always produce the identical route.
+  must always produce the identical route, unless someone chooses another of
+  the prop's saved routes for that ONE visit (RT-START, owner 2026-10-19,
+  migration 043): an admin, or a canvasser on the visit, before its first
+  knock. The choice is stored on the visit (`assignments.route_choice`) and
+  the next visit is back on the default (odd Route A, even Route B).
 - Duos bunny-hop: same side, same route, leapfrogging door to door. No side
   split, no per-canvasser door allocation. Do not redesign this.
 - Raw GPS coordinates never leave the device. Only a distance-along-route

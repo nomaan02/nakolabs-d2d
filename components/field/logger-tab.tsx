@@ -8,7 +8,7 @@ import {
   type FieldPhase,
   type LeadDraft,
 } from "@/components/field/field-data-provider";
-import { TurnIcon } from "@/components/field/icons";
+import { RouteIcon, TurnIcon } from "@/components/field/icons";
 import { HouseNumberSheet, NotesSheet, OtherOutcomeSheet } from "@/components/field/door-sheets";
 import { InferSheet } from "@/components/field/infer-sheet";
 import { LeadSheet } from "@/components/field/lead-sheet";
@@ -23,6 +23,7 @@ import {
   useNearYouDoors,
 } from "@/components/field/near-you-chip";
 import { useGeo } from "@/components/field/geo-provider";
+import { RouteChangeSheet, RouteStrip, useVisitRoute } from "@/components/field/route-change";
 import { SharingPill } from "@/components/field/sharing-pill";
 import { FieldHeader, FieldPage } from "@/components/field/shell/field-header";
 import { OutcomeColumn } from "@/components/field/outcome-column";
@@ -108,6 +109,7 @@ type SheetState =
   | { kind: "house_number" }
   | { kind: "lead"; uprn: number }
   | { kind: "sync" }
+  | { kind: "route" }
   | { kind: "infer"; doors: InferredDoor[]; reason: "big_gap" | "street_change" };
 
 const LOGGED_TIME = new Intl.DateTimeFormat("en-GB", {
@@ -175,8 +177,10 @@ function computeBanner(input: {
   sharingNotice: { onStop: () => void } | null;
   /** FUI-2a: the door order is the interim sweep, not a route (was a paragraph under the stats). */
   interimOrder: boolean;
+  /** RT-START (Figma F4): a teammate changed the visit's route. Until OK. */
+  routeNotice: { text: string; onDismiss: () => void } | null;
 }): BannerView | null {
-  const { status, cards, shared, dismissedShared, onDismissShared, onRetryAll, sharingNotice, interimOrder } = input;
+  const { status, cards, shared, dismissedShared, onDismissShared, onRetryAll, sharingNotice, interimOrder, routeNotice } = input;
 
   if (status.failedRows.length > 0) {
     const n = status.failedRows.length;
@@ -186,6 +190,9 @@ function computeBanner(input: {
       message: `${n} knock${n === 1 ? "" : "s"} couldn't be sent \u00b7 ${failedDoorText(status.failedRows[0]!)}`,
       action: { label: "Retry", onPress: onRetryAll },
     };
+  }
+  if (routeNotice) {
+    return { kind: "info", glyph: <RouteIcon className="size-4" />, message: routeNotice.text, action: { label: "OK", onPress: routeNotice.onDismiss } };
   }
   if (cards.length > 0) {
     const first = cards[0]!;
@@ -259,6 +266,7 @@ export function LoggerTab() {
     showDoorOnMap,
     sequence,
     team,
+    routeEpoch,
   } = useFieldData();
 
   const router = useRouter();
@@ -286,6 +294,8 @@ export function LoggerTab() {
   }, []);
 
   const assignmentId = phase.kind === "ready" ? phase.assignment.assignment_id : null;
+  // RT-START P1 (owner 2026-10-19): change the visit's route before the first knock.
+  const visitRoute = useVisitRoute();
   const status = useSyncStatus();
   const shared = useSharedDoors(assignmentId);
   const geo = useGeo();
@@ -385,8 +395,20 @@ export function LoggerTab() {
             ? { onStop: () => void setSharing(assignmentId, false) }
             : null,
         interimOrder,
+        routeNotice: visitRoute.notice ? { text: visitRoute.notice, onDismiss: visitRoute.dismissNotice } : null,
       }),
-    [status, routeDoor, shared, dismissedShared, retryAllFailed, showSharingNotice, assignmentId, interimOrder],
+    [
+      status,
+      routeDoor,
+      shared,
+      dismissedShared,
+      retryAllFailed,
+      showSharingNotice,
+      assignmentId,
+      interimOrder,
+      visitRoute.notice,
+      visitRoute.dismissNotice,
+    ],
   );
 
   // GPS-LOCK GL-2 (owner G2, G5, G6, G7). On a reopen the Logger may jump
@@ -474,6 +496,10 @@ export function LoggerTab() {
   useEffect(() => {
     if (manualMove && cursor.index !== manualMove.to) setManualMove(null);
   }, [cursor.index, manualMove]);
+  // RT-START: a reloaded route is a new door order, so an Undo to an old index would land on the wrong door.
+  useEffect(() => {
+    setManualMove(null);
+  }, [routeEpoch]);
   const undoManualMove = useCallback(() => {
     if (!manualMove) return;
     setManualMove(null);
@@ -722,6 +748,7 @@ export function LoggerTab() {
           <SharingPill assignmentId={assignment.assignment_id} />
         </div>
         <TeamStrip rows={teamRows} />
+        <RouteStrip route={visitRoute} onOpen={() => setSheet({ kind: "route" })} />
       </FieldHeader>
 
       {view === "logging" ? (
@@ -786,6 +813,8 @@ export function LoggerTab() {
               ) : (
                 <div className="w-full" inert={otherOpen || undefined}>
                   <MemoDoorScroll
+                    // RT-START: a changed route is a new door order; start the scroll again at its first door.
+                    key={routeEpoch}
                     doors={doorItems}
                     index={cursor.index}
                     street={street}
@@ -918,6 +947,16 @@ export function LoggerTab() {
           })}
           onConfirm={(doors) => void confirmInferred(doors)}
           onDismiss={() => setSheet({ kind: "none" })}
+        />
+      ) : null}
+
+      {sheet.kind === "route" ? (
+        <RouteChangeSheet
+          route={visitRoute}
+          teamLine={`${assignment.territory_name} \u00b7 visit ${assignment.visit_number} \u00b7 ${
+            team.teammates.length > 0 ? `you and ${team.teammates.map((row) => row.name).join(" and ")}` : "just you"
+          }`}
+          onDone={() => setSheet({ kind: "none" })}
         />
       ) : null}
 

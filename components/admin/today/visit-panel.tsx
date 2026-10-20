@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
+import { RouteChoiceSheet } from "@/components/admin/today/route-choice-sheet";
+import { RouteRow } from "@/components/admin/today/route-row";
 import { VisitMiniMap } from "@/components/admin/today/visit-mini-map";
 import { OutcomeBar } from "@/components/admin/today/visit-card";
 import { useIsDesktop } from "@/components/admin/map/use-is-desktop";
@@ -24,7 +26,21 @@ import {
   type VisitFigures,
 } from "@/lib/admin/today";
 import type { TodayProp } from "@/lib/admin/today-data";
+import {
+  fetchVisitRouteOptions,
+  nextVisitLine,
+  routeChangeable,
+  routeChangeMessage,
+  routeName,
+  routeSubline,
+  routeTitle,
+  type VisitRouteOptions,
+} from "@/lib/geo/walk/route-options";
 import type { MapMode } from "@/lib/map/map-palette";
+import { loadTerritoryRouteModel } from "@/lib/map/route-load";
+import type { RoutePaintModel } from "@/lib/map/route-layers";
+import { freezeVariantAction } from "@/lib/props/freeze-variant";
+import { createClient } from "@/lib/supabase/client";
 import { addMemberAction, previewAssignmentRemoval, removeAssignmentAction, removeMemberAction } from "@/lib/props/reallocation";
 import { closeVisitAction } from "@/lib/props/visits";
 import { isOverlayOpen } from "@/components/admin/ui/use-overlay-focus";
@@ -36,7 +52,8 @@ function n(value: number): string {
 export type VisitChange =
   | { kind: "removed-member"; visitId: string; member: { id: string; name: string } }
   | { kind: "added-member"; name: string }
-  | { kind: "ended"; text: string };
+  | { kind: "ended"; text: string }
+  | { kind: "route"; text: string };
 
 /**
  * UI-10 F3c (owner A26; frames 14, 33, D1). One visit: its map and route,
@@ -47,6 +64,10 @@ export type VisitChange =
  * 2026-10-08). Phone: a sheet over
  * Today. Desktop: the right-hand panel. `notice` (the undo toast) sits above
  * the footer so it never covers End visit and stays inside the sheet.
+ *
+ * RT-START P1 (owner 2026-10-19; Figma S3a, S3b): the Route row names the
+ * visit's route and where it starts. Before the first knock, Change opens the
+ * route sheet (S2) in place of this sheet; after it, the row says Locked.
  */
 export function VisitPanel({
   visit,
@@ -80,6 +101,51 @@ export function VisitPanel({
 
   const team = activeTeam(visit);
   const open = visit.closedAt === null;
+
+  // RT-START: the visit's saved routes (assignment_route_options), read when the visit opens or its route changes.
+  const [routes, setRoutes] = useState<VisitRouteOptions | null>(null);
+  const [routesEpoch, setRoutesEpoch] = useState(0);
+  const [choosing, setChoosing] = useState<{ model: RoutePaintModel | null } | null>(null);
+  const [routeBusy, setRouteBusy] = useState(false);
+  const [routeError, setRouteError] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    void fetchVisitRouteOptions(createClient(), visit.id).then((result) => {
+      if (live) setRoutes(result.ok ? result.options : null);
+    });
+    return () => {
+      live = false;
+    };
+  }, [visit.id, visit.routeVariantKey, routesEpoch]);
+
+  const openChooser = () => {
+    setRouteError(null);
+    setChoosing({ model: null });
+    void loadTerritoryRouteModel(createClient(), visit.propId).then((result) => {
+      if (result.ok) setChoosing((current) => (current ? { model: result.model } : current));
+    });
+  };
+
+  const chooseRoute = async (key: string) => {
+    if (routeBusy) return;
+    setRouteBusy(true);
+    setRouteError(null);
+    try {
+      const result = await freezeVariantAction(visit.id, key);
+      if (!result.ok) {
+        setRouteError(routeChangeMessage(result.code, result.message));
+        setRoutesEpoch((n) => n + 1);
+        return;
+      }
+      setChoosing(null);
+      setRoutesEpoch((n) => n + 1);
+      onChanged({ kind: "route", text: `Visit ${visit.visitNumber} now walks ${routeName(key)}.` });
+    } catch {
+      setRouteError(routeChangeMessage("unavailable", ""));
+    } finally {
+      setRouteBusy(false);
+    }
+  };
   const addable = addableCanvassers(options, visit);
   const canAdd = open && team.length < MAX_TEAM && addable.length > 0;
 
@@ -250,10 +316,7 @@ export function VisitPanel({
         ) : null}
       </section>
 
-      <p className="flex justify-between border-t border-line pt-3 text-admin-subhead text-ink-soft tabular-nums">
-        <span>Route</span>
-        <span>{routeLine(visit)}</span>
-      </p>
+      <VisitRoute visit={visit} routes={routes} onChange={openChooser} />
 
       {error ? (
         <p role="alert" className="flex gap-2 text-admin-subhead text-oxide">
@@ -292,6 +355,24 @@ export function VisitPanel({
     />
   );
 
+  const chooser =
+    choosing && routes ? (
+      <RouteChoiceSheet
+        subtitle={`${visit.propName} · ${sheetMeta(visit, today)}`}
+        note={nextVisitLine(routes.visitNumber, routes.defaultKey)}
+        options={routes.routes}
+        defaultKey={routes.defaultKey}
+        currentKey={routes.currentKey ?? routes.defaultKey}
+        chosenBy={routes.chosenBy}
+        model={choosing.model}
+        mode={mode}
+        busy={routeBusy}
+        error={routeError}
+        onUse={(key) => void chooseRoute(key)}
+        onClose={() => setChoosing(null)}
+      />
+    ) : null;
+
   if (desktop) {
     return (
       <>
@@ -299,16 +380,46 @@ export function VisitPanel({
           {body}
         </DesktopPanel>
         {dialog}
+        {chooser}
       </>
     );
   }
+  // Phone: the route sheet takes this sheet's place, never stacked on it.
   return (
     <>
-      <Sheet open title={visit.propName} subtitle={sheetMeta(visit, today)} onClose={onClose} footer={footer}>
+      <Sheet open={chooser === null} title={visit.propName} subtitle={sheetMeta(visit, today)} onClose={onClose} footer={footer}>
         {body}
       </Sheet>
       {dialog}
+      {chooser}
     </>
+  );
+}
+
+/** RT-START (Figma S3a, S3b). Falls back to the old one-line route when the options can't be read. */
+function VisitRoute({ visit, routes, onChange }: { visit: TodayVisit; routes: VisitRouteOptions | null; onChange: () => void }) {
+  const option = routes?.routes.find((entry) => entry.key === routes.currentKey) ?? null;
+  if (!routes || !option) {
+    return (
+      <p className="flex justify-between border-t border-line pt-3 text-admin-subhead text-ink-soft tabular-nums">
+        <span>Route</span>
+        <span>{routeLine(visit)}</span>
+      </p>
+    );
+  }
+  const state = routes.closed || visit.closedAt !== null ? "none" : !routeChangeable(routes) ? "locked" : routes.routes.length > 1 ? "change" : "none";
+  return (
+    <RouteRow
+      look="plain"
+      title={routeTitle(option)}
+      sub={routeSubline({
+        option,
+        isDefault: routes.choice === null && option.key === routes.defaultKey,
+        chosenBy: routes.choice !== null ? routes.chosenBy : null,
+      })}
+      state={state}
+      onChange={onChange}
+    />
   );
 }
 

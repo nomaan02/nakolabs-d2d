@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { RouteChoiceSheet } from "@/components/admin/today/route-choice-sheet";
+import { RouteRow } from "@/components/admin/today/route-row";
 import { Button, ButtonLink } from "@/components/admin/ui/button";
 import { StatusPill } from "@/components/admin/ui/status-pill";
 import { CalendarIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, SearchIcon, WarningIcon } from "@/components/field/icons";
@@ -19,9 +21,13 @@ import {
   type AddVisitProp,
   type Canvasser,
 } from "@/lib/admin/today";
+import { loadPropRouteChoice, type PropRouteChoice } from "@/lib/admin/route-choice";
+import { useResolvedTheme } from "@/lib/field/theme";
 import { SLOTS } from "@/lib/geo/rotation";
+import { kmText, nextVisitLine, routeName, routeSubline, routeTitle } from "@/lib/geo/walk/route-options";
 import { allocatePropAction } from "@/lib/props/allocate";
 import { generateRouteAction } from "@/lib/props/generate-route";
+import { createClient } from "@/lib/supabase/client";
 
 export type RouteKms = Record<string, { best?: number; best_reversed?: number }>;
 
@@ -32,6 +38,10 @@ export type RouteKms = Record<string, { best?: number; best_reversed?: number }>
  * existing `allocate_prop` path, then the route is frozen onto the visit
  * (`generateRouteAction` makes the prop's routes first if it has none); a
  * route failure never undoes the visit.
+ *
+ * RT-START P1 (owner 2026-10-19; Figma S1, S2): the Route row shows the route
+ * this visit gets by turns, and Change picks another of the prop's saved
+ * routes for this visit only. A prop with no routes yet gets them on Allocate.
  */
 export function AddVisit({
   today,
@@ -223,6 +233,7 @@ function TeamStep({
   km: { best?: number; best_reversed?: number } | undefined;
 }) {
   const router = useRouter();
+  const mode = useResolvedTheme();
   const [team, setTeam] = useState<string[]>([]);
   const [phase, setPhase] = useState<"idle" | "allocating" | "routing">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -232,6 +243,27 @@ function TeamStep({
   const slot = slotLabel(SLOTS[next % 3] ?? null);
   const metres = next % 2 === 0 ? km?.best_reversed : km?.best;
   const names = team.map((id) => options.find((option) => option.id === id)?.name ?? "");
+
+  // RT-START: the prop's saved routes (none until its first allocation), and this visit's pick.
+  const [routes, setRoutes] = useState<PropRouteChoice | "loading" | "failed">("loading");
+  const [picked, setPicked] = useState<string | null>(null);
+  const [choosing, setChoosing] = useState(false);
+  const propId = item.row.id;
+  useEffect(() => {
+    let live = true;
+    setRoutes("loading");
+    setPicked(null);
+    void loadPropRouteChoice(createClient(), propId, next)
+      .then((result) => {
+        if (live) setRoutes(result.ok ? result.choice : "failed");
+      })
+      .catch(() => {
+        if (live) setRoutes("failed");
+      });
+    return () => {
+      live = false;
+    };
+  }, [propId, next]);
 
   const toggle = (id: string) =>
     setTeam((current) => (current.includes(id) ? current.filter((x) => x !== id) : current.length >= MAX_TEAM ? current : [...current, id]));
@@ -256,7 +288,7 @@ function TeamStep({
     }
     // The visit exists now. A route failure is shown on the visit, never undoes it.
     setPhase("routing");
-    await generateRouteAction(allocated).catch(() => null);
+    await generateRouteAction(allocated, picked).catch(() => null);
     router.push(`/admin/today?visit=${encodeURIComponent(allocated)}`);
     router.refresh();
   };
@@ -283,11 +315,10 @@ function TeamStep({
         <p className="text-admin-subhead text-ink-muted">
           {dayDate(date)} · visit {next}
         </p>
-        <dl className="mt-3 grid grid-cols-3 gap-2">
+        <dl className="mt-3 grid grid-cols-2 gap-2">
           {[
             { label: "Doors", value: item.doors === null ? "…" : item.doors.toLocaleString("en-GB") },
             { label: "Slot (rotation)", value: slot ?? "—" },
-            { label: "Route", value: metres === undefined ? "On allocate" : `${(metres / 1000).toFixed(1)} km` },
           ].map((figure) => (
             <div key={figure.label} className="flex min-w-0 flex-col-reverse">
               <dt className="text-admin-caption text-ink-muted">{figure.label}</dt>
@@ -295,6 +326,16 @@ function TeamStep({
             </div>
           ))}
         </dl>
+      </section>
+
+      <section aria-label="Route" className="mt-5">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-admin-section text-ink-muted">Route</h2>
+          <p className="text-admin-subhead text-ink-muted">Only this visit</p>
+        </div>
+        <div className="mt-2">
+          <AddVisitRoute routes={routes} picked={picked} metres={metres} visitNumber={next} onChange={() => setChoosing(true)} />
+        </div>
       </section>
 
       <section aria-label="Team" className="mt-5 flex-1">
@@ -356,6 +397,63 @@ function TeamStep({
           {phase === "allocating" ? "Allocating…" : phase === "routing" ? "Making the route…" : allocateButton(names, date)}
         </Button>
       </div>
+
+      {choosing && typeof routes === "object" ? (
+        <RouteChoiceSheet
+          subtitle={`${item.row.name} · ${dayDate(date)} · visit ${next}`}
+          note={nextVisitLine(next, routes.defaultKey)}
+          options={routes.options}
+          defaultKey={routes.defaultKey}
+          currentKey={picked ?? routes.defaultKey}
+          model={routes.model}
+          mode={mode}
+          busy={false}
+          error={null}
+          onUse={(key) => {
+            setPicked(key === routes.defaultKey ? null : key);
+            setChoosing(false);
+          }}
+          onClose={() => setChoosing(false)}
+        />
+      ) : null}
     </main>
+  );
+}
+
+/** RT-START (Figma S1): the Route row on Add visit. */
+function AddVisitRoute({
+  routes,
+  picked,
+  metres,
+  visitNumber,
+  onChange,
+}: {
+  routes: PropRouteChoice | "loading" | "failed";
+  picked: string | null;
+  metres: number | undefined;
+  visitNumber: number;
+  onChange: () => void;
+}) {
+  const byTurns = visitNumber % 2 === 0 ? "best_reversed" : "best";
+  if (routes === "loading") {
+    const title = metres === undefined ? routeName(byTurns) : `${routeName(byTurns)} · ${kmText(metres)}`;
+    return <RouteRow look="card" title={title} sub="Reading the prop's routes…" state="none" />;
+  }
+  if (routes === "failed") {
+    return <RouteRow look="card" title={routeName(byTurns)} sub="The prop's routes could not be read. The default is used." state="none" />;
+  }
+  const key = picked ?? routes.defaultKey;
+  const option = routes.options.find((entry) => entry.key === key);
+  if (!option) {
+    return <RouteRow look="card" title={routeName(routes.defaultKey)} sub="Routes are made when you allocate" state="none" />;
+  }
+  return (
+    <RouteRow
+      look="card"
+      title={routeTitle(option)}
+      sub={routeSubline({ option, isDefault: key === routes.defaultKey })}
+      state={routes.options.length > 1 ? "change" : "none"}
+      onChange={onChange}
+    />
   );
 }

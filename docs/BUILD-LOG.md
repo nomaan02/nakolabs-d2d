@@ -2322,3 +2322,119 @@ One entry per stage, appended by the agent at the end of each session.
 - **Deviations from brief:** none. The given code was pasted exactly. `field-map.tsx` and `map-tab.tsx` stayed CRLF. The other edited TypeScript files are LF, matching the files already in git. `mini-map.tsx` was already LF in git and CRLF in the working tree before this session, and it stayed that way.
 - **Not done / deferred:** A browser. A phone. The six phone-check steps. Did not commit. No new table row. No `client_event_id`.
 - **Follow-ups:** The owner runs the six phone-check steps after this lands.
+
+### RT-START 1a — per-visit route choice (migration file, types, freeze wrapper, route options)
+- **Date:** 2026-10-20
+- **Model:** Claude wrote the pasted code. Grok 4.7 applied it and wrote this entry. Not committed.
+- **Built:** Migration file `supabase/migrations/043_route_choice.sql` (571 lines). It adds `assignments.route_choice`, `route_chosen_by` and `route_chosen_at`. `assignment_route_freeze` is now SECURITY DEFINER: an explicit key is recorded on the visit (the default key clears it); no key keeps a choice only while the same `territory_routes` row is still saved; a canvasser on the visit may call it with a key for an open visit dated today (London). New `assignment_route_options`. Types hand-matched in `lib/supabase/types.ts` (2957 lines). `lib/geo/walk/freeze.ts` (137 lines) maps the new hints and the chosen / cleared flags. New `lib/geo/walk/route-options.ts` (254 lines) and `scripts/verify-rt-start.ts` (123 lines). `package.json` gains `verify:rt-start`. `AGENTS.md` records the RT-START exceptions to the one-write-path rule and the determinism rule.
+- **Owner decisions:**
+  - OWNER — 2026-10-19 (field test, Henleaze visit 1): the visit was frozen to Route A; Route B started nearer. There was no way to change it, and drawing a route took too long.
+  - OWNER — 2026-10-19 O1: a chosen route is per visit. The prop's saved routes don't change.
+  - OWNER — 2026-10-19 O2: the canvasser can change it on /field too, as well as the admin.
+  - OWNER — 2026-10-19 O3: the next visit goes back to the default by turns (odd Route A, even Route B; a finished drawn route the same way).
+  - OWNER — 2026-10-19 O4: phases: P1 pick a saved route (this batch), P2 tap a start point, P3 draw a few streets then auto-generate the rest.
+  - OWNER — 2026-10-19 O5: /field in P1: pick a saved route, each with its distance from you. Drawing stays admin-only.
+  - OWNER — 2026-10-19 O6: teams: anyone on the visit can change it until the first knock by anyone. Teammates see a notice.
+  - OWNER — 2026-10-19 O7: offline: the change is disabled with "Needs signal". Never queued.
+  - OWNER — 2026-10-19 Approve: plan, Figma S1–S3 and F1–F5 approved.
+- **Claude decisions:**
+  - CLAUDE — D1: the choice lives on the visit: `assignments.route_choice` (null = default), `route_chosen_by`, `route_chosen_at` (migration 043).
+  - CLAUDE — D2: `assignment_route_freeze` (same signature): an explicit key is recorded as the choice (the default key itself clears it); no key keeps a recorded choice only while the very `territory_routes` row it froze is still saved (`route_source_id`), else clears it and uses the default.
+  - CLAUDE — D3: the freeze is SECURITY DEFINER with its own checks: admin as before; a canvasser who is an active member (`left_at` null) may call it with an explicit key, for an open visit dated today (London). Hints `closed`, `not_today`.
+  - CLAUDE — D4: `assignment_route_options(assignment)` (definer, admin or member): each saved route's key, km, hand, start point, start street and `usable`, plus the default, the current key, the choice and the chooser's first name, the knock count and `order_check`.
+  - CLAUDE — D5: /field computes each start's distance on the phone; only a route key is sent. A change reloads the visit. The phone keeps `loadedOrder` (`orderCheckOf`). This session is the module only; the screens are later.
+  - CLAUDE — D6: Admin Route row, Allocate, visit sheet and route sheet. Not in this session's files.
+  - CLAUDE — D7: `AGENTS.md` determinism rule and one-write-path rule each get the RT-START exception.
+- **Acceptance:**
+  - EDIT 1 DONE. New `supabase/migrations/043_route_choice.sql` (571 lines), pasted as given. 043 was free (newest applied file number in the tree is 042). Not applied.
+  - EDIT 2 DONE. Five replacements in `lib/supabase/types.ts` (2957 lines). Each find occurred once. CRLF kept. Types were not regenerated.
+  - EDIT 3 DONE. Seven replacements in `lib/geo/walk/freeze.ts` (137 lines). Each find occurred once. CRLF kept.
+  - EDIT 4 DONE. New `lib/geo/walk/route-options.ts` (254 lines), pasted as given. CRLF.
+  - EDIT 5 DONE. New `scripts/verify-rt-start.ts` (123 lines), pasted as given. CRLF.
+  - EDIT 6 DONE. One replacement in `package.json` (71 lines). The find occurred once. LF kept.
+  - EDIT 7 DONE. One replacement in `AGENTS.md` (151 lines). The find occurred once. CRLF kept.
+  - `npx tsc --noEmit`: **PASS** — exit 0, run once after EDITs 1–7.
+  - `npx eslint` on `lib/geo/walk/freeze.ts`, `lib/geo/walk/route-options.ts`, `scripts/verify-rt-start.ts`, `lib/supabase/types.ts`: **PASS** — exit 0, run once after EDITs 1–7.
+  - `npm run verify:rt-start`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - Phone: **NOT VERIFIED**. No browser. None for this session (no screen changes).
+- **Deviations from brief:** none. The given code was pasted exactly. The migration was not run. Types were hand-edited, not regenerated. `left_at` is not on `assignment_members` in `003_core.sql`; it is added in later migrations (021 onwards). The pasted SQL uses it as given.
+- **Not done / deferred:** A browser. A phone. Applying 043. A canvasser-role check of the new function. Did not commit. No new table row. No `client_event_id`. Screens (admin Route row, /field picker) are later sessions.
+- **Follow-ups:** The owner runs 043 in the Supabase SQL editor. Claude verifies it with SELECTs. No phone check in this session.
+
+### RT-START 1b — admin Route row, route sheet, keep a picked route
+- **Date:** 2026-10-20
+- **Model:** Claude wrote the pasted code. Grok 4.7 applied it and wrote this entry. Not committed.
+- **Built:** Add visit shows a Route row (default by turns). Change opens a route sheet with a still map of the picked saved route. Allocate passes the pick to `generateRouteAction`. The visit sheet's Route row shows the route, where it starts and who picked it: Change before the first knock, Locked after. Re-saving a drawn route counts a visit that keeps a picked route. New `lib/admin/route-choice.ts` (55), `components/admin/today/route-row.tsx` (64), `components/admin/today/route-choice-sheet.tsx` (174). Changed: `components/admin/today/add-visit.tsx` (459), `components/admin/today/visit-panel.tsx` (479), `components/admin/props/props-screen.tsx` (1120), `lib/props/generate-route.ts` (134), `lib/props/freeze-variant.ts` (51).
+- **Owner decisions:**
+  - OWNER — 2026-10-19 (field test, Henleaze visit 1): the visit was frozen to Route A; Route B started nearer. There was no way to change it, and drawing a route took too long.
+  - OWNER — 2026-10-19 O1: a chosen route is per visit. The prop's saved routes don't change.
+  - OWNER — 2026-10-19 O2: the canvasser can change it on /field too, as well as the admin.
+  - OWNER — 2026-10-19 O3: the next visit goes back to the default by turns (odd Route A, even Route B; a finished drawn route the same way).
+  - OWNER — 2026-10-19 O4: phases: P1 pick a saved route (this batch), P2 tap a start point, P3 draw a few streets then auto-generate the rest.
+  - OWNER — 2026-10-19 O5: /field in P1: pick a saved route, each with its distance from you. Drawing stays admin-only.
+  - OWNER — 2026-10-19 O6: teams: anyone on the visit can change it until the first knock by anyone. Teammates see a notice.
+  - OWNER — 2026-10-19 O7: offline: the change is disabled with "Needs signal". Never queued.
+  - OWNER — 2026-10-19 Approve: plan, Figma S1–S3 and F1–F5 approved.
+- **Claude decisions:**
+  - CLAUDE — D1: the choice lives on the visit: `assignments.route_choice` (null = default), `route_chosen_by`, `route_chosen_at` (migration 043). Not changed in this session.
+  - CLAUDE — D2: `assignment_route_freeze` records an explicit key as the choice. No key keeps a choice only while the same saved route row is still there. This session calls that freeze.
+  - CLAUDE — D3: the freeze is SECURITY DEFINER. Admin as before. A canvasser on an open visit dated today may pass a key. Not changed in this session.
+  - CLAUDE — D4: `assignment_route_options` lists each saved route, the default, the choice, the chooser's first name, the knock count and `order_check`. The visit sheet reads it.
+  - CLAUDE — D5: /field distance and reload are later. Not in this session's files.
+  - CLAUDE — D6: Admin: Add visit gets a Route row (default by turns) with Change. Allocate passes the pick to `generateRouteAction`. The visit sheet's Route row shows the route, where it starts and who picked it, with Change before the first knock and Locked after. The route sheet shows the picked route on a still map.
+  - CLAUDE — D7: `AGENTS.md` already has the RT-START exceptions (session 1a). Not edited here.
+- **Acceptance:**
+  - EDIT 1 DONE. New `lib/admin/route-choice.ts` (55 lines), pasted as given. CRLF, no BOM. The file did not exist before this session.
+  - EDIT 2 DONE. New `components/admin/today/route-row.tsx` (64 lines), pasted as given. CRLF, no BOM.
+  - EDIT 3 DONE. New `components/admin/today/route-choice-sheet.tsx` (174 lines), pasted as given. CRLF, no BOM.
+  - EDIT 4 DONE. Four replacements in `lib/props/generate-route.ts` (134 lines). Each find occurred once. CRLF kept.
+  - EDIT 5 DONE. Two replacements in `lib/props/freeze-variant.ts` (51 lines). Each find occurred once. CRLF kept. Revalidate path is `/admin/today`.
+  - EDIT 6 DONE. Nine replacements in `components/admin/today/add-visit.tsx` (459 lines). Each find occurred once. CRLF kept.
+  - EDIT 7 DONE. Eight replacements in `components/admin/today/visit-panel.tsx` (479 lines). Each find occurred once. CRLF kept.
+  - EDIT 8 DONE. Three replacements in `components/admin/props/props-screen.tsx` (1120 lines). Each find occurred once. LF kept.
+  - `npx tsc --noEmit`: **PASS** — exit 0, run once after EDITs 1–8.
+  - `npx eslint` on the eight files: **PASS** — exit 0, run once after EDITs 1–8.
+  - `npm run verify:rt-start`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui10`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - Phone: **NOT VERIFIED**. No browser. The batch phone check is listed in 03-rt-start-1c.
+- **Deviations from brief:** none. The given code was pasted exactly. New files and the Today files are CRLF, matching their neighbours. `props-screen.tsx` stayed LF.
+- **Not done / deferred:** A browser. A phone. The viewports 390×763, 375×667, 430×850 and 1440. Did not commit. No new table row. No `client_event_id`. The /field picker is a later session.
+- **Follow-ups:** The owner runs the batch phone check after 1c lands. No database row from this session.
+
+### RT-START 1c — /field change the route before the first knock
+- **Date:** 2026-10-20
+- **Model:** Claude wrote the pasted code. Grok 4.7 applied it and wrote this entry. Not committed.
+- **Built:** The Logger shows a route strip under the header while the visit can still change route. Change opens a sheet of the saved routes, nearest start first, with the distance worked out on the phone. Use calls `assignment_route_freeze` with a route key. That call is online and is never queued. Offline, the sheet says it needs signal and Use stays disabled. A difference in the door-order number reloads the visit and shows who changed it, until OK. The Logger starts again at the new first door, unless this phone already has logs of its own. New `components/field/route-change.tsx` (346). Changed: `components/field/field-data-provider.tsx` (497), `components/field/logger-tab.tsx` (1008).
+- **Owner decisions:**
+  - OWNER — 2026-10-19 (field test, Henleaze visit 1): the visit was frozen to Route A; Route B started nearer. There was no way to change it, and drawing a route took too long.
+  - OWNER — 2026-10-19 O1: a chosen route is per visit. The prop's saved routes don't change.
+  - OWNER — 2026-10-19 O2: the canvasser can change it on /field too, as well as the admin.
+  - OWNER — 2026-10-19 O3: the next visit goes back to the default by turns (odd Route A, even Route B; a finished drawn route the same way).
+  - OWNER — 2026-10-19 O4: phases: P1 pick a saved route (this batch), P2 tap a start point, P3 draw a few streets then auto-generate the rest.
+  - OWNER — 2026-10-19 O5: /field in P1: pick a saved route, each with its distance from you. Drawing stays admin-only.
+  - OWNER — 2026-10-19 O6: teams: anyone on the visit can change it until the first knock by anyone. Teammates see a notice.
+  - OWNER — 2026-10-19 O7: offline: the change is disabled with "Needs signal". Never queued.
+  - OWNER — 2026-10-19 Approve: plan, Figma S1–S3 and F1–F5 approved.
+- **Claude decisions:**
+  - CLAUDE — D1: the choice lives on the visit: `assignments.route_choice` (null = default), `route_chosen_by`, `route_chosen_at` (migration 043). Not changed in this session.
+  - CLAUDE — D2: `assignment_route_freeze` records an explicit key as the choice. The default key clears it. No key keeps a choice only while the same saved route row is still there. This session calls that freeze with a key.
+  - CLAUDE — D3: the freeze is SECURITY DEFINER. Admin as before. A canvasser on an open visit dated today may pass a key. Not changed in this session.
+  - CLAUDE — D4: `assignment_route_options` lists each saved route, the default, the choice, the chooser's first name, the knock count and `order_check`. The field reads it.
+  - CLAUDE — D5: /field computes each start's distance on the phone. Only a route key is sent. A change reloads the visit. The Logger starts at the new first door. A phone with logs of its own stays on the same door. `loadedOrder` is `orderCheckOf` over every loaded door. When the server's `order_check` differs, the phone reloads once and shows who changed it, until OK. Checked on return to the app, when the signal comes back, and every 30 s, until the server has a knock.
+  - CLAUDE — D6: the admin Route row, Allocate, the visit sheet and the route sheet landed in session 1b. Not edited here.
+  - CLAUDE — D7: `AGENTS.md` already has the RT-START exceptions (session 1a). Not edited here.
+- **Acceptance:**
+  - EDIT 1 DONE. New `components/field/route-change.tsx` (346 lines), pasted as given. CRLF, no BOM. The file did not exist before this session.
+  - EDIT 2 DONE. Eleven replacements in `components/field/field-data-provider.tsx` (497 lines). Each find occurred once. CRLF kept.
+  - EDIT 3 DONE. Twelve replacements in `components/field/logger-tab.tsx` (1008 lines). Each find occurred once. LF kept.
+  - `npx tsc --noEmit`: **PASS** — exit 0, run once after EDITs 1–3.
+  - `npx eslint` on the three files: **PASS** — exit 0, run once after EDITs 1–3.
+  - `npm run verify:rt-start`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:gl`: **PASS** — exit 0. Last line: `All GL geo-lock checks passed.`
+  - `npm run verify:ui8`: **PASS** — exit 0. Last line: `ALL PASS`.
+  - `npm run verify:ui7`: **PASS** — exit 0. Last line: `All UI-7 geo checks passed.`
+  - `npm run verify:ui1`: **PASS** — exit 0. Last line: `OK`.
+  - Phone: **NOT VERIFIED**. No browser. The nine steps are listed for the owner.
+- **Deviations from brief:** none. The given code was pasted exactly. `route-change.tsx` is CRLF, matching its field neighbours. `field-data-provider.tsx` stayed CRLF. `logger-tab.tsx` stayed LF.
+- **Not done / deferred:** A browser. A phone. The nine phone-check steps. Sizes 390×763, 375×667 and 430×850. Light and dark. Did not commit. No new table row. No `client_event_id`.
+- **Follow-ups:** The owner runs the nine phone-check steps after migration 043, with a prop dated today and no knocks. No database row from this session.

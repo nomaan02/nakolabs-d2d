@@ -11,9 +11,10 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const VARIANT_KEY = /^(best|best_reversed|alt_[1-9][0-9]*|manual|manual_reversed)$/;
 
 /**
- * Freeze one chosen variant onto an allocation. Used when the admin picks
- * an override on the allocate page. Omitting the key — the parity default —
- * stays on `generateRouteAction`, which this does not call.
+ * Freeze one chosen variant onto an allocation and record it as the visit's
+ * choice (RT-START, migration 043). Used by the visit sheet's Route row
+ * (Today). Omitting the key — the default by turns — stays on
+ * `generateRouteAction`, which this does not call.
  */
 export async function freezeVariantAction(assignmentId: string, variantKey: string): Promise<RouteActionResult> {
   const started = performance.now();
@@ -40,7 +41,7 @@ export async function freezeVariantAction(assignmentId: string, variantKey: stri
 
   const frozen = await freezeAssignmentRoute(supabase, id, key as VariantKey);
   revalidatePath("/admin");
-  revalidatePath("/admin/allocate");
+  revalidatePath("/admin/today");
   if (!frozen.ok) return { ok: false, code: frozen.code, message: frozen.message };
   return {
     ok: true,

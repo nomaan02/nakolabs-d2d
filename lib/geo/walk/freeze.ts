@@ -9,6 +9,11 @@
  * `variantKey` omitted → the function picks by visit_number parity: odd →
  * best, even → best_reversed. RT (040, 041): a prop in manual mode whose
  * drawing fits the visit takes manual / manual_reversed the same way.
+ *
+ * RT-START (043, owner 2026-10-19): an explicit `variantKey` is recorded as
+ * the visit's choice (`assignments.route_choice`), and a later call with no
+ * key keeps it while the same saved route is still there. A canvasser on the
+ * visit may call it too, with a key, for an open visit dated today.
  */
 
 import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
@@ -23,6 +28,8 @@ export type FreezeFailureCode =
   | "snapshot_mismatch"
   | "stale_variant"
   | "manual_unfinished"
+  | "closed"
+  | "not_today"
   | "freeze_rejected"
   | "unavailable";
 
@@ -35,6 +42,10 @@ export type FreezeSummary = {
   routeLengthM: number;
   doors: number;
   strandedCount: number;
+  /** RT-START: the visit walks a route someone chose (now, or kept from before). */
+  chosen: boolean;
+  /** RT-START: a recorded choice was dropped (its route was regenerated or no longer fits). */
+  choiceCleared: boolean;
 };
 
 export type FreezeResult =
@@ -49,6 +60,8 @@ const SERVER_HINTS: Record<string, FreezeFailureCode> = {
   snapshot_mismatch: "snapshot_mismatch",
   stale_variant: "stale_variant",
   manual_unfinished: "manual_unfinished",
+  closed: "closed",
+  not_today: "not_today",
   bad_variant: "freeze_rejected",
   duplicate_uprn: "freeze_rejected",
   bad_stranded_count: "freeze_rejected",
@@ -64,7 +77,7 @@ export function mapFreezeRpcError(error: PostgrestError): Extract<FreezeResult, 
   const code = SERVER_HINTS[error.hint ?? ""];
   if (code) return { ok: false, code, message: error.message, detail: error.details ?? undefined };
   if (error.code === "42501") {
-    return { ok: false, code: "not_admin", message: "Only an admin can freeze a route.", detail: error.message };
+    return { ok: false, code: "not_admin", message: "Only an admin, or someone on this visit, can change its route.", detail: error.message };
   }
   return { ok: false, code: "unavailable", message: "The route could not be frozen.", detail: describe(error) };
 }
@@ -84,7 +97,7 @@ export function defaultVariantKey(visitNumber: number): "best" | "best_reversed"
   return visitNumber % 2 === 0 ? "best_reversed" : "best";
 }
 
-/** Never throws. `supabase` must carry the admin's own session. */
+/** Never throws. `supabase` must carry the caller's own session (an admin, or a canvasser on the visit with a key). */
 export async function freezeAssignmentRoute(
   supabase: SupabaseClient<Database>,
   assignmentId: string,
@@ -109,6 +122,8 @@ export async function freezeAssignmentRoute(
         routeLengthM: asNumber(row.route_length_m),
         doors: asNumber(row.doors),
         strandedCount: asNumber(row.stranded_count),
+        chosen: row.chosen === true,
+        choiceCleared: row.choice_cleared === true,
       },
     };
   } catch (err) {

@@ -176,6 +176,9 @@
 | GL-3 | You → Location switch, geolocation line, Brief amendment | DONE | 2026-10-18 | You → Location: Jump to me / Off (saved on this phone); AGENTS.md geolocation line fixed; Brief Stage 16 amendment for the one automatic jump. | — |
 | GL-C1 | Side-of-road correction — the logic (no screens) | DONE | 2026-10-18 | Side-of-road correction logic: both passes near a fix, near doors (forward only), cross-road/backwards correction test, reopen does not guess the side, fill floor. | — |
 | GL-C2 | Side-of-road correction — the screens and wiring | DONE | 2026-10-18 | Side-of-road correction screens: two-door near-you chip, mini-map door tap with Moved/Undo, chip hidden when already there, every manual move sets the fill floor when crossing or going back. | — |
+| RT-START 1a | human: per-visit route choice — migration 043 file, types, freeze wrapper, route options | DONE | 2026-10-20 | Per-visit route choice: migration 043 file (route_choice on assignments, freeze keeps or clears a choice, canvasser may choose before the first knock, assignment_route_options), types, route options module, verify:rt-start. | — |
+| RT-START 1b | admin: Route row on Add visit and the visit sheet, the route sheet | DONE | 2026-10-20 | Admin: Route row on Add visit (default by turns, Change picks another saved route for this visit), visit sheet Route row (Change before the first knock, Locked after, who picked it), route sheet with a still map; re-saving a drawn route keeps a picked route. | — |
+| RT-START 1c | /field: change the route before the first knock | DONE | 2026-10-20 | /field: route strip under the header before the first knock, Change route sheet (saved routes, nearest start first, distance worked out on the phone), offline disabled, teammate change picked up with a notice, Logger restarts at the new first door. | — |
 
 ---
 

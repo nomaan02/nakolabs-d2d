@@ -5,10 +5,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { freezeAssignmentRoute, type FreezeFailureCode, type FreezeSummary } from "@/lib/geo/walk/freeze";
 import { saveTerritoryRoutes, type SaveRoutesFailureCode } from "@/lib/geo/walk/save";
+import type { VariantKey } from "@/lib/geo/walk/types";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const VARIANT_KEY = /^(best|best_reversed|alt_[1-9][0-9]*|manual|manual_reversed)$/;
+
+function isVariantKey(key: string): key is VariantKey {
+  return VARIANT_KEY.test(key);
+}
 
 export type RouteFailureCode = FreezeFailureCode | SaveRoutesFailureCode;
 
@@ -29,6 +35,8 @@ export type RouteActionResult =
  * is reported as it is.
  */
 const REGENERATE_ON = new Set<FreezeFailureCode>(["missing_variant", "stale_variant", "snapshot_mismatch"]);
+/** RT-START: failures a retry with the default can't help. */
+const KEEP_FAILURE = new Set<FreezeFailureCode>(["frozen", "not_admin", "missing_assignment", "closed", "not_today", "unavailable"]);
 
 /**
  * Stage 5b (R2). Puts a route on an allocation that has already been saved:
@@ -42,12 +50,23 @@ const REGENERATE_ON = new Set<FreezeFailureCode>(["missing_variant", "stale_vari
  * Runs under the admin's own session so RLS governs every read and write.
  * Fails open: a failure here never undoes the allocation. The caller shows
  * the message as a notice; the assignment keeps its interim door order.
+ *
+ * RT-START (owner 2026-10-19): `variantKey` is the route the admin picked on
+ * Add visit; it is recorded as the visit's choice. If the pick doesn't fit
+ * the visit, or the prop's routes have to be made again first (the picked
+ * key may no longer mean the same route), the default by turns is used and
+ * `summary.chosen` is false.
  */
-export async function generateRouteAction(assignmentId: string): Promise<RouteActionResult> {
+export async function generateRouteAction(assignmentId: string, variantKey?: string | null): Promise<RouteActionResult> {
   const started = performance.now();
   const id = assignmentId.trim();
   if (!UUID.test(id)) {
     return { ok: false, code: "missing_assignment", message: "That assignment could not be found." };
+  }
+  const picked = variantKey?.trim() || null;
+  const key = picked !== null && isVariantKey(picked) ? picked : null;
+  if (picked !== null && key === null) {
+    return { ok: false, code: "missing_variant", message: "That route variant is not one this prop has saved." };
   }
 
   const supabase = await createClient();
@@ -62,7 +81,13 @@ export async function generateRouteAction(assignmentId: string): Promise<RouteAc
     };
   }
 
-  const first = await freezeAssignmentRoute(supabase, id);
+  let first = await freezeAssignmentRoute(supabase, id, key);
+  // The picked route doesn't fit this visit (a drawn route that no longer
+  // matches its doors, say): the default by turns instead, before anything
+  // is regenerated. The result says chosen: false.
+  if (!first.ok && key !== null && !KEEP_FAILURE.has(first.code)) {
+    first = await freezeAssignmentRoute(supabase, id);
+  }
   if (first.ok) {
     revalidate();
     return {
