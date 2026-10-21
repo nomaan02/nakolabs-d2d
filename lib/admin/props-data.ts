@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { outerRing, parsePropGeometry } from "@/lib/admin/map-fit";
-import { firstName, type PropRow, type PropVisit } from "@/lib/admin/props";
+import { firstName, type PropFolder, type PropRow, type PropVisit } from "@/lib/admin/props";
 import { countKnockable } from "@/lib/geo/count-knockable";
 import type { Slot } from "@/lib/geo/rotation";
 import type { Database } from "@/lib/supabase/types";
@@ -10,17 +10,20 @@ import type { Database } from "@/lib/supabase/types";
  * UI-10 F2b. Everything the Props page lists, read once on the server with
  * the admin's own session (RLS: territories, assignments_all_admin,
  * assignment_members_all_admin, profiles_select_admin). Canvasser first
- * names only; nothing about residents.
+ * names only; nothing about residents. PP-1 (owner 2026-10-21): each prop's
+ * folder, and every folder (`prop_folders_select`).
  */
-export type PropsData = { ok: true; rows: PropRow[] } | { ok: false; message: string; detail?: string };
+export type PropsData =
+  | { ok: true; rows: PropRow[]; folders: PropFolder[] }
+  | { ok: false; message: string; detail?: string };
 
 function asSlot(value: string | null): Slot | null {
   return value === "early" || value === "mid" || value === "late" ? value : null;
 }
 
 export async function loadPropRows(supabase: SupabaseClient<Database>): Promise<PropsData> {
-  const [territories, assignments, members, people] = await Promise.all([
-    supabase.from("territories").select("id, name, geom, archived_at, created_at").order("created_at", { ascending: false }),
+  const [territories, assignments, members, people, folders] = await Promise.all([
+    supabase.from("territories").select("id, name, geom, archived_at, created_at, folder_id").order("created_at", { ascending: false }),
     supabase
       .from("assignments")
       .select("id, territory_id, visit_number, work_date, slot, started_at, closed_at, counts_for_rotation, route_variant_key")
@@ -28,8 +31,9 @@ export async function loadPropRows(supabase: SupabaseClient<Database>): Promise<
       .order("visit_number", { ascending: true }),
     supabase.from("assignment_members").select("assignment_id, canvasser_id"),
     supabase.from("profiles").select("id, full_name"),
+    supabase.from("prop_folders").select("id, name"),
   ]);
-  const failed = territories.error ?? assignments.error ?? members.error ?? people.error;
+  const failed = territories.error ?? assignments.error ?? members.error ?? people.error ?? folders.error;
   if (failed) {
     return { ok: false, message: "Props could not be loaded. Check your connection and try again.", detail: failed.message };
   }
@@ -66,7 +70,9 @@ export async function loadPropRows(supabase: SupabaseClient<Database>): Promise<
       archivedAt: row.archived_at,
       geometry: parsePropGeometry(row.geom),
       visits: visits.get(row.id) ?? [],
+      folderId: row.folder_id,
     })),
+    folders: (folders.data ?? []).map((row) => ({ id: row.id, name: row.name })),
   };
 }
 

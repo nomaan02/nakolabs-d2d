@@ -22,6 +22,12 @@ export type OutcomeFilter = "contact" | "lead" | "rented" | "notin" | "other";
 
 export type CoverageFilters = {
   prop: string | null;
+  /**
+   * PP-1 (owner 2026-10-21): a folder's props only (Props → folder → "Open on
+   * map"). The loader limits doors, props and visits to the folder, so the
+   * pure functions here only need to know one is set. Opens on all time, like one prop.
+   */
+  folder: string | null;
   from: string | null;
   to: string | null;
   visit: number | null;
@@ -34,6 +40,7 @@ export type CoverageFilters = {
 
 export const NO_FILTERS: CoverageFilters = {
   prop: null,
+  folder: null,
   from: null,
   to: null,
   visit: null,
@@ -73,8 +80,13 @@ export function defaultPeriod(prop: string | null, today: string): { from: strin
   return prop ? { from: null, to: null } : { from: addDays(today, -29), to: today };
 }
 
-function isDefaultPeriod(filters: Pick<CoverageFilters, "prop" | "from" | "to">, today: string): boolean {
-  const base = defaultPeriod(filters.prop, today);
+/** One prop or one folder opens on all time; everything opens on the last 30 days. */
+function narrowedTo(filters: Pick<CoverageFilters, "prop" | "folder">): string | null {
+  return filters.prop ?? filters.folder;
+}
+
+function isDefaultPeriod(filters: Pick<CoverageFilters, "prop" | "folder" | "from" | "to">, today: string): boolean {
+  const base = defaultPeriod(narrowedTo(filters), today);
   return filters.from === base.from && filters.to === base.to;
 }
 
@@ -82,17 +94,20 @@ function isDefaultPeriod(filters: Pick<CoverageFilters, "prop" | "from" | "to">,
 export function parseFilters(params: Record<string, string | string[] | undefined>, today: string): CoverageFilters {
   const rawProp = one(params.prop);
   const prop = rawProp && UUID.test(rawProp) ? rawProp : null;
+  const rawFolder = one(params.folder);
+  const folder = rawFolder && UUID.test(rawFolder) ? rawFolder : null;
   const who = one(params.who);
   const date = realDate(one(params.date));
   let from = date ?? realDate(one(params.from));
   let to = date ?? realDate(one(params.to));
   if (from && to && from > to) [from, to] = [to, from];
-  if (!from && !to && one(params.period) !== "all") ({ from, to } = defaultPeriod(prop, today));
+  if (!from && !to && one(params.period) !== "all") ({ from, to } = defaultPeriod(prop ?? folder, today));
   const visitRaw = Number(one(params.visit));
   const outcome = one(params.outcome);
   const slot = one(params.slot);
   return {
     prop,
+    folder,
     from,
     to,
     visit: Number.isInteger(visitRaw) && visitRaw >= 1 && visitRaw <= 999 ? visitRaw : null,
@@ -107,6 +122,7 @@ export function parseFilters(params: Record<string, string | string[] | undefine
 export function filtersHref(filters: CoverageFilters, today: string): string {
   const params = new URLSearchParams();
   if (filters.prop) params.set("prop", filters.prop);
+  if (filters.folder) params.set("folder", filters.folder);
   if (isDefaultPeriod(filters, today)) {
     // Nothing to write: the page opens on these days anyway.
   } else if (!filters.from && !filters.to) params.set("period", "all");
@@ -131,7 +147,7 @@ export function periodIsFilter(filters: CoverageFilters, today: string): boolean
 
 /** "2 filters" in the header (where you came from, and the default days, are not filters). */
 export function filterCount(filters: CoverageFilters, today: string): number {
-  return [filters.prop, periodIsFilter(filters, today) ? "days" : null, filters.visit, filters.who, filters.outcome, filters.slot].filter(
+  return [filters.prop, filters.folder, periodIsFilter(filters, today) ? "days" : null, filters.visit, filters.who, filters.outcome, filters.slot].filter(
     (value) => value !== null,
   ).length;
 }
@@ -146,10 +162,16 @@ export function clearedFilters(filters: CoverageFilters, today: string): Coverag
   return { ...NO_FILTERS, ...defaultPeriod(null, today), via: filters.via };
 }
 
-/** Removing the prop: its "all time" default becomes everything's 30 days; picked days stay. */
+/** Removing the prop: its "all time" default becomes everything's 30 days (or stays all time inside a folder); picked days stay. */
 export function withoutProp(filters: CoverageFilters, today: string): CoverageFilters {
-  const days = isDefaultPeriod(filters, today) ? defaultPeriod(null, today) : { from: filters.from, to: filters.to };
+  const days = isDefaultPeriod(filters, today) ? defaultPeriod(filters.folder, today) : { from: filters.from, to: filters.to };
   return { ...filters, prop: null, ...days };
+}
+
+/** PP-1: removing the folder, the same way as removing the prop. */
+export function withoutFolder(filters: CoverageFilters, today: string): CoverageFilters {
+  const days = isDefaultPeriod(filters, today) ? defaultPeriod(filters.prop, today) : { from: filters.from, to: filters.to };
+  return { ...filters, folder: null, ...days };
 }
 
 // ---- the period chip --------------------------------------------------------
@@ -210,9 +232,13 @@ export function outcomeGroup(outcome: string): OutcomeFilter {
   return "other";
 }
 
-/** Visits that pass the prop, visit-number and slot filters; null = every visit. */
+/**
+ * Visits that pass the prop, visit-number and slot filters; null = every visit.
+ * With a folder, `visits` is already that folder's (the loader limits it), so
+ * the scope is never null: knocks on other props stay out.
+ */
 export function visitScope(visits: CoverageVisit[], filters: CoverageFilters): Set<string> | null {
-  if (!filters.prop && filters.visit === null && !filters.slot) return null;
+  if (!filters.prop && !filters.folder && filters.visit === null && !filters.slot) return null;
   return new Set(
     visits
       .filter(

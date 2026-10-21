@@ -28,7 +28,7 @@ import {
   type MapLayers,
   type MapProp,
 } from "@/components/admin/props/prop-layers";
-import { PropsList, PropsListHeader } from "@/components/admin/props/props-list";
+import { FolderedPropsList, PropsList, PropsListHeader } from "@/components/admin/props/props-list";
 import { RouteDrawPanel } from "@/components/admin/props/route-draw-panel";
 import { RoutePanel, type DrawnRoute, type RoutePhase } from "@/components/admin/props/route-panel";
 import { useDrawGestures } from "@/components/admin/props/use-draw-gestures";
@@ -64,12 +64,14 @@ import { loadVisitStats } from "@/lib/admin/prop-visit-stats";
 import {
   filterCounts,
   frozenVisitNote,
+  groupByFolder,
   matchesFilter,
   matchesQuery,
   propState,
   sortProps,
   type LeadPin,
   type PropFilter,
+  type PropFolder,
   type PropRow,
   type VisitStats,
 } from "@/lib/admin/props";
@@ -79,6 +81,7 @@ import { useResolvedTheme } from "@/lib/field/theme";
 import { countKnockable, type KnockableCount } from "@/lib/geo/count-knockable";
 import { fetchNcczZones } from "@/lib/geo/nccz-zones";
 import { freezeAssignmentRoute } from "@/lib/geo/walk/freeze";
+import { createFolder, movePropToFolder, renameFolder } from "@/lib/props/folders";
 import { loadManualRoute, setRouteMode, type RouteMode } from "@/lib/geo/walk/manual-save";
 import { saveTerritoryRoutes } from "@/lib/geo/walk/save";
 import { describeGeometryIssues } from "@/lib/geo/walk/validate";
@@ -161,11 +164,14 @@ function isControl(target: EventTarget | null): boolean {
 export function PropsScreen({
   today,
   rows,
+  folders,
   doorCounts,
   initialPropId,
 }: {
   today: string;
   rows: PropRow[];
+  /** PP-1 (owner 2026-10-21): every folder. Empty = the flat list, as before folders. */
+  folders: PropFolder[];
   doorCounts: Promise<Record<string, number>>;
   initialPropId: string | null;
 }) {
@@ -236,6 +242,8 @@ export function PropsScreen({
   const counts = useMemo(() => filterCounts(items.map((item) => item.state)), [items]);
   const visible = items.filter((item) => matchesFilter(item.state, filter) && matchesQuery(item.row.name, query));
   const selected = items.find((item) => item.row.id === selectedId) ?? null;
+  const narrowed = filter !== "all" || query.trim() !== "";
+  const groups = groupByFolder(items, visible, folders, narrowed);
 
   const emptyText =
     rows.length === 0
@@ -881,6 +889,44 @@ export function PropsScreen({
     router.refresh();
   };
 
+  // ---- folders (PP-1) ------------------------------------------------------
+
+  const newFolder = async (name: string): Promise<string | null> => {
+    const result = await createFolder({ name });
+    if (!result.ok) return result.message;
+    router.refresh();
+    return null;
+  };
+
+  const renameAFolder = async (id: string, name: string): Promise<string | null> => {
+    const result = await renameFolder({ id, name });
+    if (!result.ok) return result.message;
+    router.refresh();
+    return null;
+  };
+
+  const moveTo = async (folderId: string | null): Promise<string | null> => {
+    if (!selected) return null;
+    const result = await movePropToFolder({ propId: selected.row.id, folderId });
+    if (!result.ok) return result.message;
+    router.refresh();
+    return null;
+  };
+
+  /** "New folder…" from a prop: make it, then move the prop into it. */
+  const moveToNew = async (name: string): Promise<string | null> => {
+    if (!selected) return null;
+    const made = await createFolder({ name });
+    if (!made.ok) return made.message;
+    try {
+      const moved = await movePropToFolder({ propId: selected.row.id, folderId: made.id });
+      // The folder exists now: on a failed move the FolderRow goes back to the select, where it can be picked again.
+      return moved.ok ? null : moved.message;
+    } finally {
+      router.refresh();
+    }
+  };
+
   const restore = async () => {
     if (!selected) return;
     const result = await setPropArchived({ id: selected.row.id, archived: false });
@@ -979,6 +1025,7 @@ export function PropsScreen({
                   query={query}
                   onQuery={setQuery}
                   searchRef={searchRef}
+                  onNewFolder={newFolder}
                 />
               )
             }
@@ -1004,6 +1051,18 @@ export function PropsScreen({
                 onRoutes={() => void openRoutes(selected.row.id)}
                 onArchive={() => setArchiveOpen(true)}
                 onRestore={() => void restore()}
+                folders={folders}
+                onMove={moveTo}
+                onMoveToNew={moveToNew}
+              />
+            ) : folders.length > 0 ? (
+              <FolderedPropsList
+                groups={groups}
+                selectedId={selectedId}
+                onSelect={selectProp}
+                emptyText={emptyText}
+                narrowed={narrowed}
+                onRenameFolder={renameAFolder}
               />
             ) : (
               <PropsList items={visible} selectedId={selectedId} onSelect={selectProp} emptyText={emptyText} />

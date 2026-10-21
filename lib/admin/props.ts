@@ -40,6 +40,8 @@ export type PropRow = {
   geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon | null;
   /** Oldest first. */
   visits: PropVisit[];
+  /** PP-1 (owner 2026-10-21): the prop's folder. Null or absent = "No folder". */
+  folderId?: string | null;
 };
 
 export type PropState =
@@ -289,4 +291,72 @@ export function latestLeadPerDoor(rows: LeadStatusRow[]): Map<number, LeadPin> {
   const pins = new Map<number, LeadPin>();
   for (const [uprn, row] of best) pins.set(uprn, leadPinOf(row.status));
   return pins;
+}
+
+// ---- folders (PP-1, owner 2026-10-21) -----------------------------------
+
+/** An admin-named folder of props (`prop_folders`). */
+export type PropFolder = { id: string; name: string };
+
+export const FOLDER_NAME_MAX = 60;
+
+/** One folder in the list: its props (already filtered and sorted) and its counts across ALL its props. */
+export type FolderGroup<T> = {
+  /** Null = "No folder". */
+  folder: PropFolder | null;
+  items: T[];
+  counts: { live: number; today: number; archived: number };
+};
+
+/**
+ * The Props list in folders: named folders A–Z, then "No folder". A prop whose
+ * folder is unknown (deleted, or not loaded) counts as "No folder". Counts are
+ * over every prop in the folder; `items` keeps only `visible`, in its order.
+ * A folder with nothing visible is left out while a filter or search is on,
+ * and "No folder" is left out when it holds no props at all.
+ */
+export function groupByFolder<T extends { row: PropRow; state: PropState }>(
+  all: T[],
+  visible: T[],
+  folders: PropFolder[],
+  narrowed: boolean,
+): FolderGroup<T>[] {
+  const known = new Map(folders.map((folder) => [folder.id, folder] as const));
+  const keyOf = (item: T): string => {
+    const id = item.row.folderId ?? null;
+    return id && known.has(id) ? id : "";
+  };
+  const groups = new Map<string, FolderGroup<T>>();
+  const sorted = folders.slice().sort((a, b) => a.name.localeCompare(b.name, "en-GB", { sensitivity: "base" }));
+  for (const folder of sorted) groups.set(folder.id, { folder, items: [], counts: { live: 0, today: 0, archived: 0 } });
+  groups.set("", { folder: null, items: [], counts: { live: 0, today: 0, archived: 0 } });
+  const total = new Map<string, number>();
+  for (const item of all) {
+    const key = keyOf(item);
+    const group = groups.get(key)!;
+    total.set(key, (total.get(key) ?? 0) + 1);
+    if (item.state.kind === "archived") group.counts.archived += 1;
+    else {
+      group.counts.live += 1;
+      if (item.state.kind === "today") group.counts.today += 1;
+    }
+  }
+  for (const item of visible) groups.get(keyOf(item))!.items.push(item);
+  return [...groups.entries()]
+    .filter(([key, group]) => (narrowed ? group.items.length > 0 : key !== "" || (total.get("") ?? 0) > 0))
+    .map(([, group]) => group);
+}
+
+/** "17 live · 2 out today · 11 archived" under a folder name. Counts only (no quality signals). */
+export function folderLine(counts: FolderGroup<unknown>["counts"]): string {
+  const parts = [`${counts.live.toLocaleString("en-GB")} live`];
+  if (counts.today > 0) parts.push(`${counts.today.toLocaleString("en-GB")} out today`);
+  if (counts.archived > 0) parts.push(`${counts.archived.toLocaleString("en-GB")} archived`);
+  return parts.join(" · ");
+}
+
+/** A folder name as it is saved: trimmed, inner spaces collapsed. Null when empty or too long. */
+export function cleanFolderName(raw: string): string | null {
+  const name = raw.trim().replace(/\s+/g, " ");
+  return name && name.length <= FOLDER_NAME_MAX ? name : null;
 }

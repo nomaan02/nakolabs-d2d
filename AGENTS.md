@@ -102,6 +102,14 @@ Terra Draw, Dexie, Vercel.
   sends no canvasser data and carries no `client_event_id`. Status words use
   the CRM colours: UTC yellow, Re-App purple, Blowout red, Booked (confirmed)
   blue.
+- Pending a result (owner 2026-10-21, PP-2): the Leads tab's Today view
+  lists the canvasser's OWN CRM leads put on in the last 14 days that are
+  still waiting for the sit: address and CRM status word only, read through
+  `my_crm_week`. No result yet, Uncontacted, UTC, Re-App and Booked are
+  pending until the appointment time, then they are call-backs; a blowout
+  stays pending until the canvasser taps "Seen it", then it is a call-back.
+  "Seen it" is kept on the phone only (localStorage), never written to the
+  database or the CRM. Rules in `lib/field/pending.ts`.
 - Call-back reason (owner 2026-10-11): `crm_leads.callback_reason` is a label
   worked out in `lib/crm/parse.ts` from status plus Result / Rep Result
   keywords. TITC, RITC, cancelled, not interested, changed mind, wrong number

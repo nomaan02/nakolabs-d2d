@@ -33,6 +33,7 @@ export default async function PropsPage({
     <PropsScreen
       today={londonDate()}
       rows={loaded.rows}
+      folders={loaded.folders}
       doorCounts={loadDoorCounts(supabase, loaded.rows)}
       initialPropId={params.prop ?? null}
     />

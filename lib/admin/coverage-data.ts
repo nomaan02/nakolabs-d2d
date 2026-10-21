@@ -16,6 +16,9 @@ import type { Database } from "@/lib/supabase/types";
  * read through `admin_latest_knocks` (F6d), narrowed in the database by
  * person, days and visits where a filter says so, then resolved per door in
  * `resolveDoors`. Coverage stays derived.
+ *
+ * PP-1 (owner 2026-10-21): `?folder=` limits doors, props and visits to the
+ * folder's props (`territories.folder_id`) before anything else sees them.
  */
 
 export type CoveragePerson = { id: string; name: string };
@@ -31,6 +34,8 @@ export type CoverageData =
       people: CoveragePerson[];
       /** `?prop=` names a prop that is not live (archived): its name, for the chip and the note. */
       missingProp: { id: string; name: string } | null;
+      /** PP-1: `?folder=`, with its name for the chip ("Unknown folder" if it is gone). */
+      folder: { id: string; name: string } | null;
     }
   | { ok: false; message: string; detail?: string; tooMany: boolean };
 
@@ -43,7 +48,7 @@ export async function loadCoverage(supabase: SupabaseClient<Database>, filters: 
   if (!map.ok) return { ok: false, message: "Coverage didn't load. Check your signal, then try again.", detail: map.detail, tooMany: false };
   try {
     const live = new Set(map.payload.props.map((prop) => prop.id));
-    const [assignments, people, missing] = await Promise.all([
+    const [assignments, people, missing, folderName, folderProps] = await Promise.all([
       // Every visit (archived props' too, so Calendar's links always resolve), paged past 1,000.
       readAll((from, to) =>
         supabase.from("assignments").select("id, territory_id, visit_number, slot").order("id", { ascending: true }).range(from, to),
@@ -52,16 +57,30 @@ export async function loadCoverage(supabase: SupabaseClient<Database>, filters: 
       filters.prop && !live.has(filters.prop)
         ? supabase.from("territories").select("id, name").eq("id", filters.prop).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
+      filters.folder
+        ? supabase.from("prop_folders").select("id, name").eq("id", filters.folder).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      filters.folder
+        ? supabase.from("territories").select("id").eq("folder_id", filters.folder)
+        : Promise.resolve({ data: null, error: null }),
     ]);
     if (people.error) throw new Error(people.error.message);
     if (missing.error) throw new Error(missing.error.message);
+    if (folderName.error) throw new Error(folderName.error.message);
+    if (folderProps.error) throw new Error(folderProps.error.message);
 
-    const visits: CoverageVisit[] = assignments.map((row) => ({
-      id: row.id,
-      propId: row.territory_id,
-      visitNumber: row.visit_number,
-      slot: asSlot(row.slot),
-    }));
+    // PP-1: inside a folder, only its props exist for this view.
+    const inFolder = filters.folder ? new Set((folderProps.data ?? []).map((row) => row.id)) : null;
+    const keep = (propId: string | null | undefined): boolean => !inFolder || (propId !== null && propId !== undefined && inFolder.has(propId));
+
+    const visits: CoverageVisit[] = assignments
+      .filter((row) => keep(row.territory_id))
+      .map((row) => ({
+        id: row.id,
+        propId: row.territory_id,
+        visitNumber: row.visit_number,
+        slot: asSlot(row.slot),
+      }));
     const scope = visitScope(visits, filters);
 
     let rows: CoverageRow[] = [];
@@ -100,15 +119,20 @@ export async function loadCoverage(supabase: SupabaseClient<Database>, filters: 
       .map((row) => ({ id: row.id, name: firstName(row.full_name) }))
       .sort((a, b) => a.name.localeCompare(b.name, "en-GB"));
 
+    const doors = inFolder
+      ? { ...map.payload.doors, features: map.payload.doors.features.filter((door) => keep(door.properties.territory_id)) }
+      : map.payload.doors;
+
     return {
       ok: true,
-      doors: map.payload.doors,
-      props: map.payload.props,
+      doors,
+      props: map.payload.props.filter((prop) => keep(prop.id)),
       visits,
       rows,
       people: list,
       // Archived: its name. Gone altogether (an old link): still shown, so the filter can be removed.
       missingProp: !filters.prop || live.has(filters.prop) ? null : { id: filters.prop, name: missing.data?.name ?? "Unknown prop" },
+      folder: filters.folder ? { id: filters.folder, name: folderName.data?.name ?? "Unknown folder" } : null,
     };
   } catch (caught) {
     return {

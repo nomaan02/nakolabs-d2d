@@ -2,7 +2,32 @@
 
 ## Current state
 
-- Last updated: 2026-10-20 (RT-START 1c). Branch `run/rt-start-1`, uncommitted. The owner commits after review. This session did not commit and did not push. No database access.
+- Last updated: 2026-10-21 (PP-2). Branch `run/pp`, uncommitted. The owner commits after review. This session did not commit and did not push. No database access.
+- PP-2: the Leads tab Today view lists "Pending a result · from the CRM" above leads logged in the app, for an account linked to the CRM. Rows are this canvasser's own CRM leads from the last 14 days, read through `my_crm_week`. No result yet, Uncontacted, UTC, Re-App and Booked stay pending until the appointment time. A blowout stays pending until "Seen it". Sale, P&M and a lead with no appointment time are never pending. "Seen it" is kept on this phone only. Call-backs leave pending rows out and add blowouts marked Seen it. The Today header can read "Today · 4 pending · 1 lead". The Today segment count is pending plus logged.
+- Files: new `lib/field/pending.ts` (111), new `lib/field/pending-data.ts` (149), new `components/field/crm/pending-pane.tsx` (78), `components/field/crm/callbacks-pane.tsx` (294), `components/field/leads-tab.tsx` (245), new `scripts/verify-pp2.ts` (57), `package.json` (`verify:pp2`), `AGENTS.md` (159).
+- `npx tsc --noEmit` exit 0. `npx eslint` on the six TypeScript files exit 0. `npm run verify:pp2` exit 0, last line `ALL PASS`. `npm run verify:crm` exit 0, last line `ALL PASS`.
+- No database access. No migration. No row. No `client_event_id`. `lib/sync/queue.ts` was not edited. Seen it is localStorage only. No GPS coordinate is sent. The admin does not ask for the device location. No resident names on the pending list.
+- Not verified here: a phone or a browser. The batch phone check is listed at the end of 04-pp-2.
+- Last updated before this: 2026-10-21 (PP-1C). Branch `run/pp`, uncommitted. The owner commits after review. This session did not commit and did not push. No database access.
+- PP-1C: Coverage opened with `?folder=` shows that folder's props only. The map outlines those props. The Visit chip lists their visit numbers. Worked, Contacts, Leads and Not knocked are the folder's figures. A dark chip with the folder name and ✕ sits first in the chip row. ✕ removes the folder and goes back to the last 30 days, unless days were picked. The sheet title is the prop name, else the folder name, else "Coverage". A folder that is gone shows "Unknown folder". A folder opens on all time. `npm run verify:pp1` checks folder grouping and this filter.
+- Files: `lib/admin/coverage-filters.ts` (385), `lib/admin/coverage-data.ts` (148), `app/(admin)/admin/coverage/page.tsx` (63), `components/admin/coverage/coverage-screen.tsx` (863), `package.json` (`verify:pp1`), new `scripts/verify-pp1.ts` (75).
+- `npx tsc --noEmit` exit 0. `npx eslint` on the five TypeScript files exit 0. `npm run verify:pp1` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`.
+- No database access. No migration. No row. No `client_event_id`. `lib/sync/queue.ts` was not edited. The admin does not ask for the device location. No GPS coordinate is sent.
+- Not verified here: a phone or a browser. The batch phone check is listed at the end of 04-pp-2.
+- Last updated before this: 2026-10-21 (PP-1B). Branch `run/pp`, uncommitted. The owner commits after review. This session did not commit and did not push. No database access.
+- PP-1B: the Props list groups props into folders an admin names. Named folders are A–Z, then "No folder" when it holds props. No folders at all keeps the flat list. Each folder opens and closes and shows counts only (live, out today, archived). A named folder has Open on map and a rename control. New folder sits beside Draw prop. Prop detail has a Folder select: pick to move, No folder to move out, New folder… to make one and move the prop in. There is no delete.
+- Files: `lib/admin/props.ts` (362), `lib/admin/props-data.ts` (104), `lib/admin/nav.ts` (150), new `lib/props/folders.ts` (89), `app/(admin)/admin/props/page.tsx` (41), `components/admin/props/props-list.tsx` (356), `components/admin/props/props-screen.tsx` (1179), `components/admin/props/prop-detail.tsx` (605).
+- `npx tsc --noEmit` exit 0. `npx eslint` on the eight files exit 0. `npm run verify:ui10` exit 0, last line `ALL PASS`.
+- No database access. No migration. No row. No `client_event_id`. `lib/sync/queue.ts` was not edited. Folder writes are server actions on the admin's own session. No GPS coordinate is sent.
+- Not verified here: a phone or a browser. The batch phone check is listed at the end of 04-pp-2.
+- Last updated before this: 2026-10-21 (PP-1A). Branch `run/pp`, uncommitted. The owner commits after review. This session did not commit and did not push. The migration was not run from here.
+- PP-1A: the prop-folders migration is in the repo. `prop_folders` holds a name the admin chooses. `territories.folder_id` points at that folder, or is null ("No folder"). There is no delete policy. The live database already has this (owner, SQL editor, 21 Oct).
+- Files: new `supabase/migrations/045_prop_folders.sql` (44), `lib/supabase/types.ts` (2988).
+- `npx tsc --noEmit` exit 0. `npx eslint lib/supabase/types.ts` exit 0. Types md5 with CR removed: `aa665a0d4e5aa16dc7d112717488068c`.
+- No database write from this session. No row. No `client_event_id`. `lib/sync/queue.ts` was not edited.
+- Not verified here: a phone or a browser. The batch phone check is listed at the end of 04-pp-2. RLS was not queried again from here.
+- supabase-d2d `generate_typescript_types` could not be called (MCP not signed in; access token rejected). The types file matches the expected hash.
+- Last updated before this: 2026-10-20 (RT-START 1c). Branch `run/rt-start-1`, uncommitted. The owner commits after review. This session did not commit and did not push. No database access.
 - RT-START 1c: /field can change the visit's saved route before the first knock. A strip under the Logger header shows the route and Change. The sheet lists saved routes, nearest start first, with the distance worked out on the phone. Offline, the sheet says it needs signal and Use stays disabled. A teammate's change reloads the visit and shows a notice until OK. The Logger starts again at the new first door, unless this phone already has logs of its own.
 - Files: new `components/field/route-change.tsx` (346), `components/field/field-data-provider.tsx` (497), `components/field/logger-tab.tsx` (1008).
 - `npx tsc --noEmit` exit 0. `npx eslint` on the three files exit 0. `npm run verify:rt-start` exit 0, last line `ALL PASS`. `npm run verify:gl` exit 0, last line `All GL geo-lock checks passed.` `npm run verify:ui8` exit 0, last line `ALL PASS`. `npm run verify:ui7` exit 0, last line `All UI-7 geo checks passed.` `npm run verify:ui1` exit 0, last line `OK`.
@@ -3984,3 +4009,116 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. A phone. The nine phone-check steps. Viewports not opened: 390x763, 375x667, 430x850. Light and dark not opened.
 - **External settings:** none
 - **Open questions for Claude:** none from this session. The owner runs the nine phone-check steps after migration 043, with a prop dated today and no knocks.
+
+### 2026-10-21 — PP-1A (uncommitted)
+
+- **Item:** other
+- **What changed:** Props can sit in a folder an admin names. The migration file adds `prop_folders` and a nullable `territories.folder_id`. Any signed-in role can read a folder. Only an admin can create or rename one. Delete is parked, so there is no delete policy. Archived props stay in their folder. Types now include the table, the column and `territories_folder_id_fkey`.
+- **Files:**
+  - Changed: `lib/supabase/types.ts` (2988), `docs/FIELD-TEST-BUILD-PLAN.md` (PP-1A row after RT-START 1c), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `supabase/migrations/045_prop_folders.sql` (44), `.handoff/reports/pp-1a.md`
+  - Deleted: none
+- **Database:** migration 045 file only. Already applied by the owner in the SQL editor on 2026-10-21. Not applied from this session. Adds `prop_folders` and `territories.folder_id` (on delete set null, indexed). No row written from here. 045b ("Test props", 28 props) is not a repo file.
+- **Shared modules touched:** `lib/supabase/types.ts` (PostgrestVersion 14.17, `prop_folders`, `territories.folder_id`, `territories_folder_id_fkey`). `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/field/*` were not edited.
+- **Decided by:**
+  - OWNER — 2026-10-21 PP scope: pre-pitch polish for Wayne (Thu 22 Oct, 08:00). Small and safe beats complete. PP-1 matters most.
+  - OWNER — 2026-10-21 PP-1: props go in folders the admin names. All current props go in a folder called "Test props" (done in the SQL editor, 045b). Each folder has a button that opens the map with all its props outlined, with the visit-by-visit filter and an overall view of what has been hit. Archived props stay inside their folder. Folder delete is parked.
+  - OWNER — 2026-10-21 PP-2: Today on the Leads tab also pulls from the CRM. "Pending a result" means own leads put on in the last 14 days, not yet sat: no result yet, Uncontacted, UTC, Re-App and Booked show until the appointment time, then move to Call-backs. A blowout still shows, with "Seen it"; after Seen it, it goes to Call-backs. "Seen it" is saved on this phone only tonight.
+  - OWNER — 2026-10-21 Approve: plan approved (sessions pp-1a, pp-1b, pp-1c, pp-2).
+  - CLAUDE — M1: `prop_folders` (id, name 1–60 chars, unique ignoring case and outer spaces, created_by default auth.uid(), created_at). RLS: any signed-in role reads; admin inserts and updates; no delete policy.
+  - CLAUDE — M2: `territories.folder_id` nullable, references `prop_folders(id)` on delete set null, indexed. Null means "No folder". Existing `territories_update_admin` covers moving a prop.
+  - CLAUDE — M3: one folder "Test props" holding all 28 props (045b, SQL editor, not a repo file).
+- **Deviations from plan or brief:** The migration text was pasted exactly and was not run. `044_start_route.sql` is absent. 045 is LF, matching 043. `generate_typescript_types` could not be called: supabase-d2d needs a desktop sign-in, and the Management API returned 401 Invalid access token. That request was not repeated. The types file matches the expected md5, and `git diff` is only the changes named in the prompt.
+- **Invariants:** No GPS coordinate is stored or sent. No field write was added. `lib/sync/queue.ts` was not edited. Coverage stays derived. No scoring was added in `/field`. No knock was written. No `client_event_id`. No database row from this session.
+- **Verified:** 044 is not in `supabase/migrations/` (newest file before this was 043). 045 is 44 lines, LF, no BOM. Each line of the pasted SQL is in the file. `lib/supabase/types.ts` is CRLF, no BOM, one final CRLF. With CR removed, md5 is `aa665a0d4e5aa16dc7d112717488068c`. `git diff --stat` is `1 file changed, 32 insertions(+), 1 deletion(-)`, and every hunk is one of the named changes. `npx tsc --noEmit` exit 0. `npx eslint lib/supabase/types.ts` exit 0.
+- **Not verified:** A browser. A phone. None for this session. The batch phone check is listed at the end of 04-pp-2. RLS was not queried with a JWT from here. The migration was not applied from here.
+- **External settings:** none. The owner had already run 045 and 045b in the SQL editor before this session.
+- **Open questions for Claude:** supabase-d2d is not signed in for a headless session, and `SUPABASE_ACCESS_TOKEN` in this environment is rejected (401). A later session that must call the MCP needs a desktop sign-in or a valid token.
+
+### 2026-10-21 — PP-1B (uncommitted)
+
+- **Item:** other
+- **What changed:** The admin Props list groups props into folders the admin names. Named folders are A–Z, then "No folder" when it holds props. No folders at all keeps the flat list. Each folder opens and closes and shows counts only. A named folder can be opened on the map and renamed. New folder sits beside Draw prop. A prop can be moved into a folder, out to No folder, or into a new folder made from its detail. There is no delete.
+- **Files:**
+  - Changed: `lib/admin/props.ts` (362), `lib/admin/props-data.ts` (104), `lib/admin/nav.ts` (150), `app/(admin)/admin/props/page.tsx` (41), `components/admin/props/props-list.tsx` (356), `components/admin/props/props-screen.tsx` (1179), `components/admin/props/prop-detail.tsx` (605), `docs/FIELD-TEST-BUILD-PLAN.md` (PP-1B row after PP-1A), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `lib/props/folders.ts` (89), `.handoff/reports/pp-1b.md`
+  - Deleted: none
+- **Database:** none. Migration 045 was already applied by the owner. No row written from here.
+- **Shared modules touched:** none. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited. New `lib/props/folders.ts` writes with the admin's own session.
+- **Decided by:**
+  - OWNER — 2026-10-21 PP scope: pre-pitch polish for Wayne (Thu 22 Oct, 08:00). Small and safe beats complete. PP-1 matters most.
+  - OWNER — 2026-10-21 PP-1: props go in folders the admin names. All current props go in a folder called "Test props" (done in the SQL editor, 045b). Each folder has a button that opens the map with all its props outlined, with the visit-by-visit filter and an overall view of what has been hit. Archived props stay inside their folder. Folder delete is parked.
+  - OWNER — 2026-10-21 PP-2: Today on the Leads tab also pulls from the CRM. "Pending a result" means own leads put on in the last 14 days, not yet sat: no result yet, Uncontacted, UTC, Re-App and Booked show until the appointment time, then move to Call-backs. A blowout still shows, with "Seen it"; after Seen it, it goes to Call-backs. "Seen it" is saved on this phone only tonight.
+  - OWNER — 2026-10-21 Approve: plan approved (sessions pp-1a, pp-1b, pp-1c, pp-2).
+  - CLAUDE — F1: folders are rows of `prop_folders` (migration 045, already run). A prop's folder is `territories.folder_id`. Null means "No folder".
+  - CLAUDE — F2: named folders A–Z, then "No folder" only when it holds props. Each header opens and closes and shows counts only. No quality signals.
+  - CLAUDE — F3: Open on map goes to `/admin/coverage?folder=<id>` (pp-1c). Rename is inline. Enter or leaving the field saves. Escape cancels.
+  - CLAUDE — F4: New folder sits beside Draw prop. Names are trimmed, 1–60 characters, unique ignoring case.
+  - CLAUDE — F5: the Folder select saves a move straight away. "No folder" moves the prop out. "New folder…" makes the folder and moves the prop into it.
+  - CLAUDE — F6: a search or filter opens every folder with a match and hides the rest. Counts stay whole.
+  - CLAUDE — F7: no folders at all keeps the flat list.
+  - CLAUDE — F8: writes are server actions in `lib/props/folders.ts` on the admin's own session. No delete.
+  - CLAUDE — F9: `PropRow.folderId` is optional. `loadPropRows` also returns `folders`. Add visit ignores them.
+- **Deviations from plan or brief:** none. The given code was pasted exactly. `props-screen.tsx` stayed LF. The other edited files stayed CRLF. New `lib/props/folders.ts` is CRLF.
+- **Invariants:** No GPS coordinate is stored or sent. The admin does not ask for the device location. No field write was added. `lib/sync/queue.ts` was not edited. Coverage stays derived. No scoring was added in `/field`. Folder counts are live, out today and archived only. No knock was written. No `client_event_id`. No database row from this session. No resident names.
+- **Verified:** Each find block occurred once (every replacement succeeded). `lib/props/folders.ts` did not exist before this session. `prop_folders` and `territories.folder_id` were already in `lib/supabase/types.ts`. `npx tsc --noEmit` exit 0. `npx eslint` on the eight files exit 0. `npm run verify:ui10` exit 0, last line `ALL PASS`.
+- **Not verified:** A browser. A phone. Viewports not opened: 375, 390, 430, 1440. Light and dark not opened. The batch phone check is listed at the end of 04-pp-2.
+- **External settings:** none
+- **Open questions for Claude:** none from this session. Open on map already links to Coverage with `?folder=`. Coverage itself is pp-1c.
+
+### 2026-10-21 — PP-1C (uncommitted)
+
+- **Item:** other
+- **What changed:** Coverage opened with `?folder=` shows that folder's props only. The map outlines those props. The Visit chip lists their visit numbers. Worked, Contacts, Leads and Not knocked are the folder's figures. A dark chip with the folder name and ✕ sits first. ✕ removes the folder (last 30 days, unless days were picked). The sheet title is the prop name, else the folder name, else "Coverage". A missing folder shows "Unknown folder". A folder opens on all time. `npm run verify:pp1` checks folder grouping and the folder filter.
+- **Files:**
+  - Changed: `lib/admin/coverage-filters.ts` (385), `lib/admin/coverage-data.ts` (148), `app/(admin)/admin/coverage/page.tsx` (63), `components/admin/coverage/coverage-screen.tsx` (863), `package.json` (`verify:pp1`), `docs/FIELD-TEST-BUILD-PLAN.md` (PP-1C row after PP-1B), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `scripts/verify-pp1.ts` (75), `.handoff/reports/pp-1c.md`
+  - Deleted: none
+- **Database:** none. No row written from here.
+- **Shared modules touched:** none. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*`, `lib/field/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - OWNER — 2026-10-21 PP scope: pre-pitch polish for Wayne (Thu 22 Oct, 08:00). Small and safe beats complete. PP-1 matters most.
+  - OWNER — 2026-10-21 PP-1: props go in folders the admin names. All current props go in a folder called "Test props" (done in the SQL editor, 045b). Each folder has a button that opens the map with all its props outlined, with the visit-by-visit filter and an overall view of what has been hit. Archived props stay inside their folder. Folder delete is parked.
+  - OWNER — 2026-10-21 PP-2: Today on the Leads tab also pulls from the CRM. "Pending a result" means own leads put on in the last 14 days, not yet sat: no result yet, Uncontacted, UTC, Re-App and Booked show until the appointment time, then move to Call-backs. A blowout still shows, with "Seen it"; after Seen it, it goes to Call-backs. "Seen it" is saved on this phone only tonight.
+  - OWNER — 2026-10-21 Approve: plan approved (sessions pp-1a, pp-1b, pp-1c, pp-2).
+  - CLAUDE — C1: `?folder=<uuid>` is a Coverage filter like `?prop=`. Every chip keeps it in the URL. It counts in "n filters". Clear removes it. It opens on all time, like one prop.
+  - CLAUDE — C2: `loadCoverage` limits doors, props and visits to the folder's props (`territories.folder_id`) before anything else sees them. The map outlines those props. The Visit chip lists their visit numbers. Worked, Contacts, Leads and Not knocked are the folder's figures.
+  - CLAUDE — C3: with a folder the visit scope is never null, so knocks on other props never reach the browser.
+  - CLAUDE — C4: a dark chip with the folder name and ✕ sits first in the chip row. ✕ removes the folder (back to the last 30 days unless days were picked). The sheet title shows the prop name, else the folder name, else "Coverage".
+  - CLAUDE — C5: a folder that no longer exists shows "Unknown folder", so the filter can still be removed.
+  - CLAUDE — C6: `scripts/verify-pp1.ts` (new, `npm run verify:pp1`) checks folder grouping and the folder filter. Pure. No network.
+- **Deviations from plan or brief:** none. The given code was pasted exactly. `package.json` stayed LF. The other edited sources stayed CRLF. New `scripts/verify-pp1.ts` is CRLF.
+- **Invariants:** No GPS coordinate is stored or sent. The admin does not ask for the device location. No field write was added. `lib/sync/queue.ts` was not edited. Coverage stays derived from knocks. No scoring was added in `/field`. No knock was written. No `client_event_id`. No database row from this session. No resident names.
+- **Verified:** `groupByFolder`, `folderLine` and `cleanFolderName` were already in `lib/admin/props.ts`. `prop_folders` and `territories.folder_id` were already in `lib/supabase/types.ts`. Each find block occurred once (every replacement succeeded). `scripts/verify-pp1.ts` did not exist before this session. `npx tsc --noEmit` exit 0. `npx eslint` on the five TypeScript files exit 0. `npm run verify:pp1` exit 0, last line `ALL PASS`. `npm run verify:ui10` exit 0, last line `ALL PASS`.
+- **Not verified:** A browser. A phone. Viewports not opened: 375, 390, 430, 1440. Light and dark not opened. Not timed at 2,000 doors. The batch phone check is listed at the end of 04-pp-2.
+- **External settings:** none
+- **Open questions for Claude:** none from this session.
+
+### 2026-10-21 — PP-2 (uncommitted)
+
+- **Item:** other
+- **What changed:** The Leads tab Today view shows "Pending a result · from the CRM" above leads logged in the app, when the account is linked to the CRM. The rows are this canvasser's own CRM leads from the last 14 days. No result yet, Uncontacted, UTC, Re-App and Booked stay until the appointment time, then they are call-backs. A blowout stays until "Seen it", kept on this phone only, then it is a call-back. Sale, P&M and a lead with no appointment time are never pending. Call-backs leave pending rows out and add seen blowouts. The Today count is pending plus logged.
+- **Files:**
+  - Changed: `components/field/crm/callbacks-pane.tsx` (294), `components/field/leads-tab.tsx` (245), `package.json` (73, `verify:pp2`), `AGENTS.md` (159), `docs/FIELD-TEST-BUILD-PLAN.md` (PP-2 row after PP-1C), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `lib/field/pending.ts` (111), `lib/field/pending-data.ts` (149), `components/field/crm/pending-pane.tsx` (78), `scripts/verify-pp2.ts` (57), `.handoff/reports/pp-2.md`
+  - Deleted: none
+- **Database:** none. No row written from here.
+- **Shared modules touched:** new `lib/field/pending.ts` (pure pending rules) and new `lib/field/pending-data.ts` (reads `my_crm_week` through `fetchWeek`, reads own `crm_callbacks` for seen blowouts, localStorage for Seen it). `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - OWNER — 2026-10-21 PP scope: pre-pitch polish for Wayne (Thu 22 Oct, 08:00). Small and safe beats complete. PP-1 matters most.
+  - OWNER — 2026-10-21 PP-1: props go in folders the admin names. All current props go in a folder called "Test props" (done in the SQL editor, 045b). Each folder has a button that opens the map with all its props outlined, with the visit-by-visit filter and an overall view of what has been hit. Archived props stay inside their folder. Folder delete is parked.
+  - OWNER — 2026-10-21 PP-2: Today on the Leads tab also pulls from the CRM. "Pending a result" means own leads put on in the last 14 days, not yet sat: no result yet, Uncontacted, UTC, Re-App and Booked show until the appointment time, then move to Call-backs. A blowout still shows, with "Seen it"; after Seen it, it goes to Call-backs. "Seen it" is saved on this phone only tonight.
+  - OWNER — 2026-10-21 Approve: plan approved (sessions pp-1a, pp-1b, pp-1c, pp-2).
+  - CLAUDE — P1: "Pending a result · from the CRM" sits at the top of the Leads tab Today view, above the leads logged in the app. It only shows for an account linked to the CRM.
+  - CLAUDE — P2: rows come from `my_crm_week` over the last 14 days. Own leads only. RLS and the RPC decide. No direct `crm_leads` read. Each row shows the CRM address line (or the door label), the CRM status word on its colour, and the appointment line. No names, numbers or notes here.
+  - CLAUDE — P3: no result yet, Uncontacted, UTC, Re-App and Booked are pending while the appointment is ahead, then they are call-backs. A blowout is pending, whatever the time, until Seen it. Sale, P&M and leads with no appointment time are never pending. Blowouts first, then the soonest appointment.
+  - CLAUDE — P4: Seen it is stored in localStorage on this phone (`d2d.crm.seenBlowouts:<canvasser id>`). The design bullet says kept 30 days. The pasted code keeps 90 days (`SEEN_KEEP_DAYS`). No database write, no offline-queue op, nothing sent to the CRM.
+  - CLAUDE — P5: call-backs leave out rows that are still pending. Blowouts marked Seen it are added, with this canvasser's own latest call result from `crm_callbacks`, inside the chosen 7/30/90-day window. Logging a result still uses the existing `crm_callback` op.
+  - CLAUDE — P6: the header can read "Today · 4 pending · 1 lead". The Today segment count is pending plus logged.
+  - CLAUDE — P7: AGENTS.md has the PP-2 rule next to the CRM-7 one.
+- **Deviations from plan or brief:** none in the paste. The given code was pasted exactly. Design bullet P4 says Seen it is kept 30 days. The pasted `SEEN_KEEP_DAYS` is 90. That difference is in the brief. It was not changed. Existing line endings were kept. `package.json` stayed LF. The other edited sources stayed CRLF. The four new files are CRLF.
+- **Invariants:** No GPS coordinate is stored or sent. The admin does not ask for the device location. No `navigator.geolocation` call was added. `lib/sync/queue.ts` was not edited. Seen it is localStorage only, not a field write. A call result on a seen blowout still goes through the existing `crm_callback` op. Coverage stays derived. No new scoring was added in `/field`. The pending list shows an address and the CRM status word only, the existing own-leads exception. No knock was written. No `client_event_id`. No database row from this session. No resident names on the pending list.
+- **Verified:** Each new file matches the brief block line for line. Each find block occurred once (the old text is gone, the new text is present once). The four new files did not exist before this session. `npx tsc --noEmit` exit 0. `npx eslint` on the six TypeScript files exit 0. `npm run verify:pp2` exit 0, last line `ALL PASS`. `npm run verify:crm` exit 0, last line `ALL PASS`.
+- **Not verified:** A browser. A phone. Viewports not opened: 390×763, 375×667, 430×850. Light and dark not opened. The ten phone-check steps at the end of 04-pp-2.
+- **External settings:** none
+- **Open questions for Claude:** Design bullet P4 says Seen it is kept 30 days. The pasted code keeps it 90 days, the longest Call-backs window. Left as pasted. The Seen it button is the outline button in the brief. It was not restyled.

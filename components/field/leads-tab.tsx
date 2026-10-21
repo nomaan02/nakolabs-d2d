@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { CallbacksPane } from "@/components/field/crm/callbacks-pane";
+import { PendingPane } from "@/components/field/crm/pending-pane";
 import { Segmented } from "@/components/field/crm/segmented";
 import { WeekPane } from "@/components/field/crm/week-pane";
 import { useFieldData } from "@/components/field/field-data-provider";
@@ -13,6 +14,7 @@ import { doorPlate, mapLabel } from "@/lib/field/labels";
 import { leadsFromOutcomes } from "@/lib/field/local-outcomes";
 import { isSameLondonDay } from "@/lib/field/london-date";
 import { LEADS_VIEW_KEY, onLeadsViewRequest, parseLeadsView, type LeadsView } from "@/lib/field/nav";
+import { todaySubtitle } from "@/lib/field/pending";
 
 /**
  * Leads tab. Three views (CRM-5 C, Figma F1; This week added by CRM-7):
@@ -20,6 +22,9 @@ import { LEADS_VIEW_KEY, onLeadsViewRequest, parseLeadsView, type LeadsView } fr
  * - Today: read-only, this canvasser, today, in the order they were taken.
  *   Never aggregated by street or by prop (a per-street count is a quality
  *   signal — invariant 2). Nothing here writes: settlement is the office's.
+ *   PP-2 (owner 2026-10-21): above them, "Pending a result" — this
+ *   canvasser's OWN CRM leads still waiting for the sit
+ *   (components/field/crm/pending-pane.tsx).
  * - Call-backs (AGENTS.md P4b exception, owner 2026-10-11): this
  *   canvasser's OWN CRM leads to ring back, with the result logged through
  *   the offline queue. See components/field/crm/callbacks-pane.tsx.
@@ -69,6 +74,7 @@ export function LeadsScreen({
   const [view, setView] = useState<View>("today");
   const [toCall, setToCall] = useState<number | null>(null);
   const [weekCount, setWeekCount] = useState<number | null>(null);
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
 
   useEffect(() => {
     try {
@@ -91,8 +97,10 @@ export function LeadsScreen({
 
   const onCount = useCallback((n: number | null) => setToCall(n), []);
   const onWeekCount = useCallback((n: number | null) => setWeekCount(n), []);
+  const onPendingCount = useCallback((n: number | null) => setPendingCount(n), []);
   const linked = me.kind === "ready" && me.data.name !== null;
-  const todayCount = phase.kind === "ready" ? leads.length : null;
+  const loggedCount = phase.kind === "ready" ? leads.length : null;
+  const todayCount = loggedCount === null && pendingCount === null ? null : (loggedCount ?? 0) + (pendingCount ?? 0);
   // FUI-3 (owner 2026-10-15, Figma L1/L3): the header says what the view holds.
   const subtitle =
     view === "callbacks"
@@ -105,11 +113,7 @@ export function LeadsScreen({
           : weekCount === 0
             ? "This week · no leads yet"
             : `This week · ${weekCount === 1 ? "1 lead" : `${weekCount} leads`}`
-      : todayCount === null
-        ? undefined
-        : todayCount === 0
-          ? "Today · no leads yet"
-          : `Today · ${todayCount === 1 ? "1 lead" : `${todayCount} leads`}`;
+      : todaySubtitle(pendingCount, loggedCount);
 
   // FUI-1b (owner 2026-10-14, O3): the title and the view switch sit in the
   // fixed header; only the list scrolls.
@@ -152,7 +156,10 @@ export function LeadsScreen({
           </p>
         )
       ) : (
-        <TodayPane phase={phase} leads={leads} labelFor={labelFor} />
+        <>
+          {linked && canvasserId ? <PendingPane canvasserId={canvasserId} onCount={onPendingCount} /> : null}
+          <TodayPane phase={phase} leads={leads} labelFor={labelFor} />
+        </>
       )}
     </FieldPage>
   );

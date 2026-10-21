@@ -132,6 +132,11 @@ export function coverageHref(propId: string): string {
   return `/admin/coverage?prop=${encodeURIComponent(propId)}`;
 }
 
+/** PP-1 (owner 2026-10-21): a folder's "Open on map" — Coverage limited to that folder's props. */
+export function coverageFolderHref(folderId: string): string {
+  return `/admin/coverage?folder=${encodeURIComponent(folderId)}`;
+}
+
 /**
  * A28, A51 (owner 2026-10-08: "an option for light mode" in admin now, not
  * only in Settings in F5). The one Light / Dark / System choice shared with

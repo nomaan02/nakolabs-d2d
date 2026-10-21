@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -878,6 +878,27 @@ export type Database = {
         }
         Relationships: []
       }
+      prop_folders: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       properties: {
         Row: {
           created_at: string
@@ -1188,6 +1209,7 @@ export type Database = {
           archived_at: string | null
           created_at: string
           created_by: string | null
+          folder_id: string | null
           geom: unknown
           id: string
           last_visited_at: string | null
@@ -1199,6 +1221,7 @@ export type Database = {
           archived_at?: string | null
           created_at?: string
           created_by?: string | null
+          folder_id?: string | null
           geom: unknown
           id?: string
           last_visited_at?: string | null
@@ -1210,6 +1233,7 @@ export type Database = {
           archived_at?: string | null
           created_at?: string
           created_by?: string | null
+          folder_id?: string | null
           geom?: unknown
           id?: string
           last_visited_at?: string | null
@@ -1223,6 +1247,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "territories_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "prop_folders"
             referencedColumns: ["id"]
           },
         ]

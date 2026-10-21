@@ -52,6 +52,7 @@ import {
   slotChip,
   visitChip,
   whoChip,
+  withoutFolder,
   withoutProp,
   OUTCOME_FILTERS,
   type CoverageFilters,
@@ -152,6 +153,7 @@ export function CoverageScreen({
   worked,
   people,
   missingProp,
+  folder = null,
   crmView,
 }: {
   today: string;
@@ -164,6 +166,8 @@ export function CoverageScreen({
   people: CoveragePerson[];
   /** `?prop=` is a prop that is not live (archived). */
   missingProp: { id: string; name: string } | null;
+  /** PP-1 (owner 2026-10-21): `?folder=` — doors, props and visits are already limited to it. */
+  folder?: { id: string; name: string } | null;
   /** CRM-2 D: the CRM layer from `?crm=` (admin only). CRM-6 C: it follows the Days chip, by CRM date booked. */
   crmView: CrmView;
 }) {
@@ -390,13 +394,19 @@ export function CoverageScreen({
   }, [map, door, crmDoorId, crmByDoor]);
 
   // Frame the picked prop (or every prop) once per prop, never on a filter change within it.
+  // PP-1: a folder counts as a pick too, so "Open on map" always lands on the folder's props.
   const framedFor = useRef<string | null | undefined>(undefined);
+  const frameKey = filters.prop ? `prop:${filters.prop}` : filters.folder ? `folder:${filters.folder}` : null;
   useEffect(() => {
-    if (!map || framedFor.current === filters.prop) return;
+    if (!map || framedFor.current === frameKey) return;
     const first = framedFor.current === undefined;
-    framedFor.current = filters.prop;
+    framedFor.current = frameKey;
     if (prop) {
       fitBox(boxOf([prop.geometry]));
+      return;
+    }
+    if (filters.folder) {
+      fitBox(boxOf(props.map((item) => item.geometry)));
       return;
     }
     let remembered = false;
@@ -406,7 +416,7 @@ export function CoverageScreen({
       remembered = false;
     }
     if (!first || !remembered) fitBox(boxOf(props.map((item) => item.geometry)));
-  }, [map, prop, props, filters.prop, fitBox]);
+  }, [map, prop, props, frameKey, filters.folder, fitBox]);
 
   // A door that is no longer on the map closes its popup.
   useEffect(() => {
@@ -487,7 +497,7 @@ export function CoverageScreen({
     <div className="px-5 pt-1 pb-3">
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-admin-headline">{propName ?? "Coverage"}</h2>
+          <h2 className="truncate text-admin-headline">{propName ?? folder?.name ?? "Coverage"}</h2>
           {scope ? <p className="truncate text-admin-subhead text-ink-muted tabular-nums">{scope}</p> : null}
           {missingProp ? (
             <p className="text-admin-subhead text-ink-muted">This prop is archived, so its doors are not on the map.</p>
@@ -559,6 +569,18 @@ export function CoverageScreen({
           </div>
         </div>
         <div className="flex gap-2 overflow-x-auto px-3 pb-2 [scrollbar-width:none]">
+          {folder ? (
+            <button
+              type="button"
+              onClick={() => go(withoutFolder(filters, today))}
+              aria-label={`Remove the ${folder.name} folder filter`}
+              data-testid="coverage-folder-chip"
+              className="inline-flex h-11 max-w-56 shrink-0 items-center gap-1.5 rounded-full bg-ink pr-3 pl-4 text-admin-pill text-paper shadow-admin-float focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-prop"
+            >
+              <span className="truncate">{folder.name}</span>
+              <CloseIcon className="size-4 shrink-0" />
+            </button>
+          ) : null}
           {propName ? (
             <button
               type="button"

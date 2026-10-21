@@ -21,6 +21,8 @@ import {
   type CallbackWindow,
 } from "@/lib/field/crm";
 import { fetchCallbacks, logCallResult, useLoad, useLocalCalls } from "@/lib/field/crm-data";
+import { isPending, seenBlowouts } from "@/lib/field/pending";
+import { asCallbackRows, fetchPendingWindow, useMinuteClock, useSeenBlowouts } from "@/lib/field/pending-data";
 import type { CallResult } from "@/lib/sync/ops";
 
 const WINDOW_KEY = "d2d.crm.callbackWindow";
@@ -41,6 +43,10 @@ function readWindow(): CallbackWindow {
  * CRM-6 B, Figma F1b (owner 2026-10-13): each row shows the CRM address with
  * the full postcode; tapping the name opens the CRM status and notes
  * (Result, Product interest, Best time to call, Description) under the row.
+ *
+ * PP-2 (owner 2026-10-21): a lead still pending (before its appointment
+ * time, or a blowout not yet marked "Seen it") is on Today's Pending list,
+ * not here. A blowout marked "Seen it" on this phone joins this list.
  */
 export function CallbacksPane({ canvasserId, linked, onCount }: { canvasserId: string; linked: boolean; onCount: (n: number | null) => void }) {
   const [days, setDays] = useState<CallbackWindow>(30);
@@ -51,10 +57,23 @@ export function CallbacksPane({ canvasserId, linked, onCount }: { canvasserId: s
 
   const load = useLoad(linked ? `callbacks:${days}` : null, () => fetchCallbacks(days));
   const local = useLocalCalls(canvasserId);
-  const sections = useMemo(
-    () => (load.kind === "ready" ? sectionCallbacks(load.data, local, new Date()) : null),
-    [load, local],
+  const { seen } = useSeenBlowouts(canvasserId);
+  const seenKey = [...seen].sort().join(",");
+  // PP-2: blowouts seen on this phone (the CRM gives many no call-back reason, so my_crm_callbacks leaves them out).
+  const extra = useLoad(linked && seen.size > 0 ? `callbacks-seen:${days}:${seenKey}` : null, async () =>
+    asCallbackRows(seenBlowouts(await fetchPendingWindow(days), seen, new Set()), canvasserId),
   );
+  const extraRows = seen.size > 0 && extra.kind === "ready" ? extra.data : null;
+  // PP-2: once a minute, so a lead whose appointment passes while this is open joins the list.
+  const now = useMinuteClock();
+  const ready = load.kind === "ready" ? load.data : null;
+  const sections = useMemo(() => {
+    if (!ready) return null;
+    const listed = new Set(ready.map((row) => row.crm_id));
+    const added = (extraRows ?? []).filter((row) => !listed.has(row.crm_id));
+    const rows = [...ready, ...added].filter((row) => !isPending(row, seen, now));
+    return sectionCallbacks(rows, local, now);
+  }, [ready, local, seen, extraRows, now]);
 
   useEffect(() => onCount(sections ? sections.toCall.length : null), [sections, onCount]);
 

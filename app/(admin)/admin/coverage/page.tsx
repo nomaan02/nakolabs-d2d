@@ -56,6 +56,7 @@ export default async function CoveragePage({
       worked={[...worked.values()]}
       people={loaded.people}
       missingProp={loaded.missingProp}
+      folder={loaded.folder}
       crmView={crmView}
     />
   );

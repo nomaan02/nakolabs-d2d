@@ -179,6 +179,10 @@
 | RT-START 1a | human: per-visit route choice — migration 043 file, types, freeze wrapper, route options | DONE | 2026-10-20 | Per-visit route choice: migration 043 file (route_choice on assignments, freeze keeps or clears a choice, canvasser may choose before the first knock, assignment_route_options), types, route options module, verify:rt-start. | — |
 | RT-START 1b | admin: Route row on Add visit and the visit sheet, the route sheet | DONE | 2026-10-20 | Admin: Route row on Add visit (default by turns, Change picks another saved route for this visit), visit sheet Route row (Change before the first knock, Locked after, who picked it), route sheet with a still map; re-saving a drawn route keeps a picked route. | — |
 | RT-START 1c | /field: change the route before the first knock | DONE | 2026-10-20 | /field: route strip under the header before the first knock, Change route sheet (saved routes, nearest start first, distance worked out on the phone), offline disabled, teammate change picked up with a notice, Logger restarts at the new first door. | — |
+| PP-1A | human: migration 045 file + types regen (prop folders) | DONE | 2026-10-21 | Migration 045 (prop_folders, territories.folder_id; run in the SQL editor 21 Oct) added to the repo; types regenerated. | — |
+| PP-1B | admin Props in folders (list, New folder, rename, move) | DONE | 2026-10-21 | Admin Props: folders (A–Z, then No folder) with counts, open/close, Open on map, rename; New folder; prop detail Folder select (move, No folder, New folder…). | — |
+| PP-1C | Coverage opened from a folder (?folder=) | DONE | 2026-10-21 | Coverage ?folder=: the folder's props only (map, Visit chip, figures), folder chip with ✕, all time by default; verify:pp1. | — |
+| PP-2 | Leads → Today: Pending a result from the CRM | DONE | 2026-10-21 | Leads → Today: Pending a result from the CRM (own leads, 14 days, until the appointment; blowouts until Seen it, kept on the phone); Call-backs leave pending rows out and add seen blowouts. | — |
 
 ---
 

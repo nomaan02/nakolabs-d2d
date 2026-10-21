@@ -25,7 +25,9 @@ import {
   slotLabel,
   statePill,
   visitTitle,
+  FOLDER_NAME_MAX,
   type OutcomeSegment,
+  type PropFolder,
   type PropRow,
   type PropState,
   type PropVisit,
@@ -73,6 +75,9 @@ export function PropDetail({
   onRoutes,
   onArchive,
   onRestore,
+  folders = [],
+  onMove,
+  onMoveToNew,
 }: {
   row: PropRow;
   state: PropState;
@@ -90,6 +95,11 @@ export function PropDetail({
   onRoutes?: () => void;
   onArchive: () => void;
   onRestore: () => void;
+  /** PP-1 (owner 2026-10-21): the folders a prop can move to. */
+  folders?: PropFolder[];
+  /** Resolves to an error message, or null once moved. Absent: no Folder row. */
+  onMove?: (folderId: string | null) => Promise<string | null>;
+  onMoveToNew?: (name: string) => Promise<string | null>;
 }) {
   const [renaming, setRenaming] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -147,6 +157,10 @@ export function PropDetail({
           <CloseIcon className="size-6" />
         </IconButton>
       </div>
+
+      {onMove && onMoveToNew ? (
+        <FolderRow folderId={row.folderId ?? null} folders={folders} onMove={onMove} onMoveToNew={onMoveToNew} />
+      ) : null}
 
       {state.kind === "archived" ? (
         <div className="mt-4 rounded-field-lg bg-field-bg p-4">
@@ -449,6 +463,143 @@ function PropMenu({
           Archive prop
         </button>
       )}
+    </div>
+  );
+}
+
+const NEW_FOLDER = "__new__";
+const NO_FOLDER = "";
+
+/**
+ * PP-1 (owner 2026-10-21). Which folder the prop is in, and Move: picking a
+ * folder saves straight away; "New folder…" asks for a name, makes the
+ * folder and moves the prop into it.
+ */
+function FolderRow({
+  folderId,
+  folders,
+  onMove,
+  onMoveToNew,
+}: {
+  folderId: string | null;
+  folders: PropFolder[];
+  onMove: (folderId: string | null) => Promise<string | null>;
+  onMoveToNew: (name: string) => Promise<string | null>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [naming, setNaming] = useState(false);
+  const [name, setName] = useState("");
+  const saved = folderId !== null && folders.some((folder) => folder.id === folderId) ? folderId : NO_FOLDER;
+  // Shown straight away after a pick; the saved value takes over once the page has refreshed.
+  const [picked, setPicked] = useState<string | null>(null);
+  useEffect(() => setPicked(null), [saved]);
+  const known = picked ?? saved;
+  const sorted = folders.slice().sort((a, b) => a.name.localeCompare(b.name, "en-GB", { sensitivity: "base" }));
+
+  const pick = async (value: string) => {
+    setError(null);
+    if (value === NEW_FOLDER) {
+      setNaming(true);
+      return;
+    }
+    if (value === known) return;
+    setBusy(true);
+    setPicked(value);
+    try {
+      const failed = await onMove(value === NO_FOLDER ? null : value);
+      if (failed) {
+        setPicked(null);
+        setError(failed);
+      }
+    } catch {
+      setPicked(null);
+      setError("The prop could not be moved. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const make = async () => {
+    if (busy) return;
+    if (!name.trim()) {
+      setNaming(false);
+      return;
+    }
+    setBusy(true);
+    try {
+      const failed = await onMoveToNew(name);
+      setError(failed);
+      // A failed move after the folder was made: back to the select, where the new folder now is.
+      if (!failed || failed.startsWith("The prop could not be moved")) {
+        setNaming(false);
+        setName("");
+      }
+    } catch {
+      // The folder may already exist: back to the select, where it shows once the page refreshes.
+      setNaming(false);
+      setError("That didn't save. Check your connection, then pick the folder again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-4 rounded-field-lg bg-field-bg px-4 py-3" data-testid="prop-folder">
+      <label htmlFor="prop-folder" className="block text-admin-caption text-ink-muted">
+        Folder
+      </label>
+      {naming ? (
+        <form
+          className="mt-1 flex gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void make();
+          }}
+        >
+          <input
+            id="prop-folder"
+            autoFocus
+            value={name}
+            maxLength={FOLDER_NAME_MAX}
+            disabled={busy}
+            placeholder="e.g. Fishponds"
+            onChange={(event) => setName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
+                setNaming(false);
+              }
+            }}
+            className="h-11 min-w-0 flex-1 rounded-field-md border border-prop bg-surface px-3 text-admin-body text-ink outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-prop"
+          />
+          <Button kind="secondary" size="compact" type="submit" disabled={busy}>
+            Make and move
+          </Button>
+        </form>
+      ) : (
+        <select
+          id="prop-folder"
+          value={known}
+          disabled={busy}
+          onChange={(event) => void pick(event.target.value)}
+          className="mt-1 h-11 w-full rounded-field-md border border-line bg-surface px-3 text-admin-body-strong text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-prop"
+        >
+          {sorted.map((folder) => (
+            <option key={folder.id} value={folder.id}>
+              {folder.name}
+            </option>
+          ))}
+          <option value={NO_FOLDER}>No folder</option>
+          <option value={NEW_FOLDER}>New folder…</option>
+        </select>
+      )}
+      {error ? (
+        <p role="alert" className="mt-1 text-admin-caption text-oxide">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
