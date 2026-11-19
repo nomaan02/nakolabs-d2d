@@ -31,6 +31,7 @@
     "verify:stage10": "tsx scripts/verify-stage-10.ts",
     "verify:ui4": "tsx scripts/verify-ui-4-route-focus.ts",
     "verify:ui1": "tsx scripts/verify-ui-1-logger.ts",
+    "verify:dial": "tsx scripts/verify-dial.ts",
     "verify:ui6": "tsx scripts/verify-ui-6-survey.ts",
     "verify:ui7": "tsx scripts/verify-ui-7-geo.ts",
     "verify:ui8": "tsx scripts/verify-ui-8-inference.ts",

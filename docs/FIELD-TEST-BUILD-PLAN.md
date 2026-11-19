@@ -183,6 +183,9 @@
 | PP-1B | admin Props in folders (list, New folder, rename, move) | DONE | 2026-10-21 | Admin Props: folders (A–Z, then No folder) with counts, open/close, Open on map, rename; New folder; prop detail Folder select (move, No folder, New folder…). | — |
 | PP-1C | Coverage opened from a folder (?folder=) | DONE | 2026-10-21 | Coverage ?folder=: the folder's props only (map, Visit chip, figures), folder chip with ✕, all time by default; verify:pp1. | — |
 | PP-2 | Leads → Today: Pending a result from the CRM | DONE | 2026-10-21 | Leads → Today: Pending a result from the CRM (own leads, 14 days, until the appointment; blowouts until Seen it, kept on the phone); Call-backs leave pending rows out and add seen blowouts. | — |
+| DIAL-1A | Radial logger: groundwork | DONE | 2026-11-19 | Tokens, V2 line icons, `lib/field/dial-gesture.ts`, `lib/field/logger-style.ts`, toast words on the undo target. Nothing on screen yet. | — |
+| DIAL-1B | Radial logger: components | DONE | 2026-11-19 | `OutcomeDial`, `LogToast`, `NoteButton`, `StatsRail`, `LoggerDialBody` (not wired yet). | — |
+| DIAL-1C | Radial logger: live | DONE | 2026-11-19 | Logger uses the radial dial by default (You → Outcomes → Dial / Buttons, per phone); drag or tap to log, tap the middle for Other, logged frame then toast with Undo; verify:dial. | — |
 
 ---
 

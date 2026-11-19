@@ -20,7 +20,18 @@ export type UndoTarget = {
   expiresAt: number;
   /** UI-8: further held rows undone together with this one (filled doors). */
   batch: ReadonlyArray<string>;
+  /**
+   * DIAL-1: the log toast's words (Figma LogToast 2.1), e.g. "Door 71 logged"
+   * and "Lead \u00b7 now on 73". Optional: the undo ring only uses
+   * `description`, and the toast falls back to it.
+   */
+  title?: string;
+  detail?: string;
+  /** "queued" when the phone was offline at the log: the toast says saved, not sent. */
+  tone?: "sent" | "queued";
 };
+
+export type UndoCopy = { title: string; detail?: string; tone?: "sent" | "queued" };
 
 let target: UndoTarget | null = null;
 const listeners = new Set<() => void>();
@@ -50,9 +61,10 @@ export function offerUndo(
   clientEventId: string,
   description: string,
   batch: ReadonlyArray<string> = [],
+  copy?: UndoCopy,
 ): void {
   clearExpiry();
-  target = { clientEventId, description, expiresAt: Date.now() + UNDO_WINDOW_MS, batch };
+  target = { clientEventId, description, expiresAt: Date.now() + UNDO_WINDOW_MS, batch, ...copy };
   emit();
   expiryTimer = setTimeout(() => {
     expiryTimer = null;

@@ -150,6 +150,37 @@
   --text-field-tab-label--line-height: 14px;
   --text-field-tab-label--font-weight: 600;
 
+  /* DIAL-1 (Logger V2.1 radial dial; Figma "Logger V2 — Radial dial", section
+     "Logger V2.1 — polish" 324:810). The dial and the log toast are light
+     islands in dark mode, like the outcome pills (owner H1-H4), so these
+     have no dark values, except the glance scrim, which follows field-bg. */
+  --color-puck: #303337;
+  --color-on-ink-muted: rgb(255 255 255 / 0.62);
+  --color-on-ink-wash: rgb(255 255 255 / 0.12);
+  --color-on-ink-wash-strong: rgb(255 255 255 / 0.24);
+  --color-scrim-focus: rgb(244 245 247 / 0.55);
+  --radius-field-xl: 24px;
+  --shadow-field-float: 0 6px 16px -4px rgb(28 34 38 / 0.18);
+  --shadow-field-puck: 0 6px 16px -4px rgb(28 34 38 / 0.2), 0 1px 2px 0 rgb(28 34 38 / 0.16);
+  --shadow-field-puck-pressed: 0 2px 6px -2px rgb(28 34 38 / 0.16), 0 1px 1px 0 rgb(28 34 38 / 0.14);
+
+  --text-field-caption: 11px;
+  --text-field-caption--line-height: 14px;
+  --text-field-caption--font-weight: 400;
+
+  --text-field-caption-xs: 10px;
+  --text-field-caption-xs--line-height: 12px;
+  --text-field-caption-xs--font-weight: 400;
+
+  --text-field-stat-compact: 17px;
+  --text-field-stat-compact--line-height: 20px;
+  --text-field-stat-compact--letter-spacing: -0.02em;
+  --text-field-stat-compact--font-weight: 600;
+
+  --text-field-detail: 12px;
+  --text-field-detail--line-height: 16px;
+  --text-field-detail--font-weight: 400;
+
   --drop-shadow-field-pill: 0 5px 5.5px rgb(0 0 0 / 0.1);
   --shadow-field-knob: 0 5px 11px 0 rgb(0 0 0 / 0.1);
   --shadow-field-menu: 0 8px 12px rgb(0 0 0 / 0.16);
@@ -262,6 +293,8 @@
   --color-warn-bg: #3a2e1c;      --color-error-bg: #3d2326;
   --color-scrim: #000000;
   --color-you: #a58bff;
+  /* DIAL-1: the glance scrim is field-bg at 55% in either mode. */
+  --color-scrim-focus: rgb(22 26 32 / 0.55);
 }
 
 :root[data-field-theme="dark"] .field-root [data-theme-island="light"] {
@@ -371,6 +404,13 @@ html:has(.field-root) body {
    above the banner, never under it. */
 .logger-map-band .maplibregl-ctrl-bottom-right {
   z-index: 4;
+}
+
+/* DIAL-1 (Figma V2.1 "one surface"): while the Logger's dial dock is on
+   screen, the tab bar carries on the dock's surface, so there is no line
+   between them. The border stays 1px (transparent), so nothing moves. */
+.field-root:has([data-dial-dock]) [data-testid="field-tabs"] {
+  border-top-color: transparent;
 }
 
 /* RT-3: while a route is drawn on a touch screen, one finger draws and two

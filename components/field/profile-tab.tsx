@@ -12,6 +12,7 @@ import { useGeo } from "@/components/field/geo-provider";
 import { FieldHeader, FieldPage } from "@/components/field/shell/field-header";
 import { useCrmMe } from "@/lib/field/crm-data";
 import { JUMP_SETTINGS, useJumpSetting } from "@/lib/field/jump-setting";
+import { LOGGER_STYLES, useLoggerStyle } from "@/lib/field/logger-style";
 import { isTeamProp, LOGGING_MODES, useLoggingMode } from "@/lib/field/logging-mode";
 import { ATTRIBUTION_LINES } from "@/lib/field/map-style";
 import { setThemePref, useThemePref, type ThemePref } from "@/lib/field/theme";
@@ -36,6 +37,7 @@ export function ProfileTab() {
   const themePref = useThemePref();
   const logging = useLoggingMode(canvasserId);
   const jump = useJumpSetting(canvasserId);
+  const loggerStyle = useLoggerStyle(canvasserId);
   const geo = useGeo();
   const locationOff = geo.status === "denied" || geo.status === "unavailable";
   const teamProp = isTeamProp(team);
@@ -80,6 +82,23 @@ export function ProfileTab() {
             Today&apos;s prop is a team prop, so every door is tapped there.
           </p>
         ) : null}
+      </Group>
+
+      {/* DIAL-1 (owner 2026-11-19): the radial dial, or the V1 buttons as a fallback. Per phone. */}
+      <Group title="Outcomes" testId="profile-outcomes">
+        <SwitchRow
+          label="Outcomes"
+          options={LOGGER_STYLES}
+          selected={loggerStyle.style}
+          onPick={loggerStyle.setStyle}
+          testIdFor={(value) => `logger-style-${value}`}
+        />
+        <p className="mt-2 text-admin-caption text-ink-muted">
+          {loggerStyle.style === "dial"
+            ? "Press the middle of the dial and slide towards an outcome, or tap a label. Tap the middle for Other."
+            : "One button per outcome, down the right edge."}{" "}
+          Saved on this phone.
+        </p>
       </Group>
 
       {/* GPS-LOCK GL-3 (owner G7, 2026-10-18; Figma "GPS-LOCK (2026-10-18)"). */}

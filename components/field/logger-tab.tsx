@@ -8,7 +8,7 @@ import {
   type FieldPhase,
   type LeadDraft,
 } from "@/components/field/field-data-provider";
-import { RouteIcon, TurnIcon } from "@/components/field/icons";
+import { PlusIcon, RouteIcon, TurnIcon } from "@/components/field/icons";
 import { HouseNumberSheet, NotesSheet, OtherOutcomeSheet } from "@/components/field/door-sheets";
 import { InferSheet } from "@/components/field/infer-sheet";
 import { LeadSheet } from "@/components/field/lead-sheet";
@@ -26,6 +26,7 @@ import { useGeo } from "@/components/field/geo-provider";
 import { RouteChangeSheet, RouteStrip, useVisitRoute } from "@/components/field/route-change";
 import { SharingPill } from "@/components/field/sharing-pill";
 import { FieldHeader, FieldPage } from "@/components/field/shell/field-header";
+import { LoggerDialBody } from "@/components/field/logger-dial-body";
 import { OutcomeColumn } from "@/components/field/outcome-column";
 import { Sheet } from "@/components/field/sheet";
 import { useSharedDoors } from "@/components/field/shared-knock-notice";
@@ -34,6 +35,7 @@ import { Button } from "@/components/field/ui/button";
 import { DoorCard } from "@/components/field/ui/door-card";
 import { DoorScroll, type DoorScrollItem } from "@/components/field/ui/door-scroll";
 import { IdChip, type IdChipSync } from "@/components/field/ui/id-chip";
+import { OutcomeDial, type DialLogged, type DialLoggedTone } from "@/components/field/ui/outcome-dial";
 import { StatusBanner, type StatusBannerKind } from "@/components/field/ui/status-banner";
 import { TeamStrip } from "@/components/field/ui/team-strip";
 import { TodayStats } from "@/components/field/ui/today-stats";
@@ -51,6 +53,7 @@ import { planInference, type InferencePlan, type InferredDoor } from "@/lib/fiel
 import { useJumpSetting } from "@/lib/field/jump-setting";
 import { localOutcomesLoaded } from "@/lib/field/local-outcomes";
 import { logHouseNumber, logInferredNotIn, logOutcome } from "@/lib/field/log-outcome";
+import { useLoggerStyle } from "@/lib/field/logger-style";
 import { isTeamProp, useLoggingMode } from "@/lib/field/logging-mode";
 import { outcomeSpec, type OtherOutcome, type PrimaryOutcome } from "@/lib/field/outcomes";
 import { useResolvedTheme } from "@/lib/field/theme";
@@ -125,6 +128,33 @@ function isPrimaryOutcome(outcome: PrimaryOutcome | OtherOutcome): outcome is Pr
     outcome === "no_opportunity" ||
     outcome === "no_answer"
   );
+}
+
+/**
+ * DIAL-1: the dial's words for each outcome (Figma OutcomeDial 2.1 readout
+ * and LogToast 2.1), and which way the logged ring sweeps. Other outcomes use
+ * their own `logged` word and a neutral ring.
+ */
+const DIAL_WORD: Record<PrimaryOutcome, string> = {
+  answered: "Contact",
+  lead: "Lead",
+  no_answer: "Not in",
+  no_opportunity: "Rented / council",
+};
+
+const DIAL_TONE: Record<PrimaryOutcome, DialLoggedTone> = {
+  answered: "up",
+  lead: "right",
+  no_answer: "down",
+  no_opportunity: "left",
+};
+
+function dialWord(outcome: PrimaryOutcome | OtherOutcome): string {
+  return isPrimaryOutcome(outcome) ? DIAL_WORD[outcome] : outcomeSpec(outcome).logged;
+}
+
+function dialTone(outcome: PrimaryOutcome | OtherOutcome): DialLoggedTone {
+  return isPrimaryOutcome(outcome) ? DIAL_TONE[outcome] : "other";
 }
 
 function truncateNote(text: string, max = 40): string {
@@ -283,6 +313,11 @@ export function LoggerTab() {
     no_answer: 0,
   });
   const [now, setNow] = useState(() => Date.now());
+  // DIAL-1: `dialActive` runs from touch-down to release; `dialLogged` plays the logged frame,
+  // and `dialSettling` is true while it plays (the toast waits for it).
+  const [dialActive, setDialActive] = useState(false);
+  const [dialSettling, setDialSettling] = useState(false);
+  const [dialLogged, setDialLogged] = useState<DialLogged | null>(null);
   const [view, setViewState] = useState<LoggerView>(readLoggerView);
   const setView = useCallback((next: LoggerView) => {
     setViewState(next);
@@ -303,6 +338,9 @@ export function LoggerTab() {
   // UI-8 (owner U8-4): exceptions-only logging, never on a team prop.
   const logging = useLoggingMode(canvasserId);
   const exceptionsOnly = logging.mode === "exceptions" && !isTeamProp(team);
+  // DIAL-1 (owner 2026-11-19): the dial by default, the V1 buttons as a per-phone fallback.
+  const loggerStyle = useLoggerStyle(canvasserId);
+  const dialMode = loggerStyle.style === "dial";
   const showSharingNotice =
     assignmentId !== null &&
     canvasserId !== null &&
@@ -649,12 +687,36 @@ export function LoggerTab() {
     if (isPrimaryOutcome(outcome)) {
       setConfirmKeys((current) => ({ ...current, [outcome]: current[outcome] + 1 }));
     }
-    const doorText = `${outcomeSpec(outcome).logged} \u00b7 ${scrollPlate(plate, door.position).text}${street ? ` ${street}` : ""}`;
+    const plateText = scrollPlate(plate, door.position).text;
+    const doorText = `${outcomeSpec(outcome).logged} · ${plateText}${street ? ` ${street}` : ""}`;
+    const blocked = new Set(team.knockedUprns);
+    blocked.add(door.uprn);
+    // A1: forward from here, wrapping to the lowest open door.
+    const index = nextOpenIndex(sequence, blocked, cursor.index);
+    // DIAL-1 (Figma LogToast 2.1): "Door 71 logged · Lead · now on 73". Offline the
+    // log is saved on the phone and queued, so the toast says so.
+    const nextEntry = index >= 0 ? sequence[index] : undefined;
+    const nextText = nextEntry ? scrollPlate(doorPlate(labelFor(nextEntry.uprn)), nextEntry.position).text : null;
+    const word = dialWord(outcome);
+    const what = filled.length > 0 ? `${word} + ${filled.length} Not in` : word;
+    const offline = status.state === "offline";
     offerUndo(
       result.clientEventId,
       filled.length > 0 ? `${doorText} + ${filled.length} Not In` : doorText,
       filled,
+      {
+        title: offline ? `Door ${plateText} saved offline` : `Door ${plateText} logged`,
+        detail: offline
+          ? `${what} · waiting to send`
+          : nextText
+            ? `${what} · now on ${nextText}`
+            : `${what} · last door`,
+        tone: offline ? "queued" : "sent",
+      },
     );
+    if (result.queued) {
+      setDialLogged((current) => ({ key: (current?.key ?? 0) + 1, tone: dialTone(outcome), label: word }));
+    }
     setNoteDraft(door.uprn, "");
     setLeadDraft(door.uprn, null);
     setSheet(
@@ -662,10 +724,6 @@ export function LoggerTab() {
         ? { kind: "infer", doors: plan.doors, reason: plan.reason }
         : { kind: "none" },
     );
-    const blocked = new Set(team.knockedUprns);
-    blocked.add(door.uprn);
-    // A1: forward from here, wrapping to the lowest open door.
-    const index = nextOpenIndex(sequence, blocked, cursor.index);
     if (index >= 0) cursor.goTo(index);
   };
 
@@ -692,11 +750,12 @@ export function LoggerTab() {
     if (!first) return;
     pulse(25);
     const streets = [...new Set(open.map(sheetStreet))];
-    offerUndo(
-      first,
-      `${ids.length} Not In \u00b7 ${streets.length === 1 ? streets[0] : `${streets.length} streets`}`,
-      ids.slice(1),
-    );
+    const where = streets.length === 1 ? streets[0] : `${streets.length} streets`;
+    offerUndo(first, `${ids.length} Not In · ${where}`, ids.slice(1), {
+      title: `${ids.length} doors marked Not in`,
+      detail: where,
+      tone: status.state === "offline" ? "queued" : "sent",
+    });
   };
 
   // FUI-2b (owner Q1): the note opens from the door card. A draft shows its start.
@@ -714,6 +773,8 @@ export function LoggerTab() {
           Bar: menu, prop name, visit line (UI-8 D2b: the mode badge leads it),
           ID chip. Then the view pills with the Sharing pill (UI-7 C4), then the
           team strip. The undo ring stays on the door panel, so `undo={false}`. */}
+      {/* DIAL-1: a wrapper so the header can take the drag scrim. */}
+      <div className="relative z-20 shrink-0">
       <FieldHeader
         testId="logger-header"
         undo={false}
@@ -750,8 +811,115 @@ export function LoggerTab() {
         <TeamStrip rows={teamRows} />
         <RouteStrip route={visitRoute} onOpen={() => setSheet({ kind: "route" })} />
       </FieldHeader>
+      {/* DIAL-1 (Figma Dragging 331:1074): while the dial is in use the header recedes with the glance zone. */}
+      {dialMode ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-30 bg-scrim-focus"
+          style={{ opacity: dialActive ? 1 : 0, transition: "opacity 160ms cubic-bezier(0.2, 0.8, 0.2, 1)" }}
+          data-testid="logger-header-scrim"
+        />
+      ) : null}
+      </div>
 
-      {view === "logging" ? (
+      {dialMode && view === "logging" ? (
+        // DIAL-1 (Figma "Logger V2.1 / Rest" 331:935): glance, focus, then the dock with the dial.
+        <LoggerDialBody
+          active={dialActive}
+          settling={dialSettling}
+          map={
+            <>
+              <JumpAnnouncer text={jumpAnnouncement} />
+              <div className="absolute inset-0">
+                <MemoMiniMap
+                  mode={mode}
+                  doors={anchoredDoors}
+                  labels={labels}
+                  outcomes={outcomes}
+                  routeModel={routeModel}
+                  routeTiers={routeTiers}
+                  footprints={footprints}
+                  currentUprn={door.uprn}
+                  onOpenMap={handleOpenMap}
+                  overlay={nearOverlay}
+                  onPickDoor={pickDoorOnMiniMap}
+                />
+              </div>
+            </>
+          }
+          banner={
+            banner ? (
+              <StatusBanner kind={banner.kind} glyph={banner.glyph} message={banner.message} action={banner.action} />
+            ) : null
+          }
+          doorLine={
+            <>
+              {logged ? (
+                <p className="min-w-0 truncate text-admin-caption text-ink-soft" data-testid="already-logged">
+                  {"✓"} {allDone ? `${doorText} · ` : ""}
+                  {outcomeSpec(logged.outcome).logged} {"·"} {LOGGED_TIME.format(new Date(logged.occurredAt))}
+                </p>
+              ) : null}
+              {!allDone && scrollPlate(plate, door.position).placeholder ? (
+                <button
+                  type="button"
+                  onClick={openHouseNumberSheet}
+                  className="-my-3 flex h-11 shrink-0 items-center gap-1 px-1 text-admin-pill text-prop"
+                  data-testid="add-house-number"
+                >
+                  <PlusIcon className="size-3.5" />
+                  Add number
+                </button>
+              ) : null}
+            </>
+          }
+          door={
+            allDone ? (
+              <EndOfProp doorCount={assignment.door_count} />
+            ) : (
+              <MemoDoorScroll
+                // RT-START: a changed route is a new door order; start the scroll again at its first door.
+                key={routeEpoch}
+                doors={doorItems}
+                index={cursor.index}
+                street={street}
+                onSettle={handleSettle}
+              />
+            )
+          }
+          note={{ label: noteLabel, hasDraft: noteDraft.length > 0, onPress: () => setSheet({ kind: "notes" }) }}
+          counts={{
+            doors: countDoorsLogged(outcomes, canvasserId),
+            contacts: countBookableContacts(outcomes, canvasserId),
+            leads: countLeads(outcomes, canvasserId),
+            confirmed: null,
+          }}
+          dial={
+            allDone ? (
+              <div className="flex h-[calc(224px*var(--dial-scale,1))] items-center" data-testid="end-of-prop-action">
+                <Button kind="primary" onClick={() => lock(handleOpenMap)}>
+                  Open Map
+                </Button>
+              </div>
+            ) : (
+              <OutcomeDial
+                onPick={(outcome) => {
+                  if (outcome === "lead") {
+                    startLead();
+                    return;
+                  }
+                  void commit(outcome);
+                }}
+                onOther={(outcome) => void commit(outcome)}
+                logged={dialLogged}
+                disabled={sheet.kind !== "none"}
+                onActiveChange={setDialActive}
+                onLoggedChange={setDialSettling}
+              />
+            )
+          }
+        />
+      ) : view === "logging" ? (
         <>
       <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain" data-testid="logger-body">
         {/* FUI-2a (Figma Field/MiniMapCard): an inset card that takes the height
@@ -893,7 +1061,13 @@ export function LoggerTab() {
                 setNoteDraft(door.uprn, "");
                 offerUndo(
                   result.clientEventId,
-                  `Note added \u00b7 ${scrollPlate(plate, door.position).text}`,
+                  `Note added · ${scrollPlate(plate, door.position).text}`,
+                  [],
+                  {
+                    title: "Note added",
+                    detail: `Door ${scrollPlate(plate, door.position).text}`,
+                    tone: status.state === "offline" ? "queued" : "sent",
+                  },
                 );
               });
             }

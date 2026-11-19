@@ -2,7 +2,25 @@
 
 ## Current state
 
-- Last updated: 2026-10-21 (PP-2). Branch `run/pp`, uncommitted. The owner commits after review. This session did not commit and did not push. No database access.
+- Last updated: 2026-11-19 (DIAL-1C). Branch `run/dial-1`, uncommitted. The owner commits after review. This session did not commit and did not push. No database access.
+- DIAL-1C: the Logger logging view uses the radial dial by default. You → Outcomes → Dial or Buttons, saved on this phone. Drag or tap logs through the existing `commit`. A tap on the middle opens Other. The logged frame plays, then the toast with Undo. Buttons keeps the V1 body. Survey is unchanged.
+- Files: `components/field/logger-tab.tsx` (1182), `components/field/profile-tab.tsx` (210), new `scripts/verify-dial.ts` (222), `package.json` (`verify:dial`).
+- `npx tsc --noEmit` exit 0 after each edit group. `npx eslint` on the touched TypeScript files exit 0 after each edit group. `npm run verify:dial` exit 0, last line `verify:dial  ALL PASS`. `npm run verify:ui1` exit 0, last line `OK`. `npm run verify:ui8` exit 0, last line `ALL PASS`. `npm run verify:gl` exit 0, last line `All GL geo-lock checks passed.`
+- No database access. No migration. No row. No `client_event_id`. `lib/sync/queue.ts` was not edited. The dial never writes. Logs still go through `commit` → `logOutcome`. No GPS coordinate is sent.
+- Not verified here: a phone or a browser. The twelve phone-check steps are listed for the owner.
+- Last updated before this: 2026-11-19 (DIAL-1B). Branch `run/dial-1`, uncommitted. The owner commits after review. This session did not commit and did not push. No database access.
+- DIAL-1B: the dial, the toast, the note button, the stats rail and the dial layout. Five new components. Nothing imports them yet, so nothing on screen changes.
+- Files: new `components/field/ui/outcome-dial.tsx` (753), new `components/field/ui/log-toast.tsx` (156), new `components/field/ui/note-button.tsx` (31), new `components/field/ui/stats-rail.tsx` (46), new `components/field/logger-dial-body.tsx` (111).
+- `npx tsc --noEmit` exit 0. `npx eslint` on the five new files exit 0. `npm run verify:ui1` exit 0, last line `OK`.
+- No database access. No migration. No row. No `client_event_id`. `lib/sync/queue.ts` was not edited. The dial never writes. It is not wired into the Logger. No GPS coordinate is sent.
+- Not verified here: a phone or a browser. None for this session. The batch phone check is at the end of 03-dial-1c.
+- Last updated before this: 2026-11-19 (DIAL-1A). Branch `run/dial-1`, uncommitted. The owner commits after review. This session did not commit and did not push. No database access.
+- DIAL-1A: groundwork for the radial logger. Nothing on screen yet. Tokens and type styles are in `app/globals.css`. The V2 line icons are in `components/field/icons.tsx`. The dial gesture is `lib/field/dial-gesture.ts`. The per-phone dial or buttons choice is `lib/field/logger-style.ts` (localStorage, dial by default). The undo target can carry optional toast words (`title`, `detail`, `tone`).
+- Files: `app/globals.css` (474), `components/field/icons.tsx` (842), `lib/field/undo.ts` (116), new `lib/field/dial-gesture.ts` (210), new `lib/field/logger-style.ts` (72).
+- `npx tsc --noEmit` exit 0. `npx eslint` on the four TypeScript files exit 0. `npm run verify:ui1` exit 0, last line `OK`. `npm run verify:ui8` exit 0, last line `ALL PASS`.
+- No database access. No migration. No row. No `client_event_id`. `lib/sync/queue.ts` was not edited. The dial gesture does not write. The style switch is localStorage only. No GPS coordinate is sent.
+- Not verified here: a phone or a browser. None for this session. The batch phone check is at the end of 03-dial-1c.
+- Last updated before this: 2026-10-21 (PP-2). Branch `run/pp`, uncommitted. The owner commits after review. This session did not commit and did not push. No database access.
 - PP-2: the Leads tab Today view lists "Pending a result · from the CRM" above leads logged in the app, for an account linked to the CRM. Rows are this canvasser's own CRM leads from the last 14 days, read through `my_crm_week`. No result yet, Uncontacted, UTC, Re-App and Booked stay pending until the appointment time. A blowout stays pending until "Seen it". Sale, P&M and a lead with no appointment time are never pending. "Seen it" is kept on this phone only. Call-backs leave pending rows out and add blowouts marked Seen it. The Today header can read "Today · 4 pending · 1 lead". The Today segment count is pending plus logged.
 - Files: new `lib/field/pending.ts` (111), new `lib/field/pending-data.ts` (149), new `components/field/crm/pending-pane.tsx` (78), `components/field/crm/callbacks-pane.tsx` (294), `components/field/leads-tab.tsx` (245), new `scripts/verify-pp2.ts` (57), `package.json` (`verify:pp2`), `AGENTS.md` (159).
 - `npx tsc --noEmit` exit 0. `npx eslint` on the six TypeScript files exit 0. `npm run verify:pp2` exit 0, last line `ALL PASS`. `npm run verify:crm` exit 0, last line `ALL PASS`.
@@ -4122,3 +4140,102 @@ UI item 1c, Session H3. In `components/field/logger-tab.tsx` the logged pill dro
 - **Not verified:** A browser. A phone. Viewports not opened: 390×763, 375×667, 430×850. Light and dark not opened. The ten phone-check steps at the end of 04-pp-2.
 - **External settings:** none
 - **Open questions for Claude:** Design bullet P4 says Seen it is kept 30 days. The pasted code keeps it 90 days, the longest Call-backs window. Left as pasted. The Seen it button is the outline button in the brief. It was not restyled.
+
+### 2026-11-19 — DIAL-1A (uncommitted)
+
+- **Item:** other
+- **What changed:** Groundwork for the radial logger. Tokens, type styles and the tab-bar seam are in `app/globals.css`. The V2 line icons are in `components/field/icons.tsx`. The dial gesture is a pure state machine in `lib/field/dial-gesture.ts`. The per-phone dial or buttons choice is `lib/field/logger-style.ts`. The undo target can carry optional toast words. Nothing on screen yet.
+- **Files:**
+  - Changed: `app/globals.css` (474), `components/field/icons.tsx` (842), `lib/field/undo.ts` (116), `docs/FIELD-TEST-BUILD-PLAN.md` (DIAL-1A row after PP-2), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `lib/field/dial-gesture.ts` (210), `lib/field/logger-style.ts` (72), `.handoff/reports/dial-1a.md`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** new `lib/field/dial-gesture.ts` (pure gesture; returns effects, does not write) and new `lib/field/logger-style.ts` (localStorage key `d2d.loggerStyle:<canvasserId>`). `lib/field/undo.ts` gains optional `title`, `detail` and `tone` on the existing undo target. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - OWNER — 2026-11-19 DIAL scope: build the radial logger from Figma into the app, logger body only. The live FieldHeader and tab bar stay as they are on every tab. The map card, door, dock, dial, toast and note button are rebuilt to the Figma.
+  - OWNER — 2026-11-19 DIAL rollout: a per-phone switch on the You tab. The dial is on by default; the V1 outcome buttons stay as the fallback.
+  - OWNER — 2026-11-19 DIAL build style: Claude writes and tests the code; Grok pastes it in three sessions (dial-1a, dial-1b, dial-1c).
+  - OWNER — 2026-11-19 DIAL directions (Figma): up Contact, right Lead, down Not in, left Rented / council. A tap on the middle opens Other.
+  - CLAUDE — D1: The dial is a marking menu. Press the middle and slide towards an outcome, or tap a label. Release past 24px logs the outcome under the finger. Release inside 24px logs nothing. A quick tap on the middle (under 350 ms, under 12px of travel, never left the middle) opens Other. The gesture is a pure state machine in `lib/field/dial-gesture.ts`. The component only maps pointer events to it.
+  - CLAUDE — D2: Direction changes need 10° past the 90° wedge edge, so a wobble on the diagonal does not flicker. Another pointer, pointercancel, lostpointercapture, tab hidden, window blur, Escape and a sheet opening all cancel with nothing logged.
+  - CLAUDE — D3: Geometry is the Figma variant set (224 box, arcs r98 spanning 74°, 6 / 10 / 14px wide at rest / pressed / target, puck 72 → 68 pressed, 16px puck travel, labels at 64px from centre). One CSS var `--dial-scale` scales it: 1 normally, 0.82 (184px) when the screen is 720px tall or less.
+  - CLAUDE — D4: Motion ease is cubic-bezier(0.2, 0.8, 0.2, 1). 120 ms label and arc changes, 140 ms puck, 160 ms scrims and stats, 320 ms ring sweep, 900 ms logged hold then 200 ms fade, 220 ms toast in, 160 ms out. Reduced motion: no sweep, no slide, opacity only, a 700 ms hold. Haptic pulses 15 ms on press, 8 ms on each new target.
+  - CLAUDE — D5: While the dial is pressed, the header and the glance zone sit under `--color-scrim-focus`, and the stats fade. The door stays crisp.
+  - CLAUDE — D6: On a log the dial plays its logged frame. The toast waits until that frame ends, then slides over the stats. Offline copy says saved, not sent. The toast is the existing undo target with optional words. The V1 ring path is unchanged.
+  - CLAUDE — D7: Lead on the dial opens the existing LeadSheet. The log happens on submit. Every log still goes through the existing `commit` → `logOutcome` → `lib/sync/queue.ts`. The dial never writes.
+  - CLAUDE — D8: The door number stays the live DoorScroll. The Lead ink stays `outcome-lead-ink`. The live header and tab bar keep their 16px margins. The dial and toast are light islands in dark mode.
+  - CLAUDE — D9: Stats read two digits. "—" when there is nothing yet.
+  - CLAUDE — D10: The note button shows a small dot when this door has a draft note.
+  - CLAUDE — D11: Labels are real buttons (44px targets). Enter on a label logs it. Enter on the middle opens Other as a menu.
+- **Deviations from plan or brief:** none in the paste. The given code was pasted exactly. `app/globals.css` stayed CRLF. `components/field/icons.tsx` and `lib/field/undo.ts` are LF, as in HEAD. The two new files are LF, no BOM. The paste tool first wrote CRLF into those four sources; they were converted back to LF before the checks. `npx tsc --noEmit` and `npx eslint` ran once after EDITs 1–5, on the finished tree, not between groups. Both exited 0.
+- **Invariants:** No GPS coordinate is stored or sent. No `navigator.geolocation` call was added. `lib/sync/queue.ts` was not edited. The dial gesture returns effects only. It does not write. The style switch is localStorage only. Optional toast words sit on the existing undo target. Coverage stays derived. No scoring was added in `/field`. No knock was written. No `client_event_id`. No database row from this session.
+- **Verified:** Each find block occurred once. The two new files did not exist before this session. `lib/field/dial-gesture.ts` is 210 lines. `lib/field/logger-style.ts` is 72 lines. Both match the brief blocks. `git diff` for the three edited sources is insertions only (`app/globals.css` +40, `components/field/icons.tsx` +108, `lib/field/undo.ts` +14/−1). `npx tsc --noEmit` exit 0. `npx eslint` on `components/field/icons.tsx`, `lib/field/dial-gesture.ts`, `lib/field/logger-style.ts` and `lib/field/undo.ts` exit 0. `npm run verify:ui1` exit 0, last line `OK`. `npm run verify:ui8` exit 0, last line `ALL PASS`.
+- **Not verified:** A browser. A phone. Nothing on screen changes in this session. The batch phone check is at the end of 03-dial-1c.
+- **External settings:** none
+- **Open questions for Claude:** none from this session.
+
+### 2026-11-19 — DIAL-1B (uncommitted)
+
+- **Item:** other
+- **What changed:** Five new components for the radial logger: the dial, the toast, the note button, the stats rail and the dial layout. Nothing imports them yet, so nothing on screen changes.
+- **Files:**
+  - Changed: `docs/FIELD-TEST-BUILD-PLAN.md` (DIAL-1B row after DIAL-1A), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `components/field/ui/outcome-dial.tsx` (753), `components/field/ui/log-toast.tsx` (156), `components/field/ui/note-button.tsx` (31), `components/field/ui/stats-rail.tsx` (46), `components/field/logger-dial-body.tsx` (111), `.handoff/reports/dial-1b.md`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none. The new components read `lib/field/dial-gesture.ts`, `lib/field/undo.ts`, `lib/field/feedback.ts`, `lib/field/outcomes.ts` and the `UNDO_WINDOW_MS` constant. They do not edit those files. `lib/sync/queue.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - OWNER — 2026-11-19 DIAL scope: build the radial logger from Figma into the app, logger body only. The live FieldHeader and tab bar stay as they are on every tab. The map card, door, dock, dial, toast and note button are rebuilt to the Figma.
+  - OWNER — 2026-11-19 DIAL rollout: a per-phone switch on the You tab. The dial is on by default; the V1 outcome buttons stay as the fallback.
+  - OWNER — 2026-11-19 DIAL build style: Claude writes and tests the code; Grok pastes it in three sessions (dial-1a, dial-1b, dial-1c).
+  - OWNER — 2026-11-19 DIAL directions (Figma): up Contact, right Lead, down Not in, left Rented / council. A tap on the middle opens Other.
+  - CLAUDE — D1: The dial is a marking menu. Press the middle and slide towards an outcome, or tap a label. Release past 24px logs the outcome under the finger. Release inside 24px logs nothing. A quick tap on the middle (under 350 ms, under 12px of travel, never left the middle) opens Other. The gesture is a pure state machine in `lib/field/dial-gesture.ts`. The component only maps pointer events to it.
+  - CLAUDE — D2: Direction changes need 10° past the 90° wedge edge, so a wobble on the diagonal does not flicker. Another pointer, pointercancel, lostpointercapture, tab hidden, window blur, Escape and a sheet opening all cancel with nothing logged.
+  - CLAUDE — D3: Geometry is the Figma variant set (224 box, arcs r98 spanning 74°, 6 / 10 / 14px wide at rest / pressed / target, puck 72 → 68 pressed, 16px puck travel, labels at 64px from centre). One CSS var `--dial-scale` scales it: 1 normally, 0.82 (184px) when the screen is 720px tall or less.
+  - CLAUDE — D4: Motion ease is cubic-bezier(0.2, 0.8, 0.2, 1). 120 ms label and arc changes, 140 ms puck, 160 ms scrims and stats, 320 ms ring sweep, 900 ms logged hold then 200 ms fade, 220 ms toast in, 160 ms out. Reduced motion: no sweep, no slide, opacity only, a 700 ms hold. Haptic pulses 15 ms on press, 8 ms on each new target.
+  - CLAUDE — D5: While the dial is pressed, the header and the glance zone sit under `--color-scrim-focus`, and the stats fade. The door stays crisp.
+  - CLAUDE — D6: On a log the dial plays its logged frame. The toast waits until that frame ends, then slides over the stats. Offline copy says saved, not sent. The toast is the existing undo target with optional words. The V1 ring path is unchanged.
+  - CLAUDE — D7: Lead on the dial opens the existing LeadSheet. The log happens on submit. Every log still goes through the existing `commit` → `logOutcome` → `lib/sync/queue.ts`. The dial never writes.
+  - CLAUDE — D8: The door number stays the live DoorScroll. The Lead ink stays `outcome-lead-ink`. The live header and tab bar keep their 16px margins. The dial and toast are light islands in dark mode.
+  - CLAUDE — D9: Stats read two digits. "—" when there is nothing yet.
+  - CLAUDE — D10: The note button shows a small dot when this door has a draft note.
+  - CLAUDE — D11: Labels are real buttons (44px targets). Enter on a label logs it. Enter on the middle opens Other as a menu.
+- **Deviations from plan or brief:** none in the paste. The given code was pasted exactly. The five new files are LF, no BOM. `npx tsc --noEmit` and `npx eslint` ran once after EDITs 1–5, on the finished tree, not between the five new files. Both exited 0.
+- **Invariants:** No GPS coordinate is stored or sent. No `navigator.geolocation` call was added. `lib/sync/queue.ts` was not edited. The dial never writes. It is not wired into the Logger. Coverage stays derived. No scoring was added in `/field`. No knock was written. No `client_event_id`. No database row from this session.
+- **Verified:** The five new files did not exist before this session. Each matches its brief block. `components/field/ui/outcome-dial.tsx` is 753 lines. `components/field/ui/log-toast.tsx` is 156 lines. `components/field/ui/note-button.tsx` is 31 lines. `components/field/ui/stats-rail.tsx` is 46 lines. `components/field/logger-dial-body.tsx` is 111 lines. All five are LF, no BOM. `npx tsc --noEmit` exit 0. `npx eslint` on the five new files exit 0. `npm run verify:ui1` exit 0, last line `OK`.
+- **Not verified:** A browser. A phone. Nothing on screen changes in this session. The batch phone check is at the end of 03-dial-1c.
+- **External settings:** none
+- **Open questions for Claude:** none from this session.
+
+### 2026-11-19 — DIAL-1C (uncommitted)
+
+- **Item:** other
+- **What changed:** The Logger logging view uses the radial dial by default. You → Outcomes → Dial or Buttons, saved on this phone. Drag or tap logs through the existing `commit`. A tap on the middle opens Other. The logged frame plays, then the toast with Undo. Buttons keeps the V1 body. Survey is unchanged. `npm run verify:dial` checks the gesture, the default and the stats format.
+- **Files:**
+  - Changed: `components/field/logger-tab.tsx` (1182), `components/field/profile-tab.tsx` (210), `package.json` (`verify:dial`), `docs/FIELD-TEST-BUILD-PLAN.md` (DIAL-1C row after DIAL-1B), `docs/BUILD-LOG.md`, `docs/CLAUDE-HANDOFF.md`
+  - New: `scripts/verify-dial.ts` (222), `.handoff/reports/dial-1c.md`
+  - Deleted: none
+- **Database:** none
+- **Shared modules touched:** none. The Logger calls the existing `useLoggerStyle` and the existing `commit` → `logOutcome`. `lib/sync/queue.ts`, `lib/field/log-outcome.ts`, `lib/map/route-layers.ts`, `lib/geo/walk/*` and `lib/supabase/*` were not edited.
+- **Decided by:**
+  - OWNER — 2026-11-19 DIAL scope: build the radial logger from Figma into the app, logger body only. The live FieldHeader and tab bar stay as they are on every tab. The map card, door, dock, dial, toast and note button are rebuilt to the Figma.
+  - OWNER — 2026-11-19 DIAL rollout: a per-phone switch on the You tab. The dial is on by default; the V1 outcome buttons stay as the fallback.
+  - OWNER — 2026-11-19 DIAL build style: Claude writes and tests the code; Grok pastes it in three sessions (dial-1a, dial-1b, dial-1c).
+  - OWNER — 2026-11-19 DIAL directions (Figma): up Contact, right Lead, down Not in, left Rented / council. A tap on the middle opens Other.
+  - CLAUDE — D1: The dial is a marking menu. Press the middle and slide towards an outcome, or tap a label. Release past 24px logs the outcome under the finger. Release inside 24px logs nothing. A quick tap on the middle (under 350 ms, under 12px of travel, never left the middle) opens Other. The gesture is a pure state machine in `lib/field/dial-gesture.ts`. The component only maps pointer events to it.
+  - CLAUDE — D2: Direction changes need 10° past the 90° wedge edge, so a wobble on the diagonal does not flicker. Another pointer, pointercancel, lostpointercapture, tab hidden, window blur, Escape and a sheet opening all cancel with nothing logged.
+  - CLAUDE — D3: Geometry is the Figma variant set (224 box, arcs r98 spanning 74°, 6 / 10 / 14px wide at rest / pressed / target, puck 72 → 68 pressed, 16px puck travel, labels at 64px from centre). One CSS var `--dial-scale` scales it: 1 normally, 0.82 (184px) when the screen is 720px tall or less.
+  - CLAUDE — D4: Motion ease is cubic-bezier(0.2, 0.8, 0.2, 1). 120 ms label and arc changes, 140 ms puck, 160 ms scrims and stats, 320 ms ring sweep, 900 ms logged hold then 200 ms fade, 220 ms toast in, 160 ms out. Reduced motion: no sweep, no slide, opacity only, a 700 ms hold. Haptic pulses 15 ms on press, 8 ms on each new target.
+  - CLAUDE — D5: While the dial is pressed, the header and the glance zone sit under `--color-scrim-focus`, and the stats fade. The door stays crisp.
+  - CLAUDE — D6: On a log the dial plays its logged frame. The toast waits until that frame ends, then slides over the stats. Offline copy says saved, not sent. The toast is the existing undo target with optional words. The V1 ring path is unchanged.
+  - CLAUDE — D7: Lead on the dial opens the existing LeadSheet. The log happens on submit. Every log still goes through the existing `commit` → `logOutcome` → `lib/sync/queue.ts`. The dial never writes.
+  - CLAUDE — D8: The door number stays the live DoorScroll. The Lead ink stays `outcome-lead-ink`. The live header and tab bar keep their 16px margins. The dial and toast are light islands in dark mode.
+  - CLAUDE — D9: Stats read two digits. "—" when there is nothing yet.
+  - CLAUDE — D10: The note button shows a small dot when this door has a draft note.
+  - CLAUDE — D11: Labels are real buttons (44px targets). Enter on a label logs it. Enter on the middle opens Other as a menu.
+- **Deviations from plan or brief:** none in the paste. The given code was pasted exactly. `components/field/logger-tab.tsx` and `package.json` stayed LF. `components/field/profile-tab.tsx` stayed CRLF. `scripts/verify-dial.ts` is LF, no BOM. The paste tool first wrote CRLF into that new file; it was converted to LF before the checks. `npx tsc --noEmit` and `npx eslint` ran after each edit group. All exited 0.
+- **Invariants:** No GPS coordinate is stored or sent. No `navigator.geolocation` call was added. `lib/sync/queue.ts` was not edited. `lib/field/log-outcome.ts` was not edited. The dial never writes. Logs still go through `commit` → `logOutcome`. The Outcomes switch is localStorage only. Coverage stays derived. No scoring was added in `/field`. No knock was written. No `client_event_id`. No database row from this session.
+- **Verified:** Each find block occurred once. `scripts/verify-dial.ts` did not exist before this session. It is 222 lines, LF, no BOM, and matches the brief block. `npx tsc --noEmit` exit 0 after each edit group. `npx eslint` on `components/field/logger-tab.tsx`, `components/field/profile-tab.tsx` and `scripts/verify-dial.ts` exit 0 after the groups that touched them. `npm run verify:dial` exit 0, last line `verify:dial  ALL PASS`. `npm run verify:ui1` exit 0, last line `OK`. `npm run verify:ui8` exit 0, last line `ALL PASS`. `npm run verify:gl` exit 0, last line `All GL geo-lock checks passed.`
+- **Not verified:** A browser. A phone. Viewports not opened: 390×763, 375×667, 430×850. The twelve phone-check steps at the end of 03-dial-1c.
+- **External settings:** none
+- **Open questions for Claude:** none from this session.
